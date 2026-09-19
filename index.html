@@ -675,16 +675,23 @@
       </div>
   
       <div style="flex-grow: 1; flex-basis: 0; padding: 40px 42px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
-        <div style="margin-bottom: 24px;">
-          <label for="email" style="display: block; font-size: 15px; font-weight: 500; color: #C6CFCB; margin-bottom: 10px;">Work email</label>
-          <input id="email" type="email" placeholder="you@company.com" style="width: 100%; box-sizing: border-box; height: 52px; padding: 0 16px; background: #0D100F; border: 1px solid #3A4441; border-radius: 4px; color: #F4F1EA; font-family: 'IBM Plex Sans', sans-serif; font-size: 16px;">
-        </div>
-        <div style="margin-bottom: 28px;">
-          <label for="stack" style="display: block; font-size: 15px; font-weight: 500; color: #C6CFCB; margin-bottom: 10px;">Which agent do you run most?</label>
-          <input id="stack" type="text" placeholder="Claude Code, Cursor, Codex…" style="width: 100%; box-sizing: border-box; height: 52px; padding: 0 16px; background: #0D100F; border: 1px solid #3A4441; border-radius: 4px; color: #F4F1EA; font-family: 'IBM Plex Sans', sans-serif; font-size: 16px;">
-        </div>
-        <button type="button" style="width: 100%; height: 54px; background: #E08A4C; border: none; border-radius: 4px; color: #0D100F; font-family: 'IBM Plex Sans', sans-serif; font-size: 16px; font-weight: 600; cursor: pointer;">Request access</button>
-        <p style="margin: 20px 0 0 0; font-size: 15px; line-height: 1.6; color: #8A948F;">Local-first. Your source stays on your machine during the beta.</p>
+        <form name="beta-access" method="POST" data-netlify="true" netlify-honeypot="bot-field">
+          <!-- Netlify requires this hidden input -->
+          <input type="hidden" name="form-name" value="beta-access">
+          <!-- Honeypot to block spam bots -->
+          <div style="display: none;"><label>Don't fill this out: <input name="bot-field"></label></div>
+  
+          <div style="margin-bottom: 24px;">
+            <label for="email" style="display: block; font-size: 15px; font-weight: 500; color: #C6CFCB; margin-bottom: 10px;">Work email</label>
+            <input id="email" name="email" type="email" required placeholder="you@company.com" style="width: 100%; box-sizing: border-box; height: 52px; padding: 0 16px; background: #0D100F; border: 1px solid #3A4441; border-radius: 4px; color: #F4F1EA; font-family: 'IBM Plex Sans', sans-serif; font-size: 16px;">
+          </div>
+          <div style="margin-bottom: 28px;">
+            <label for="stack" style="display: block; font-size: 15px; font-weight: 500; color: #C6CFCB; margin-bottom: 10px;">Which agent do you run most?</label>
+            <input id="stack" name="agent" type="text" placeholder="Claude Code, Cursor, Codex…" style="width: 100%; box-sizing: border-box; height: 52px; padding: 0 16px; background: #0D100F; border: 1px solid #3A4441; border-radius: 4px; color: #F4F1EA; font-family: 'IBM Plex Sans', sans-serif; font-size: 16px;">
+          </div>
+          <button type="submit" style="width: 100%; height: 54px; background: #E08A4C; border: none; border-radius: 4px; color: #0D100F; font-family: 'IBM Plex Sans', sans-serif; font-size: 16px; font-weight: 600; cursor: pointer;">Request access</button>
+          <p style="margin: 20px 0 0 0; font-size: 15px; line-height: 1.6; color: #8A948F;">Local-first. Your source stays on your machine during the beta.</p>
+        </form>
       </div>
     </div>
   </div>
