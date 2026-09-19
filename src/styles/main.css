@@ -1,0 +1,196 @@
+/* ── Base ── */
+html { scroll-behavior: smooth; }
+body { margin: 0; background: #0D100F; font-family: "IBM Plex Sans", "Helvetica Neue", sans-serif; }
+a { color: #E08A4C; }
+a:hover { color: #F0A369; }
+
+/* ── Custom scrollbar ── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: #0A0D0C; }
+::-webkit-scrollbar-thumb { background: #2A3D37; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #3E6F5E; }
+
+/* ── Sticky nav ── */
+.qb-nav {
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  transition: background 0.35s ease, backdrop-filter 0.35s ease, border-color 0.35s ease;
+  will-change: background;
+}
+.qb-nav.qb-nav--scrolled {
+  background: rgba(13, 16, 15, 0.86) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom-color: #1A2420 !important;
+  box-shadow: 0 1px 0 rgba(111, 191, 159, 0.06);
+}
+
+/* ── Nav link hover underline ── */
+.qb-nav-link {
+  position: relative;
+  transition: color 0.2s ease;
+}
+.qb-nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: -3px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: #E08A4C;
+  transition: width 0.28s ease;
+}
+.qb-nav-link:hover { color: #C6CFCB !important; }
+.qb-nav-link:hover::after { width: 100%; }
+
+/* Nav CTA hover */
+.qb-cta-btn {
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s !important;
+}
+.qb-cta-btn:hover {
+  background: rgba(224, 138, 76, 0.12) !important;
+  box-shadow: 0 0 18px rgba(224, 138, 76, 0.2) !important;
+}
+
+/* Velora link */
+.qb-velora-link {
+  transition: color 0.2s, border-color 0.2s, opacity 0.2s !important;
+}
+.qb-velora-link:hover { opacity: 0.8 !important; }
+
+/* ── Hero primary button ── */
+.qb-btn-primary {
+  transition: background 0.2s, box-shadow 0.25s, transform 0.15s !important;
+  position: relative;
+  overflow: hidden;
+}
+.qb-btn-primary::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0.08);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.qb-btn-primary:hover {
+  background: #F09A5C !important;
+  box-shadow: 0 0 32px rgba(224, 138, 76, 0.45), 0 4px 20px rgba(0,0,0,0.4) !important;
+  transform: translateY(-1px) !important;
+}
+.qb-btn-primary:active { transform: translateY(0) !important; }
+
+/* Ghost button */
+.qb-btn-ghost {
+  transition: color 0.2s, border-color 0.2s !important;
+}
+.qb-btn-ghost:hover {
+  color: #E08A4C !important;
+  border-color: #E08A4C !important;
+}
+
+/* Agent compatibility tags */
+.qb-agent-tag {
+  transition: color 0.2s;
+}
+.qb-agent-tag:hover { color: #F4F1EA !important; }
+
+/* ── Section scroll-reveal ── */
+.qb-reveal {
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity 0.65s ease, transform 0.65s ease;
+}
+.qb-reveal.qb-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── Card hover ── */
+.qb-card {
+  transition: border-color 0.28s ease, transform 0.28s ease, box-shadow 0.28s ease;
+}
+.qb-card:hover {
+  border-color: #3E6F5E !important;
+  transform: translateY(-4px);
+  box-shadow: 0 20px 52px rgba(111, 191, 159, 0.07), 0 4px 16px rgba(0,0,0,0.35);
+}
+
+/* ── Metric counter numbers ── */
+.qb-count {
+  transition: text-shadow 0.5s ease;
+}
+.qb-count.qb-lit { text-shadow: 0 0 24px currentColor; }
+
+/* ── Bar animation — paused until in view ── */
+.qb-bar {
+  transform-origin: left center;
+  animation: qb-bar 1.5s cubic-bezier(0.2, 0.9, 0.2, 1) both;
+  animation-play-state: paused;
+}
+.qb-bar.qb-bar--run { animation-play-state: running; }
+@keyframes qb-bar { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* ── Terminal cursor blink ── */
+.qb-cursor::after {
+  content: '▋';
+  animation: qb-blink 1.1s step-end infinite;
+  color: #6FBF9F;
+  margin-left: 1px;
+}
+@keyframes qb-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+/* ── Form inputs ── */
+input:focus {
+  outline: none;
+  border-color: #E08A4C !important;
+  box-shadow: 0 0 0 3px rgba(224, 138, 76, 0.14);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+button:hover {
+  background: #F09A5C !important;
+  box-shadow: 0 0 28px rgba(224, 138, 76, 0.38) !important;
+  transform: translateY(-1px) !important;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+button:active { transform: translateY(0) !important; }
+
+/* ── Existing animations (preserved) ── */
+.qb-grid {
+  background-image: linear-gradient(#171E1B 1px, transparent 1px), linear-gradient(90deg, #171E1B 1px, transparent 1px);
+  background-size: 60px 60px;
+  animation: qb-drift 24s linear infinite;
+}
+@keyframes qb-drift { from { background-position: 0 0, 0 0; } to { background-position: 0 -60px, -60px 0; } }
+
+.qb-glow { background: radial-gradient(900px 460px at 20% 34%, rgba(224,138,76,0.11), rgba(13,16,15,0) 70%); }
+
+.qb-sweep {
+  background: linear-gradient(180deg, rgba(111,191,159,0.11), rgba(111,191,159,0));
+  animation: qb-sweep 12s ease-in-out infinite;
+}
+@keyframes qb-sweep {
+  0%   { transform: translateY(-200px); opacity: 0; }
+  18%  { opacity: 1; }
+  52%  { transform: translateY(720px);  opacity: 0; }
+  100% { transform: translateY(720px);  opacity: 0; }
+}
+
+.qb-ring-a { animation: qb-spin 46s linear infinite;   transform-origin: 100px 100px; }
+.qb-ring-b { animation: qb-spin-r 30s linear infinite; transform-origin: 100px 100px; }
+@keyframes qb-spin   { to { transform: rotate(360deg);  } }
+@keyframes qb-spin-r { to { transform: rotate(-360deg); } }
+
+.qb-pulse { animation: qb-pulse 2.8s ease-in-out infinite; }
+@keyframes qb-pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+
+.qb-line { animation: qb-tick 7s ease-in-out infinite; }
+@keyframes qb-tick { 0%, 8% { opacity: 0.22; } 18% { opacity: 1; } 55%, 100% { opacity: 0.8; } }
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .qb-grid, .qb-sweep, .qb-ring-a, .qb-ring-b, .qb-pulse, .qb-line, .qb-bar,
+  .qb-reveal, .qb-card, .qb-btn-primary, .qb-btn-ghost, .qb-nav { animation: none; transition: none; }
+  .qb-reveal { opacity: 1; transform: none; }
+}

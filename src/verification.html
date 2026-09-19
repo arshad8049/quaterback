@@ -1,0 +1,42 @@
+<!-- VERIFICATION -->
+<div id="verification" style="padding: 104px 80px; border-top: 1px solid #222A27;">
+  <div style="max-width: 1180px; margin: 0 auto;">
+    <h2 style="margin: 0 0 20px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1.1; font-weight: 400; color: #F4F1EA;">The builder does not grade its own work.</h2>
+    <p style="margin: 0 0 44px 0; max-width: 800px; font-size: 19px; line-height: 1.6; color: #9AA5A0;">An agent that reports completion has told you what it believes, not what is true. Verification is a separate layer with its own model, its own context and its own evidence.</p>
+
+    <div style="padding: 28px 34px; background: #12100E; border-left: 2px solid #E08A4C; border-radius: 4px; margin-bottom: 54px;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: #E08A4C; margin-bottom: 18px;">The loop we refuse to ship</div>
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 16px; line-height: 2; color: #9AA5A0;">
+        <div>Builder: “I interpreted the task this way.”</div>
+        <div>Builder: “I implemented my interpretation.”</div>
+        <div>Builder: “I reviewed my work and confirm my interpretation was implemented.”</div>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 32px; align-items: stretch;">
+      <div style="flex-grow: 1; flex-basis: 0; padding: 36px 38px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
+        <div style="font-size: 24px; font-weight: 600; color: #F4F1EA; margin-bottom: 10px;">Deterministic evidence first</div>
+        <p style="margin: 0 0 24px 0; font-size: 16px; line-height: 1.6; color: #8A948F;">Cheap, fast and not up for debate. We exhaust this before spending a token on judgment.</p>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; line-height: 2.05; color: #C6CFCB;">
+          <div>compilation · type checking · linting</div>
+          <div>existing tests · generated targeted tests</div>
+          <div>API and schema checks · migration validation</div>
+          <div>browser and UI tests · runtime assertions</div>
+          <div>security rules · dependency checks</div>
+          <div>git diff inspection · changed-file scope</div>
+        </div>
+      </div>
+      <div style="flex-grow: 1; flex-basis: 0; padding: 36px 38px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
+        <div style="font-size: 24px; font-weight: 600; color: #F4F1EA; margin-bottom: 10px;">Judgment second</div>
+        <p style="margin: 0 0 24px 0; font-size: 16px; line-height: 1.6; color: #8A948F;">The genuinely semantic questions a test suite cannot answer for you.</p>
+        <div style="font-size: 16px; line-height: 1.75; color: #C6CFCB;">
+          <div style="margin-bottom: 12px;">Did the implementation satisfy requirement #3?</div>
+          <div style="margin-bottom: 12px;">Did behavior change outside the requested scope?</div>
+          <div style="margin-bottom: 12px;">Does it violate an architectural rule?</div>
+          <div style="margin-bottom: 12px;">Are the tests meaningful, or tailored to the implementation?</div>
+          <div>Was an acceptance criterion silently skipped?</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

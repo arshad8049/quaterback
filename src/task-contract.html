@@ -1,0 +1,50 @@
+<!-- TASK CONTRACT -->
+<div style="padding: 104px 80px; border-top: 1px solid #222A27; background: #0A0D0C;">
+  <div style="max-width: 1180px; margin: 0 auto;">
+    <h2 style="margin: 0 0 20px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1.1; font-weight: 400; color: #F4F1EA;">Not a prompt enhancer. An intent compiler.</h2>
+    <p style="margin: 0 0 50px 0; max-width: 820px; font-size: 19px; line-height: 1.6; color: #9AA5A0;">A compiler does not make its input prettier. It turns a human-friendly representation into a machine-executable one with explicit semantics. The expensive model gets a smaller, clearer, better-grounded unit of work.</p>
+
+    <div style="border: 1px solid #262E2B; border-radius: 6px; overflow: hidden;">
+      <div style="padding: 30px 38px; background: #121615; border-bottom: 1px solid #262E2B;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: #8A948F; margin-bottom: 16px;">You write</div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 18px; color: #F4F1EA;"><span style="color: #E08A4C;">&gt;</span> Add Google login and make it work like normal signup.</div>
+      </div>
+      <div style="padding: 34px 38px 40px 38px; background: #0D100F;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: #6FBF9F; margin-bottom: 24px;">The agent receives</div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; line-height: 1.95; color: #C6CFCB;">
+          <div style="color: #F4F1EA; font-weight: 600; letter-spacing: 0.06em;">TASK CONTRACT</div>
+          <div style="height: 20px;"></div>
+          <div style="color: #E08A4C;">Goal</div>
+          <div>Implement Google OAuth login.</div>
+          <div style="height: 20px;"></div>
+          <div style="color: #E08A4C;">Required behavior</div>
+          <div>Existing email/password authentication remains unchanged.</div>
+          <div>First-time Google users enter the existing onboarding flow.</div>
+          <div>Existing users with a verified matching email follow current account-linking rules.</div>
+          <div>Existing session behavior remains intact.</div>
+          <div style="height: 20px;"></div>
+          <div style="color: #E08A4C;">Relevant project knowledge</div>
+          <div>auth provider location · user creation path · onboarding state logic</div>
+          <div>current session model · historical auth decisions</div>
+          <div style="height: 20px;"></div>
+          <div style="color: #E08A4C;">Constraints</div>
+          <div>Reuse the current authentication architecture.</div>
+          <div>Do not introduce a second auth framework.</div>
+          <div>Do not modify unrelated session behavior.</div>
+          <div style="height: 20px;"></div>
+          <div style="color: #6FBF9F;">Acceptance criteria</div>
+          <div><span style="color: #6FBF9F;">[ ]</span> Google authentication succeeds</div>
+          <div><span style="color: #6FBF9F;">[ ]</span> New OAuth users enter onboarding</div>
+          <div><span style="color: #6FBF9F;">[ ]</span> Existing authentication continues to work</div>
+          <div><span style="color: #6FBF9F;">[ ]</span> Account-linking behavior matches policy</div>
+          <div><span style="color: #6FBF9F;">[ ]</span> Relevant tests pass</div>
+          <div><span style="color: #6FBF9F;">[ ]</span> No unrelated code is changed</div>
+          <div style="height: 20px;"></div>
+          <div style="color: #6FBF9F;">Verification plan</div>
+          <div>Run existing auth tests · run onboarding tests · exercise the OAuth callback</div>
+          <div>Inspect modified files · validate each acceptance criterion individually</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,42 @@
+<!-- REPAIR -->
+<div style="padding: 104px 80px; border-top: 1px solid #222A27; background: #0A0D0C;">
+  <div style="max-width: 1180px; margin: 0 auto;">
+    <h2 style="margin: 0 0 20px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1.1; font-weight: 400; color: #F4F1EA;">When it fails, it repairs itself first.</h2>
+    <p style="margin: 0 0 50px 0; max-width: 800px; font-size: 19px; line-height: 1.6; color: #9AA5A0;">A failed criterion is not a reason to interrupt you. It is a reason to write a precise instruction and send it back.</p>
+
+    <div style="display: flex; gap: 32px; align-items: flex-start;">
+      <div style="flex-grow: 1.35; flex-basis: 0; background: #0D100F; border: 1px solid #262E2B; border-radius: 6px; padding: 34px 38px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; line-height: 1.95; color: #C6CFCB;">
+          <div style="color: #E08A4C; font-weight: 600;">Verification failed.</div>
+          <div style="height: 20px;"></div>
+          <div style="color: #8A948F;">Criterion</div>
+          <div>New Google users must enter onboarding.</div>
+          <div style="height: 20px;"></div>
+          <div style="color: #8A948F;">Observed</div>
+          <div>OAuth callback creates the user and redirects directly to dashboard.</div>
+          <div style="height: 20px;"></div>
+          <div style="color: #8A948F;">Evidence</div>
+          <div>src/auth/googleCallback.ts:87</div>
+          <div>integration test: oauth-new-user-onboarding</div>
+          <div style="height: 20px;"></div>
+          <div style="color: #6FBF9F;">Required repair</div>
+          <div>Route newly created OAuth users through the existing onboarding state transition.</div>
+          <div style="height: 20px;"></div>
+          <div style="color: #8A948F;">→ sent to the coding agent automatically</div>
+        </div>
+      </div>
+
+      <div style="flex-grow: 1; flex-basis: 0; padding: 36px 38px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
+        <div style="font-size: 24px; font-weight: 600; color: #F4F1EA; margin-bottom: 10px;">We interrupt you when</div>
+        <p style="margin: 0 0 26px 0; font-size: 16px; line-height: 1.6; color: #8A948F;">The goal is not zero humans. It is human attention spent only where human judgment adds value.</p>
+        <div style="font-size: 17px; line-height: 1.6; color: #C6CFCB;">
+          <div style="padding: 14px 0; border-top: 1px solid #262E2B;">Two or more legitimate interpretations remain.</div>
+          <div style="padding: 14px 0; border-top: 1px solid #262E2B;">Business logic is genuinely missing.</div>
+          <div style="padding: 14px 0; border-top: 1px solid #262E2B;">A destructive action needs approval.</div>
+          <div style="padding: 14px 0; border-top: 1px solid #262E2B;">Verification cannot establish correctness.</div>
+          <div style="padding: 14px 0; border-top: 1px solid #262E2B; border-bottom: 1px solid #262E2B;">Your project policy requires human review.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
