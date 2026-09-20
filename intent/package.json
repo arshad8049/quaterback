@@ -1,0 +1,17 @@
+{
+  "name": "@velora/quarterback-intent",
+  "version": "0.1.0",
+  "description": "Quarterback Intent Compiler — turns developer requests into executable Task Contracts",
+  "main": "compiler.js",
+  "scripts": {
+    "compile": "node cli.js",
+    "sandbox": "node sandbox/run.js --all"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.127.0",
+    "commander": "^13.1.0",
+    "dotenv": "^18.0.1",
+    "uuid": "^14.0.2",
+    "zod": "^4.6.5"
+  }
+}

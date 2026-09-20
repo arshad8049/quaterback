@@ -5,6 +5,7 @@ const fs = require('fs');
 const sections = [
   'nav',
   'hero',
+  'social-proof',
   'today-vs-future',
   'the-gap',
   'north-star-metric',

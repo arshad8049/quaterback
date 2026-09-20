@@ -1,0 +1,32 @@
+[
+  {
+    "id": 1,
+    "label": "clear-scope",
+    "description": "Baseline: unambiguous request. Should produce a complete contract with no clarifying question.",
+    "request": "Add a loading spinner to the submit button on the signup form while the form is submitting."
+  },
+  {
+    "id": 2,
+    "label": "ambiguous-behavior",
+    "description": "Classic ambiguity: 'like normal signup' has multiple valid interpretations. Should trigger clarifying_question.",
+    "request": "Add Google login and make it work like normal signup."
+  },
+  {
+    "id": 3,
+    "label": "scope-drift-risk",
+    "description": "Vague request: 'cleaner' has no testable definition. Should trigger clarifying_question about what cleaner means.",
+    "request": "Refactor the auth module to be cleaner."
+  },
+  {
+    "id": 4,
+    "label": "implicit-constraint",
+    "description": "Clear goal but important implicit constraint (don't break other queries). Should capture that in constraints[].",
+    "request": "Speed up the dashboard query. It's taking over 3 seconds."
+  },
+  {
+    "id": 5,
+    "label": "multi-step",
+    "description": "Multi-step task with an explicit constraint on existing users. Should decompose into multiple required_behavior items.",
+    "request": "Add email verification to the signup flow and make sure existing users aren't affected."
+  }
+]

@@ -1,3 +1,6 @@
+# Project context (local only)
+CONTEXT.md
+
 # macOS
 .DS_Store
 .DS_Store?
@@ -25,6 +28,10 @@ yarn-error.log*
 # Build artifacts (keep index.html — it's the deployable output)
 dist/
 .cache/
+
+# Intent layer
+intent/contracts/*.json
+intent/node_modules/
 
 # OS
 Thumbs.db
