@@ -1,4 +1,11 @@
 [build]
-  base    = "landing_page"
-  publish = "."
-  command = "node build.js"
+  publish = "landing_page"
+  command = "cd landing_page && node build.js"
+
+[functions]
+  directory = "netlify/functions"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200

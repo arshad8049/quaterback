@@ -5,7 +5,10 @@ const path = require('path');
 const { randomUUID } = require('crypto');
 const { TaskContractSchema, ClarifyingResponseSchema } = require('./schema');
 
-const client = new Anthropic.default({ apiKey: process.env.ANTHROPIC_API_KEY });
+const client = process.env.ANTHROPIC_API_KEY
+  ? new Anthropic.default({ apiKey: process.env.ANTHROPIC_API_KEY })
+  : null;
+
 const SYSTEM_PROMPT = fs.readFileSync(path.join(__dirname, 'prompts/system.md'), 'utf8');
 
 /**
@@ -17,15 +20,18 @@ const SYSTEM_PROMPT = fs.readFileSync(path.join(__dirname, 'prompts/system.md'),
  * @returns {object} TaskContract (validated) or ClarifyingResponse { ambiguity_flags, clarifying_question }
  */
 async function compile(request, repoContext = null, clarification = null) {
-  let userContent = `REQUEST:\n${request}`;
+  if (process.env.QB_PROXY_URL) {
+    return compileViaProxy(request, repoContext, clarification);
+  }
+  return compileViaApi(request, repoContext, clarification);
+}
 
-  if (clarification) {
-    userContent += `\n\nCLARIFICATION:\n${clarification}`;
+async function compileViaApi(request, repoContext, clarification) {
+  if (!client) {
+    throw new Error('ANTHROPIC_API_KEY is required when QB_PROXY_URL is not set.');
   }
 
-  if (repoContext) {
-    userContent += `\n\nREPO CONTEXT:\n${repoContext}`;
-  }
+  const userContent = buildUserContent(request, repoContext, clarification);
 
   const response = await client.messages.create({
     model: 'claude-sonnet-4-6',
@@ -34,20 +40,62 @@ async function compile(request, repoContext = null, clarification = null) {
       {
         type: 'text',
         text: SYSTEM_PROMPT,
-        cache_control: { type: 'ephemeral' } // cache the system prompt across calls
+        cache_control: { type: 'ephemeral' }
       }
     ],
     messages: [{ role: 'user', content: userContent }]
   });
 
-  const raw = parseJSON(response.content[0].text, request);
+  return parseAndValidate(response.content[0].text, request);
+}
 
-  // If compiler returned a clarifying question, return that shape
+async function compileViaProxy(request, repoContext, clarification) {
+  const userContent = buildUserContent(request, repoContext, clarification);
+
+  const body = {
+    model: 'claude-sonnet-4-6',
+    max_tokens: 4096,
+    system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
+    messages: [{ role: 'user', content: userContent }],
+  };
+
+  const headers = { 'content-type': 'application/json' };
+  if (process.env.QB_PROXY_SECRET) {
+    headers['x-proxy-secret'] = process.env.QB_PROXY_SECRET;
+  }
+
+  const res = await fetch(`${process.env.QB_PROXY_URL}/compile`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Proxy error ${res.status}: ${text || res.statusText}`);
+  }
+
+  const data = await res.json();
+  const text = data.content?.[0]?.text;
+  if (!text) throw new Error('Empty response from proxy');
+
+  return parseAndValidate(text, request);
+}
+
+function buildUserContent(request, repoContext, clarification) {
+  let content = `REQUEST:\n${request}`;
+  if (clarification) content += `\n\nCLARIFICATION:\n${clarification}`;
+  if (repoContext)   content += `\n\nREPO CONTEXT:\n${repoContext}`;
+  return content;
+}
+
+function parseAndValidate(text, request) {
+  const raw = parseJSON(text, request);
+
   if (raw.clarifying_question && !raw.goal) {
     return ClarifyingResponseSchema.parse(raw);
   }
 
-  // Otherwise build the full TaskContract
   const contract = {
     id: randomUUID(),
     created_at: new Date().toISOString(),
@@ -60,12 +108,10 @@ async function compile(request, repoContext = null, clarification = null) {
 }
 
 function parseJSON(text, request) {
-  // Strip any accidental markdown fences the model may add
   const stripped = text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/, '').trim();
   try {
     return JSON.parse(stripped);
   } catch (err) {
-    // Try to extract a JSON object from inside the text
     const match = stripped.match(/\{[\s\S]*\}/);
     if (match) {
       try {
