@@ -1,0 +1,4 @@
+[build]
+  base    = "landing_page"
+  publish = "."
+  command = "node build.js"
