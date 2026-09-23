@@ -1,85 +1,45 @@
-require('dotenv').config();
-const Anthropic = require('@anthropic-ai/sdk');
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const fs = require('fs');
 const path = require('path');
 const { randomUUID } = require('crypto');
 const { TaskContractSchema, ClarifyingResponseSchema } = require('./schema');
+const { detectAmbiguity } = require('./dsa');
 
-const client = process.env.ANTHROPIC_API_KEY
-  ? new Anthropic.default({ apiKey: process.env.ANTHROPIC_API_KEY })
-  : null;
-
+const OLLAMA_URL = process.env.QB_OLLAMA_URL || 'http://127.0.0.1:11434';
+const MODEL      = process.env.QB_MODEL       || 'deepseek-r1:7b';
 const SYSTEM_PROMPT = fs.readFileSync(path.join(__dirname, 'prompts/system.md'), 'utf8');
 
-/**
- * Compile a natural-language developer request into a TaskContract.
- *
- * @param {string} request - The raw developer request
- * @param {string|null} repoContext - Optional repo context string (tree + file snippets)
- * @param {string|null} clarification - Optional answer to a previous clarifying question
- * @returns {object} TaskContract (validated) or ClarifyingResponse { ambiguity_flags, clarifying_question }
- */
 async function compile(request, repoContext = null, clarification = null) {
-  if (process.env.QB_PROXY_URL) {
-    return compileViaProxy(request, repoContext, clarification);
-  }
-  return compileViaApi(request, repoContext, clarification);
-}
-
-async function compileViaApi(request, repoContext, clarification) {
-  if (!client) {
-    throw new Error('ANTHROPIC_API_KEY is required when QB_PROXY_URL is not set.');
+  // DSA pre-pass: catch deterministic ambiguity patterns before touching the LLM
+  if (!clarification) {
+    const ambiguity = detectAmbiguity(request);
+    if (ambiguity) return ambiguity;
   }
 
-  const userContent = buildUserContent(request, repoContext, clarification);
-
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 4096,
-    system: [
-      {
-        type: 'text',
-        text: SYSTEM_PROMPT,
-        cache_control: { type: 'ephemeral' }
-      }
-    ],
-    messages: [{ role: 'user', content: userContent }]
-  });
-
-  return parseAndValidate(response.content[0].text, request);
-}
-
-async function compileViaProxy(request, repoContext, clarification) {
-  const userContent = buildUserContent(request, repoContext, clarification);
-
-  const body = {
-    model: 'claude-sonnet-4-6',
-    max_tokens: 4096,
-    system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
-    messages: [{ role: 'user', content: userContent }],
-  };
-
-  const headers = { 'content-type': 'application/json' };
-  if (process.env.QB_PROXY_SECRET) {
-    headers['x-proxy-secret'] = process.env.QB_PROXY_SECRET;
-  }
-
-  const res = await fetch(`${process.env.QB_PROXY_URL}/compile`, {
+  const res = await fetch(`${OLLAMA_URL}/v1/chat/completions`, {
     method: 'POST',
-    headers,
-    body: JSON.stringify(body),
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      model: MODEL,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user',   content: buildUserContent(request, repoContext, clarification) },
+      ],
+      stream: false,
+      temperature: 0.1,
+    }),
   });
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new Error(`Proxy error ${res.status}: ${text || res.statusText}`);
+    throw new Error(`Ollama error ${res.status}: ${text || res.statusText}`);
   }
 
   const data = await res.json();
-  const text = data.content?.[0]?.text;
-  if (!text) throw new Error('Empty response from proxy');
+  const raw = data.choices?.[0]?.message?.content;
+  if (!raw) throw new Error('Empty response from Ollama');
 
-  return parseAndValidate(text, request);
+  return parseAndValidate(raw, request);
 }
 
 function buildUserContent(request, repoContext, clarification) {
@@ -92,8 +52,22 @@ function buildUserContent(request, repoContext, clarification) {
 function parseAndValidate(text, request) {
   const raw = parseJSON(text, request);
 
-  if (raw.clarifying_question && !raw.goal) {
-    return ClarifyingResponseSchema.parse(raw);
+  // If the model raised a clarifying question, that always wins — even if it also guessed a goal
+  if (raw.clarifying_question) {
+    return ClarifyingResponseSchema.parse({
+      ambiguity_flags: raw.ambiguity_flags || [],
+      clarifying_question: raw.clarifying_question,
+    });
+  }
+
+  if (Array.isArray(raw.acceptance_criteria)) {
+    raw.acceptance_criteria = raw.acceptance_criteria.map((ac, i) => ({
+      // Generate id if model omitted it
+      id: ac.id || `AC-${i + 1}`,
+      criterion: ac.criterion,
+      // The compiler never sets met — that's the verifier's job
+      met: null,
+    }));
   }
 
   const contract = {
@@ -108,17 +82,18 @@ function parseAndValidate(text, request) {
 }
 
 function parseJSON(text, request) {
-  const stripped = text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/, '').trim();
+  // Strip DeepSeek-R1 reasoning blocks first, trim so ^ anchors work, then strip fences
+  let stripped = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+  stripped = stripped.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/, '').trim();
+
   try {
     return JSON.parse(stripped);
-  } catch (err) {
+  } catch (_) {
     const match = stripped.match(/\{[\s\S]*\}/);
     if (match) {
-      try {
-        return JSON.parse(match[0]);
-      } catch (_) {}
+      try { return JSON.parse(match[0]); } catch (_) {}
     }
-    throw new Error(`Intent compiler returned non-JSON output for request: "${request.slice(0, 60)}..."\n\nRaw response:\n${text}`);
+    throw new Error(`Intent compiler returned non-JSON for: "${request.slice(0, 60)}..."\n\nRaw:\n${text}`);
   }
 }
 

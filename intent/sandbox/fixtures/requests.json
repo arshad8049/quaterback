@@ -28,5 +28,12 @@
     "label": "multi-step",
     "description": "Multi-step task with an explicit constraint on existing users. Should decompose into multiple required_behavior items.",
     "request": "Add email verification to the signup flow and make sure existing users aren't affected."
+  },
+  {
+    "id": 6,
+    "label": "full-loop",
+    "description": "Full pipeline demo: vague request triggers clarifying question, clarification unlocks a rich contract. Shows the complete vague → clarify → compile flow.",
+    "request": "Add Google login and make it work like normal signup.",
+    "clarification": "Same onboarding as email signup: first-time Google users must complete the profile setup step (pick a username, upload an avatar, set their timezone) and accept the terms of service before reaching the dashboard. The email returned from Google should pre-fill the email field on the profile step but the user must explicitly confirm it. Existing Google users who already have an account should skip onboarding and land directly on the dashboard."
   }
 ]

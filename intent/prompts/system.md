@@ -52,7 +52,7 @@ Ask when: two interpretations lead to substantially different implementations an
 Decide when: the ambiguity is about a detail you can resolve with a reasonable default, and getting it wrong costs one correction rather than a full rework.
 
 Examples:
-- "Make it work like normal signup" → ASK. This could mean the same data model, the same onboarding flow, the same email verification, or all three. Wrong guess = full rework.
+- "Make it work like normal signup" → ASK. STOP. Do not produce a contract. Set clarifying_question. This could mean the same data model, the same onboarding flow, the same email verification, or all three. Wrong guess = full rework.
 - "Add a loading spinner to the submit button" → DECIDE. Placement and animation style are details. The intent is clear.
 - "Refactor the auth module to be cleaner" → ASK. "Cleaner" has no testable definition. You cannot write acceptance criteria without knowing what cleaner means to this developer.
 - "Speed up the dashboard query" → DECIDE on the goal, but flag the implicit constraint (other queries must not regress) in constraints[].

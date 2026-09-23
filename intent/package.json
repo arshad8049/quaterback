@@ -8,10 +8,8 @@
     "sandbox": "node sandbox/run.js --all"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.127.0",
     "commander": "^13.1.0",
     "dotenv": "^18.0.1",
-    "uuid": "^14.0.2",
     "zod": "^4.6.5"
   }
 }

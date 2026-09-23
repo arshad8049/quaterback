@@ -21,17 +21,6 @@ program
   .option('-s, --save', 'Save the contract to contracts/{id}.json')
   .option('--no-color', 'Disable colored output')
   .action(async (request, options) => {
-    const hasKey   = Boolean(process.env.ANTHROPIC_API_KEY);
-    const hasProxy = Boolean(process.env.QB_PROXY_URL);
-    if (!hasKey && !hasProxy) {
-      console.error('\n  Error: no API credentials configured.\n');
-      console.error('  Either set QB_PROXY_URL (recommended) or ANTHROPIC_API_KEY in intent/.env\n');
-      process.exit(1);
-    }
-    if (hasProxy) {
-      process.stderr.write(`  Using proxy: ${process.env.QB_PROXY_URL}\n`);
-    }
-
     // Build repo context if --repo provided
     let repoContext = null;
     if (options.repo) {
