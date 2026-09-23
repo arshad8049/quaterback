@@ -7,6 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const { compile } = require('./compiler');
 const { buildContext } = require('./context');
+const { buildContext: buildContextPackage } = require('../context/builder');
 
 const program = new Command();
 
@@ -18,8 +19,9 @@ program
 program
   .argument('<request>', 'The developer task in plain English')
   .option('-r, --repo <path>', 'Path to the repository for context')
-  .option('-s, --save', 'Save the contract to contracts/{id}.json')
-  .option('--no-color', 'Disable colored output')
+  .option('-s, --save',    'Save the contract to contracts/{id}.json')
+  .option('--context',     'Chain into Layer 2 — build a ContextPackage after the contract')
+  .option('--no-color',    'Disable colored output')
   .action(async (request, options) => {
     // Build repo context if --repo provided
     let repoContext = null;
@@ -67,6 +69,25 @@ program
         const outPath = path.join(dir, `${result.id}.json`);
         fs.writeFileSync(outPath, json, 'utf8');
         process.stderr.write(`  Saved → contracts/${result.id}.json\n\n`);
+      }
+
+      // Optionally chain into Layer 2 (Context)
+      if (options.context && options.repo) {
+        process.stderr.write('  Chaining into Layer 2 (Context)...\n');
+        try {
+          const pkg     = await buildContextPackage(result, options.repo);
+          const pkgJson = JSON.stringify(pkg, null, 2);
+          const pkgDir  = path.join(__dirname, '..', 'context', 'packages');
+          fs.mkdirSync(pkgDir, { recursive: true });
+          const pkgPath = path.join(pkgDir, `${pkg.id}.json`);
+          fs.writeFileSync(pkgPath, pkgJson, 'utf8');
+          process.stderr.write(`  Context → context/packages/${pkg.id}.json\n`);
+          process.stderr.write(`  Files: ${pkg.relevant_files.length}  Symbols: ${Object.keys(pkg.symbol_map).length}\n\n`);
+        } catch (err) {
+          process.stderr.write(`  Context layer error: ${err.message}\n\n`);
+        }
+      } else if (options.context && !options.repo) {
+        process.stderr.write('  --context requires --repo to be set\n\n');
       }
     } catch (err) {
       console.error(`\n  Compiler error: ${err.message}\n`);

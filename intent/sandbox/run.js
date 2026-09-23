@@ -1,11 +1,14 @@
 require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 const { Command } = require('commander');
+const path = require('path');
 const { compile } = require('../compiler');
+const { buildContext } = require('../context');
 
 const program = new Command();
 program
   .option('--all', 'Run all fixtures')
   .option('--fixture <n>', 'Run a single fixture by id (1–6)')
+  .option('--repo <path>', 'Path to a real repo — injects file tree + relevant snippets into every fixture')
   .parse();
 
 const opts = program.opts();
@@ -14,26 +17,27 @@ const fixtures = require('./fixtures/requests.json');
 const DIVIDER  = '─'.repeat(72);
 const DIVIDER2 = '═'.repeat(72);
 
-async function runFixture(f) {
+async function runFixture(f, repoContext) {
   const isFullLoop = Boolean(f.clarification);
 
   console.log(`\n${isFullLoop ? DIVIDER2 : DIVIDER}`);
   console.log(`  [${f.id}] ${f.label.toUpperCase()}${isFullLoop ? '  ◀  FULL PIPELINE DEMO' : ''}`);
   console.log(`  ${f.description}`);
   console.log(`\n  REQUEST: "${f.request}"`);
+  if (repoContext) console.log(`  (running with repo context)`);
   console.log(isFullLoop ? DIVIDER2 : DIVIDER);
 
   if (isFullLoop) {
-    await runFullLoop(f);
+    await runFullLoop(f, repoContext);
   } else {
-    await runSingle(f);
+    await runSingle(f, repoContext);
   }
 }
 
-async function runSingle(f) {
+async function runSingle(f, repoContext) {
   const t0 = Date.now();
   try {
-    const result = await compile(f.request);
+    const result = await compile(f.request, repoContext);
     const ms = Date.now() - t0;
 
     if (result.clarifying_question) {
@@ -49,13 +53,13 @@ async function runSingle(f) {
   }
 }
 
-async function runFullLoop(f) {
+async function runFullLoop(f, repoContext) {
   // Step 1: vague request in
   console.log('\n  STEP 1 — vague request enters the compiler\n');
   let t0 = Date.now();
   let step1;
   try {
-    step1 = await compile(f.request);
+    step1 = await compile(f.request, repoContext);
   } catch (err) {
     return printError(err, Date.now() - t0);
   }
@@ -83,7 +87,7 @@ async function runFullLoop(f) {
   t0 = Date.now();
   let result;
   try {
-    result = await compile(f.request, null, f.clarification);
+    result = await compile(f.request, repoContext, f.clarification);
   } catch (err) {
     return printError(err, Date.now() - t0);
   }
@@ -125,6 +129,21 @@ function printError(err, ms) {
 }
 
 async function main() {
+  // Build repo context once and share across all fixtures
+  let repoContext = null;
+  if (opts.repo) {
+    const absRepo = path.resolve(opts.repo);
+    process.stderr.write(`\n  Loading repo context from: ${absRepo}\n`);
+    try {
+      // Use a generic request for the tree walk — each fixture refines relevance scoring
+      repoContext = buildContext(absRepo, 'code feature bug fix refactor');
+      process.stderr.write(`  Context loaded (${repoContext.length} chars)\n\n`);
+    } catch (err) {
+      console.error(`  Failed to load repo context: ${err.message}`);
+      process.exit(1);
+    }
+  }
+
   if (opts.fixture) {
     const n = parseInt(opts.fixture, 10);
     const f = fixtures.find(x => x.id === n);
@@ -132,13 +151,13 @@ async function main() {
       console.error(`  No fixture with id ${n}. Available: 1–${fixtures.length}`);
       process.exit(1);
     }
-    await runFixture(f);
+    await runFixture(f, repoContext);
   } else if (opts.all) {
     for (const f of fixtures) {
-      await runFixture(f);
+      await runFixture(f, repoContext);
     }
   } else {
-    console.error('\n  Usage: node sandbox/run.js --all  |  --fixture <1-6>\n');
+    console.error('\n  Usage: node sandbox/run.js --all  |  --fixture <1-6>  [--repo <path>]\n');
     process.exit(1);
   }
 

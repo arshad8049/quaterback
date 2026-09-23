@@ -12,9 +12,9 @@ const IGNORE_EXTS = new Set([
   '.zip', '.tar', '.gz', '.map'
 ]);
 
-const MAX_TREE_FILES = 300;
-const MAX_FILE_BYTES = 6000;   // per file snippet
-const MAX_CONTEXT_CHARS = 24000; // total context budget
+const MAX_TREE_FILES = 200;
+const MAX_FILE_BYTES = 2000;   // per file snippet — keep intent compiler prompt lean for 7B model
+const MAX_CONTEXT_CHARS = 8000; // total context budget — ~2k tokens, leaves room for system prompt + response
 
 /**
  * Build a context string for the given repo path.
