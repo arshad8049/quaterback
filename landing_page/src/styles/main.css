@@ -194,3 +194,83 @@ button:active { transform: translateY(0) !important; }
   .qb-reveal, .qb-card, .qb-btn-primary, .qb-btn-ghost, .qb-nav { animation: none; transition: none; }
   .qb-reveal { opacity: 1; transform: none; }
 }
+
+/* ── Responsive — tablet (≤ 768px) ── */
+@media (max-width: 768px) {
+  body { overflow-x: hidden; }
+
+  /* Nav */
+  .qb-nav { padding: 20px 28px !important; }
+  .qb-nav-links { gap: 20px !important; }
+
+  /* Section containers */
+  [style*="padding: 104px 80px"] { padding: 72px 28px !important; }
+  [style*="padding: 128px 80px"] { padding: 72px 28px !important; }
+
+  /* Typography */
+  [style*="font-size: 118px"] { font-size: 72px !important; line-height: 1.05 !important; }
+  [style*="font-size: 56px"]  { font-size: 40px !important; }
+  [style*="font-size: 72px"]  { font-size: 52px !important; }
+}
+
+/* ── Responsive — phone (≤ 640px) ── */
+@media (max-width: 640px) {
+  body { overflow-x: hidden; }
+
+  /* Nav: collapse text links, keep logo + CTA */
+  .qb-nav { padding: 16px 20px !important; }
+  .qb-nav-links a:not(.qb-cta-btn) { display: none !important; }
+
+  /* Section padding */
+  [style*="padding: 104px 80px"] { padding: 56px 20px !important; }
+  [style*="padding: 128px 80px"] { padding: 56px 20px !important; }
+
+  /* Typography */
+  [style*="font-size: 118px"] { font-size: 48px !important; line-height: 1.08 !important; }
+  [style*="font-size: 56px"]  { font-size: 32px !important; }
+  [style*="font-size: 72px"]  { font-size: 38px !important; }
+  [style*="font-size: 23px"]  { font-size: 18px !important; }
+  [style*="font-size: 19px"]  { font-size: 16px !important; }
+  [style*="font-size: 21px"]  { font-size: 17px !important; }
+
+  /* Hide orbit SVG — 980px wide, bleeds off-screen */
+  .qb-orbit { display: none !important; }
+
+  /* Loop rows: stack vertically */
+  .qb-loop-row {
+    flex-direction: column !important;
+    gap: 10px !important;
+    padding: 24px 20px !important;
+  }
+  .qb-loop-title { width: auto !important; font-size: 17px !important; }
+
+  /* Social proof: 3-col divider grid → single column */
+  [style*="grid-template-columns: 1fr 1px 1fr 1px 1fr"] {
+    grid-template-columns: 1fr !important;
+    gap: 32px !important;
+  }
+
+  /* 3-column card/metric grids → single column */
+  [style*="repeat(3,"],
+  [style*="repeat(3, "] { grid-template-columns: 1fr !important; }
+
+  /* Bar chart widths */
+  .qb-bar { max-width: 100% !important; }
+  [style*="width: 812px"] { width: 100% !important; max-width: 100% !important; }
+  [style*="width: 230px"][style*="height: 40px"] { width: 60% !important; max-width: 100% !important; }
+
+  /* Hero agent-tags row — wrap on small screens */
+  [style*="padding-top: 26px"][style*="border-top"] {
+    flex-wrap: wrap !important;
+    gap: 12px !important;
+  }
+
+  /* Beta form: stack vertically */
+  [style*="gap: 72px"][style*="flex"] {
+    flex-direction: column !important;
+    gap: 20px !important;
+  }
+
+  /* Positioning diagram flex rows */
+  [style*="gap: 40px"][style*="align-items: center"] { flex-wrap: wrap !important; }
+}

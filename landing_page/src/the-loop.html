@@ -1,45 +1,45 @@
 <!-- THE LOOP -->
 <div id="loop" style="padding: 104px 80px; border-top: 1px solid #222A27;">
   <div style="max-width: 1180px; margin: 0 auto;">
-    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #E08A4C; margin-bottom: 28px;">The runtime</div>
+    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #E08A4C; margin-bottom: 28px;">The runtime · Layer 1 + 2 live</div>
     <h2 style="margin: 0 0 20px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1.1; font-weight: 400; color: #F4F1EA;">A control loop around the agent you already use</h2>
     <p style="margin: 0 0 54px 0; max-width: 780px; font-size: 19px; line-height: 1.6; color: #9AA5A0;">Assign, observe, inspect, correct, test, inspect again, approve. You run that loop by hand today. We run it for you and hand back a result with evidence attached.</p>
 
     <div style="display: flex; flex-direction: column; gap: 1px; background: #262E2B; border: 1px solid #262E2B; border-radius: 6px;">
 
-      <div style="background: #0D100F; padding: 34px 38px; display: flex; gap: 34px; align-items: flex-start;">
+      <div class="qb-loop-row" style="background: #0D100F; padding: 34px 38px; display: flex; gap: 34px; align-items: flex-start;">
         <div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #E08A4C; width: 34px; flex-shrink: 0; padding-top: 4px;">01</div>
-        <div style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Intent compiler</div>
-        <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #9AA5A0;">Your request becomes an explicit task contract: goal, required behavior, constraints, acceptance criteria and a verification plan. Ambiguity is resolved before a line is written, not after the diff lands.</div>
+        <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Intent compiler</div>
+        <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #9AA5A0;">A deterministic ambiguity filter runs first — a regex rule engine that intercepts vague patterns at 0ms, before a model is ever called. When the request is clear, a local LLM (DeepSeek-R1 via Ollama) produces a structured task contract: goal, required behavior, constraints, acceptance criteria and a verification plan. No API key. No cloud. No per-call cost.</div>
       </div>
 
-      <div style="background: #0D100F; padding: 34px 38px; display: flex; gap: 34px; align-items: flex-start;">
+      <div class="qb-loop-row" style="background: #0D100F; padding: 34px 38px; display: flex; gap: 34px; align-items: flex-start;">
         <div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #E08A4C; width: 34px; flex-shrink: 0; padding-top: 4px;">02</div>
-        <div style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Context retrieval</div>
-        <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #9AA5A0;">Repository, history, prior decisions, session state, team knowledge, invariants. We do not maximize context volume — we maximize context relevance, and give the agent only what this task needs.</div>
+        <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Context engine</div>
+        <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #9AA5A0;">The contract is grounded in the actual codebase. A deterministic pass extracts exported symbols, traces import graphs two levels deep, identifies test files for affected areas, detects framework and architecture patterns, and surfaces git activity on changed files. An LLM pass then ranks the top files and writes an agent brief — or is skipped entirely for a fast, fully offline run.</div>
       </div>
 
-      <div style="background: #0D100F; padding: 34px 38px; display: flex; gap: 34px; align-items: flex-start;">
+      <div class="qb-loop-row" style="background: #0D100F; padding: 34px 38px; display: flex; gap: 34px; align-items: flex-start;">
         <div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #E08A4C; width: 34px; flex-shrink: 0; padding-top: 4px;">03</div>
-        <div style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Execution and observability</div>
+        <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Execution and observability</div>
         <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #9AA5A0;">The contract goes to Claude, Codex, Cursor or whatever you run next year. We watch actions, diffs, tests and cost as the work happens.</div>
       </div>
 
-      <div style="background: #0D100F; padding: 34px 38px; display: flex; gap: 34px; align-items: flex-start;">
+      <div class="qb-loop-row" style="background: #0D100F; padding: 34px 38px; display: flex; gap: 34px; align-items: flex-start;">
         <div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #6FBF9F; width: 34px; flex-shrink: 0; padding-top: 4px;">04</div>
-        <div style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Independent verification</div>
+        <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Independent verification</div>
         <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #9AA5A0;">The implementation is checked against the original contract — by a different model, with different context and a different strategy. Deterministic evidence first, judgment second.</div>
       </div>
 
-      <div style="background: #0D100F; padding: 34px 38px; display: flex; gap: 34px; align-items: flex-start;">
+      <div class="qb-loop-row" style="background: #0D100F; padding: 34px 38px; display: flex; gap: 34px; align-items: flex-start;">
         <div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #6FBF9F; width: 34px; flex-shrink: 0; padding-top: 4px;">05</div>
-        <div style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Automatic repair</div>
+        <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Automatic repair</div>
         <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #9AA5A0;">A failed criterion becomes a precise repair package and goes straight back to the agent. You are interrupted only when real judgment is required.</div>
       </div>
 
-      <div style="background: #0D100F; padding: 34px 38px; display: flex; gap: 34px; align-items: flex-start;">
+      <div class="qb-loop-row" style="background: #0D100F; padding: 34px 38px; display: flex; gap: 34px; align-items: flex-start;">
         <div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #6FBF9F; width: 34px; flex-shrink: 0; padding-top: 4px;">06</div>
-        <div style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Memory</div>
+        <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Memory</div>
         <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #9AA5A0;">Accepted outcomes, failures and repairs become project knowledge — stored with evidence, source, scope, confidence and freshness, and surfaced only when a future task needs them.</div>
       </div>
 
