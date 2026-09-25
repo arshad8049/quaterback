@@ -11,16 +11,29 @@
  * run. No ambiguity, no guessing, no scope drift.
  */
 
-function buildBriefing(contract, context) {
+function buildBriefing(contract, context, options = {}) {
+  const { repairHints = [], attempt = 1 } = options;
   const lines = [];
 
   const ts = new Date().toISOString().split('T')[0];
-  lines.push(`# Agent Briefing`);
+  const attemptLabel = attempt > 1 ? ` — Repair attempt ${attempt}` : '';
+  lines.push(`# Agent Briefing${attemptLabel}`);
   lines.push(`**Contract:** \`${contract.id}\`  |  **Date:** ${ts}`);
   if (context) {
     lines.push(`**Context package:** \`${context.id}\``);
   }
   lines.push('');
+
+  // ── Repair section (only on retry attempts) ─────────────────────────────────
+  if (repairHints.length > 0) {
+    lines.push(`## ⚠ Previous attempt failed — fix these before anything else`);
+    lines.push('');
+    repairHints.forEach(h => {
+      lines.push(`### [${h.criterion_id}] ${h.diagnosis}`);
+      lines.push(`**What to do:** ${h.suggested_fix}`);
+      lines.push('');
+    });
+  }
 
   // ── Goal ────────────────────────────────────────────────────────────────────
   lines.push(`## Goal`);

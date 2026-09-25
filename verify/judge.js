@@ -21,15 +21,17 @@ Your job: determine whether the diff satisfies the criterion.
 Respond ONLY with valid JSON — no other text, no markdown, no \`\`\`json fences:
 {
   "met": true | false | null,
-  "evidence": "one sentence explaining what in the diff proves or disproves the criterion. If met is null, say what is missing to make a determination."
+  "evidence": "one sentence citing specific file names, function names, or line content from the diff",
+  "repair": "only when met is false: one precise instruction telling the agent exactly what to add or change — name the file, function, and what is missing"
 }
 
 Rules:
 - met: true  — the diff clearly satisfies the criterion
 - met: false — the diff clearly violates or ignores the criterion
-- met: null  — the diff is ambiguous or does not contain enough information
-- evidence must reference specific file names, function names, or line content from the diff
-- Be strict: a criterion is only met if the diff actually implements it, not just mentions it`;
+- met: null  — the diff is ambiguous or does not have enough information to decide
+- evidence must reference specific files/functions/lines — never be generic
+- repair (when met: false): be specific — e.g. "In src/llm.js, createLLM() accepts a config param but never uses it. Add a fallback: if provider is unavailable throw with the provider name, or return the default anthropic client."
+- omit repair when met is true or null`;
 
 /**
  * Judge all acceptance criteria against the diff.
@@ -106,6 +108,7 @@ async function judgeOne(ac, diff, signals) {
       met:       parsed.met,
       method:    'llm',
       evidence:  parsed.evidence || 'No evidence provided.',
+      repair:    parsed.repair   || null,
     };
   } catch (err) {
     return {

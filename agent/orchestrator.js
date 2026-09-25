@@ -12,7 +12,10 @@ const { execute }       = require('./runner');
  * @returns {object}           - ExecutionResult
  */
 async function orchestrate(contract, context = null, options = {}) {
-  const briefing = buildBriefing(contract, context);
+  const briefing = buildBriefing(contract, context, {
+    repairHints: options.repairHints || [],
+    attempt:     options.attempt     || 1,
+  });
   return execute(briefing, contract, context, options);
 }
 

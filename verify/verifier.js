@@ -68,7 +68,7 @@ async function verify(contract, context, execution, options = {}) {
     .map(r => ({
       criterion_id:  r.id,
       diagnosis:     r.evidence,
-      suggested_fix: `Re-examine the implementation for: "${r.criterion}"`,
+      suggested_fix: r.repair || `Implement the missing behavior: "${r.criterion}"`,
     }));
 
   // ── Assemble report ──────────────────────────────────────────────────────
