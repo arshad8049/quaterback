@@ -35,6 +35,10 @@ const html = `<!DOCTYPE html>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Quarterback — Intent to Verified Result</title>
 
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="./favicon.png">
+  <link rel="apple-touch-icon" href="./favicon.png">
+
   <!-- Fonts → edit: src/styles/fonts.css -->
   <link rel="stylesheet" href="./src/styles/fonts.css">
 
