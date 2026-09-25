@@ -1,0 +1,14 @@
+{
+  "name": "@velora/quarterback-verify",
+  "version": "0.1.0",
+  "description": "Quarterback Verification Engine — checks implementation against contract acceptance criteria",
+  "main": "verifier.js",
+  "scripts": {
+    "sandbox": "node sandbox/run.js"
+  },
+  "dependencies": {
+    "commander": "^13.1.0",
+    "dotenv": "^18.0.1",
+    "zod": "^4.6.5"
+  }
+}
