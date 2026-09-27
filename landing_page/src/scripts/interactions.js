@@ -14,16 +14,17 @@
     (entries) => {
       entries.forEach((e) => {
         if (e.isIntersecting) {
-          e.target.classList.add('qb-visible');
+          // Small delay so batched siblings stagger naturally
+          requestAnimationFrame(() => e.target.classList.add('qb-visible'));
           revealObs.unobserve(e.target);
         }
       });
     },
-    { threshold: 0.12, rootMargin: '0px 0px -40px 0px' }
+    { threshold: 0.1, rootMargin: '0px 0px -48px 0px' }
   );
   document.querySelectorAll('.qb-reveal').forEach((el) => revealObs.observe(el));
 
-  /* ── Auto-reveal section children (no class needed in HTML) ── */
+  /* ── Auto-reveal section children ── */
   const sectionDivs = document.querySelectorAll(
     '#problem, #metric, #loop, #verification, #beta, #footer'
   );
@@ -35,16 +36,16 @@
             'h2, p, [style*="display: grid"] > div, [style*="display: flex; flex-direction: column; gap"] > div'
           );
           kids.forEach((k, i) => {
-            k.style.transitionDelay = i * 0.07 + 's';
+            // Stagger: 60ms between items, capped at 400ms total delay
+            k.style.transitionDelay = Math.min(i * 0.06, 0.4) + 's';
             k.classList.add('qb-reveal');
-            // Trigger paint, then reveal
-            requestAnimationFrame(() => k.classList.add('qb-visible'));
+            requestAnimationFrame(() => requestAnimationFrame(() => k.classList.add('qb-visible')));
           });
           autoRevealObs.unobserve(e.target);
         }
       });
     },
-    { threshold: 0.06 }
+    { threshold: 0.05 }
   );
   sectionDivs.forEach((s) => autoRevealObs.observe(s));
 

@@ -40,7 +40,16 @@ async function buildContext(contract, repoPath, options = {}) {
 
   const patterns  = detectPatterns(absRepo);
   const keywords  = contractKeywords(contract);
-  const topFiles  = scoreFiles(absRepo, keywords, 25);
+  let   topFiles  = scoreFiles(absRepo, keywords, 25);
+
+  // Memory boost: prepend memory-recalled files that aren't already in topFiles
+  const hints = (options.fileHints || []).map(h => h.file);
+  const topSet = new Set(topFiles);
+  for (const hintFile of hints) {
+    if (!topSet.has(hintFile) && fs.existsSync(path.join(absRepo, hintFile))) {
+      topFiles = [hintFile, ...topFiles];
+    }
+  }
 
   // Read each relevant file and extract symbols + imports
   const relevantFiles = [];
@@ -68,9 +77,12 @@ async function buildContext(contract, repoPath, options = {}) {
       }
     }
 
+    const memoryHint = hints.find(h => h === rel);
     relevantFiles.push({
       path:      rel,
-      reason:    buildReason(rel, keywords),
+      reason:    memoryHint
+        ? `[Memory] changed in similar past run — ${buildReason(rel, keywords)}`
+        : buildReason(rel, keywords),
       symbols,
       imports,
       test_file: testFile,

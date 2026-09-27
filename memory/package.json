@@ -1,0 +1,12 @@
+{
+  "name": "@velora/quarterback-memory",
+  "version": "0.1.0",
+  "description": "Quarterback Memory Layer — per-repo learning from past runs",
+  "main": "index.js",
+  "scripts": {
+    "sandbox": "node sandbox/run.js"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  }
+}

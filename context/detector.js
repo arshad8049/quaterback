@@ -68,10 +68,22 @@ function detectTestRunner(repoPath) {
     if (all.jasmine) return 'jasmine';
     if (pkg.scripts) {
       const testCmd = pkg.scripts.test || '';
-      if (/vitest/.test(testCmd))  return 'vitest';
-      if (/jest/.test(testCmd))    return 'jest';
-      if (/mocha/.test(testCmd))   return 'mocha';
+      if (/vitest/.test(testCmd))                  return 'vitest';
+      if (/jest/.test(testCmd))                    return 'jest';
+      if (/mocha/.test(testCmd))                   return 'mocha';
+      if (/node:test|node --test/.test(testCmd))   return 'node-test';
     }
+    // Detect Node built-in runner via test file imports
+    try {
+      const testDir = path.join(repoPath, 'test');
+      if (fs.existsSync(testDir)) {
+        for (const f of fs.readdirSync(testDir).slice(0, 6)) {
+          if (!/\.(js|ts)$/.test(f)) continue;
+          const head = fs.readFileSync(path.join(testDir, f), 'utf8').slice(0, 400);
+          if (/require\(['"]node:test['"]\)/.test(head)) return 'node-test';
+        }
+      }
+    } catch (_) {}
   }
 
   if (exists(repoPath, 'pytest.ini') || exists(repoPath, 'conftest.py')) return 'pytest';

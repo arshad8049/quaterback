@@ -37,9 +37,10 @@ function runTests(context, repoPath) {
 
   // Pick the right command based on detected runner
   let cmd = null;
-  if (runner === 'vitest') cmd = 'npx vitest run --reporter=verbose 2>&1';
+  if (runner === 'vitest')    cmd = 'npx vitest run --reporter=verbose 2>&1';
   else if (runner === 'jest') cmd = 'npx jest --no-coverage 2>&1';
   else if (runner === 'mocha') cmd = 'npx mocha 2>&1';
+  else if (runner === 'node-test') cmd = 'npm test 2>&1';
   else if (runner === 'go test') cmd = 'go test ./... 2>&1';
   else if (runner === 'pytest') cmd = 'python -m pytest -v 2>&1';
   else {
@@ -79,10 +80,21 @@ function parseTestOutput(output, runner) {
     const failMatch = output.match(/(\d+)\s+failing/);
     if (passMatch) passed = parseInt(passMatch[1], 10);
     if (failMatch) failed = parseInt(failMatch[1], 10);
+  } else if (runner === 'node-test') {
+    // Node built-in test runner TAP summary: "# pass N" / "# fail N"
+    const passMatch = output.match(/^#\s+pass\s+(\d+)/m);
+    const failMatch = output.match(/^#\s+fail\s+(\d+)/m);
+    const skipMatch = output.match(/^#\s+(?:skip|todo)\s+(\d+)/m);
+    if (passMatch) passed  = parseInt(passMatch[1], 10);
+    if (failMatch) failed  = parseInt(failMatch[1], 10);
+    if (skipMatch) skipped = parseInt(skipMatch[1], 10);
   } else {
-    // Generic: count PASS/FAIL lines
-    passed = (output.match(/\bpass(ed|ing)?\b/gi) || []).length;
-    failed = (output.match(/\bfail(ed|ure)?\b/gi) || []).length;
+    // Generic: parse "N passed / N failed" summary lines only (avoid false positives
+    // from test description text like "should fail gracefully")
+    const passLine = output.match(/(\d+)\s+pass(?:ed|ing)/i);
+    const failLine = output.match(/(\d+)\s+fail(?:ed|ure)/i);
+    if (passLine) passed = parseInt(passLine[1], 10);
+    if (failLine) failed = parseInt(failLine[1], 10);
   }
 
   return { passed, failed, skipped, output: output.slice(0, 2000) };

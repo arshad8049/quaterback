@@ -21,6 +21,7 @@ const { compile }      = require('./intent/compiler');
 const { buildContext } = require('./context/builder');
 const { orchestrate }  = require('./agent/orchestrator');
 const { verify }       = require('./verify/verifier');
+const memory           = require('./memory');
 
 program
   .name('qb')
@@ -53,6 +54,17 @@ async function main() {
 
   const totalStart = Date.now();
 
+  // ── Layer 5: Memory — prior run recall ────────────────────────────────────
+  const priors = memory.recallPrior(repoPath, request);
+  if (priors.length) {
+    log('L5', `Memory: ${priors.length} similar past run(s) on this repo`);
+    priors.slice(0, 3).forEach(p => {
+      const icon = p.verdict === 'pass' ? '✓' : p.verdict === 'fail' ? '✗' : '~';
+      const files = p.changed_files.length ? `  changed: ${p.changed_files.slice(0, 3).join(', ')}` : '';
+      console.log(`     ${icon} [${p.verdict}] "${p.goal.slice(0, 55)}"${files}`);
+    });
+  }
+
   // ── Layer 1: Intent ────────────────────────────────────────────────────────
   log('L1', 'Intent compiler...');
   const t1 = Date.now();
@@ -82,11 +94,22 @@ async function main() {
 
   if (opts.save) saveArtifact('intent/contracts', contract);
 
-  // ── Layer 2: Context ───────────────────────────────────────────────────────
+  // ── Layer 2: Context (memory-boosted) ─────────────────────────────────────
+  const fileHints    = memory.recallFiles(repoPath, contract.goal);
+  const priorRepairs = memory.recallRepairs(repoPath, contract.acceptance_criteria);
+  if (fileHints.length) {
+    log('L5', `Memory: ${fileHints.length} file hint(s) for L2`);
+    fileHints.forEach(h => console.log(`     ↑ ${h.file}  (${h.reason})`));
+  }
+  if (priorRepairs.length) {
+    log('L5', `Memory: ${priorRepairs.length} prior repair hint(s) loaded`);
+  }
+
   log('L2', 'Context engine...');
   const t2 = Date.now();
   const context = await buildContext(contract, repoPath, {
-    noLlm: !opts.llmContext,
+    noLlm:     !opts.llmContext,
+    fileHints,
   });
   log('L2', `Context ready  (${Date.now() - t2}ms)`);
   console.log(`     ${context.relevant_files.length} files, ${Object.keys(context.symbol_map).length} symbols`);
@@ -97,7 +120,12 @@ async function main() {
   let execution   = null;
   let report      = null;
   let attempt     = 0;
-  let repairHints = [];
+  // Seed repair loop with any prior repairs memory recalled
+  let repairHints = priorRepairs.map(r => ({
+    criterion_id:  r.criterion_id,
+    diagnosis:     r.diagnosis,
+    suggested_fix: r.fix,
+  }));
 
   while (attempt < maxRetries) {
     attempt++;
@@ -143,6 +171,19 @@ async function main() {
       console.log('\n  ○ No diff to verify — running in dry-run mode.');
       break;
     }
+    // No AC failures → nothing concrete to repair, regardless of verdict.
+    // partial = all criteria ambiguous (--no-llm-verify or no diff to read)
+    // fail    = test runner fired but all ACs passed (pre-existing test failure)
+    if (report.failures.length === 0) {
+      if (report.verdict === 'partial') {
+        console.log('\n  ~ Criteria ambiguous — no explicit failures to repair.');
+        console.log('    Run without --no-llm-verify for a definitive LLM verdict.');
+      } else if (report.verdict === 'fail') {
+        console.log('\n  ✗ Test suite failure detected — all ACs passed but tests failed.');
+        console.log('    This may be a pre-existing failure unrelated to this change.');
+      }
+      break;
+    }
 
     if (attempt >= maxRetries) {
       console.log(`\n  Reached max retries (${maxRetries}). Needs human review.`);
@@ -151,7 +192,7 @@ async function main() {
 
     // Prepare repair hints for next attempt
     repairHints = report.repair_hints;
-    console.log(`\n  ${report.failures.length} criterion/criteria failed. Retrying with repair hints...\n`);
+    console.log(`\n  ${report.failures.length} criterion/criteria failed — retrying with repair hints...\n`);
     report.repair_hints.forEach(h => {
       console.log(`  [${h.criterion_id}] ${h.diagnosis}`);
       console.log(`    → ${h.suggested_fix}\n`);
@@ -159,6 +200,11 @@ async function main() {
   }
 
   if (opts.save && report) saveArtifact('verify/reports', report);
+
+  // ── Layer 5: Memory — persist this run ────────────────────────────────────
+  await memory.remember(repoPath, contract, { ...report, attempts: attempt }, execution);
+  const memStats = memory.stats(repoPath);
+  log('L5', `Memory updated  (${memStats.total_runs} run(s), ${memStats.files_tracked} file(s) tracked)`);
 
   // ── Final summary ──────────────────────────────────────────────────────────
   const totalMs = Date.now() - totalStart;
