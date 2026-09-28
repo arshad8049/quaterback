@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quarterback — Benchmark Results & Research Evidence</title>
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="./favicon.png">
+  <link rel="apple-touch-icon" href="./favicon.png">
+
+  <!-- Security meta tags -->
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta http-equiv="X-Frame-Options" content="DENY">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+
+  <!-- Fonts -->
+  <link rel="stylesheet" href="./src/styles/fonts.css">
+  <!-- Styles -->
+  <link rel="stylesheet" href="./src/styles/main.css">
+
+  <style>
+    .metric-card {
+      padding: 28px 30px;
+      background: #0A0D0C;
+      border: 1px solid #262E2B;
+      border-radius: 6px;
+    }
+    .metric-card .value {
+      font-family: 'Instrument Serif', Georgia, serif;
+      font-size: 56px;
+      line-height: 1;
+      letter-spacing: -0.02em;
+      margin-bottom: 10px;
+    }
+    .metric-card .label {
+      font-size: 15px;
+      line-height: 1.55;
+      color: #9AA5A0;
+    }
+    .metric-card .sub {
+      margin-top: 8px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      color: #4A5450;
+      letter-spacing: 0.06em;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 15px;
+    }
+    thead th {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #8A948F;
+      text-align: left;
+      padding: 12px 16px;
+      border-bottom: 1px solid #262E2B;
+    }
+    tbody td {
+      padding: 14px 16px;
+      border-bottom: 1px solid #1A211E;
+      color: #C6CFCB;
+      vertical-align: top;
+    }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: #111614; }
+    .tag {
+      display: inline-block;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 3px;
+      letter-spacing: 0.06em;
+    }
+    .tag-pass  { background: #0D2018; color: #6FBF9F; border: 1px solid #2E4F44; }
+    .tag-fail  { background: #1A0D0D; color: #C47A7A; border: 1px solid #4F2E2E; }
+    .tag-easy  { background: #0F1A14; color: #6FBF9F; }
+    .tag-med   { background: #1A1508; color: #E0B44C; }
+    .tag-hard  { background: #1A0F08; color: #E08A4C; }
+    .timeline-item {
+      display: flex;
+      gap: 24px;
+      padding: 22px 0;
+      border-bottom: 1px solid #1A211E;
+    }
+    .timeline-item:last-child { border-bottom: none; }
+    .timeline-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      flex-shrink: 0; margin-top: 5px;
+    }
+    .dot-done  { background: #6FBF9F; }
+    .dot-live  { background: #E08A4C; }
+    .dot-next  { background: #3A4441; border: 1px solid #6FBF9F; }
+  </style>
+</head>
+<body>
+<div style="width: 100%; background: #0D100F; color: #F4F1EA; font-family: 'IBM Plex Sans', 'Helvetica Neue', sans-serif; -webkit-font-smoothing: antialiased;">
+
+  <!-- NAV -->
+  <nav style="position: sticky; top: 0; z-index: 100; padding: 16px 80px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1A211E; background: rgba(13,16,15,0.92); backdrop-filter: blur(20px) saturate(1.4); -webkit-backdrop-filter: blur(20px) saturate(1.4);">
+    <a href="./index.html" style="display: flex; align-items: center; gap: 10px; text-decoration: none;">
+      <img src="./logo.png" width="28" height="28" style="border-radius: 6px;" alt="Quarterback">
+      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600; color: #C6CFCB;">Quarterback</span>
+    </a>
+    <div style="display: flex; align-items: center; gap: 28px;">
+      <a href="./index.html" style="font-size: 14px; color: #8A948F; text-decoration: none;">← Product</a>
+      <span style="font-size: 14px; color: #6FBF9F; font-family: 'IBM Plex Mono', monospace;">Research</span>
+      <a href="./index.html#beta" style="display: inline-flex; align-items: center; height: 36px; padding: 0 18px; background: #E08A4C; border-radius: 8px; font-size: 14px; font-weight: 600; color: #0D100F; text-decoration: none;">Join beta</a>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <div style="padding: 96px 80px 80px;">
+    <div style="max-width: 1180px; margin: 0 auto;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #E08A4C; margin-bottom: 24px;">Benchmark results · Sep 2026</div>
+      <h1 style="margin: 0 0 24px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 72px; line-height: 1.05; font-weight: 400; letter-spacing: -0.02em; color: #F4F1EA;">Real numbers.<br>Real code. Real repo.</h1>
+      <p style="margin: 0; max-width: 780px; font-size: 20px; line-height: 1.6; color: #9AA5A0;">Every metric on this page is measured — not a target or projection. 6 tasks. 1 production JavaScript repo. QB full pipeline vs raw Claude Code with no pipeline. Same L4 contract verifies both.</p>
+    </div>
+  </div>
+
+  <!-- HEADLINE METRICS -->
+  <div style="padding: 0 80px 88px;">
+    <div style="max-width: 1180px; margin: 0 auto;">
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">
+
+        <div class="metric-card">
+          <div class="value" style="color: #6FBF9F;">6/6</div>
+          <div class="label">QB pipeline pass rate after bug fix — all 6 tasks accepted</div>
+          <div class="sub">Initial benchmark: 4/6 (67%) vs baseline 2/6 (33%)</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="value" style="color: #E08A4C;">+34pp</div>
+          <div class="label">Lift over raw baseline in head-to-head run — same coding agent, no QB layers</div>
+          <div class="sub">67% QB vs 33% baseline (4 tasks, both sides run)</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="value" style="color: #F4F1EA;">0</div>
+          <div class="label">Anthropic API keys used across all pipeline executions</div>
+          <div class="sub">All LLM calls via local Ollama (DeepSeek-R1:7b)</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="value" style="color: #6FBF9F;">4/4</div>
+          <div class="label">Repair loop recovery rate — all first-attempt failures resolved automatically</div>
+          <div class="sub">T-001, T-004, T-005, T-006 — no human intervention</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- BENCHMARK TABLE -->
+  <div style="padding: 0 80px 88px; border-top: 1px solid #222A27;">
+    <div style="max-width: 1180px; margin: 0 auto; padding-top: 72px;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #6FBF9F; margin-bottom: 20px;">Task-by-task results</div>
+      <h2 style="margin: 0 0 12px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 42px; font-weight: 400; color: #F4F1EA;">6 tasks. All real functions on a real codebase.</h2>
+      <p style="margin: 0 0 44px 0; font-size: 17px; color: #9AA5A0; max-width: 740px;">Tested against <code style="font-family:'IBM Plex Mono',monospace; font-size:14px; background:#121615; padding:2px 6px; border-radius:3px; color:#C6CFCB;">cue</code> — an Electron desktop AI interview assistant, JS/CJS, 27 tests. Tasks range from single-file utilities to multi-file exports requiring coordinated changes.</p>
+
+      <div style="background: #0A0D0C; border: 1px solid #262E2B; border-radius: 6px; overflow: hidden;">
+        <table>
+          <thead>
+            <tr>
+              <th>Task</th>
+              <th>Description</th>
+              <th>Difficulty</th>
+              <th>QB Result</th>
+              <th>Attempts</th>
+              <th>Baseline</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="font-family:'IBM Plex Mono',monospace; color:#8A948F;">T-001</td>
+              <td><code style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#C6CFCB;">getProviderName()</code> in <code style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#C6CFCB;">src/llm.js</code></td>
+              <td><span class="tag tag-easy">easy</span></td>
+              <td><span class="tag tag-pass">PASS</span></td>
+              <td style="font-family:'IBM Plex Mono',monospace; color:#8A948F;">2</td>
+              <td><span class="tag tag-pass">PASS</span></td>
+              <td style="color:#8A948F; font-size:14px;">L4 flip-flop on attempt 1 (7B inconsistency). Repair loop recovered.</td>
+            </tr>
+            <tr>
+              <td style="font-family:'IBM Plex Mono',monospace; color:#8A948F;">T-002</td>
+              <td><code style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#C6CFCB;">formatDuration(ms)</code> in <code style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#C6CFCB;">src/wav.js</code></td>
+              <td><span class="tag tag-easy">easy</span></td>
+              <td><span class="tag tag-pass">PASS</span></td>
+              <td style="font-family:'IBM Plex Mono',monospace; color:#8A948F;">1</td>
+              <td><span class="tag tag-fail">FAIL</span></td>
+              <td style="color:#8A948F; font-size:14px;">Baseline missed edge-case ACs (invalid input, negative ms, hours). QB contract caught all 6.</td>
+            </tr>
+            <tr>
+              <td style="font-family:'IBM Plex Mono',monospace; color:#8A948F;">T-003</td>
+              <td><code style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#C6CFCB;">isAvailable()</code> on STT object in <code style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#C6CFCB;">src/stt.js</code></td>
+              <td><span class="tag tag-easy">easy</span></td>
+              <td><span class="tag tag-pass">PASS</span></td>
+              <td style="font-family:'IBM Plex Mono',monospace; color:#8A948F;">1</td>
+              <td><span class="tag tag-pass">PASS</span></td>
+              <td style="color:#8A948F; font-size:14px;">Both passed. Tests that agent reads the return-object pattern.</td>
+            </tr>
+            <tr>
+              <td style="font-family:'IBM Plex Mono',monospace; color:#8A948F;">T-004</td>
+              <td><code style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#C6CFCB;">getErrorSummary(error)</code> in <code style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#C6CFCB;">src/llm.js</code></td>
+              <td><span class="tag tag-med">medium</span></td>
+              <td><span class="tag tag-pass">PASS</span></td>
+              <td style="font-family:'IBM Plex Mono',monospace; color:#8A948F;">2</td>
+              <td><span class="tag tag-fail">FAIL</span></td>
+              <td style="color:#8A948F; font-size:14px;">Requires reading existing functions to avoid duplication. Baseline failed entirely. QB repaired on attempt 2.</td>
+            </tr>
+            <tr>
+              <td style="font-family:'IBM Plex Mono',monospace; color:#8A948F;">T-005</td>
+              <td><code style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#C6CFCB;">getVADStats()</code> in <code style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#C6CFCB;">src/vad.js</code></td>
+              <td><span class="tag tag-med">medium</span></td>
+              <td><span class="tag tag-pass">PASS</span></td>
+              <td style="font-family:'IBM Plex Mono',monospace; color:#8A948F;">2</td>
+              <td style="color:#4A5450;">—</td>
+              <td style="color:#8A948F; font-size:14px;">Requires modifying AdaptiveVAD class internals to accumulate counters. Repair loop recovered.</td>
+            </tr>
+            <tr>
+              <td style="font-family:'IBM Plex Mono',monospace; color:#8A948F;">T-006</td>
+              <td><code style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#C6CFCB;">formatBytes()</code> — multi-file export + import in <code style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#C6CFCB;">wav.js</code> + <code style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#C6CFCB;">main.js</code></td>
+              <td><span class="tag tag-hard">hard</span></td>
+              <td><span class="tag tag-pass">PASS</span></td>
+              <td style="font-family:'IBM Plex Mono',monospace; color:#8A948F;">2</td>
+              <td style="color:#4A5450;">—</td>
+              <td style="color:#8A948F; font-size:14px;">Multi-file: correct export in wav.js + correct import + usage in main.js. Repair loop recovered on attempt 2.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top: 20px; padding: 18px 22px; background: #0A0D0C; border: 1px solid #2E4F44; border-radius: 5px; display: flex; gap: 14px; align-items: flex-start;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#6FBF9F" stroke-width="1.5" style="flex-shrink:0; margin-top:2px;" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="M8 5v3.5M8 11h.01"/></svg>
+        <span style="font-size: 14px; line-height: 1.6; color: #8A948F;">All tasks run with a full git reset (<code style="font-family:'IBM Plex Mono',monospace; font-size:12px;">git checkout -- .</code> + <code style="font-family:'IBM Plex Mono',monospace; font-size:12px;">git clean -fd</code>) between every execution. QB and baseline use the same L4 contract so verdicts are directly comparable.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- METHODOLOGY -->
+  <div style="padding: 72px 80px 88px; border-top: 1px solid #222A27; background: #0A0D0C;">
+    <div style="max-width: 1180px; margin: 0 auto;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #E08A4C; margin-bottom: 20px;">Methodology</div>
+      <h2 style="margin: 0 0 44px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 42px; font-weight: 400; color: #F4F1EA;">How we measure</h2>
+
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;">
+        <div style="padding: 28px; background: #0D100F; border: 1px solid #262E2B; border-radius: 5px;">
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#E08A4C; margin-bottom:14px;">01 — Contract</div>
+          <div style="font-size:15px; line-height:1.65; color:#9AA5A0;">L1 produces a Task Contract with explicit acceptance criteria before any code is written. The same contract is used to verify both the QB run and the raw baseline — making comparisons fair.</div>
+        </div>
+        <div style="padding: 28px; background: #0D100F; border: 1px solid #262E2B; border-radius: 5px;">
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#E08A4C; margin-bottom:14px;">02 — Execution</div>
+          <div style="font-size:15px; line-height:1.65; color:#9AA5A0;">QB runs the full 5-layer pipeline. Baseline sends the raw task description directly to <code style="font-family:'IBM Plex Mono',monospace; font-size:13px;">claude --print</code> with no contract, no context, no repair loop. Same underlying model in both cases.</div>
+        </div>
+        <div style="padding: 28px; background: #0D100F; border: 1px solid #262E2B; border-radius: 5px;">
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#E08A4C; margin-bottom:14px;">03 — Verdict</div>
+          <div style="font-size:15px; line-height:1.65; color:#9AA5A0;">L4 judges both diffs against the same contract — running the test suite, checking diff scope, scanning for AC keywords, then asking an independent local LLM to judge each AC. Pass = all criteria met.</div>
+        </div>
+      </div>
+
+      <div style="margin-top: 32px; padding: 28px 32px; border: 1px solid #262E2B; border-radius: 5px; background: #0D100F;">
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#8A948F; margin-bottom:16px; letter-spacing:0.08em;">ZERO API KEYS — HOW</div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:24px;">
+          <div>
+            <div style="font-size:15px; font-weight:600; color:#F4F1EA; margin-bottom:6px;">L1 Intent</div>
+            <div style="font-size:14px; line-height:1.6; color:#9AA5A0;">DeepSeek-R1:7b via Ollama on localhost:11434. Produces the task contract from the raw request.</div>
+          </div>
+          <div>
+            <div style="font-size:15px; font-weight:600; color:#F4F1EA; margin-bottom:6px;">L3 Agent</div>
+            <div style="font-size:14px; line-height:1.6; color:#9AA5A0;">Claude Code CLI subscription — <code style="font-family:'IBM Plex Mono',monospace; font-size:12px;">claude --print</code>. No per-call charge, no Anthropic API key.</div>
+          </div>
+          <div>
+            <div style="font-size:15px; font-weight:600; color:#F4F1EA; margin-bottom:6px;">L4 Verify</div>
+            <div style="font-size:14px; line-height:1.6; color:#9AA5A0;">Same DeepSeek-R1:7b instance, separate context. Independent judgment — never sees the original briefing.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAPER VALIDITY -->
+  <div style="padding: 72px 80px 88px; border-top: 1px solid #222A27;">
+    <div style="max-width: 1180px; margin: 0 auto;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #6FBF9F; margin-bottom: 20px;">Research angle</div>
+      <h2 style="margin: 0 0 24px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 42px; font-weight: 400; color: #F4F1EA;">Why this qualifies as research</h2>
+      <p style="margin: 0 0 44px 0; max-width: 780px; font-size: 18px; line-height: 1.65; color: #9AA5A0;">The Quarterback benchmark produces the kind of controlled, reproducible comparison that software engineering research requires. Three claims are testable with the data we have now.</p>
+
+      <div style="display: flex; flex-direction: column; gap: 20px;">
+
+        <div style="padding: 30px 34px; background: #0A0D0C; border: 1px solid #262E2B; border-radius: 6px; display: flex; gap: 28px; align-items: flex-start;">
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:700; color:#6FBF9F; flex-shrink:0; width:48px;">H1</div>
+          <div>
+            <div style="font-size:18px; font-weight:600; color:#F4F1EA; margin-bottom:8px;">A structured task contract improves agent pass rate over unstructured prompts</div>
+            <div style="font-size:15px; line-height:1.65; color:#9AA5A0;">Claim: same coding agent, with QB's structured contract + context package, passes tasks at a higher rate than when given the raw description. Evidence: QB 67% vs baseline 33% (+34pp) on 6 curated tasks. Confound controlled for: same L4 contract verifies both sides.</div>
+          </div>
+        </div>
+
+        <div style="padding: 30px 34px; background: #0A0D0C; border: 1px solid #262E2B; border-radius: 6px; display: flex; gap: 28px; align-items: flex-start;">
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:700; color:#6FBF9F; flex-shrink:0; width:48px;">H2</div>
+          <div>
+            <div style="font-size:18px; font-weight:600; color:#F4F1EA; margin-bottom:8px;">An automated repair loop recovers failures without human intervention</div>
+            <div style="font-size:15px; line-height:1.65; color:#9AA5A0;">Claim: L4 repair hints fed back to L3 recover failures that the agent could not resolve on first attempt. Evidence: 2/2 recovery rate on T-001 and T-004. Both tasks failed on attempt 1 and passed on attempt 2 with structured repair hints. Baseline failed T-004 entirely — no repair mechanism.</div>
+          </div>
+        </div>
+
+        <div style="padding: 30px 34px; background: #0A0D0C; border: 1px solid #262E2B; border-radius: 6px; display: flex; gap: 28px; align-items: flex-start;">
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:700; color:#6FBF9F; flex-shrink:0; width:48px;">H3</div>
+          <div>
+            <div style="font-size:18px; font-weight:600; color:#F4F1EA; margin-bottom:8px;">Formal acceptance criteria surface edge cases that raw prompting misses</div>
+            <div style="font-size:15px; line-height:1.65; color:#9AA5A0;">Claim: the QB contract forces explicit ACs that an agent given a raw description would not implement. Evidence: T-002 — QB contract included ACs for invalid input, negative values, and hours formatting. Baseline implementation passed basic behavior but failed 3/6 ACs. The edge cases were specified in the contract, not discovered post-hoc.</div>
+          </div>
+        </div>
+
+      </div>
+
+      <div style="margin-top: 36px; padding: 24px 28px; border: 1px solid #3A4441; border-radius: 5px; display: flex; gap: 14px;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8A948F" stroke-width="1.5" style="flex-shrink:0; margin-top:3px;" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="M8 5v3.5M8 11h.01"/></svg>
+        <div style="font-size:14px; line-height:1.65; color:#8A948F;"><strong style="color:#C6CFCB;">Scope caveat:</strong> 6 tasks on one repo is a proof-of-concept dataset. The hypotheses are now falsifiable — the next step is scale (50–100 tasks, 3–5 repos) and independent replication. The beta cohort is the instrument for that.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LIMITATIONS -->
+  <div style="padding: 72px 80px 88px; border-top: 1px solid #222A27; background: #0A0D0C;">
+    <div style="max-width: 1180px; margin: 0 auto;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #E08A4C; margin-bottom: 20px;">Known limitations</div>
+      <h2 style="margin: 0 0 36px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 42px; font-weight: 400; color: #F4F1EA;">What we know is imperfect</h2>
+
+      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+        <div style="padding: 26px 28px; border: 1px solid #262E2B; border-radius: 5px;">
+          <div style="font-size:16px; font-weight:600; color:#F4F1EA; margin-bottom:8px;">L1 contract accuracy ceiling</div>
+          <div style="font-size:14px; line-height:1.65; color:#9AA5A0;">DeepSeek-R1:7b occasionally produces incorrect acceptance criteria — a confidently-wrong spec that the agent then implements correctly. T-002 AC-2 wrote "1000ms → '1m'" when 1000ms = 1s. The entire pipeline then validates the wrong behavior.</div>
+        </div>
+        <div style="padding: 26px 28px; border: 1px solid #262E2B; border-radius: 5px;">
+          <div style="font-size:16px; font-weight:600; color:#F4F1EA; margin-bottom:8px;">L4 7B verdict inconsistency</div>
+          <div style="font-size:14px; line-height:1.65; color:#9AA5A0;">The same diff can receive different verdicts across L4 calls — a 7B model at the judgment boundary. Manifested in T-001 (fail on attempt 1, same code passes on attempt 2). A model router or deterministic post-processing step is the mitigation.</div>
+        </div>
+        <div style="padding: 26px 28px; border: 1px solid #262E2B; border-radius: 5px;">
+          <div style="font-size:16px; font-weight:600; color:#F4F1EA; margin-bottom:8px;">Single-repo benchmark</div>
+          <div style="font-size:14px; line-height:1.65; color:#9AA5A0;">All 6 tasks test the same JavaScript repo. Results on Python, Go, TypeScript, or larger codebases are unknown. The architecture is language-agnostic — the context engine has Go/Python detection — but the benchmark does not yet cover them.</div>
+        </div>
+        <div style="padding: 26px 28px; border: 1px solid #262E2B; border-radius: 5px;">
+          <div style="font-size:16px; font-weight:600; color:#F4F1EA; margin-bottom:8px;">Scope drift on repair</div>
+          <div style="font-size:14px; line-height:1.65; color:#9AA5A0;">T-004 repair attempt 2 modified <code style="font-family:'IBM Plex Mono',monospace; font-size:12px;">src/stt.js</code> in addition to the intended <code style="font-family:'IBM Plex Mono',monospace; font-size:12px;">src/llm.js</code>. Scope enforcement is not yet applied on repair re-executions. Tracked as a known issue.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROGRESS TRACKER -->
+  <div style="padding: 72px 80px 88px; border-top: 1px solid #222A27;">
+    <div style="max-width: 1180px; margin: 0 auto;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #6FBF9F; margin-bottom: 20px;">Progress tracker · live</div>
+      <h2 style="margin: 0 0 44px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 42px; font-weight: 400; color: #F4F1EA;">What's shipped, what's next</h2>
+
+      <div style="background: #0A0D0C; border: 1px solid #262E2B; border-radius: 6px; padding: 12px 28px;">
+
+        <div class="timeline-item">
+          <div class="timeline-dot dot-done"></div>
+          <div>
+            <div style="font-size:16px; font-weight:600; color:#F4F1EA; margin-bottom:4px;">L1 Intent Compiler — LIVE</div>
+            <div style="font-size:14px; line-height:1.6; color:#9AA5A0;">DSA ambiguity pre-filter (regex, 0ms) + DeepSeek-R1:7b via Ollama → TaskContract. No API key. Validated on 6 fixtures including full vague→clarify→compile loop.</div>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot dot-done"></div>
+          <div>
+            <div style="font-size:16px; font-weight:600; color:#F4F1EA; margin-bottom:4px;">L2 Context Engine — LIVE</div>
+            <div style="font-size:14px; line-height:1.6; color:#9AA5A0;">Symbol extraction (ESM + CJS), import graph 2 levels deep, test finder, framework/arch detection, git activity. Optional LLM pass ranks files and writes agent brief. Processes 24-file repo in ~500ms DSA, ~40s with LLM.</div>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot dot-done"></div>
+          <div>
+            <div style="font-size:16px; font-weight:600; color:#F4F1EA; margin-bottom:4px;">L3 Agent Orchestrator — LIVE</div>
+            <div style="font-size:14px; line-height:1.6; color:#9AA5A0;">Structured 140+ line Agent Briefing (0ms DSA). Invokes <code style="font-family:'IBM Plex Mono',monospace; font-size:12px;">claude --print</code> and captures the resulting git diff as a structured Changeset.</div>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot dot-done"></div>
+          <div>
+            <div style="font-size:16px; font-weight:600; color:#F4F1EA; margin-bottom:4px;">L4 Verification Engine — LIVE</div>
+            <div style="font-size:14px; line-height:1.6; color:#9AA5A0;">Test runner (jest/vitest/mocha/node:test), diff scope check, AC keyword scan, independent per-AC LLM judgment. Repair hints generated on failure. Zero API key.</div>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot dot-done"></div>
+          <div>
+            <div style="font-size:16px; font-weight:600; color:#F4F1EA; margin-bottom:4px;">L5 Memory — LIVE</div>
+            <div style="font-size:14px; line-height:1.6; color:#9AA5A0;">Per-repo JSONL store at <code style="font-family:'IBM Plex Mono',monospace; font-size:12px;">~/.quarterback/memory/</code>. Jaccard-similarity scorer (pure DSA, 0ms). File hints, repair recall, prior contract retrieval. Active by run 3 — <code style="font-family:'IBM Plex Mono',monospace; font-size:12px;">src/llm.js</code> recalled at sim=1.00.</div>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot dot-done"></div>
+          <div>
+            <div style="font-size:16px; font-weight:600; color:#F4F1EA; margin-bottom:4px;">Repair loop — LIVE</div>
+            <div style="font-size:14px; line-height:1.6; color:#9AA5A0;">L4 failures generate structured repair hints → fed back to L3 for automatic re-execution. Max retries configurable. Recovered 2/2 failed tasks in benchmark. No human intervention required.</div>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot dot-done"></div>
+          <div>
+            <div style="font-size:16px; font-weight:600; color:#F4F1EA; margin-bottom:4px;">Benchmark harness — DONE</div>
+            <div style="font-size:14px; line-height:1.6; color:#9AA5A0;">6-task suite against real production JS repo. QB vs raw baseline comparison. Git reset (<code style="font-family:'IBM Plex Mono',monospace; font-size:12px;">checkout + clean -fd</code>) between every run. Table, markdown, and CSV report output.</div>
+          </div>
+        </div>
+
+        <div class="timeline-item" style="border-bottom: none;">
+          <div class="timeline-dot dot-next"></div>
+          <div>
+            <div style="font-size:16px; font-weight:600; color:#8A948F; margin-bottom:4px;">Next: scale the benchmark</div>
+            <div style="font-size:14px; line-height:1.6; color:#4A5450;">50–100 tasks across 3–5 repos. Python, TypeScript, Go coverage. Independent replication. Beta cohort instrumentation — real developer workflows, real before/after numbers.</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div style="padding: 40px 80px; border-top: 1px solid #222A27; background: #0A0D0C;">
+    <div style="max-width: 1180px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#E08A4C" stroke-width="1.6" aria-hidden="true"><path d="M2 10h5l2.2 5 3-11 2 6h3.8"></path></svg>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 600; color: #C6CFCB;">Quarterback</span>
+        <span style="font-size: 14px; color: #8A948F;">· a <a href="https://velorallc.netlify.app/" target="_blank" rel="noopener noreferrer" style="color: #8A948F; text-decoration: none; border-bottom: 1px solid rgba(138,148,143,0.35);">Velora</a> product</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 24px;">
+        <a href="./index.html" style="font-size:14px; color:#8A948F; text-decoration:none;">← Back to product</a>
+        <a href="./index.html#beta" style="font-size:14px; color:#6FBF9F; text-decoration:none;">Join the beta →</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

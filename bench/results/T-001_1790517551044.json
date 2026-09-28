@@ -1,0 +1,150 @@
+{
+  "task_id": "T-001",
+  "difficulty": "easy",
+  "tags": [
+    "add-function",
+    "single-file",
+    "state"
+  ],
+  "description": "Add a getProviderName() function to src/llm.js that returns the currently active LLM provider name as a string",
+  "qb": {
+    "timing": {
+      "l1_ms": 32304,
+      "l2_ms": 38761,
+      "total_ms": 246195
+    },
+    "contract": {
+      "id": "eaa643c8-2196-4907-9b56-bfb62a888e47",
+      "created_at": "2026-09-27T13:53:45.393Z",
+      "raw_request": "Add a getProviderName() function to src/llm.js that returns the currently active LLM provider name as a string",
+      "repo_path": null,
+      "goal": "Add a function getProviderName() to src/llm.js that returns the currently active LLM provider name as a string. This will allow developers to programmatically retrieve the active provider name without hardcoding it.",
+      "required_behavior": [
+        "Add the function getProviderName() to src/llm.js",
+        "Return a string containing the currently active LLM provider name",
+        "Ensure the function correctly returns the provider name"
+      ],
+      "constraints": [
+        "Do not modify the existing provider configuration",
+        "Do not expose the provider name through other means",
+        "Do not call this function from other parts of the code unless intended"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "AC-1",
+          "criterion": "The getProviderName() function exists in src/llm.js",
+          "met": null
+        },
+        {
+          "id": "AC-2",
+          "criterion": "The function returns a string",
+          "met": null
+        },
+        {
+          "id": "AC-3",
+          "criterion": "The function returns the currently active provider name",
+          "met": null
+        }
+      ],
+      "verification_plan": [
+        "Verify the existence of getProviderName() in src/llm.js",
+        "Check that the function returns a string",
+        "Test that the function returns the correct provider name"
+      ],
+      "relevant_context": [
+        "src/llm.js",
+        "llmconstants.js"
+      ],
+      "ambiguity_flags": [],
+      "clarifying_question": null
+    },
+    "ac_count": 3,
+    "files_in_scope": 24,
+    "symbols": 7,
+    "attempts": [
+      {
+        "attempt": 1,
+        "l3_ms": 37036,
+        "l4_ms": 44368,
+        "verdict": "fail",
+        "files_changed": [
+          "src/llm.js"
+        ],
+        "ac_results": [
+          {
+            "id": "AC-1",
+            "met": true
+          },
+          {
+            "id": "AC-2",
+            "met": false
+          },
+          {
+            "id": "AC-3",
+            "met": false
+          }
+        ],
+        "failures": [
+          "AC-2",
+          "AC-3"
+        ]
+      },
+      {
+        "attempt": 2,
+        "l3_ms": 51482,
+        "l4_ms": 42244,
+        "verdict": "pass",
+        "files_changed": [
+          "src/llm.js"
+        ],
+        "ac_results": [
+          {
+            "id": "AC-1",
+            "met": true
+          },
+          {
+            "id": "AC-2",
+            "met": true
+          },
+          {
+            "id": "AC-3",
+            "met": true
+          }
+        ],
+        "failures": []
+      }
+    ],
+    "final_verdict": "pass",
+    "total_attempts": 2,
+    "first_verdict": "fail",
+    "files_changed": [
+      "src/llm.js"
+    ]
+  },
+  "baseline": {
+    "agent_ms": 17956,
+    "status": "completed",
+    "error": null,
+    "l4_ms": 92946,
+    "verdict": "pass",
+    "ac_results": [
+      {
+        "id": "AC-1",
+        "met": true
+      },
+      {
+        "id": "AC-2",
+        "met": true
+      },
+      {
+        "id": "AC-3",
+        "met": true
+      }
+    ],
+    "failures": [],
+    "files_changed": [
+      "src/llm.js"
+    ],
+    "timing_ms": 110902
+  }
+}

@@ -1,0 +1,123 @@
+{
+  "task_id": "T-005",
+  "difficulty": "medium",
+  "tags": [
+    "add-function",
+    "single-file",
+    "utility"
+  ],
+  "description": "Add a getVADStats() function to src/vad.js that returns an object with speechCount (number of speech events detected) and totalSpeechMs (cumulative ms of detected speech) tracked since the AdaptiveVAD was created",
+  "qb": {
+    "timing": {
+      "l1_ms": 31293,
+      "l2_ms": 36839,
+      "total_ms": 168241
+    },
+    "contract": {
+      "id": "9b6bf651-cc13-4dfb-be5c-6a4665e776f6",
+      "created_at": "2026-09-27T14:19:55.835Z",
+      "raw_request": "Add a getVADStats() function to src/vad.js that returns an object with speechCount (number of speech events detected) and totalSpeechMs (cumulative ms of detected speech) tracked since the AdaptiveVAD was created",
+      "repo_path": null,
+      "goal": "Add a function getVADStats() to src/vad.js that returns an object containing speechCount and totalSpeechMs. This function should track the number of speech events detected and the cumulative milliseconds of detected speech since the AdaptiveVAD was created.",
+      "required_behavior": [
+        "The getVADStats() function is added to src/vad.js",
+        "The function returns an object with speechCount (number of speech events detected) and totalSpeechMs (cumulative ms of detected speech)",
+        "The function tracks speech events since the AdaptiveVAD was created"
+      ],
+      "constraints": [
+        "The getVADStats() function is added to src/vad.js",
+        "The function does not interfere with existing code in src/vad.js"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "AC-1",
+          "criterion": "The getVADStats() function is present in src/vad.js",
+          "met": null
+        },
+        {
+          "id": "AC-2",
+          "criterion": "The getVADStats() function returns an object with speechCount and totalSpeechMs",
+          "met": null
+        },
+        {
+          "id": "AC-3",
+          "criterion": "The getVADStats() function tracks speech events since the AdaptiveVAD was created",
+          "met": null
+        }
+      ],
+      "verification_plan": [
+        "Verify the presence of the getVADStats() function in src/vad.js",
+        "Verify the return type and structure of the function",
+        "Verify the function's implementation logic for tracking speech events"
+      ],
+      "relevant_context": [
+        "src/vad.js"
+      ],
+      "ambiguity_flags": [],
+      "clarifying_question": null
+    },
+    "ac_count": 3,
+    "files_in_scope": 25,
+    "symbols": 7,
+    "attempts": [
+      {
+        "attempt": 1,
+        "l3_ms": 59954,
+        "l4_ms": 40155,
+        "verdict": "fail",
+        "files_changed": [
+          "src/vad.js"
+        ],
+        "ac_results": [
+          {
+            "id": "AC-1",
+            "met": true
+          },
+          {
+            "id": "AC-2",
+            "met": true
+          },
+          {
+            "id": "AC-3",
+            "met": true
+          }
+        ],
+        "failures": []
+      }
+    ],
+    "final_verdict": "fail",
+    "total_attempts": 1,
+    "first_verdict": "fail",
+    "files_changed": [
+      "src/vad.js"
+    ]
+  },
+  "baseline": {
+    "agent_ms": 41371,
+    "status": "completed",
+    "error": null,
+    "l4_ms": 31083,
+    "verdict": "fail",
+    "ac_results": [
+      {
+        "id": "AC-1",
+        "met": true
+      },
+      {
+        "id": "AC-2",
+        "met": true
+      },
+      {
+        "id": "AC-3",
+        "met": false
+      }
+    ],
+    "failures": [
+      "AC-3"
+    ],
+    "files_changed": [
+      "src/vad.js"
+    ],
+    "timing_ms": 72454
+  }
+}

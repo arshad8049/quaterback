@@ -1,0 +1,169 @@
+{
+  "task_id": "T-002",
+  "difficulty": "easy",
+  "tags": [
+    "add-function",
+    "single-file"
+  ],
+  "description": "Add a formatDuration(ms) function to src/wav.js that converts a millisecond count to a human-readable string like '1m 23s' or '45s'",
+  "qb": {
+    "timing": {
+      "l1_ms": 49319,
+      "l2_ms": 35678,
+      "total_ms": 251962
+    },
+    "contract": {
+      "id": "1b7d0f28-b4df-445d-85e7-2ed17a8dd713",
+      "created_at": "2026-09-27T14:00:00.392Z",
+      "raw_request": "Add a formatDuration(ms) function to src/wav.js that converts a millisecond count to a human-readable string like '1m 23s' or '45s'",
+      "repo_path": null,
+      "goal": "Add a function formatDuration(ms) to src/wav.js that converts a millisecond count to a human-readable string like '1m 23s' or '45s'.",
+      "required_behavior": [
+        "The function takes a number in milliseconds as input.",
+        "The function returns a string formatted as 'Xm Ys' or 'Xs' depending on the input.",
+        "The function handles edge cases such as 0ms, 1000ms, 60000ms, and 3600000ms.",
+        "The function formats the output correctly, using 'm' for minutes and 's' for seconds.",
+        "The function omits unnecessary parts of the time representation."
+      ],
+      "constraints": [
+        "The function should not modify the input value.",
+        "The function should not change the type of the input value.",
+        "The function should not affect any other parts of the code outside of this implementation."
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "AC-1",
+          "criterion": "The function correctly formats 0ms as '0s'.",
+          "met": null
+        },
+        {
+          "id": "AC-2",
+          "criterion": "The function correctly formats 1000ms as '1m'.",
+          "met": null
+        },
+        {
+          "id": "AC-3",
+          "criterion": "The function correctly formats 60000ms as '1m 0s'.",
+          "met": null
+        },
+        {
+          "id": "AC-4",
+          "criterion": "The function correctly formats 3600000ms as '1h'.",
+          "met": null
+        },
+        {
+          "id": "AC-5",
+          "criterion": "The function correctly formats 45000ms as '45s'.",
+          "met": null
+        },
+        {
+          "id": "AC-6",
+          "criterion": "The function correctly handles invalid input such as negative numbers or non-numeric types by returning 'Invalid input'.",
+          "met": null
+        }
+      ],
+      "verification_plan": [
+        "Run test cases for 0ms, 1000ms, 60000ms, and 3600000ms to verify correct formatting.",
+        "Check that the function returns 'Invalid input' for negative numbers or non-numeric types.",
+        "Verify that the function does not modify the input value or change its type.",
+        "Ensure that the function does not affect any other parts of the code."
+      ],
+      "relevant_context": [
+        "src/wav.js"
+      ],
+      "ambiguity_flags": [],
+      "clarifying_question": null
+    },
+    "ac_count": 6,
+    "files_in_scope": 24,
+    "symbols": 7,
+    "attempts": [
+      {
+        "attempt": 1,
+        "l3_ms": 80954,
+        "l4_ms": 86011,
+        "verdict": "pass",
+        "files_changed": [
+          "src/wav.js",
+          "test/wav.test.js"
+        ],
+        "ac_results": [
+          {
+            "id": "AC-1",
+            "met": true
+          },
+          {
+            "id": "AC-2",
+            "met": true
+          },
+          {
+            "id": "AC-3",
+            "met": true
+          },
+          {
+            "id": "AC-4",
+            "met": true
+          },
+          {
+            "id": "AC-5",
+            "met": true
+          },
+          {
+            "id": "AC-6",
+            "met": true
+          }
+        ],
+        "failures": []
+      }
+    ],
+    "final_verdict": "pass",
+    "total_attempts": 1,
+    "first_verdict": "pass",
+    "files_changed": [
+      "src/wav.js",
+      "test/wav.test.js"
+    ]
+  },
+  "baseline": {
+    "agent_ms": 12273,
+    "status": "completed",
+    "error": null,
+    "l4_ms": 91647,
+    "verdict": "fail",
+    "ac_results": [
+      {
+        "id": "AC-1",
+        "met": true
+      },
+      {
+        "id": "AC-2",
+        "met": false
+      },
+      {
+        "id": "AC-3",
+        "met": true
+      },
+      {
+        "id": "AC-4",
+        "met": false
+      },
+      {
+        "id": "AC-5",
+        "met": true
+      },
+      {
+        "id": "AC-6",
+        "met": false
+      }
+    ],
+    "failures": [
+      "AC-2",
+      "AC-4",
+      "AC-6"
+    ],
+    "files_changed": [
+      "src/wav.js"
+    ],
+    "timing_ms": 103920
+  }
+}

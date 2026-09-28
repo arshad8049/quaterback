@@ -1,0 +1,145 @@
+{
+  "task_id": "T-006",
+  "difficulty": "hard",
+  "tags": [
+    "add-function",
+    "multi-file",
+    "export"
+  ],
+  "description": "Add a formatBytes(bytes) utility function to src/wav.js that converts a byte count to a human-readable string like '1.2 MB' or '340 KB', then export it and import and use it in main.js to log the PCM buffer size before each STT flush",
+  "qb": {
+    "timing": {
+      "l1_ms": 34254,
+      "l2_ms": 27772,
+      "total_ms": 167015
+    },
+    "contract": {
+      "id": "eacab47a-2772-42e9-b0a5-7727951bb8d4",
+      "created_at": "2026-09-27T14:23:59.736Z",
+      "raw_request": "Add a formatBytes(bytes) utility function to src/wav.js that converts a byte count to a human-readable string like '1.2 MB' or '340 KB', then export it and import and use it in main.js to log the PCM buffer size before each STT flush",
+      "repo_path": null,
+      "goal": "Implement a formatBytes function in src/wav.js that converts byte counts to human-readable strings and use it to log PCM buffer sizes in main.js.",
+      "required_behavior": [
+        "Create a formatBytes function in src/wav.js",
+        "Export the formatBytes function from src/wav.js",
+        "Import and use the formatBytes function in main.js to log PCM buffer size before each STT flush"
+      ],
+      "constraints": [
+        "formatBytes must be correctly implemented in src/wav.js",
+        "The formatBytes function must be exported from src/wav.js",
+        "The formatBytes function must be imported and used in main.js",
+        "The import and export of formatBytes must not revert previous changes"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "AC-1",
+          "criterion": "The formatBytes function is correctly implemented in src/wav.js",
+          "met": null
+        },
+        {
+          "id": "AC-2",
+          "criterion": "The formatBytes function is exported from src/wav.js",
+          "met": null
+        },
+        {
+          "id": "AC-3",
+          "criterion": "The formatBytes function is imported and used in main.js",
+          "met": null
+        },
+        {
+          "id": "AC-4",
+          "criterion": "The import/export of formatBytes does not revert previous changes",
+          "met": null
+        }
+      ],
+      "verification_plan": [
+        "Run tests for formatBytes implementation",
+        "Check src/wav.js for the formatBytes function",
+        "Verify main.js imports and uses formatBytes",
+        "Check for any reverted changes in main.js"
+      ],
+      "relevant_context": [
+        "src/wav.js",
+        "main.js"
+      ],
+      "ambiguity_flags": [],
+      "clarifying_question": null
+    },
+    "ac_count": 4,
+    "files_in_scope": 25,
+    "symbols": 7,
+    "attempts": [
+      {
+        "attempt": 1,
+        "l3_ms": 45964,
+        "l4_ms": 59025,
+        "verdict": "fail",
+        "files_changed": [
+          "main.js",
+          "src/wav.js",
+          "test/wav.test.js"
+        ],
+        "ac_results": [
+          {
+            "id": "AC-1",
+            "met": true
+          },
+          {
+            "id": "AC-2",
+            "met": true
+          },
+          {
+            "id": "AC-3",
+            "met": true
+          },
+          {
+            "id": "AC-4",
+            "met": true
+          }
+        ],
+        "failures": []
+      }
+    ],
+    "final_verdict": "fail",
+    "total_attempts": 1,
+    "first_verdict": "fail",
+    "files_changed": [
+      "main.js",
+      "src/wav.js",
+      "test/wav.test.js"
+    ]
+  },
+  "baseline": {
+    "agent_ms": 19191,
+    "status": "completed",
+    "error": null,
+    "l4_ms": 62551,
+    "verdict": "fail",
+    "ac_results": [
+      {
+        "id": "AC-1",
+        "met": true
+      },
+      {
+        "id": "AC-2",
+        "met": true
+      },
+      {
+        "id": "AC-3",
+        "met": true
+      },
+      {
+        "id": "AC-4",
+        "met": false
+      }
+    ],
+    "failures": [
+      "AC-4"
+    ],
+    "files_changed": [
+      "main.js",
+      "src/wav.js"
+    ],
+    "timing_ms": 81742
+  }
+}

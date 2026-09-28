@@ -1,0 +1,140 @@
+{
+  "task_id": "T-006",
+  "difficulty": "hard",
+  "tags": [
+    "add-function",
+    "multi-file",
+    "export"
+  ],
+  "description": "Add a formatBytes(bytes) utility function to src/wav.js that converts a byte count to a human-readable string like '1.2 MB' or '340 KB', then export it and import and use it in main.js to log the PCM buffer size before each STT flush",
+  "qb": {
+    "timing": {
+      "l1_ms": 43930,
+      "l2_ms": 33163,
+      "total_ms": 307472
+    },
+    "contract": {
+      "id": "a7c335f7-f96f-49d9-add4-9e03f41ca93f",
+      "created_at": "2026-09-28T20:24:00.348Z",
+      "raw_request": "Add a formatBytes(bytes) utility function to src/wav.js that converts a byte count to a human-readable string like '1.2 MB' or '340 KB', then export it and import and use it in main.js to log the PCM buffer size before each STT flush",
+      "repo_path": null,
+      "goal": "Implement a formatBytes function in src/wav.js that converts byte counts to human-readable strings and export it for use in main.js to log PCM buffer size before STT flush.",
+      "required_behavior": [
+        "The formatBytes function correctly converts byte counts to human-readable strings like '1.2 MB' or '340 KB'",
+        "The formatBytes function is exported from src/wav.js",
+        "The formatBytes function is imported and used in main.js to log PCM buffer size before each STT flush"
+      ],
+      "constraints": [
+        "The formatBytes function must not break any existing functionality in src/wav.js",
+        "The formatBytes function must be exported from src/wav.js",
+        "The formatBytes function must be imported and used in main.js to log PCM buffer size before each STT flush"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "AC-1",
+          "criterion": "The formatBytes function correctly converts a byte count to a human-readable string like '1.2 MB' or '340 KB'",
+          "met": null
+        },
+        {
+          "id": "AC-2",
+          "criterion": "The formatBytes function is exported from src/wav.js",
+          "met": null
+        },
+        {
+          "id": "AC-3",
+          "criterion": "The formatBytes function is imported and used in main.js to log PCM buffer size before each STT flush",
+          "met": null
+        },
+        {
+          "id": "AC-4",
+          "criterion": "The formatBytes function does not introduce any side effects or unintended behavior",
+          "met": null
+        }
+      ],
+      "verification_plan": [
+        "Test the formatBytes function with various byte values to ensure correct formatting.",
+        "Verify that the formatBytes function is exported from src/wav.js.",
+        "Check that the formatBytes function is imported and used in main.js to log PCM buffer size before each STT flush.",
+        "Run integration tests to ensure the logging functionality works as expected."
+      ],
+      "relevant_context": [
+        "src/wav.js",
+        "main.js"
+      ],
+      "ambiguity_flags": [],
+      "clarifying_question": null
+    },
+    "ac_count": 4,
+    "files_in_scope": 24,
+    "symbols": 7,
+    "attempts": [
+      {
+        "attempt": 1,
+        "l3_ms": 43673,
+        "l4_ms": 66800,
+        "verdict": "fail",
+        "files_changed": [
+          "main.js",
+          "src/wav.js"
+        ],
+        "ac_results": [
+          {
+            "id": "AC-1",
+            "met": true
+          },
+          {
+            "id": "AC-2",
+            "met": true
+          },
+          {
+            "id": "AC-3",
+            "met": false
+          },
+          {
+            "id": "AC-4",
+            "met": true
+          }
+        ],
+        "failures": [
+          "AC-3"
+        ]
+      },
+      {
+        "attempt": 2,
+        "l3_ms": 35822,
+        "l4_ms": 84084,
+        "verdict": "pass",
+        "files_changed": [
+          "main.js",
+          "src/wav.js"
+        ],
+        "ac_results": [
+          {
+            "id": "AC-1",
+            "met": true
+          },
+          {
+            "id": "AC-2",
+            "met": true
+          },
+          {
+            "id": "AC-3",
+            "met": true
+          },
+          {
+            "id": "AC-4",
+            "met": true
+          }
+        ],
+        "failures": []
+      }
+    ],
+    "final_verdict": "pass",
+    "total_attempts": 2,
+    "first_verdict": "fail",
+    "files_changed": [
+      "main.js",
+      "src/wav.js"
+    ]
+  }
+}

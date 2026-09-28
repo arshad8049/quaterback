@@ -39,6 +39,11 @@ const html = `<!DOCTYPE html>
   <link rel="icon" type="image/png" href="./favicon.png">
   <link rel="apple-touch-icon" href="./favicon.png">
 
+  <!-- Security -->
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta http-equiv="X-Frame-Options" content="DENY">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+
   <!-- Fonts → edit: src/styles/fonts.css -->
   <link rel="stylesheet" href="./src/styles/fonts.css">
 

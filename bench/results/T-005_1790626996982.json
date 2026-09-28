@@ -1,0 +1,132 @@
+{
+  "task_id": "T-005",
+  "difficulty": "medium",
+  "tags": [
+    "add-function",
+    "single-file",
+    "utility"
+  ],
+  "description": "Add a getVADStats() function to src/vad.js that returns an object with speechCount (number of speech events detected) and totalSpeechMs (cumulative ms of detected speech) tracked since the AdaptiveVAD was created",
+  "qb": {
+    "timing": {
+      "l1_ms": 32018,
+      "l2_ms": 40669,
+      "total_ms": 302638
+    },
+    "contract": {
+      "id": "96758686-509a-4195-a1e8-db35128ac028",
+      "created_at": "2026-09-28T20:18:46.273Z",
+      "raw_request": "Add a getVADStats() function to src/vad.js that returns an object with speechCount (number of speech events detected) and totalSpeechMs (cumulative ms of detected speech) tracked since the AdaptiveVAD was created",
+      "repo_path": null,
+      "goal": "Implement a getVADStats() function in src/vad.js that returns an object containing speechCount and totalSpeechMs.",
+      "required_behavior": [
+        "The function returns an object with speechCount (number of speech events detected) and totalSpeechMs (cumulative ms of detected speech)",
+        "The function is properly formatted and placed in src/vad.js"
+      ],
+      "constraints": [
+        "The function must not alter the existing VAD functionality",
+        "Any new code must be properly formatted and placed in the correct location"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "AC-1",
+          "criterion": "The function returns an object with the correct property types (speechCount: number, totalSpeechMs: number)",
+          "met": null
+        },
+        {
+          "id": "AC-2",
+          "criterion": "The function returns an object with the required properties (speechCount and totalSpeechMs)",
+          "met": null
+        },
+        {
+          "id": "AC-3",
+          "criterion": "The function is properly exported from src/vad.js",
+          "met": null
+        },
+        {
+          "id": "AC-4",
+          "criterion": "The function is correctly formatted with proper indentation and syntax",
+          "met": null
+        }
+      ],
+      "verification_plan": [
+        "Run tests to verify that getVADStats() returns the correct object structure with speechCount and totalSpeechMs",
+        "Verify that the function is properly exported from src/vad.js"
+      ],
+      "relevant_context": [
+        "src/vad.js"
+      ],
+      "ambiguity_flags": [],
+      "clarifying_question": null
+    },
+    "ac_count": 4,
+    "files_in_scope": 24,
+    "symbols": 7,
+    "attempts": [
+      {
+        "attempt": 1,
+        "l3_ms": 42803,
+        "l4_ms": 63561,
+        "verdict": "fail",
+        "files_changed": [
+          "src/vad.js"
+        ],
+        "ac_results": [
+          {
+            "id": "AC-1",
+            "met": true
+          },
+          {
+            "id": "AC-2",
+            "met": true
+          },
+          {
+            "id": "AC-3",
+            "met": false
+          },
+          {
+            "id": "AC-4",
+            "met": true
+          }
+        ],
+        "failures": [
+          "AC-3"
+        ]
+      },
+      {
+        "attempt": 2,
+        "l3_ms": 66873,
+        "l4_ms": 56714,
+        "verdict": "pass",
+        "files_changed": [
+          "src/vad.js"
+        ],
+        "ac_results": [
+          {
+            "id": "AC-1",
+            "met": true
+          },
+          {
+            "id": "AC-2",
+            "met": true
+          },
+          {
+            "id": "AC-3",
+            "met": true
+          },
+          {
+            "id": "AC-4",
+            "met": true
+          }
+        ],
+        "failures": []
+      }
+    ],
+    "final_verdict": "pass",
+    "total_attempts": 2,
+    "first_verdict": "fail",
+    "files_changed": [
+      "src/vad.js"
+    ]
+  }
+}

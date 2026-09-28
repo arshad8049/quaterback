@@ -1,0 +1,155 @@
+◇ injected env (0) from intent/.env
+◇ injected env (0) from intent/.env
+◇ injected env (0) from context/.env
+◇ injected env (0) from intent/.env
+◇ injected env (0) from context/.env
+
+════════════════════════════════════════════════════════════════════════
+  QUARTERBACK BENCHMARK
+  Tasks: 6  |  Repo: /Users/Arshad_1/Desktop/Start/projects/cue
+  Baseline: yes  |  LLM context: yes
+════════════════════════════════════════════════════════════════════════
+
+
+────────────────────────────────────────────────────────────────────────
+  [T-001] EASY  — Add a getProviderName() function to src/llm.js that returns the c
+────────────────────────────────────────────────────────────────────────
+
+  [QB] Running full pipeline...
+     L1 32304ms — 3 ACs
+     L2 38761ms — 24 files, 7 symbols
+     L3+L4 attempt 1: ✗ FAIL (81404ms)
+     L3+L4 attempt 2: ✓ PASS (93726ms)
+
+     QB  ✓ PASS  — 2 attempt(s)  246.2s
+         first attempt: ✗ fail
+         changed: src/llm.js
+
+  [BASE] Running raw baseline (no pipeline)...
+     BASE ✓ PASS  — 110.9s
+         changed: src/llm.js
+
+  Saved → /Users/Arshad_1/Desktop/millionaire/quaterback/bench/results/T-001_1790517551044.json
+
+────────────────────────────────────────────────────────────────────────
+  [T-002] EASY  — Add a formatDuration(ms) function to src/wav.js that converts a m
+────────────────────────────────────────────────────────────────────────
+
+  [QB] Running full pipeline...
+     L1 49319ms — 6 ACs
+     L2 35678ms — 24 files, 7 symbols
+     L3+L4 attempt 1: ✓ PASS (166965ms)
+
+     QB  ✓ PASS  — 1 attempt(s)  252.0s
+         first attempt: ✓ pass
+         changed: src/wav.js, test/wav.test.js
+
+  [BASE] Running raw baseline (no pipeline)...
+     BASE ✗ FAIL  — 103.9s
+         changed: src/wav.js
+         failing ACs: AC-2, AC-4, AC-6
+
+  Saved → /Users/Arshad_1/Desktop/millionaire/quaterback/bench/results/T-002_1790517907286.json
+
+────────────────────────────────────────────────────────────────────────
+  [T-003] EASY  — Add an isAvailable() method to the STT object returned by createS
+────────────────────────────────────────────────────────────────────────
+
+  [QB] Running full pipeline...
+     L1 35491ms — 3 ACs
+     L2 28629ms — 24 files, 7 symbols
+     L3+L4 attempt 1: ✓ PASS (147751ms)
+
+     QB  ✓ PASS  — 1 attempt(s)  211.9s
+         first attempt: ✓ pass
+         changed: src/stt.js
+
+  [BASE] Running raw baseline (no pipeline)...
+     BASE ✓ PASS  — 65.9s
+         changed: src/stt.js
+
+  Saved → /Users/Arshad_1/Desktop/millionaire/quaterback/bench/results/T-003_1790518185776.json
+
+────────────────────────────────────────────────────────────────────────
+  [T-004] MEDIUM  — Add a getErrorSummary(error) helper function to src/llm.js that r
+────────────────────────────────────────────────────────────────────────
+
+  [QB] Running full pipeline...
+     L1 32055ms — 3 ACs
+     L2 35821ms — 25 files, 7 symbols
+     L3+L4 attempt 1: ✗ FAIL (71450ms)
+     L3+L4 attempt 2: ✓ PASS (335011ms)
+
+     QB  ✓ PASS  — 2 attempt(s)  474.3s
+         first attempt: ✗ fail
+         changed: src/llm.js, src/stt.js
+
+  [BASE] Running raw baseline (no pipeline)...
+     BASE ✗ FAIL  — 104.0s
+         changed: src/llm.js
+         failing ACs: AC-2
+
+  Saved → /Users/Arshad_1/Desktop/millionaire/quaterback/bench/results/T-004_1790518764521.json
+
+────────────────────────────────────────────────────────────────────────
+  [T-005] MEDIUM  — Add a getVADStats() function to src/vad.js that returns an object
+────────────────────────────────────────────────────────────────────────
+
+  [QB] Running full pipeline...
+     L1 31293ms — 3 ACs
+     L2 36839ms — 25 files, 7 symbols
+     L3+L4 attempt 1: ✗ FAIL (100109ms)
+
+     QB  ✗ FAIL  — 1 attempt(s)  168.2s
+         first attempt: ✗ fail
+         changed: src/vad.js
+
+  [BASE] Running raw baseline (no pipeline)...
+     BASE ✗ FAIL  — 72.5s
+         changed: src/vad.js
+         failing ACs: AC-3
+
+  Saved → /Users/Arshad_1/Desktop/millionaire/quaterback/bench/results/T-005_1790519005452.json
+
+────────────────────────────────────────────────────────────────────────
+  [T-006] HARD  — Add a formatBytes(bytes) utility function to src/wav.js that conv
+────────────────────────────────────────────────────────────────────────
+
+  [QB] Running full pipeline...
+     L1 34254ms — 4 ACs
+     L2 27772ms — 25 files, 7 symbols
+     L3+L4 attempt 1: ✗ FAIL (104989ms)
+
+     QB  ✗ FAIL  — 1 attempt(s)  167.0s
+         first attempt: ✗ fail
+         changed: main.js, src/wav.js, test/wav.test.js
+
+  [BASE] Running raw baseline (no pipeline)...
+     BASE ✗ FAIL  — 81.7s
+         changed: main.js, src/wav.js
+         failing ACs: AC-4
+
+  Saved → /Users/Arshad_1/Desktop/millionaire/quaterback/bench/results/T-006_1790519254421.json
+
+
+════════════════════════════════════════════════════════════════════════
+  BENCHMARK SUMMARY
+════════════════════════════════════════════════════════════════════════
+  ID      Diff     QB         1st        Tries   Time     BASE      
+  ──────────────────────────────────────────────────────────────────
+  T-001   ?        ✓ pass     ✗ fail     2       246.2s   ✓ pass
+  T-002   ?        ✓ pass     ✓ pass     1       252.0s   ✗ fail
+  T-003   ?        ✓ pass     ✓ pass     1       211.9s   ✓ pass
+  T-004   ?        ✓ pass     ✗ fail     2       474.3s   ✗ fail
+  T-005   ?        ✗ fail     ✗ fail     1       168.2s   ✗ fail
+  T-006   ?        ✗ fail     ✗ fail     1       167.0s   ✗ fail
+
+  ──────────────────────────────────────────────────────────────────
+  QB pass rate:         4/6 (67%)
+  QB first-attempt:     2/6 (33%)
+  QB avg attempts:      1.3
+  QB avg time:          253.3s
+  Baseline pass rate:   2/6 (33%)
+
+════════════════════════════════════════════════════════════════════════
+
