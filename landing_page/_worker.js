@@ -52,7 +52,6 @@ async function handleBetaAccess(request, env) {
 
   const email = (body.email || '').trim().toLowerCase();
   const agent = (body.agent || '').trim() || null;
-  console.log(`[beta-access] email="${email}" agent="${agent}"`);
 
   if (!email || !email.includes('@') || !email.includes('.')) {
     return json({ error: 'Invalid email' }, 400);
@@ -62,7 +61,6 @@ async function handleBetaAccess(request, env) {
   const existing = await env.DB
     .prepare('SELECT id FROM submissions WHERE email = ?')
     .bind(email).first();
-  console.log(`[beta-access] duplicate=${!!existing}`);
   if (existing) return json({ ok: true, duplicate: true });
 
   const ip       = request.headers.get('CF-Connecting-IP') || null;
@@ -241,15 +239,12 @@ async function sendOwnerNotify(email, agent, count, ip, referrer, apiKey) {
 }
 
 async function resendSend(to, subject, html, apiKey) {
-  if (!apiKey) { console.log('[resend] no API key — skipped'); return; }
-  const res  = await fetch(RESEND_URL, {
+  if (!apiKey) return;
+  return fetch(RESEND_URL, {
     method:  'POST',
     headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body:    JSON.stringify({ from: FROM, to, subject, html }),
   });
-  const body = await res.json().catch(() => ({}));
-  console.log(`[resend] status=${res.status} to=${to} body=${JSON.stringify(body)}`);
-  return res;
 }
 
 // ─── Utilities ────────────────────────────────────────────────────────────────

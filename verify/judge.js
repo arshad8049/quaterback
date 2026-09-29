@@ -139,10 +139,39 @@ async function callOnce(ac, diff, signals) {
   return parseJudgment(raw);
 }
 
+// Criteria that assert the ABSENCE of breakage — can only be verified by
+// running the test suite, never from static diff analysis. Always null.
+const PRESERVATION_PATTERNS = [
+  /existing\s+\w*\s*(functionality|behavior|code|tests?)\s+(remains?\s+)?unchanged/i,
+  /remains?\s+unchanged/i,
+  /no\s+other\s+parts?\s+(of\s+the\s+code\s+)?(are\s+)?affected/i,
+  /without\s+(affecting|breaking|changing|modifying)\s+(existing|other|the\s+rest)/i,
+  /existing\s+(code|behavior|tests?|interface)\s+(is\s+)?(not\s+)?(modified|changed|broken|affected)/i,
+  /no\s+regressions?/i,
+  /backward[\s-]?compat/i,
+];
+
+function isPreservationCriterion(criterion) {
+  return PRESERVATION_PATTERNS.some(p => p.test(criterion));
+}
+
 // Majority-vote judge: runs VOTE_COUNT independent calls, picks the verdict
 // that wins a strict majority (> VOTE_COUNT/2). Ties default to null — never
 // force a false repair on a split vote.
 async function judgeOne(ac, diff, signals) {
+  // Short-circuit: preservation ACs require test execution, not diff analysis.
+  if (isPreservationCriterion(ac.criterion)) {
+    return {
+      id:        ac.id,
+      criterion: ac.criterion,
+      met:       null,
+      method:    'llm-vote-3',
+      votes:     [null, null, null],
+      evidence:  'Preservation criterion — requires test suite execution to verify. Cannot determine from diff alone.',
+      repair:    null,
+    };
+  }
+
   const votes = [];
 
   for (let i = 0; i < VOTE_COUNT; i++) {
