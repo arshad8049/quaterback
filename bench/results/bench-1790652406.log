@@ -128,3 +128,30 @@
          changed: main.js, src/wav.js, test/wav.test.js
 
   [BASE] Running raw baseline (no pipeline)...
+     BASE ✓ PASS  — 243.4s
+         changed: main.js, src/wav.js
+
+  Saved → /Users/Arshad_1/Desktop/millionaire/quaterback/bench/results/T-006_1790656899297.json
+
+
+════════════════════════════════════════════════════════════════════════
+  BENCHMARK SUMMARY
+════════════════════════════════════════════════════════════════════════
+  ID      Diff     QB         1st        Tries   Time     BASE      
+  ──────────────────────────────────────────────────────────────────
+  T-001   ?        ✓ pass     ✓ pass     1       242.1s   ✗ fail
+  T-002   ?        ✓ pass     ✓ pass     1       581.4s   ✗ fail
+  T-003   ?        ✗ fail     ✗ fail     3       730.0s   ✗ fail
+  T-004   ?        ✓ pass     ✓ pass     1       317.9s   ✗ fail
+  T-005   ?        ✓ pass     ✗ fail     2       468.4s   ✗ fail
+  T-006   ?        ✓ pass     ✓ pass     1       300.2s   ✓ pass
+
+  ──────────────────────────────────────────────────────────────────
+  QB pass rate:         5/6 (83%)
+  QB first-attempt:     4/6 (67%)
+  QB avg attempts:      1.5
+  QB avg time:          440.0s
+  Baseline pass rate:   1/6 (17%)
+
+════════════════════════════════════════════════════════════════════════
+
