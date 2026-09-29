@@ -1,0 +1,142 @@
+{
+  "task_id": "T-001",
+  "difficulty": "easy",
+  "tags": [
+    "add-function",
+    "single-file",
+    "state"
+  ],
+  "description": "Add a getProviderName() function to src/llm.js that returns the currently active LLM provider name as a string",
+  "qb": {
+    "timing": {
+      "l1_ms": 37257,
+      "l2_ms": 34642,
+      "total_ms": 242133
+    },
+    "contract": {
+      "id": "2b495578-42ea-4e32-8020-516b3d6beff7",
+      "created_at": "2026-09-29T03:27:24.159Z",
+      "raw_request": "Add a getProviderName() function to src/llm.js that returns the currently active LLM provider name as a string",
+      "repo_path": null,
+      "goal": "Add a function getProviderName() to src/llm.js that returns the currently active LLM provider name as a string.",
+      "required_behavior": [
+        "The function getProviderName() returns the currently active LLM provider name as a string.",
+        "The function checks if the LLM provider is active.",
+        "The function returns a string."
+      ],
+      "constraints": [
+        "The function must not change the list of available LLM providers.",
+        "The function must not change the active LLM provider status.",
+        "The function must return a string."
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "AC-1",
+          "criterion": "getProviderName() returns the currently active LLM provider name as a string.",
+          "met": null
+        },
+        {
+          "id": "AC-2",
+          "criterion": "getProviderName() checks if the LLM provider is active.",
+          "met": null
+        },
+        {
+          "id": "AC-3",
+          "criterion": "getProviderName() returns a string.",
+          "met": null
+        }
+      ],
+      "verification_plan": [
+        "Run unit tests to verify that getProviderName() returns the correct string for active providers.",
+        "Verify that getProviderName() returns a string even when the provider is inactive.",
+        "Ensure that getProviderName() does not modify the list of available LLM providers.",
+        "Check that getProviderName() does not change the active LLM provider status."
+      ],
+      "relevant_context": [
+        "src/llm.js"
+      ],
+      "ambiguity_flags": [],
+      "clarifying_question": null
+    },
+    "ac_count": 3,
+    "files_in_scope": 24,
+    "symbols": 7,
+    "attempts": [
+      {
+        "attempt": 1,
+        "l3_ms": 54856,
+        "l4_ms": 115378,
+        "verdict": "pass",
+        "files_changed": [
+          "src/llm.js",
+          "test/prompts.test.js"
+        ],
+        "ac_results": [
+          {
+            "id": "AC-1",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          },
+          {
+            "id": "AC-2",
+            "met": true,
+            "votes": [
+              false,
+              true,
+              true
+            ]
+          },
+          {
+            "id": "AC-3",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          }
+        ],
+        "failures": []
+      }
+    ],
+    "final_verdict": "pass",
+    "total_attempts": 1,
+    "first_verdict": "pass",
+    "files_changed": [
+      "src/llm.js",
+      "test/prompts.test.js"
+    ]
+  },
+  "baseline": {
+    "agent_ms": 19859,
+    "status": "completed",
+    "error": null,
+    "l4_ms": 114989,
+    "verdict": "fail",
+    "ac_results": [
+      {
+        "id": "AC-1",
+        "met": true
+      },
+      {
+        "id": "AC-2",
+        "met": false
+      },
+      {
+        "id": "AC-3",
+        "met": true
+      }
+    ],
+    "failures": [
+      "AC-2"
+    ],
+    "files_changed": [
+      "src/llm.js"
+    ],
+    "timing_ms": 134848
+  }
+}

@@ -18,3 +18,23 @@
   [QB] Running full pipeline...
      L1 37257ms — 3 ACs
      L2 34642ms — 24 files, 7 symbols
+     L3+L4 attempt 1: ✓ PASS (170234ms)
+
+     QB  ✓ PASS  — 1 attempt(s)  242.1s
+         first attempt: ✓ pass
+         changed: src/llm.js, test/prompts.test.js
+
+  [BASE] Running raw baseline (no pipeline)...
+     BASE ✗ FAIL  — 134.8s
+         changed: src/llm.js
+         failing ACs: AC-2
+
+  Saved → /Users/Arshad_1/Desktop/millionaire/quaterback/bench/results/T-001_1790652784132.json
+
+────────────────────────────────────────────────────────────────────────
+  [T-002] EASY  — Add a formatDuration(ms) function to src/wav.js that converts a m
+────────────────────────────────────────────────────────────────────────
+
+  [QB] Running full pipeline...
+     L1 45713ms — 7 ACs
+     L2 39196ms — 24 files, 7 symbols
