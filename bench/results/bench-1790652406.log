@@ -80,3 +80,31 @@
   [QB] Running full pipeline...
      L1 37245ms — 5 ACs
      L2 32086ms — 24 files, 7 symbols
+     L3+L4 attempt 1: ✓ PASS (248524ms)
+
+     QB  ✓ PASS  — 1 attempt(s)  317.9s
+         first attempt: ✓ pass
+         changed: src/llm.js
+
+  [BASE] Running raw baseline (no pipeline)...
+     BASE ✗ FAIL  — 294.8s
+         changed: src/llm.js
+         failing ACs: AC-2
+
+  Saved → /Users/Arshad_1/Desktop/millionaire/quaterback/bench/results/T-004_1790655639548.json
+
+────────────────────────────────────────────────────────────────────────
+  [T-005] MEDIUM  — Add a getVADStats() function to src/vad.js that returns an object
+────────────────────────────────────────────────────────────────────────
+
+  [QB] Running full pipeline...
+     L1 35864ms — 4 ACs
+     L2 35044ms — 24 files, 7 symbols
+     L3+L4 attempt 1: ✗ FAIL (207339ms)
+     L3+L4 attempt 2: ✓ PASS (190163ms)
+
+     QB  ✓ PASS  — 2 attempt(s)  468.4s
+         first attempt: ✗ fail
+         changed: src/vad.js
+
+  [BASE] Running raw baseline (no pipeline)...

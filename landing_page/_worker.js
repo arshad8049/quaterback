@@ -239,12 +239,15 @@ async function sendOwnerNotify(email, agent, count, ip, referrer, apiKey) {
 }
 
 async function resendSend(to, subject, html, apiKey) {
-  if (!apiKey) return;
-  return fetch(RESEND_URL, {
+  if (!apiKey) { console.log('[resend] no API key — skipped'); return; }
+  const res  = await fetch(RESEND_URL, {
     method:  'POST',
     headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body:    JSON.stringify({ from: FROM, to, subject, html }),
   });
+  const body = await res.json().catch(() => ({}));
+  console.log(`[resend] status=${res.status} to=${to} body=${JSON.stringify(body)}`);
+  return res;
 }
 
 // ─── Utilities ────────────────────────────────────────────────────────────────

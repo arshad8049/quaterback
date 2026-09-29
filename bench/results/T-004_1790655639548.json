@@ -1,0 +1,175 @@
+{
+  "task_id": "T-004",
+  "difficulty": "medium",
+  "tags": [
+    "add-function",
+    "single-file",
+    "error-handling"
+  ],
+  "description": "Add a getErrorSummary(error) helper function to src/llm.js that returns a short one-line string summarising an LLM error: include the provider name, HTTP status if present, and whether it was a rate limit",
+  "qb": {
+    "timing": {
+      "l1_ms": 37245,
+      "l2_ms": 32086,
+      "total_ms": 317855
+    },
+    "contract": {
+      "id": "c2d94351-3b48-4569-95af-672dc16748e6",
+      "created_at": "2026-09-29T04:11:03.141Z",
+      "raw_request": "Add a getErrorSummary(error) helper function to src/llm.js that returns a short one-line string summarising an LLM error: include the provider name, HTTP status if present, and whether it was a rate limit",
+      "repo_path": null,
+      "goal": "Implement the getErrorSummary function in src/llm.js that returns a formatted string with provider name, HTTP status, and rate limit status.",
+      "required_behavior": [
+        "Implement the getErrorSummary function in src/llm.js",
+        "Return a one-line string in the format: 'Provider: [_PROVIDER ], Status: [_STATUS ], Rate Limit: [TRUE/FALSE]'"
+      ],
+      "constraints": [
+        "The function must be added to src/llm.js",
+        "The function must not cause any regressions in existing functionality",
+        "The function must return exactly the specified string format"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "AC-1",
+          "criterion": "The getErrorSummary function is implemented",
+          "met": null
+        },
+        {
+          "id": "AC-2",
+          "criterion": "The function returns the correct string format",
+          "met": null
+        },
+        {
+          "id": "AC-3",
+          "criterion": "The function correctly includes the provider name",
+          "met": null
+        },
+        {
+          "id": "AC-4",
+          "criterion": "The function correctly includes the HTTP status",
+          "met": null
+        },
+        {
+          "id": "AC-5",
+          "criterion": "The function correctly includes the rate limit status",
+          "met": null
+        }
+      ],
+      "verification_plan": [
+        "Run unit tests for getErrorSummary function",
+        "Inspect src/llm.js for the presence of the function",
+        "Verify the return value matches the expected format",
+        "Check that the function does not introduce any new errors"
+      ],
+      "relevant_context": [
+        "src/llm.js"
+      ],
+      "ambiguity_flags": [],
+      "clarifying_question": null
+    },
+    "ac_count": 5,
+    "files_in_scope": 24,
+    "symbols": 7,
+    "attempts": [
+      {
+        "attempt": 1,
+        "l3_ms": 40439,
+        "l4_ms": 208085,
+        "verdict": "pass",
+        "files_changed": [
+          "src/llm.js"
+        ],
+        "ac_results": [
+          {
+            "id": "AC-1",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          },
+          {
+            "id": "AC-2",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          },
+          {
+            "id": "AC-3",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          },
+          {
+            "id": "AC-4",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          },
+          {
+            "id": "AC-5",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          }
+        ],
+        "failures": []
+      }
+    ],
+    "final_verdict": "pass",
+    "total_attempts": 1,
+    "first_verdict": "pass",
+    "files_changed": [
+      "src/llm.js"
+    ]
+  },
+  "baseline": {
+    "agent_ms": 32513,
+    "status": "completed",
+    "error": null,
+    "l4_ms": 262286,
+    "verdict": "fail",
+    "ac_results": [
+      {
+        "id": "AC-1",
+        "met": true
+      },
+      {
+        "id": "AC-2",
+        "met": false
+      },
+      {
+        "id": "AC-3",
+        "met": true
+      },
+      {
+        "id": "AC-4",
+        "met": true
+      },
+      {
+        "id": "AC-5",
+        "met": true
+      }
+    ],
+    "failures": [
+      "AC-2"
+    ],
+    "files_changed": [
+      "src/llm.js"
+    ],
+    "timing_ms": 294799
+  }
+}
