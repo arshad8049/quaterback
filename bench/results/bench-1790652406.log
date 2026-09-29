@@ -108,3 +108,23 @@
          changed: src/vad.js
 
   [BASE] Running raw baseline (no pipeline)...
+     BASE ✗ FAIL  — 243.8s
+         changed: src/vad.js
+         failing ACs: AC-3, AC-4
+
+  Saved → /Users/Arshad_1/Desktop/millionaire/quaterback/bench/results/T-005_1790656354435.json
+
+────────────────────────────────────────────────────────────────────────
+  [T-006] HARD  — Add a formatBytes(bytes) utility function to src/wav.js that conv
+────────────────────────────────────────────────────────────────────────
+
+  [QB] Running full pipeline...
+     L1 38571ms — 5 ACs
+     L2 33187ms — 24 files, 7 symbols
+     L3+L4 attempt 1: ✓ PASS (228458ms)
+
+     QB  ✓ PASS  — 1 attempt(s)  300.2s
+         first attempt: ✓ pass
+         changed: main.js, src/wav.js, test/wav.test.js
+
+  [BASE] Running raw baseline (no pipeline)...

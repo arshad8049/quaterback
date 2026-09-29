@@ -1,0 +1,208 @@
+{
+  "task_id": "T-005",
+  "difficulty": "medium",
+  "tags": [
+    "add-function",
+    "single-file",
+    "utility"
+  ],
+  "description": "Add a getVADStats() function to src/vad.js that returns an object with speechCount (number of speech events detected) and totalSpeechMs (cumulative ms of detected speech) tracked since the AdaptiveVAD was created",
+  "qb": {
+    "timing": {
+      "l1_ms": 35864,
+      "l2_ms": 35044,
+      "total_ms": 468410
+    },
+    "contract": {
+      "id": "6a79bf9e-8f7e-43fe-9a46-b75f950b75dd",
+      "created_at": "2026-09-29T04:21:15.450Z",
+      "raw_request": "Add a getVADStats() function to src/vad.js that returns an object with speechCount (number of speech events detected) and totalSpeechMs (cumulative ms of detected speech) tracked since the AdaptiveVAD was created",
+      "repo_path": null,
+      "goal": "Add a function getVADStats() to src/vad.js that returns an object containing speechCount and totalSpeechMs. This function will track the number of speech events detected and the cumulative milliseconds of detected speech since the AdaptiveVAD was created.",
+      "required_behavior": [
+        "getVADStats() returns an object with speechCount (number of speech events detected) and totalSpeechMs (cumulative ms of detected speech)",
+        "The function is properly integrated into the VAD module"
+      ],
+      "constraints": [
+        "getVADStats() must not interfere with existing VAD functionality",
+        "The function must be properly exported from src/vad.js",
+        "The function must be included in the module's exports"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "AC-1",
+          "criterion": "getVADStats() returns an object with exactly two properties: speechCount and totalSpeechMs",
+          "met": null
+        },
+        {
+          "id": "AC-2",
+          "criterion": "getVADStats() returns an object containing speechCount and totalSpeechMs with non-negative integer values",
+          "met": null
+        },
+        {
+          "id": "AC-3",
+          "criterion": "getVADStats() is properly exported from src/vad.js",
+          "met": null
+        },
+        {
+          "id": "AC-4",
+          "criterion": "getVADStats() is included in the module's exports",
+          "met": null
+        }
+      ],
+      "verification_plan": [
+        "Check the function's return type and structure",
+        "Run automated tests to verify the returned values are valid",
+        "Inspect the module's exports to confirm the function is present",
+        "Verify the function's implementation includes the required properties"
+      ],
+      "relevant_context": [
+        "src/vad.js"
+      ],
+      "ambiguity_flags": [],
+      "clarifying_question": null
+    },
+    "ac_count": 4,
+    "files_in_scope": 24,
+    "symbols": 7,
+    "attempts": [
+      {
+        "attempt": 1,
+        "l3_ms": 28530,
+        "l4_ms": 178809,
+        "verdict": "fail",
+        "files_changed": [
+          "src/vad.js"
+        ],
+        "ac_results": [
+          {
+            "id": "AC-1",
+            "met": false,
+            "votes": [
+              false,
+              false,
+              false
+            ]
+          },
+          {
+            "id": "AC-2",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          },
+          {
+            "id": "AC-3",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          },
+          {
+            "id": "AC-4",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          }
+        ],
+        "failures": [
+          "AC-1"
+        ]
+      },
+      {
+        "attempt": 2,
+        "l3_ms": 19912,
+        "l4_ms": 170251,
+        "verdict": "pass",
+        "files_changed": [
+          "src/vad.js"
+        ],
+        "ac_results": [
+          {
+            "id": "AC-1",
+            "met": true,
+            "votes": [
+              false,
+              true,
+              true
+            ]
+          },
+          {
+            "id": "AC-2",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          },
+          {
+            "id": "AC-3",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          },
+          {
+            "id": "AC-4",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          }
+        ],
+        "failures": []
+      }
+    ],
+    "final_verdict": "pass",
+    "total_attempts": 2,
+    "first_verdict": "fail",
+    "files_changed": [
+      "src/vad.js"
+    ]
+  },
+  "baseline": {
+    "agent_ms": 37527,
+    "status": "completed",
+    "error": null,
+    "l4_ms": 206297,
+    "verdict": "fail",
+    "ac_results": [
+      {
+        "id": "AC-1",
+        "met": true
+      },
+      {
+        "id": "AC-2",
+        "met": true
+      },
+      {
+        "id": "AC-3",
+        "met": false
+      },
+      {
+        "id": "AC-4",
+        "met": false
+      }
+    ],
+    "failures": [
+      "AC-3",
+      "AC-4"
+    ],
+    "files_changed": [
+      "src/vad.js"
+    ],
+    "timing_ms": 243824
+  }
+}

@@ -52,6 +52,7 @@ async function handleBetaAccess(request, env) {
 
   const email = (body.email || '').trim().toLowerCase();
   const agent = (body.agent || '').trim() || null;
+  console.log(`[beta-access] email="${email}" agent="${agent}"`);
 
   if (!email || !email.includes('@') || !email.includes('.')) {
     return json({ error: 'Invalid email' }, 400);
@@ -61,6 +62,7 @@ async function handleBetaAccess(request, env) {
   const existing = await env.DB
     .prepare('SELECT id FROM submissions WHERE email = ?')
     .bind(email).first();
+  console.log(`[beta-access] duplicate=${!!existing}`);
   if (existing) return json({ ok: true, duplicate: true });
 
   const ip       = request.headers.get('CF-Connecting-IP') || null;
