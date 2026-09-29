@@ -1,0 +1,12 @@
+name               = "quaterback"
+main               = "landing_page/_worker.js"
+compatibility_date = "2024-09-23"
+
+[assets]
+directory = "landing_page"
+binding   = "ASSETS"
+
+[[d1_databases]]
+binding       = "DB"
+database_name = "qb-beta"
+database_id   = "REPLACE_WITH_YOUR_D1_DATABASE_ID"

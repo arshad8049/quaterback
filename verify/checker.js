@@ -127,6 +127,11 @@ function checkScope(diff, context) {
 /**
  * Check whether keywords from ACs and required_behavior appear in the diff.
  * Returns a map of {keyword → found} for use by the LLM judge as context.
+ *
+ * Also injects deterministic high-confidence signals for common patterns:
+ *   __fn_<name>_defined   — function appears on an added (+) line
+ *   __fn_<name>_exported  — function name appears in an export on an added (+) line
+ *   __fn_<name>_returns   — function body contains a return statement on added lines
  */
 function scanDiff(diff, contract) {
   if (!diff) return {};
@@ -134,7 +139,7 @@ function scanDiff(diff, contract) {
   const signals = {};
   const diffLower = diff.toLowerCase();
 
-  // Extract meaningful keywords from ACs and required behavior
+  // ── Keyword signals ───────────────────────────────────────────────────────
   const terms = [
     ...(contract.acceptance_criteria || []).map(ac => ac.criterion),
     ...(contract.required_behavior   || []),
@@ -148,6 +153,42 @@ function scanDiff(diff, contract) {
   const unique = [...new Set(terms)];
   for (const term of unique) {
     signals[term] = diffLower.includes(term);
+  }
+
+  // ── Deterministic function signals ────────────────────────────────────────
+  // Extract function/method names from goal + criteria (camelCase / snake_case identifiers)
+  const allText = [
+    contract.goal || '',
+    ...(contract.acceptance_criteria || []).map(ac => ac.criterion),
+    ...(contract.required_behavior   || []),
+  ].join(' ');
+
+  const fnNames = [...new Set(
+    (allText.match(/\b([a-zA-Z_][a-zA-Z0-9_]*(?:[A-Z][a-zA-Z0-9_]*)+)\b/g) || []) // camelCase
+      .concat(allText.match(/\b([a-z][a-z0-9_]*_[a-z][a-z0-9_]*)\b/g) || [])       // snake_case
+      .concat(allText.match(/\b([a-zA-Z_]\w+\(\))/g)?.map(s => s.replace('()', '')) || []) // explicit fn()
+  )].filter(n => n.length > 3);
+
+  // Only examine lines that were added in the diff
+  const addedLines = diff.split('\n').filter(l => l.startsWith('+') && !l.startsWith('+++'));
+  const addedText  = addedLines.join('\n');
+
+  for (const name of fnNames) {
+    const nameLower  = name.toLowerCase();
+    const nameRegex  = new RegExp(`\\b${name}\\b`);
+    const inAdded    = nameRegex.test(addedText);
+
+    if (!inAdded) continue; // name not in any added line — skip
+
+    signals[`__fn_${nameLower}_defined`]  = /function\s/.test(addedText) && inAdded
+      || /=>\s*\{/.test(addedText) && inAdded
+      || new RegExp(`${name}\\s*[=(]`).test(addedText);
+
+    signals[`__fn_${nameLower}_exported`] =
+      new RegExp(`(module\\.exports|exports\\.[a-zA-Z]|export\\s+(default\\s+)?function|export\\s+const)[^\\n]*${name}`).test(addedText) ||
+      new RegExp(`${name}[^\\n]*(module\\.exports|exports)`).test(addedText);
+
+    signals[`__fn_${nameLower}_returns`]  = /\breturn\b/.test(addedText);
   }
 
   return signals;

@@ -31,12 +31,27 @@ Respond ONLY with valid JSON — no other text, no markdown, no \`\`\`json fence
 
 Rules:
 - met: true  — the diff clearly satisfies the criterion
-- met: false — the diff contains CONCRETE evidence that the criterion is DEFINITIVELY NOT satisfied (e.g. the function is absent, throws unconditionally, or returns a hardcoded wrong value)
-- met: null  — anything else: the diff is ambiguous, you cannot fully verify from static analysis, the type cannot be confirmed without running the code, or the implementation looks plausible but you are not certain
-- CRITICAL: absence of proof is NOT proof of absence. If the implementation looks reasonable but you cannot confirm a type or runtime value from the diff alone, vote null — NOT false.
-- CRITICAL: only vote false when you can point to a specific line in the diff that directly contradicts the criterion. If you cannot cite a specific line that proves failure, vote null.
-- evidence must reference specific files/functions/lines — never be generic
-- repair (when met: false): be specific — e.g. "In src/llm.js, createLLM() accepts a config param but never uses it. Add a fallback: if provider is unavailable throw with the provider name, or return the default anthropic client."
+- met: false — the diff contains CONCRETE evidence that the criterion is DEFINITIVELY NOT satisfied (e.g. the function is completely absent, unconditionally throws, or explicitly returns the wrong type like a number/object when a string is required)
+- met: null  — anything else: the diff is ambiguous, you cannot fully verify from static analysis alone, or the implementation looks plausible but you cannot be certain without running the code
+
+WHEN TO VOTE null (not false) — mandatory examples:
+- Criterion says "function returns a string" and you can see a return statement in the diff: vote null. You cannot verify the runtime return type from a diff.
+- Criterion says "function is exported" and you see module.exports or export in the diff but cannot confirm the exact binding: vote null.
+- Criterion says "function returns the correct value" and the function exists with a return but you cannot trace the value to ground truth without running the code: vote null.
+- Criterion says "function does not interfere with existing code" — always vote null; you cannot verify behavior without running the test suite.
+- Any criterion about side effects, correctness of runtime values, or behavior that requires execution: vote null.
+
+WHEN TO VOTE false — requires direct contradictory evidence:
+- The function name is completely absent from all added (+) lines in the diff.
+- The function explicitly returns a literal of the wrong type: e.g. \`return 42\` when a string is required.
+- The function unconditionally throws before any return.
+- The keyword signal hints explicitly say something is "NOT found in diff" AND the criterion requires that thing to exist.
+
+CRITICAL: absence of proof is NOT proof of absence. If you cannot find a specific added line that DISPROVES the criterion, vote null — not false.
+CRITICAL: only vote false when you can quote a specific diff line that directly contradicts the criterion. No quote = no false vote.
+
+- evidence must reference specific files/functions/lines from the diff — never be generic
+- repair (when met: false): be specific — name the file, function, and what is missing or wrong
 - omit repair when met is true or null`;
 
 /**
@@ -70,16 +85,34 @@ async function judgeAll(criteria, diff, signals = {}) {
 async function callOnce(ac, diff, signals) {
   const diffChunk = diff.length > 6000 ? diff.slice(0, 6000) + '\n... [diff truncated]' : diff;
 
-  const relatedSignals = Object.entries(signals)
-    .filter(([k]) => ac.criterion.toLowerCase().includes(k))
-    .map(([k, found]) => `"${k}": ${found ? 'found in diff' : 'NOT found in diff'}`)
-    .join(', ');
+  // Deterministic function signals (high-confidence, computed from added lines only)
+  const fnSignals = Object.entries(signals)
+    .filter(([k]) => k.startsWith('__fn_'))
+    .map(([k, found]) => {
+      const parts = k.replace('__fn_', '').split('_');
+      const property = parts.pop(); // defined | exported | returns
+      const fname    = parts.join('_');
+      const verdict  = found ? 'YES (confirmed in added lines)' : 'NO (not found in added lines)';
+      return `  ${fname}() ${property}: ${verdict}`;
+    })
+    .join('\n');
+
+  // Keyword signals — only those relevant to this criterion
+  const kwSignals = Object.entries(signals)
+    .filter(([k]) => !k.startsWith('__fn_') && ac.criterion.toLowerCase().includes(k))
+    .map(([k, found]) => `  "${k}": ${found ? 'found in diff' : 'NOT found in diff'}`)
+    .join('\n');
+
+  const signalBlock = [
+    fnSignals ? `Deterministic checks (computed from added lines):\n${fnSignals}` : '',
+    kwSignals ? `Keyword signals:\n${kwSignals}` : '',
+  ].filter(Boolean).join('\n');
 
   const userContent = [
     `## Acceptance criterion`,
     `ID: ${ac.id}`,
     `Criterion: ${ac.criterion}`,
-    relatedSignals ? `\nKeyword signals: ${relatedSignals}` : '',
+    signalBlock ? `\n## Pre-computed signals\n${signalBlock}` : '',
     ``,
     `## Git diff`,
     diffChunk,
