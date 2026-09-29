@@ -7,6 +7,6 @@ directory = "landing_page"
 binding   = "ASSETS"
 
 [[d1_databases]]
-binding       = "qb-beta"
+binding       = "qb_beta"
 database_name = "qb-beta"
 database_id   = "6bb621d5-e492-4154-bb38-a7bd567e363f"

@@ -1,0 +1,299 @@
+{
+  "task_id": "T-003",
+  "difficulty": "easy",
+  "tags": [
+    "add-function",
+    "single-file",
+    "guard"
+  ],
+  "description": "Add an isAvailable() method to the STT object returned by createSTT() in src/stt.js that returns true when at least one provider has an API key configured",
+  "qb": {
+    "timing": {
+      "l1_ms": 40938,
+      "l2_ms": 31928,
+      "total_ms": 729997
+    },
+    "contract": {
+      "id": "fb304fbb-ec76-47be-8d9d-d56b0167bb85",
+      "created_at": "2026-09-29T03:55:33.842Z",
+      "raw_request": "Add an isAvailable() method to the STT object returned by createSTT() in src/stt.js that returns true when at least one provider has an API key configured",
+      "repo_path": null,
+      "goal": "Add a method called isAvailable() to the STT object returned by createSTT() in src/stt.js that returns true if at least one provider has an API key configured.",
+      "required_behavior": [
+        "The STT object returned by createSTT() will have an isAvailable() method added.",
+        "The isAvailable() method returns a boolean value.",
+        "The isAvailable() method checks if at least one provider has an API key configured.",
+        "The isAvailable() method returns true if any provider has an API key configured."
+      ],
+      "constraints": [
+        "The existing STT functionality must remain unchanged.",
+        "No other parts of the code are affected by the addition of isAvailable()."
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "AC-1",
+          "criterion": "The isAvailable() method returns a boolean value.",
+          "met": null
+        },
+        {
+          "id": "AC-2",
+          "criterion": "The isAvailable() method checks if at least one provider has an API key configured.",
+          "met": null
+        },
+        {
+          "id": "AC-3",
+          "criterion": "The isAvailable() method returns true if any provider has an API key configured.",
+          "met": null
+        },
+        {
+          "id": "AC-4",
+          "criterion": "The existing STT functionality remains unchanged.",
+          "met": null
+        },
+        {
+          "id": "AC-5",
+          "criterion": "No other parts of the code are affected by the addition of isAvailable().",
+          "met": null
+        }
+      ],
+      "verification_plan": [
+        "Run tests to verify that isAvailable() returns a boolean value.",
+        "Check each provider's API key configuration to ensure isAvailable() accurately reflects their status.",
+        "Inspect the code for any changes that might affect existing functionality.",
+        "Verify that no other parts of the code are modified as a result of adding isAvailable()."
+      ],
+      "relevant_context": [
+        "src/stt.js"
+      ],
+      "ambiguity_flags": [],
+      "clarifying_question": null
+    },
+    "ac_count": 5,
+    "files_in_scope": 24,
+    "symbols": 7,
+    "attempts": [
+      {
+        "attempt": 1,
+        "l3_ms": 18211,
+        "l4_ms": 176715,
+        "verdict": "fail",
+        "files_changed": [
+          "src/stt.js"
+        ],
+        "ac_results": [
+          {
+            "id": "AC-1",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          },
+          {
+            "id": "AC-2",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          },
+          {
+            "id": "AC-3",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          },
+          {
+            "id": "AC-4",
+            "met": false,
+            "votes": [
+              false,
+              false,
+              false
+            ]
+          },
+          {
+            "id": "AC-5",
+            "met": false,
+            "votes": [
+              false,
+              false,
+              true
+            ]
+          }
+        ],
+        "failures": [
+          "AC-4",
+          "AC-5"
+        ]
+      },
+      {
+        "attempt": 2,
+        "l3_ms": 31939,
+        "l4_ms": 184629,
+        "verdict": "fail",
+        "files_changed": [
+          "src/stt.js"
+        ],
+        "ac_results": [
+          {
+            "id": "AC-1",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          },
+          {
+            "id": "AC-2",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          },
+          {
+            "id": "AC-3",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          },
+          {
+            "id": "AC-4",
+            "met": false,
+            "votes": [
+              false,
+              false,
+              false
+            ]
+          },
+          {
+            "id": "AC-5",
+            "met": true,
+            "votes": [
+              false,
+              true,
+              true
+            ]
+          }
+        ],
+        "failures": [
+          "AC-4"
+        ]
+      },
+      {
+        "attempt": 3,
+        "l3_ms": 92911,
+        "l4_ms": 152726,
+        "verdict": "fail",
+        "files_changed": [
+          "src/stt.js"
+        ],
+        "ac_results": [
+          {
+            "id": "AC-1",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          },
+          {
+            "id": "AC-2",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          },
+          {
+            "id": "AC-3",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          },
+          {
+            "id": "AC-4",
+            "met": false,
+            "votes": [
+              false,
+              false,
+              false
+            ]
+          },
+          {
+            "id": "AC-5",
+            "met": true,
+            "votes": [
+              true,
+              false,
+              true
+            ]
+          }
+        ],
+        "failures": [
+          "AC-4"
+        ]
+      }
+    ],
+    "final_verdict": "fail",
+    "total_attempts": 3,
+    "first_verdict": "fail",
+    "files_changed": [
+      "src/stt.js"
+    ]
+  },
+  "baseline": {
+    "agent_ms": 12081,
+    "status": "completed",
+    "error": null,
+    "l4_ms": 190457,
+    "verdict": "fail",
+    "ac_results": [
+      {
+        "id": "AC-1",
+        "met": true
+      },
+      {
+        "id": "AC-2",
+        "met": false
+      },
+      {
+        "id": "AC-3",
+        "met": true
+      },
+      {
+        "id": "AC-4",
+        "met": false
+      },
+      {
+        "id": "AC-5",
+        "met": false
+      }
+    ],
+    "failures": [
+      "AC-2",
+      "AC-4",
+      "AC-5"
+    ],
+    "files_changed": [
+      "src/stt.js"
+    ],
+    "timing_ms": 202538
+  }
+}

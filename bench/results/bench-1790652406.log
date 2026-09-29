@@ -59,3 +59,24 @@
      L1 40938ms — 5 ACs
      L2 31928ms — 24 files, 7 symbols
      L3+L4 attempt 1: ✗ FAIL (194926ms)
+     L3+L4 attempt 2: ✗ FAIL (216568ms)
+     L3+L4 attempt 3: ✗ FAIL (245637ms)
+
+     QB  ✗ FAIL  — 3 attempt(s)  730.0s
+         first attempt: ✗ fail
+         changed: src/stt.js
+
+  [BASE] Running raw baseline (no pipeline)...
+     BASE ✗ FAIL  — 202.5s
+         changed: src/stt.js
+         failing ACs: AC-2, AC-4, AC-5
+
+  Saved → /Users/Arshad_1/Desktop/millionaire/quaterback/bench/results/T-003_1790655025861.json
+
+────────────────────────────────────────────────────────────────────────
+  [T-004] MEDIUM  — Add a getErrorSummary(error) helper function to src/llm.js that r
+────────────────────────────────────────────────────────────────────────
+
+  [QB] Running full pipeline...
+     L1 37245ms — 5 ACs
+     L2 32086ms — 24 files, 7 symbols
