@@ -9,7 +9,7 @@
  */
 
 const RESEND_URL = 'https://api.resend.com/emails';
-const FROM       = 'Quarterback Beta <beta@velorallc.com>';
+const FROM       = 'Quarterback Beta <onboarding@resend.dev>';
 const OWNER      = 'ashaik8.us@gmail.com';
 
 export default {

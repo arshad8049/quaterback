@@ -38,3 +38,24 @@
   [QB] Running full pipeline...
      L1 45713ms — 7 ACs
      L2 39196ms — 24 files, 7 symbols
+     L3+L4 attempt 1: ✓ PASS (496479ms)
+
+     QB  ✓ PASS  — 1 attempt(s)  581.4s
+         first attempt: ✓ pass
+         changed: src/wav.js, test/wav.test.js
+
+  [BASE] Running raw baseline (no pipeline)...
+     BASE ✗ FAIL  — 726.1s
+         changed: src/wav.js
+         failing ACs: AC-1, AC-2, AC-3, AC-6
+
+  Saved → /Users/Arshad_1/Desktop/millionaire/quaterback/bench/results/T-002_1790654092867.json
+
+────────────────────────────────────────────────────────────────────────
+  [T-003] EASY  — Add an isAvailable() method to the STT object returned by createS
+────────────────────────────────────────────────────────────────────────
+
+  [QB] Running full pipeline...
+     L1 40938ms — 5 ACs
+     L2 31928ms — 24 files, 7 symbols
+     L3+L4 attempt 1: ✗ FAIL (194926ms)

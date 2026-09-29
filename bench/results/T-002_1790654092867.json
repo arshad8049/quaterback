@@ -1,0 +1,221 @@
+{
+  "task_id": "T-002",
+  "difficulty": "easy",
+  "tags": [
+    "add-function",
+    "single-file"
+  ],
+  "description": "Add a formatDuration(ms) function to src/wav.js that converts a millisecond count to a human-readable string like '1m 23s' or '45s'",
+  "qb": {
+    "timing": {
+      "l1_ms": 45713,
+      "l2_ms": 39196,
+      "total_ms": 581388
+    },
+    "contract": {
+      "id": "60a4ca4c-a045-4436-a4f0-4e29496f5da4",
+      "created_at": "2026-09-29T03:33:49.889Z",
+      "raw_request": "Add a formatDuration(ms) function to src/wav.js that converts a millisecond count to a human-readable string like '1m 23s' or '45s'",
+      "repo_path": null,
+      "goal": "Add a formatDuration(ms) function to src/wav.js that converts a millisecond count to a human-readable string like '1m 23s' or '45s'.",
+      "required_behavior": [
+        "The function should take a number in milliseconds as input",
+        "The function should return a string formatted as 'Xm Ys' or 'Xs'",
+        "The function should handle edge cases such as 0 milliseconds",
+        "The function should be efficient and not introduce performance regressions"
+      ],
+      "constraints": [
+        "The function must not alter the original millisecond value",
+        "The function must not round trip convert milliseconds",
+        "The function must handle 0 milliseconds correctly",
+        "The function must format the output consistently",
+        "The function must be compatible with existing codebase conventions"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "AC-1",
+          "criterion": "The function correctly formats 30000 ms as '5m'",
+          "met": null
+        },
+        {
+          "id": "AC-2",
+          "criterion": "The function correctly formats 120000 ms as '20m'",
+          "met": null
+        },
+        {
+          "id": "AC-3",
+          "criterion": "The function correctly formats 25000 ms as '4m 10s'",
+          "met": null
+        },
+        {
+          "id": "AC-4",
+          "criterion": "The function correctly formats 0 ms as '0s'",
+          "met": null
+        },
+        {
+          "id": "AC-5",
+          "criterion": "The function does not round trip convert milliseconds",
+          "met": null
+        },
+        {
+          "id": "AC-6",
+          "criterion": "The function handles all edge cases of millisecond values",
+          "met": null
+        },
+        {
+          "id": "AC-7",
+          "criterion": "The function is compatible with existing codebase conventions",
+          "met": null
+        }
+      ],
+      "verification_plan": [
+        "Run unit tests with specific millisecond values to verify correct formatting",
+        "Inspect the implementation of the function in src/wav.js",
+        "Exercise the function with edge cases (0ms, 60000ms, 120000ms)",
+        "Measure performance impact of adding this function",
+        "Review the code for any performance regressions",
+        "Check that the function adheres to existing code conventions"
+      ],
+      "relevant_context": [
+        "src/wav.js"
+      ],
+      "ambiguity_flags": [],
+      "clarifying_question": null
+    },
+    "ac_count": 7,
+    "files_in_scope": 24,
+    "symbols": 7,
+    "attempts": [
+      {
+        "attempt": 1,
+        "l3_ms": 49990,
+        "l4_ms": 446489,
+        "verdict": "pass",
+        "files_changed": [
+          "src/wav.js",
+          "test/wav.test.js"
+        ],
+        "ac_results": [
+          {
+            "id": "AC-1",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          },
+          {
+            "id": "AC-2",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          },
+          {
+            "id": "AC-3",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          },
+          {
+            "id": "AC-4",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          },
+          {
+            "id": "AC-5",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          },
+          {
+            "id": "AC-6",
+            "met": true,
+            "votes": [
+              false,
+              true,
+              true
+            ]
+          },
+          {
+            "id": "AC-7",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              false
+            ]
+          }
+        ],
+        "failures": []
+      }
+    ],
+    "final_verdict": "pass",
+    "total_attempts": 1,
+    "first_verdict": "pass",
+    "files_changed": [
+      "src/wav.js",
+      "test/wav.test.js"
+    ]
+  },
+  "baseline": {
+    "agent_ms": 10257,
+    "status": "completed",
+    "error": null,
+    "l4_ms": 715820,
+    "verdict": "fail",
+    "ac_results": [
+      {
+        "id": "AC-1",
+        "met": false
+      },
+      {
+        "id": "AC-2",
+        "met": false
+      },
+      {
+        "id": "AC-3",
+        "met": false
+      },
+      {
+        "id": "AC-4",
+        "met": true
+      },
+      {
+        "id": "AC-5",
+        "met": true
+      },
+      {
+        "id": "AC-6",
+        "met": false
+      },
+      {
+        "id": "AC-7",
+        "met": true
+      }
+    ],
+    "failures": [
+      "AC-1",
+      "AC-2",
+      "AC-3",
+      "AC-6"
+    ],
+    "files_changed": [
+      "src/wav.js"
+    ],
+    "timing_ms": 726077
+  }
+}
