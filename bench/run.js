@@ -159,7 +159,7 @@ async function runQB(task, repoPath) {
       l4_ms,
       verdict:       report.verdict,
       files_changed: execution.changes.map(c => c.file),
-      ac_results:    report.criteria_results.map(r => ({ id: r.id, met: r.met })),
+      ac_results:    report.criteria_results.map(r => ({ id: r.id, met: r.met, votes: r.votes || null })),
       failures:      report.failures,
     });
 

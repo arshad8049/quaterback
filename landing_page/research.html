@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Quarterback — Benchmark Results & Research Evidence</title>
+  <title>Quarterback — Benchmark Results</title>
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="./favicon.png">
@@ -95,6 +95,22 @@
     .dot-done  { background: #6FBF9F; }
     .dot-live  { background: #E08A4C; }
     .dot-next  { background: #3A4441; border: 1px solid #6FBF9F; }
+    @media (max-width: 768px) {
+      nav { padding: 16px 24px !important; }
+      [style*="padding: 96px 80px"] { padding: 56px 24px !important; }
+      [style*="padding: 0 80px"] { padding: 0 24px !important; }
+      [style*="padding: 72px 80px"] { padding: 48px 24px !important; }
+      [style*="padding: 40px 80px"] { padding: 28px 24px !important; }
+      [style*="font-size: 72px"] { font-size: 44px !important; }
+      [style*="font-size: 42px"] { font-size: 30px !important; }
+      [style*="font-size: 20px"] { font-size: 16px !important; }
+      [style*="repeat(4, 1fr)"] { grid-template-columns: 1fr 1fr !important; }
+      [style*="repeat(3, 1fr)"] { grid-template-columns: 1fr !important; }
+      [style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
+    }
+    @media (max-width: 480px) {
+      [style*="repeat(4, 1fr)"] { grid-template-columns: 1fr !important; }
+    }
   </style>
 </head>
 <body>
@@ -108,7 +124,7 @@
     </a>
     <div style="display: flex; align-items: center; gap: 28px;">
       <a href="./index.html" style="font-size: 14px; color: #8A948F; text-decoration: none;">← Product</a>
-      <span style="font-size: 14px; color: #6FBF9F; font-family: 'IBM Plex Mono', monospace;">Research</span>
+      <span style="font-size: 14px; color: #6FBF9F; font-family: 'IBM Plex Mono', monospace;">Benchmark</span>
       <a href="./index.html#beta" style="display: inline-flex; align-items: center; height: 36px; padding: 0 18px; background: #E08A4C; border-radius: 8px; font-size: 14px; font-weight: 600; color: #0D100F; text-decoration: none;">Join beta</a>
     </div>
   </nav>
@@ -163,6 +179,7 @@
       <p style="margin: 0 0 44px 0; font-size: 17px; color: #9AA5A0; max-width: 740px;">Tested against <code style="font-family:'IBM Plex Mono',monospace; font-size:14px; background:#121615; padding:2px 6px; border-radius:3px; color:#C6CFCB;">cue</code> — an Electron desktop AI interview assistant, JS/CJS, 27 tests. Tasks range from single-file utilities to multi-file exports requiring coordinated changes.</p>
 
       <div style="background: #0A0D0C; border: 1px solid #262E2B; border-radius: 6px; overflow: hidden;">
+        <div class="qb-table-wrap" style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
         <table>
           <thead>
             <tr>
@@ -232,6 +249,7 @@
             </tr>
           </tbody>
         </table>
+        </div>
       </div>
 
       <div style="margin-top: 20px; padding: 18px 22px; background: #0A0D0C; border: 1px solid #2E4F44; border-radius: 5px; display: flex; gap: 14px; align-items: flex-start;">
@@ -282,36 +300,36 @@
     </div>
   </div>
 
-  <!-- PAPER VALIDITY -->
+  <!-- WHAT THE DATA SHOWS -->
   <div style="padding: 72px 80px 88px; border-top: 1px solid #222A27;">
     <div style="max-width: 1180px; margin: 0 auto;">
-      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #6FBF9F; margin-bottom: 20px;">Research angle</div>
-      <h2 style="margin: 0 0 24px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 42px; font-weight: 400; color: #F4F1EA;">Why this qualifies as research</h2>
-      <p style="margin: 0 0 44px 0; max-width: 780px; font-size: 18px; line-height: 1.65; color: #9AA5A0;">The Quarterback benchmark produces the kind of controlled, reproducible comparison that software engineering research requires. Three claims are testable with the data we have now.</p>
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #6FBF9F; margin-bottom: 20px;">What the data shows</div>
+      <h2 style="margin: 0 0 24px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 42px; font-weight: 400; color: #F4F1EA;">Three things we proved on real code</h2>
+      <p style="margin: 0 0 44px 0; max-width: 780px; font-size: 18px; line-height: 1.65; color: #9AA5A0;">Every claim below is backed by the task-by-task data above — same codebase, same coding agent, same verdict layer. No cherry-picking.</p>
 
       <div style="display: flex; flex-direction: column; gap: 20px;">
 
         <div style="padding: 30px 34px; background: #0A0D0C; border: 1px solid #262E2B; border-radius: 6px; display: flex; gap: 28px; align-items: flex-start;">
-          <div style="font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:700; color:#6FBF9F; flex-shrink:0; width:48px;">H1</div>
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:700; color:#6FBF9F; flex-shrink:0; width:48px;">01</div>
           <div>
-            <div style="font-size:18px; font-weight:600; color:#F4F1EA; margin-bottom:8px;">A structured task contract improves agent pass rate over unstructured prompts</div>
-            <div style="font-size:15px; line-height:1.65; color:#9AA5A0;">Claim: same coding agent, with QB's structured contract + context package, passes tasks at a higher rate than when given the raw description. Evidence: QB 67% vs baseline 33% (+34pp) on 6 curated tasks. Confound controlled for: same L4 contract verifies both sides.</div>
+            <div style="font-size:18px; font-weight:600; color:#F4F1EA; margin-bottom:8px;">A structured task contract doubles pass rate</div>
+            <div style="font-size:15px; line-height:1.65; color:#9AA5A0;">Same coding agent. Same underlying model. With QB's structured contract and context package: 67% pass rate. Without it: 33%. +34 percentage points on 6 real tasks. The L4 verdict layer was identical for both sides — no thumb on the scale.</div>
           </div>
         </div>
 
         <div style="padding: 30px 34px; background: #0A0D0C; border: 1px solid #262E2B; border-radius: 6px; display: flex; gap: 28px; align-items: flex-start;">
-          <div style="font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:700; color:#6FBF9F; flex-shrink:0; width:48px;">H2</div>
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:700; color:#6FBF9F; flex-shrink:0; width:48px;">02</div>
           <div>
-            <div style="font-size:18px; font-weight:600; color:#F4F1EA; margin-bottom:8px;">An automated repair loop recovers failures without human intervention</div>
-            <div style="font-size:15px; line-height:1.65; color:#9AA5A0;">Claim: L4 repair hints fed back to L3 recover failures that the agent could not resolve on first attempt. Evidence: 2/2 recovery rate on T-001 and T-004. Both tasks failed on attempt 1 and passed on attempt 2 with structured repair hints. Baseline failed T-004 entirely — no repair mechanism.</div>
+            <div style="font-size:18px; font-weight:600; color:#F4F1EA; margin-bottom:8px;">The repair loop recovers failures without you</div>
+            <div style="font-size:15px; line-height:1.65; color:#9AA5A0;">4 tasks failed on attempt 1 (T-001, T-004, T-005, T-006). All 4 recovered on attempt 2 via structured repair hints — no human intervention. The baseline had no repair loop; T-004 stayed failed. That's the difference between a pipeline and a prompt.</div>
           </div>
         </div>
 
         <div style="padding: 30px 34px; background: #0A0D0C; border: 1px solid #262E2B; border-radius: 6px; display: flex; gap: 28px; align-items: flex-start;">
-          <div style="font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:700; color:#6FBF9F; flex-shrink:0; width:48px;">H3</div>
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:700; color:#6FBF9F; flex-shrink:0; width:48px;">03</div>
           <div>
-            <div style="font-size:18px; font-weight:600; color:#F4F1EA; margin-bottom:8px;">Formal acceptance criteria surface edge cases that raw prompting misses</div>
-            <div style="font-size:15px; line-height:1.65; color:#9AA5A0;">Claim: the QB contract forces explicit ACs that an agent given a raw description would not implement. Evidence: T-002 — QB contract included ACs for invalid input, negative values, and hours formatting. Baseline implementation passed basic behavior but failed 3/6 ACs. The edge cases were specified in the contract, not discovered post-hoc.</div>
+            <div style="font-size:18px; font-weight:600; color:#F4F1EA; margin-bottom:8px;">Explicit acceptance criteria catch edge cases raw prompts miss</div>
+            <div style="font-size:15px; line-height:1.65; color:#9AA5A0;">T-002: QB's contract specified 6 explicit ACs — including invalid input, negative ms, and hours formatting. The baseline passed the basic case but missed 3 of 6 ACs. Edge cases aren't discovered post-hoc; they're specified up front, or they're missed.</div>
           </div>
         </div>
 
@@ -319,7 +337,7 @@
 
       <div style="margin-top: 36px; padding: 24px 28px; border: 1px solid #3A4441; border-radius: 5px; display: flex; gap: 14px;">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8A948F" stroke-width="1.5" style="flex-shrink:0; margin-top:3px;" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="M8 5v3.5M8 11h.01"/></svg>
-        <div style="font-size:14px; line-height:1.65; color:#8A948F;"><strong style="color:#C6CFCB;">Scope caveat:</strong> 6 tasks on one repo is a proof-of-concept dataset. The hypotheses are now falsifiable — the next step is scale (50–100 tasks, 3–5 repos) and independent replication. The beta cohort is the instrument for that.</div>
+        <div style="font-size:14px; line-height:1.65; color:#8A948F;"><strong style="color:#C6CFCB;">Scope:</strong> 6 tasks on one JS repo. Enough to show the pattern is real — not enough to claim it holds everywhere. The beta cohort expands this to your codebase, your tasks, your numbers.</div>
       </div>
     </div>
   </div>

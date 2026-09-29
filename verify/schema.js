@@ -4,8 +4,10 @@ const CriterionResultSchema = z.object({
   id:        z.string(),
   criterion: z.string(),
   met:       z.boolean().nullable(),
-  method:    z.enum(['deterministic', 'llm', 'test-runner', 'no-diff']),
+  method:    z.enum(['deterministic', 'llm', 'test-runner', 'no-diff', 'llm-vote-3', 'llm-vote-5']),
   evidence:  z.string(),
+  votes:     z.array(z.boolean().nullable()).optional(),
+  repair:    z.string().nullable().optional(),
 });
 
 const TestResultsSchema = z.object({

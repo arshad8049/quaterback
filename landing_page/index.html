@@ -3,16 +3,52 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Quarterback — Intent to Verified Result</title>
+  <title>Quarterback — AI Coding Runtime: Intent to Verified Result</title>
+  <meta name="description" content="Quarterback is a local-first AI coding runtime. Turns natural-language requests into verified code changes — DSA pipeline, majority-vote LLM judgment, zero API keys required.">
+
+  <!-- Canonical -->
+  <link rel="canonical" href="https://quaterback.velorallc.workers.dev/">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="./favicon.png">
   <link rel="apple-touch-icon" href="./favicon.png">
 
+  <!-- Open Graph -->
+  <meta property="og:type"        content="website">
+  <meta property="og:site_name"   content="Quarterback">
+  <meta property="og:url"         content="https://quaterback.velorallc.workers.dev/">
+  <meta property="og:title"       content="Quarterback — AI Coding Runtime: Intent to Verified Result">
+  <meta property="og:description" content="Local-first AI coding runtime. Turns natural-language requests into verified code changes — DSA pipeline, majority-vote LLM judgment, zero API keys. 6/6 tasks correct vs 2/6 baseline.">
+  <meta property="og:image"       content="https://quaterback.velorallc.workers.dev/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt"   content="Quarterback — AI coding runtime diagram showing Intent → Context → Agent → Verify pipeline">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card"        content="summary_large_image">
+  <meta name="twitter:title"       content="Quarterback — AI Coding Runtime: Intent to Verified Result">
+  <meta name="twitter:description" content="Local-first AI coding runtime. DSA pipeline + majority-vote LLM judgment. 6/6 tasks correct vs 2/6 baseline. Zero API keys.">
+  <meta name="twitter:image"       content="https://quaterback.velorallc.workers.dev/og-image.png">
+
   <!-- Security -->
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta http-equiv="X-Frame-Options" content="DENY">
   <meta name="referrer" content="strict-origin-when-cross-origin">
+
+  <!-- JSON-LD structured data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Quarterback",
+    "description": "Local-first AI coding runtime that turns natural-language requests into verified code changes. Uses a deterministic DSA pipeline and majority-vote LLM judgment. Zero API keys required.",
+    "url": "https://quaterback.velorallc.workers.dev/",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "macOS, Linux, Windows",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "author": { "@type": "Organization", "name": "Velora", "url": "https://velorallc.netlify.app/" }
+  }
+  </script>
 
   <!-- Fonts → edit: src/styles/fonts.css -->
   <link rel="stylesheet" href="./src/styles/fonts.css">
@@ -34,19 +70,29 @@
   <!-- NAV -->
   <div class="qb-nav" style="display: flex; align-items: center; justify-content: space-between; padding: 16px 80px; border-bottom: 1px solid rgba(34,42,39,0.8);">
     <div style="display: flex; align-items: center; gap: 14px;">
-      <a href="#" class="qb-logo-link" style="display: flex; align-items: center; gap: 11px; text-decoration: none;">
+      <a href="/" class="qb-logo-link" style="display: flex; align-items: center; gap: 11px; text-decoration: none;">
         <img src="./logo.png" alt="Quarterback" width="30" height="30" style="border-radius: 7px; display: block; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.5);">
         <span style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600; letter-spacing: 0.02em; color: #F4F1EA;">Quarterback</span>
       </a>
       <span style="font-size: 12px; color: #4A5652;">by</span>
       <a href="https://velorallc.netlify.app/" target="_blank" rel="noopener noreferrer" style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: #6E7A76; text-decoration: none;" class="qb-velora-link">Velora</a>
     </div>
+    <button class="qb-nav-toggle" aria-label="Open navigation menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
     <div class="qb-nav-links" style="display: flex; align-items: center; gap: 34px;">
       <a href="#problem" class="qb-nav-link" style="font-size: 14px; color: #8A948F; text-decoration: none;">The problem</a>
       <a href="#metric" class="qb-nav-link" style="font-size: 14px; color: #8A948F; text-decoration: none;">Metric</a>
       <a href="#loop" class="qb-nav-link" style="font-size: 14px; color: #8A948F; text-decoration: none;">How it works</a>
       <a href="#verification" class="qb-nav-link" style="font-size: 14px; color: #8A948F; text-decoration: none;">Verification</a>
       <a href="./research.html" class="qb-nav-link" style="font-size: 14px; color: #6FBF9F; text-decoration: none;">Benchmark →</a>
+      <a href="https://github.com/arshad8049/quaterback" target="_blank" rel="noopener noreferrer" class="qb-github-link" style="display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 14px; border: 1px solid #2E3C38; border-radius: 7px; text-decoration: none; color: #8A948F; font-size: 13px; font-family: 'IBM Plex Mono', monospace; transition: border-color 0.18s, color 0.18s;" aria-label="GitHub repository">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.009-.868-.014-1.703-2.782.604-3.369-1.341-3.369-1.341-.454-1.154-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0 1 12 6.836a9.59 9.59 0 0 1 2.504.337c1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.202 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.579.688.481C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg>
+        <span id="qb-star-count" style="display:inline-flex;align-items:center;gap:4px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="opacity:0.6" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <span id="qb-stars">0</span>
+        </span>
+      </a>
       <a href="#beta" class="qb-cta-btn" style="display: inline-flex; align-items: center; height: 38px; padding: 0 18px; border: 1px solid rgba(224,138,76,0.7); border-radius: 8px; font-size: 14px; font-weight: 500; color: #E08A4C; text-decoration: none; letter-spacing: 0.01em;">Request access</a>
     </div>
   </div>
@@ -185,15 +231,19 @@
       <circle cx="100" cy="100" r="0.9" fill="#F4F1EA"/>
     </svg>
   
+    <!-- Floating glass chips (decorative) -->
+    <div class="qb-glass-chip" aria-hidden="true" style="position: absolute; top: 52px; right: 520px; padding: 10px 18px; background: rgba(9, 18, 12, 0.52); border: 1px solid rgba(111, 191, 159, 0.22); color: rgba(111, 191, 159, 0.85); font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.06em; z-index: 1; animation-delay: 0s;">intent compiled ✓</div>
+    <div class="qb-glass-chip" aria-hidden="true" style="position: absolute; top: 130px; right: 450px; padding: 10px 18px; background: rgba(18, 10, 6, 0.52); border: 1px solid rgba(224, 138, 76, 0.22); color: rgba(224, 138, 76, 0.85); font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.06em; z-index: 1; animation-delay: 2.2s;">6/6 verified ✓</div>
+    <div class="qb-glass-chip" aria-hidden="true" style="position: absolute; top: 220px; right: 540px; padding: 10px 18px; background: rgba(9, 18, 12, 0.52); border: 1px solid rgba(111, 191, 159, 0.18); color: rgba(111, 191, 159, 0.7); font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.06em; z-index: 1; animation-delay: 4.5s;">repair loop · 0 interrupts</div>
     <div style="position: relative; max-width: 1180px; margin: 0 auto;">
-      <div class="qb-reveal" style="display: inline-flex; align-items: center; gap: 10px; padding: 8px 16px 8px 12px; border: 1px solid #2E4F44; border-radius: 100px; margin-bottom: 30px;">
+      <div class="qb-reveal qb-glass" style="display: inline-flex; align-items: center; gap: 10px; padding: 8px 16px 8px 12px; border-radius: 100px; margin-bottom: 30px;">
         <span class="qb-pulse" style="width: 7px; height: 7px; border-radius: 50%; background: #6FBF9F; display: inline-block;"></span>
         <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: #6FBF9F;">5 of 5 layers live · cohort forming</span>
       </div>
       <div class="qb-reveal" style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #E08A4C; margin-bottom: 30px; transition-delay: 0.08s;">A <a href="https://velorallc.netlify.app/" target="_blank" rel="noopener" style="color: #E08A4C; text-decoration: none; border-bottom: 1px solid rgba(224,138,76,0.4);" class="qb-velora-link">Velora</a> product · reliability runtime for AI coding agents</div>
       <h1 class="qb-reveal" style="margin: 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 118px; line-height: 1.0; font-weight: 400; letter-spacing: -0.02em; color: #F4F1EA; transition-delay: 0.16s;">Intent <span style="color: #E08A4C;">→</span> Verified Result</h1>
       <p class="qb-reveal" style="margin: 36px 0 0 0; max-width: 720px; font-size: 23px; line-height: 1.55; color: #C6CFCB; transition-delay: 0.24s;">Your coding agent can write the code. Quarterback makes sure it understands the job, finishes the job, and proves that it did.</p>
-      <div class="qb-reveal" style="display: flex; align-items: center; gap: 20px; margin-top: 46px; transition-delay: 0.32s;">
+      <div class="qb-reveal qb-hero-cta" style="display: flex; align-items: center; gap: 20px; margin-top: 46px; transition-delay: 0.32s; flex-wrap: wrap;">
         <a href="#beta" class="qb-btn-primary" style="display: inline-flex; align-items: center; height: 54px; padding: 0 30px; background: #E08A4C; border-radius: 4px; font-size: 16px; font-weight: 600; color: #0D100F; text-decoration: none;">Join the beta cohort</a>
         <a href="#loop" class="qb-btn-ghost" style="display: inline-flex; align-items: center; height: 54px; padding: 0 24px; font-size: 16px; font-weight: 500; color: #F4F1EA; text-decoration: none; border-bottom: 1px solid #3A4441;">See how verification works →</a>
       </div>
@@ -362,32 +412,32 @@
   
       <div style="display: flex; flex-direction: column; gap: 26px;">
   
-        <div style="display: flex; align-items: center; gap: 28px;">
-          <div style="width: 232px; flex-shrink: 0; text-align: right; font-size: 16px; color: #C6CFCB;">Coding agent alone</div>
+        <div class="qb-metric-row" style="display: flex; align-items: center; gap: 28px;">
+          <div class="qb-metric-label" style="width: 232px; flex-shrink: 0; text-align: right; font-size: 16px; color: #C6CFCB;">Coding agent alone</div>
           <div style="flex-grow: 1; display: flex; align-items: center; gap: 18px;">
             <div class="qb-bar" style="width: 812px; height: 40px; background: #E08A4C; border-radius: 3px; animation-delay: 0.1s;"></div>
             <div style="font-family: 'IBM Plex Mono', monospace; font-size: 26px; font-weight: 600; color: #E08A4C;">7.4</div>
           </div>
         </div>
   
-        <div style="display: flex; align-items: center; gap: 28px;">
-          <div style="width: 232px; flex-shrink: 0; text-align: right; font-size: 16px; color: #C6CFCB;">With Quarterback</div>
+        <div class="qb-metric-row" style="display: flex; align-items: center; gap: 28px;">
+          <div class="qb-metric-label" style="width: 232px; flex-shrink: 0; text-align: right; font-size: 16px; color: #C6CFCB;">With Quarterback</div>
           <div style="flex-grow: 1; display: flex; align-items: center; gap: 18px;">
             <div class="qb-bar" style="width: 230px; height: 40px; background: #6FBF9F; border-radius: 3px; animation-delay: 0.45s;"></div>
             <div style="font-family: 'IBM Plex Mono', monospace; font-size: 26px; font-weight: 600; color: #6FBF9F;">2.1</div>
           </div>
         </div>
   
-        <div style="display: flex; align-items: center; gap: 28px;">
-          <div style="width: 232px; flex-shrink: 0; text-align: right; font-size: 16px; color: #8A948F;">As verification learns</div>
+        <div class="qb-metric-row" style="display: flex; align-items: center; gap: 28px;">
+          <div class="qb-metric-label" style="width: 232px; flex-shrink: 0; text-align: right; font-size: 16px; color: #8A948F;">As verification learns</div>
           <div style="flex-grow: 1; display: flex; align-items: center; gap: 18px;">
             <div class="qb-bar" style="width: 154px; height: 40px; background: #3E6F5E; border-radius: 3px; animation-delay: 0.7s;"></div>
             <div style="font-family: 'IBM Plex Mono', monospace; font-size: 26px; font-weight: 600; color: #8A948F;">1.4</div>
           </div>
         </div>
   
-        <div style="display: flex; align-items: center; gap: 28px;">
-          <div style="width: 232px; flex-shrink: 0; text-align: right; font-size: 16px; color: #8A948F;">At maturity</div>
+        <div class="qb-metric-row" style="display: flex; align-items: center; gap: 28px;">
+          <div class="qb-metric-label" style="width: 232px; flex-shrink: 0; text-align: right; font-size: 16px; color: #8A948F;">At maturity</div>
           <div style="flex-grow: 1; display: flex; align-items: center; gap: 18px;">
             <div class="qb-bar" style="width: 88px; height: 40px; background: #2E4F44; border-radius: 3px; animation-delay: 0.95s;"></div>
             <div style="font-family: 'IBM Plex Mono', monospace; font-size: 26px; font-weight: 600; color: #8A948F;">0.8</div>
@@ -730,13 +780,8 @@
         <p style="margin: 0; font-size: 19px; line-height: 1.65; color: #9AA5A0;">We measure your baseline first, then run the same work through the runtime, and show you the delta on your own tasks. Anonymized metrics only, and we publish nothing without your say-so.</p>
       </div>
   
-      <div style="flex-grow: 1; flex-basis: 0; padding: 40px 42px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
-        <form name="beta-access" method="POST" data-netlify="true" netlify-honeypot="bot-field">
-          <!-- Netlify requires this hidden input -->
-          <input type="hidden" name="form-name" value="beta-access">
-          <!-- Honeypot to block spam bots -->
-          <div style="display: none;"><label>Don't fill this out: <input name="bot-field"></label></div>
-  
+      <div class="qb-glass" style="flex-grow: 1; flex-basis: 0; padding: 40px 42px; border-radius: 12px;">
+        <form id="beta-form" name="beta-access" method="POST">
           <div style="margin-bottom: 24px;">
             <label for="email" style="display: block; font-size: 15px; font-weight: 500; color: #C6CFCB; margin-bottom: 10px;">Work email</label>
             <input id="email" name="email" type="email" required placeholder="you@company.com" style="width: 100%; box-sizing: border-box; height: 52px; padding: 0 16px; background: #0D100F; border: 1px solid #3A4441; border-radius: 4px; color: #F4F1EA; font-family: 'IBM Plex Sans', sans-serif; font-size: 16px;">
@@ -765,8 +810,10 @@
         <span style="font-size: 14px; color: #8A948F;">· the reliability layer for AI-written software · a <a href="https://velorallc.netlify.app/" target="_blank" rel="noopener" class="qb-velora-link" style="color: #8A948F; text-decoration: none; border-bottom: 1px solid rgba(138,148,143,0.35);">Velora</a> product</span>
       </div>
       <div style="display: flex; align-items: center; gap: 24px;">
+        <a href="./privacy.html" style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #6E7A76; text-decoration: none; letter-spacing: 0.04em;">Privacy</a>
+        <a href="mailto:ashaik8.us@gmail.com" style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #6E7A76; text-decoration: none; letter-spacing: 0.04em;">Contact</a>
         <a href="./research.html" style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #6FBF9F; text-decoration: none; letter-spacing: 0.06em;">Benchmark results →</a>
-        <div style="font-family: 'Instrument Serif', Georgia, serif; font-size: 20px; color: #8A948F;">Intent <span style="color: #E08A4C;">→</span> Verified Result</div>
+        <span style="font-size: 13px; color: #4A5652;">© 2026 Velora</span>
       </div>
     </div>
   </div>

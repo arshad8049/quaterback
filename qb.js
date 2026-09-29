@@ -23,6 +23,8 @@ const { orchestrate }  = require('./agent/orchestrator');
 const { verify }       = require('./verify/verifier');
 const memory           = require('./memory');
 
+const QB_VERSION = '0.1.0';
+
 program
   .name('qb')
   .description('Quarterback — Intent to Verified Result')
@@ -33,6 +35,8 @@ program
   .option('--no-llm-context',      'Skip LLM enrichment in Layer 2 (faster)')
   .option('--no-llm-verify',       'Skip LLM judgment in Layer 4 (DSA only)')
   .option('--save',                'Save all artifacts to disk')
+  .option('--telemetry',           'Send anonymous run metrics to Quarterback (opt-in)')
+  .option('--beta-email <email>',  'Your beta registration email (required for --telemetry)')
   .parse(process.argv);
 
 const opts    = program.opts();
@@ -163,7 +167,10 @@ async function main() {
     // Print criteria
     report.criteria_results.forEach(r => {
       const icon = r.met === true ? '✓' : r.met === false ? '✗' : '~';
-      console.log(`     ${icon} [${r.id}] ${r.criterion.slice(0, 60)}`);
+      const voteStr = r.votes
+        ? ` [${r.votes.map(v => v === true ? 'T' : v === false ? 'F' : '?').join('/')}]`
+        : '';
+      console.log(`     ${icon} [${r.id}]${voteStr} ${r.criterion.slice(0, 56)}`);
     });
 
     if (report.verdict === 'pass') break;
@@ -225,6 +232,21 @@ async function main() {
 
   console.log(`\n${DIVIDER2}\n`);
 
+  // ── Telemetry (opt-in) ─────────────────────────────────────────────────────
+  const betaEmail = opts.betaEmail || process.env.QB_BETA_EMAIL;
+  if (opts.telemetry && betaEmail) {
+    await phonehome({
+      email:        betaEmail,
+      task_hash:    hashTask(request),
+      passed:       report?.verdict === 'pass',
+      attempts:     attempt,
+      duration_ms:  totalMs,
+      repair_count: Math.max(0, attempt - 1),
+      layers_used:  buildLayersUsed(opts),
+      qb_version:   QB_VERSION,
+    });
+  }
+
   process.exit(report?.verdict === 'pass' ? 0 : 1);
 }
 
@@ -251,6 +273,31 @@ function prompt(question) {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     rl.question(question, answer => { rl.close(); resolve(answer); });
   });
+}
+
+function hashTask(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = Math.imul(31, h) + str.charCodeAt(i) | 0;
+  }
+  return (h >>> 0).toString(16).padStart(8, '0');
+}
+
+function buildLayersUsed(opts) {
+  const layers = ['L1', 'L2', 'L3', 'L4', 'L5'];
+  return layers.join(',');
+}
+
+async function phonehome(data) {
+  try {
+    await fetch('https://quaterback.velorallc.workers.dev/api/metrics', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(data),
+    });
+  } catch (_) {
+    // Silent — never block or crash the user's run
+  }
 }
 
 main().catch(e => {

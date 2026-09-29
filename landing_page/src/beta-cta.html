@@ -8,13 +8,8 @@
       <p style="margin: 0; font-size: 19px; line-height: 1.65; color: #9AA5A0;">We measure your baseline first, then run the same work through the runtime, and show you the delta on your own tasks. Anonymized metrics only, and we publish nothing without your say-so.</p>
     </div>
 
-    <div style="flex-grow: 1; flex-basis: 0; padding: 40px 42px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
-      <form name="beta-access" method="POST" data-netlify="true" netlify-honeypot="bot-field">
-        <!-- Netlify requires this hidden input -->
-        <input type="hidden" name="form-name" value="beta-access">
-        <!-- Honeypot to block spam bots -->
-        <div style="display: none;"><label>Don't fill this out: <input name="bot-field"></label></div>
-
+    <div class="qb-glass" style="flex-grow: 1; flex-basis: 0; padding: 40px 42px; border-radius: 12px;">
+      <form id="beta-form" name="beta-access" method="POST">
         <div style="margin-bottom: 24px;">
           <label for="email" style="display: block; font-size: 15px; font-weight: 500; color: #C6CFCB; margin-bottom: 10px;">Work email</label>
           <input id="email" name="email" type="email" required placeholder="you@company.com" style="width: 100%; box-sizing: border-box; height: 52px; padding: 0 16px; background: #0D100F; border: 1px solid #3A4441; border-radius: 4px; color: #F4F1EA; font-family: 'IBM Plex Sans', sans-serif; font-size: 16px;">

@@ -138,4 +138,91 @@
     el.addEventListener('mouseleave', () => { el.style.background = '#0D100F'; });
   });
 
+  /* ── GitHub star count (live fetch, silent fail) ── */
+  const starEl = document.getElementById('qb-stars');
+  if (starEl) {
+    fetch('https://api.github.com/repos/arshad8049/quaterback', {
+      headers: { 'Accept': 'application/vnd.github.v3+json' }
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data && typeof data.stargazers_count === 'number') {
+          const n = data.stargazers_count;
+          starEl.textContent = n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n);
+        }
+      })
+      .catch(() => {});
+  }
+
+  /* ── GitHub link hover ── */
+  const ghLink = document.querySelector('.qb-github-link');
+  if (ghLink) {
+    ghLink.addEventListener('mouseenter', () => {
+      ghLink.style.borderColor = '#4A5C56';
+      ghLink.style.color = '#C6CFCB';
+    });
+    ghLink.addEventListener('mouseleave', () => {
+      ghLink.style.borderColor = '#2E3C38';
+      ghLink.style.color = '#8A948F';
+    });
+  }
+
+
+  /* ── Hamburger nav toggle ── */
+  const navToggle = document.querySelector('.qb-nav-toggle');
+  const navEl = document.querySelector('.qb-nav');
+  if (navToggle && navEl) {
+    navToggle.addEventListener('click', () => {
+      const isOpen = navEl.classList.toggle('qb-nav-open');
+      navToggle.setAttribute('aria-expanded', String(isOpen));
+      document.body.style.overflow = isOpen ? 'hidden' : '';
+    });
+    navEl.querySelectorAll('.qb-nav-link, .qb-cta-btn').forEach((link) => {
+      link.addEventListener('click', () => {
+        navEl.classList.remove('qb-nav-open');
+        navToggle.setAttribute('aria-expanded', 'false');
+        document.body.style.overflow = '';
+      });
+    });
+  }
+
+  /* ── Beta form submission ── */
+  const betaForm = document.getElementById('beta-form');
+  if (betaForm) {
+    betaForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = betaForm.querySelector('button[type="submit"]');
+      const emailVal = betaForm.querySelector('[name="email"]').value.trim();
+      const agentVal = (betaForm.querySelector('[name="agent"]') || {}).value || '';
+      const originalText = btn.textContent;
+      btn.textContent = 'Sending…';
+      btn.disabled = true;
+
+      let sent = false;
+      try {
+        const res = await fetch('/api/beta-access', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: emailVal, agent: agentVal }),
+        });
+        sent = res.ok;
+      } catch (_) {}
+
+      if (sent) {
+        betaForm.innerHTML =
+          '<div style="text-align:center;padding:48px 0;font-family:\'IBM Plex Mono\',monospace;font-size:15px;color:#6FBF9F;letter-spacing:0.06em;">✓ request received<br><span style="font-size:13px;color:#8A948F;letter-spacing:0.04em;display:block;margin-top:12px;">we\'ll be in touch</span></div>';
+        return;
+      }
+
+      // Fallback: open email client
+      const subject = encodeURIComponent('Quarterback Beta Access');
+      const body = encodeURIComponent(`Email: ${emailVal}\nAgent: ${agentVal || 'not specified'}`);
+      window.open(`mailto:ashaik8.us@gmail.com?subject=${subject}&body=${body}`);
+      btn.textContent = originalText;
+      btn.disabled = false;
+      const fb = document.getElementById('form-feedback');
+      if (fb) fb.textContent = 'Opening your email client — thanks for applying!';
+    });
+  }
+
 })();

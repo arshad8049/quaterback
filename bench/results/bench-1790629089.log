@@ -1,0 +1,27 @@
+◇ injected env (0) from intent/.env
+◇ injected env (0) from intent/.env
+◇ injected env (0) from context/.env
+◇ injected env (0) from intent/.env
+◇ injected env (0) from context/.env
+
+════════════════════════════════════════════════════════════════════════
+  QUARTERBACK BENCHMARK
+  Tasks: 6  |  Repo: /Users/Arshad_1/Desktop/Start/projects/cue
+  Baseline: yes  |  LLM context: yes
+════════════════════════════════════════════════════════════════════════
+
+
+────────────────────────────────────────────────────────────────────────
+  [T-001] EASY  — Add a getProviderName() function to src/llm.js that returns the c
+────────────────────────────────────────────────────────────────────────
+
+  [QB] Running full pipeline...
+     L1 40354ms — 4 ACs
+     L2 35377ms — 24 files, 7 symbols
+     L3+L4 attempt 1: ✓ PASS (416194ms)
+
+     QB  ✓ PASS  — 1 attempt(s)  491.9s
+         first attempt: ✓ pass
+         changed: src/llm.js
+
+  [BASE] Running raw baseline (no pipeline)...

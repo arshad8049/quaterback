@@ -1,0 +1,227 @@
+{
+  "task_id": "T-001",
+  "difficulty": "easy",
+  "tags": [
+    "add-function",
+    "single-file",
+    "state"
+  ],
+  "description": "Add a getProviderName() function to src/llm.js that returns the currently active LLM provider name as a string",
+  "qb": {
+    "timing": {
+      "l1_ms": 41466,
+      "l2_ms": 31796,
+      "total_ms": 1105174
+    },
+    "contract": {
+      "id": "19f9a072-d447-4995-ae89-a96b496cb09e",
+      "created_at": "2026-09-28T20:53:47.190Z",
+      "raw_request": "Add a getProviderName() function to src/llm.js that returns the currently active LLM provider name as a string",
+      "repo_path": null,
+      "goal": "Add a function getProviderName() to src/llm.js that returns the currently active LLM provider name as a string.",
+      "required_behavior": [
+        "The function getProviderName() returns the currently active LLM provider name as a string."
+      ],
+      "constraints": [
+        "The function must not return any additional information or modify the provider's state."
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "AC-1",
+          "criterion": "The function getProviderName() is added to src/llm.js.",
+          "met": null
+        },
+        {
+          "id": "AC-2",
+          "criterion": "The function returns a string.",
+          "met": null
+        },
+        {
+          "id": "AC-3",
+          "criterion": "The function correctly returns the currently active LLM provider name.",
+          "met": null
+        },
+        {
+          "id": "AC-4",
+          "criterion": "The function does not have any side effects.",
+          "met": null
+        }
+      ],
+      "verification_plan": [
+        "Run tests to verify the function is added to src/llm.js.",
+        "Check that the function returns a string.",
+        "Verify that the function returns the correct provider name.",
+        "Ensure the function does not have any side effects."
+      ],
+      "relevant_context": [
+        "src/llm.js"
+      ],
+      "ambiguity_flags": [],
+      "clarifying_question": null
+    },
+    "ac_count": 4,
+    "files_in_scope": 24,
+    "symbols": 7,
+    "attempts": [
+      {
+        "attempt": 1,
+        "l3_ms": 43934,
+        "l4_ms": 179699,
+        "verdict": "fail",
+        "files_changed": [
+          "src/llm.js"
+        ],
+        "ac_results": [
+          {
+            "id": "AC-1",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          },
+          {
+            "id": "AC-2",
+            "met": false,
+            "votes": [
+              false,
+              false,
+              false
+            ]
+          },
+          {
+            "id": "AC-3",
+            "met": false,
+            "votes": [
+              false,
+              true,
+              false
+            ]
+          },
+          {
+            "id": "AC-4",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          }
+        ],
+        "failures": [
+          "AC-2",
+          "AC-3"
+        ]
+      },
+      {
+        "attempt": 2,
+        "l3_ms": 73887,
+        "l4_ms": 395857,
+        "verdict": "fail",
+        "files_changed": [
+          "src/llm.js"
+        ],
+        "ac_results": [
+          {
+            "id": "AC-1",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          },
+          {
+            "id": "AC-2",
+            "met": false,
+            "votes": [
+              false,
+              true,
+              false
+            ]
+          },
+          {
+            "id": "AC-3",
+            "met": false,
+            "votes": [
+              false,
+              true,
+              false
+            ]
+          },
+          {
+            "id": "AC-4",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          }
+        ],
+        "failures": [
+          "AC-2",
+          "AC-3"
+        ]
+      },
+      {
+        "attempt": 3,
+        "l3_ms": 139521,
+        "l4_ms": 199014,
+        "verdict": "fail",
+        "files_changed": [
+          "src/llm.js"
+        ],
+        "ac_results": [
+          {
+            "id": "AC-1",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              false
+            ]
+          },
+          {
+            "id": "AC-2",
+            "met": false,
+            "votes": [
+              true,
+              false,
+              false
+            ]
+          },
+          {
+            "id": "AC-3",
+            "met": false,
+            "votes": [
+              false,
+              false,
+              true
+            ]
+          },
+          {
+            "id": "AC-4",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          }
+        ],
+        "failures": [
+          "AC-2",
+          "AC-3"
+        ]
+      }
+    ],
+    "final_verdict": "fail",
+    "total_attempts": 3,
+    "first_verdict": "fail",
+    "files_changed": [
+      "src/llm.js"
+    ]
+  }
+}
