@@ -1,0 +1,185 @@
+{
+  "task_id": "T-001",
+  "difficulty": "easy",
+  "tags": [
+    "add-function",
+    "single-file",
+    "state"
+  ],
+  "description": "Add a getProviderName() function to src/llm.js that returns the currently active LLM provider name as a string",
+  "qb": {
+    "timing": {
+      "l1_ms": 30427,
+      "l2_ms": 33408,
+      "total_ms": 365783
+    },
+    "contract": {
+      "id": "568b98a8-6b5c-423a-9a18-51ba9dafd08a",
+      "created_at": "2026-09-29T02:52:33.461Z",
+      "raw_request": "Add a getProviderName() function to src/llm.js that returns the currently active LLM provider name as a string",
+      "repo_path": null,
+      "goal": "Add a function getProviderName() to src/llm.js that returns the currently active LLM provider name as a string",
+      "required_behavior": [
+        "The function getProviderName() returns the currently active LLM provider name as a string"
+      ],
+      "constraints": [
+        "The function must not interfere with existing code functionality",
+        "The function must be properly exported for use in other modules"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "AC-1",
+          "criterion": "The function getProviderName() returns a string containing the currently active LLM provider name",
+          "met": null
+        },
+        {
+          "id": "AC-2",
+          "criterion": "The function getProviderName() is properly exported in src/llm.js",
+          "met": null
+        }
+      ],
+      "verification_plan": [
+        "Test the function to ensure it returns the correct string value",
+        "Verify that the function is properly exported from src/llm.js"
+      ],
+      "relevant_context": [
+        "src/llm.js"
+      ],
+      "ambiguity_flags": [],
+      "clarifying_question": null
+    },
+    "ac_count": 2,
+    "files_in_scope": 24,
+    "symbols": 7,
+    "attempts": [
+      {
+        "attempt": 1,
+        "l3_ms": 26787,
+        "l4_ms": 74619,
+        "verdict": "fail",
+        "files_changed": [
+          "src/llm.js"
+        ],
+        "ac_results": [
+          {
+            "id": "AC-1",
+            "met": false,
+            "votes": [
+              false,
+              true,
+              false
+            ]
+          },
+          {
+            "id": "AC-2",
+            "met": false,
+            "votes": [
+              false,
+              false,
+              false
+            ]
+          }
+        ],
+        "failures": [
+          "AC-1",
+          "AC-2"
+        ]
+      },
+      {
+        "attempt": 2,
+        "l3_ms": 18993,
+        "l4_ms": 84669,
+        "verdict": "fail",
+        "files_changed": [
+          "src/llm.js"
+        ],
+        "ac_results": [
+          {
+            "id": "AC-1",
+            "met": true,
+            "votes": [
+              false,
+              true,
+              true
+            ]
+          },
+          {
+            "id": "AC-2",
+            "met": false,
+            "votes": [
+              false,
+              false,
+              true
+            ]
+          }
+        ],
+        "failures": [
+          "AC-2"
+        ]
+      },
+      {
+        "attempt": 3,
+        "l3_ms": 12591,
+        "l4_ms": 84289,
+        "verdict": "fail",
+        "files_changed": [
+          "src/llm.js"
+        ],
+        "ac_results": [
+          {
+            "id": "AC-1",
+            "met": false,
+            "votes": [
+              true,
+              false,
+              false
+            ]
+          },
+          {
+            "id": "AC-2",
+            "met": false,
+            "votes": [
+              false,
+              false,
+              false
+            ]
+          }
+        ],
+        "failures": [
+          "AC-1",
+          "AC-2"
+        ]
+      }
+    ],
+    "final_verdict": "fail",
+    "total_attempts": 3,
+    "first_verdict": "fail",
+    "files_changed": [
+      "src/llm.js"
+    ]
+  },
+  "baseline": {
+    "agent_ms": 16670,
+    "status": "completed",
+    "error": null,
+    "l4_ms": 123827,
+    "verdict": "fail",
+    "ac_results": [
+      {
+        "id": "AC-1",
+        "met": false
+      },
+      {
+        "id": "AC-2",
+        "met": true
+      }
+    ],
+    "failures": [
+      "AC-1"
+    ],
+    "files_changed": [
+      "src/llm.js"
+    ],
+    "timing_ms": 140497
+  }
+}

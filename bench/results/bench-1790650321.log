@@ -20,3 +20,24 @@
      L2 33408ms — 24 files, 7 symbols
      L3+L4 attempt 1: ✗ FAIL (101406ms)
      L3+L4 attempt 2: ✗ FAIL (103662ms)
+     L3+L4 attempt 3: ✗ FAIL (96880ms)
+
+     QB  ✗ FAIL  — 3 attempt(s)  365.8s
+         first attempt: ✗ fail
+         changed: src/llm.js
+
+  [BASE] Running raw baseline (no pipeline)...
+     BASE ✗ FAIL  — 140.5s
+         changed: src/llm.js
+         failing ACs: AC-1
+
+  Saved → /Users/Arshad_1/Desktop/millionaire/quaterback/bench/results/T-001_1790650830321.json
+
+────────────────────────────────────────────────────────────────────────
+  [T-002] EASY  — Add a formatDuration(ms) function to src/wav.js that converts a m
+────────────────────────────────────────────────────────────────────────
+
+  [QB] Running full pipeline...
+     L1 45859ms — 5 ACs
+     L2 39843ms — 24 files, 7 symbols
+     L3+L4 attempt 1: ✗ FAIL (825891ms)

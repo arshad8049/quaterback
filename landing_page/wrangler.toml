@@ -1,12 +1,15 @@
-name                   = "qb-landing"
-compatibility_date     = "2024-09-23"
-pages_build_output_dir = "."
+name               = "qb-landing"
+compatibility_date = "2024-09-23"
+main               = "_worker.js"
 
-# D1 database binding — used for local dev and wrangler d1 CLI commands.
-# Production binding is set in the Cloudflare Pages dashboard:
-#   Pages project → Settings → Functions → D1 database bindings
-#   Variable name: DB  →  Database: qb-beta
+[assets]
+directory = "."
+binding   = "ASSETS"
+
+# D1 database binding
+# After creating the database: npx wrangler d1 create qb-beta
+# Copy the database_id from the output into the field below.
 [[d1_databases]]
-binding      = "DB"
+binding       = "DB"
 database_name = "qb-beta"
-database_id  = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id   = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
