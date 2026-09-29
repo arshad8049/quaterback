@@ -214,14 +214,13 @@
         return;
       }
 
-      // Fallback: open email client
-      const subject = encodeURIComponent('Quarterback Beta Access');
-      const body = encodeURIComponent(`Email: ${emailVal}\nAgent: ${agentVal || 'not specified'}`);
-      window.open(`mailto:ashaik8.us@gmail.com?subject=${subject}&body=${body}`);
+      // Fallback: show inline message with direct email link — no OS dialog
       btn.textContent = originalText;
       btn.disabled = false;
       const fb = document.getElementById('form-feedback');
-      if (fb) fb.textContent = 'Opening your email client — thanks for applying!';
+      if (fb) {
+        fb.innerHTML = 'Something went wrong on our end. Email us directly at <a href="mailto:ashaik8.us@gmail.com?subject=QB%20Beta%20Access&body=Email%3A%20' + encodeURIComponent(emailVal) + '" style="color:#6FBF9F;">ashaik8.us@gmail.com</a> and we\'ll get you in.';
+      }
     });
   }
 
