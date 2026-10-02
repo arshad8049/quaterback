@@ -8,7 +8,7 @@
  *   3. Signal scan  — checks whether contract keywords / AC terms appear in the diff
  */
 
-const { execSync } = require('child_process');
+const proc = require('../lib/proc');
 const path = require('path');
 
 /**
@@ -35,34 +35,30 @@ function runTests(context, repoPath) {
 
   const runner = context.patterns?.test_runner;
 
-  // Pick the right command based on detected runner
+  // Pick the right command based on detected runner (argv, never a shell string)
   let cmd = null;
-  if (runner === 'vitest')    cmd = 'npx vitest run --reporter=verbose 2>&1';
-  else if (runner === 'jest') cmd = 'npx jest --no-coverage 2>&1';
-  else if (runner === 'mocha') cmd = 'npx mocha 2>&1';
-  else if (runner === 'node-test') cmd = 'npm test 2>&1';
-  else if (runner === 'go test') cmd = 'go test ./... 2>&1';
-  else if (runner === 'pytest') cmd = 'python -m pytest -v 2>&1';
+  if (runner === 'vitest')         cmd = ['npx', ['vitest', 'run', '--reporter=verbose']];
+  else if (runner === 'jest')      cmd = ['npx', ['jest', '--no-coverage']];
+  else if (runner === 'mocha')     cmd = ['npx', ['mocha']];
+  else if (runner === 'node-test') cmd = ['npm', ['test']];
+  else if (runner === 'go test')   cmd = ['go', ['test', './...']];
+  else if (runner === 'pytest')    cmd = ['python', ['-m', 'pytest', '-v']];
   else {
     // Fallback: look for test script in package.json
     try {
       const pkg = JSON.parse(require('fs').readFileSync(path.join(repoPath, 'package.json'), 'utf8'));
       if (pkg.scripts?.test && !pkg.scripts.test.includes('no test')) {
-        cmd = 'npm test 2>&1';
+        cmd = ['npm', ['test']];
       }
     } catch (_) {}
   }
 
   if (!cmd) return null;
 
-  try {
-    const output = execSync(cmd, { cwd: repoPath, encoding: 'utf8', timeout: 60_000 });
-    return parseTestOutput(output, runner);
-  } catch (e) {
-    // Test runner exits non-zero when tests fail — that's meaningful
-    const output = e.stdout || e.message || '';
-    return parseTestOutput(output, runner);
-  }
+  // Exit code / signal handling is still lossy here — that is QB-06 (Phase 2).
+  const r = proc.run(cmd[0], cmd[1], { cwd: repoPath, timeout: 60_000 });
+  const output = `${r.stdout || ''}${r.stderr || ''}` || (r.error ? r.error.message : '');
+  return parseTestOutput(output, runner);
 }
 
 function parseTestOutput(output, runner) {
