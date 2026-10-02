@@ -24,6 +24,7 @@ test('rendered policy has exactly the access rules E3 tested (same allowlist →
 test('INFERENCE allows only api.anthropic.com; DEPS only the npm registry', () => {
   assert.deepEqual(POLICIES.INFERENCE, ['api.anthropic.com']);
   assert.deepEqual(POLICIES.DEPS, ['registry.npmjs.org']);
+  assert.ok(!POLICIES.INFERENCE.includes('platform.claude.com'), 'agent stages must not reach the OAuth host');
   assert.match(renderPolicy(POLICIES.INFERENCE), /^acl allowed_hosts dstdomain -n api\.anthropic\.com$/m);
 });
 
