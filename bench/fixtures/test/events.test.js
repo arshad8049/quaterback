@@ -76,3 +76,40 @@ test('on throws for non-function listener', () => {
   const e = createEmitter();
   assert.throws(() => e.on('x', 'not-a-function'), TypeError);
 });
+
+// S-015 oracle tests
+test('once fires listener exactly once', () => {
+  const emitter = createEmitter();
+  let count = 0;
+  emitter.once('x', () => count++);
+  emitter.emit('x');
+  emitter.emit('x');
+  assert.equal(count, 1);
+});
+test('once listener is removed after firing', () => {
+  const emitter = createEmitter();
+  emitter.once('x', () => {});
+  emitter.emit('x');
+  assert.equal(emitter.listenerCount('x'), 0);
+});
+
+// S-019 oracle tests (pipe)
+test('pipe forwards events to target emitter', () => {
+  const src = createEmitter();
+  const dst = createEmitter();
+  let received = null;
+  dst.on('data', (v) => { received = v; });
+  src.on('data', () => {}); // register event so pipe knows about it
+  src.pipe(dst);
+  src.emit('data', 42);
+  assert.equal(received, 42);
+});
+test('pipe does not affect direct listeners', () => {
+  const src = createEmitter();
+  const dst = createEmitter();
+  let direct = 0;
+  src.on('x', () => direct++);
+  src.pipe(dst);
+  src.emit('x');
+  assert.equal(direct, 1);
+});

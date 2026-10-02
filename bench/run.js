@@ -36,10 +36,22 @@ program
   .option('--no-baseline',       'Skip baseline comparison run')
   .option('--no-llm-context',    'Skip LLM enrichment in L2 (faster)')
   .option('--max-retries <n>',   'QB repair loop max retries', '3')
+  .option('--runs <n>',          'Run the entire task list N times and aggregate', '1')
+  .option('--sandbox',           'Use bench/sandbox-tasks.json with fixtures/ repo')
   .parse(process.argv);
 
-const opts  = program.opts();
-const tasks = require('./tasks.json');
+const opts = program.opts();
+
+const tasksFile = opts.sandbox
+  ? path.join(__dirname, 'sandbox-tasks.json')
+  : path.join(__dirname, 'tasks.json');
+const tasks = require(tasksFile);
+
+// Resolve relative repo path
+let resolvedRepoPath = tasks.meta.repo;
+if (!path.isAbsolute(resolvedRepoPath)) {
+  resolvedRepoPath = path.join(__dirname, '..', resolvedRepoPath); // QB root + relative
+}
 
 const RESULTS_DIR = path.join(__dirname, 'results');
 const D2 = '═'.repeat(72);
@@ -55,55 +67,134 @@ async function main() {
     }
   }
 
+  const numRuns   = Math.max(1, parseInt(opts.runs, 10) || 1);
+  const repoPath  = resolvedRepoPath;
+
   console.log(`\n${D2}`);
   console.log(`  QUARTERBACK BENCHMARK`);
-  console.log(`  Tasks: ${taskList.length}  |  Repo: ${tasks.meta.repo}`);
+  console.log(`  Tasks: ${taskList.length}  |  Repo: ${repoPath}`);
   console.log(`  Baseline: ${opts.baseline !== false ? 'yes' : 'no'}  |  LLM context: ${opts.llmContext !== false ? 'yes' : 'no'}`);
+  console.log(`  Runs: ${numRuns}  |  Mode: ${opts.sandbox ? 'sandbox' : 'standard'}`);
   console.log(`${D2}\n`);
 
   if (!fs.existsSync(RESULTS_DIR)) fs.mkdirSync(RESULTS_DIR, { recursive: true });
 
-  const summary = [];
+  // Multi-run tracking: task_id → array of booleans (pass/fail per run)
+  const multiRunData = {};
+  for (const task of taskList) multiRunData[task.id] = [];
 
-  for (const task of taskList) {
-    console.log(`\n${D1}`);
-    console.log(`  [${task.id}] ${task.difficulty.toUpperCase()}  — ${task.description.slice(0, 65)}`);
-    console.log(D1);
-
-    const repoPath = tasks.meta.repo;
-    const result   = { task_id: task.id, difficulty: task.difficulty, tags: task.tags, description: task.description };
-
-    // ── Ensure repo is clean ─────────────────────────────────────────────────
-    resetRepo(repoPath);
-
-    // ── QB run ───────────────────────────────────────────────────────────────
-    console.log('\n  [QB] Running full pipeline...');
-    result.qb = await runQB(task, repoPath);
-    printQBResult(result.qb);
-
-    // ── Reset between runs ───────────────────────────────────────────────────
-    resetRepo(repoPath);
-
-    // ── Baseline run ─────────────────────────────────────────────────────────
-    if (opts.baseline !== false) {
-      console.log('\n  [BASE] Running raw baseline (no pipeline)...');
-      result.baseline = await runBaselineTask(task, repoPath, result.qb.contract);
-      printBaselineResult(result.baseline);
+  for (let run = 1; run <= numRuns; run++) {
+    if (numRuns > 1) {
+      console.log(`\n${D2}`);
+      console.log(`  RUN ${run} of ${numRuns}`);
+      console.log(`${D2}`);
     }
 
-    // ── Reset after all runs ─────────────────────────────────────────────────
-    resetRepo(repoPath);
+    const summary = [];
 
-    // ── Save result ──────────────────────────────────────────────────────────
-    const outPath = path.join(RESULTS_DIR, `${task.id}_${Date.now()}.json`);
-    fs.writeFileSync(outPath, JSON.stringify(result, null, 2));
-    console.log(`\n  Saved → ${outPath}`);
+    for (const task of taskList) {
+      console.log(`\n${D1}`);
+      console.log(`  [${task.id}] ${task.difficulty.toUpperCase()}  — ${task.description.slice(0, 65)}`);
+      console.log(D1);
 
-    summary.push(result);
+      const result = { task_id: task.id, difficulty: task.difficulty, tags: task.tags, description: task.description };
+
+      // ── Ensure repo is clean ───────────────────────────────────────────────
+      resetRepo(repoPath);
+
+      // ── QB run ─────────────────────────────────────────────────────────────
+      console.log('\n  [QB] Running full pipeline...');
+      result.qb = await runQB(task, repoPath);
+      printQBResult(result.qb);
+
+      // ── Reset between runs ─────────────────────────────────────────────────
+      resetRepo(repoPath);
+
+      // ── Baseline run ───────────────────────────────────────────────────────
+      if (opts.baseline !== false) {
+        console.log('\n  [BASE] Running raw baseline (no pipeline)...');
+        result.baseline = await runBaselineTask(task, repoPath, result.qb.contract);
+        printBaselineResult(result.baseline);
+      }
+
+      // ── Reset after all runs ───────────────────────────────────────────────
+      resetRepo(repoPath);
+
+      // ── Save result ────────────────────────────────────────────────────────
+      const outPath = path.join(RESULTS_DIR, `${task.id}_${Date.now()}.json`);
+      fs.writeFileSync(outPath, JSON.stringify(result, null, 2));
+      console.log(`\n  Saved → ${outPath}`);
+
+      summary.push(result);
+      multiRunData[task.id].push(result.qb?.final_verdict === 'pass');
+    }
+
+    // ── Per-run summary table ────────────────────────────────────────────────
+    printSummary(summary, opts.baseline !== false);
   }
 
-  // ── Summary table ─────────────────────────────────────────────────────────
-  printSummary(summary, opts.baseline !== false);
+  // ── Multi-run aggregate (only when --runs > 1) ────────────────────────────
+  if (numRuns > 1) {
+    printMultiRunSummary(taskList, multiRunData, numRuns);
+  }
+}
+
+// ── Multi-run summary ─────────────────────────────────────────────────────────
+
+function printMultiRunSummary(taskList, multiRunData, numRuns) {
+  const D2 = '═'.repeat(72);
+  console.log(`\n\n${D2}`);
+  console.log(`  MULTI-RUN SUMMARY  (${numRuns} runs)`);
+  console.log(D2);
+
+  console.log(`\n  ${'ID'.padEnd(8)} ${'Difficulty'.padEnd(11)} ${'Passes'.padEnd(9)} ${'Mean'.padEnd(8)} ${'Std'.padEnd(8)} ${'95% CI'.padEnd(18)}`);
+  console.log('  ' + '─'.repeat(66));
+
+  const aggData = [];
+  for (const task of taskList) {
+    const runs    = multiRunData[task.id] || [];
+    const k       = runs.filter(Boolean).length;
+    const n       = runs.length;
+    const mean    = n > 0 ? k / n : 0;
+    // Sample std dev of Bernoulli trials
+    const std     = n > 1 ? Math.sqrt(mean * (1 - mean) * n / (n - 1)) : 0;
+    const [lo, hi] = wilsonCI(k, n);
+
+    const ciStr = `[${(lo * 100).toFixed(0)}%–${(hi * 100).toFixed(0)}%]`;
+    console.log(`  ${task.id.padEnd(8)} ${(task.difficulty || '?').padEnd(11)} ${`${k}/${n}`.padEnd(9)} ${(mean * 100).toFixed(1).padStart(5)}%   ${(std * 100).toFixed(1).padStart(5)}%   ${ciStr}`);
+
+    aggData.push({ id: task.id, k, n, mean, std, lo, hi });
+  }
+
+  // Overall pass rate
+  const totalPasses = aggData.reduce((s, d) => s + d.k, 0);
+  const totalRuns   = aggData.reduce((s, d) => s + d.n, 0);
+  const [gLo, gHi]  = wilsonCI(totalPasses, totalRuns);
+
+  console.log('\n  ' + '─'.repeat(66));
+  console.log(`  Overall QB pass rate: ${totalPasses}/${totalRuns} (${(totalPasses/totalRuns*100).toFixed(1)}%,  95% CI: [${(gLo*100).toFixed(0)}%–${(gHi*100).toFixed(0)}%])`);
+  console.log(`\n${D2}\n`);
+
+  // Save multi-run JSON
+  const ts = Date.now();
+  const outPath = path.join(RESULTS_DIR, `multirun_${ts}.json`);
+  const doc = {
+    meta: { runs: numRuns, tasks: taskList.length, created: new Date().toISOString() },
+    per_task: aggData,
+    overall: { passes: totalPasses, total: totalRuns, mean: totalPasses / totalRuns, ci_95: [gLo, gHi] },
+  };
+  fs.writeFileSync(outPath, JSON.stringify(doc, null, 2));
+  console.log(`  Multi-run summary saved → ${outPath}`);
+}
+
+// ── Wilson CI (used in multi-run summary) ─────────────────────────────────────
+function wilsonCI(k, n, z = 1.96) {
+  if (n === 0) return [0, 0];
+  const p      = k / n;
+  const denom  = 1 + z * z / n;
+  const center = (p + z * z / (2 * n)) / denom;
+  const margin = (z * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n))) / denom;
+  return [Math.max(0, center - margin), Math.min(1, center + margin)];
 }
 
 // ── QB pipeline run ───────────────────────────────────────────────────────────

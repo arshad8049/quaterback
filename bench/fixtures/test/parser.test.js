@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert   = require('node:assert/strict');
-const { parseJSON, parseQueryString, parseCookies, parseCSVLine } = require('../src/parser');
+const { parseJSON, parseQueryString, parseCookies, parseCSVLine, parseIntSafe, parseCSVTable } = require('../src/parser');
 
 test('parseJSON parses valid JSON', () => {
   assert.deepEqual(parseJSON('{"a":1}'), { a: 1 });
@@ -55,4 +55,37 @@ test('parseCSVLine handles escaped quotes', () => {
 
 test('parseCSVLine handles empty fields', () => {
   assert.deepEqual(parseCSVLine('a,,c'), ['a', '', 'c']);
+});
+
+// S-006 oracle tests
+test('parseIntSafe parses valid integer string', () => {
+  assert.equal(parseIntSafe('42'), 42);
+  assert.equal(parseIntSafe('0'), 0);
+});
+test('parseIntSafe returns fallback for non-numeric', () => {
+  assert.equal(parseIntSafe('abc'), 0);
+  assert.equal(parseIntSafe(''), 0);
+  assert.equal(parseIntSafe('abc', -1), -1);
+});
+test('parseIntSafe returns fallback for non-string', () => {
+  assert.equal(parseIntSafe(null, 5), 5);
+  assert.equal(parseIntSafe(undefined, 5), 5);
+});
+
+// S-012 oracle tests
+test('parseCSVTable returns array of objects', () => {
+  const csv = 'name,age\nAlice,30\nBob,25';
+  const result = parseCSVTable(csv);
+  assert.equal(result.length, 2);
+  assert.equal(result[0].name, 'Alice');
+  assert.equal(result[0].age, '30');
+});
+test('parseCSVTable handles empty body', () => {
+  const csv = 'name,age';
+  assert.deepEqual(parseCSVTable(csv), []);
+});
+test('parseCSVTable handles quoted fields', () => {
+  const csv = 'name,city\n"Smith, John",NYC';
+  const result = parseCSVTable(csv);
+  assert.equal(result[0].name, 'Smith, John');
 });

@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert   = require('node:assert/strict');
-const { formatDuration, formatNumber, truncate, padLeft, padRight, formatDate } = require('../src/formatter');
+const { formatDuration, formatNumber, truncate, padLeft, padRight, formatDate, capitalize, formatBytes, formatPercent } = require('../src/formatter');
 
 test('formatDuration returns ms for sub-second', () => {
   assert.equal(formatDuration(500), '500ms');
@@ -64,3 +64,42 @@ test('formatDate returns a non-empty string', () => {
 test('formatDate returns Invalid Date for bad input', () => {
   assert.equal(formatDate('not-a-date'), 'Invalid Date');
 });
+
+// S-003 oracle tests
+test('capitalize uppercases first letter', () => {
+  assert.equal(capitalize('hello'), 'Hello');
+});
+test('capitalize lowercases rest', () => {
+  assert.equal(capitalize('hELLO WORLD'), 'Hello world');
+});
+test('capitalize handles empty string', () => {
+  assert.equal(capitalize(''), '');
+});
+
+// S-004 oracle tests
+test('formatBytes formats bytes', () => {
+  assert.equal(formatBytes(0), '0 B');
+});
+test('formatBytes formats kilobytes', () => {
+  assert.equal(formatBytes(1536), '1.5 KB');
+});
+test('formatBytes formats megabytes', () => {
+  assert.equal(formatBytes(1048576), '1.0 MB');
+});
+test('formatBytes formats gigabytes', () => {
+  assert.ok(formatBytes(1073741824).includes('GB'));
+});
+
+// S-011 oracle tests
+test('formatPercent formats number as percent', () => {
+  assert.equal(formatPercent(0.5), '50.0%');
+});
+test('formatPercent respects decimals param', () => {
+  assert.equal(formatPercent(0.1234, 2), '12.34%');
+});
+test('formatPercent handles 0 and 1', () => {
+  assert.equal(formatPercent(0), '0.0%');
+  assert.equal(formatPercent(1), '100.0%');
+});
+
+// S-017 oracle tests (formatBytes already tested above; getSizeReport tested in cache.test.js)

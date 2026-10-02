@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert   = require('node:assert/strict');
-const { isObject, isNumber, isString, isArray, isBoolean, validateSchema, isIPv4 } = require('../src/validator');
+const { isObject, isNumber, isString, isArray, isBoolean, validateSchema, isIPv4, isEmail, isURL, validateRequired } = require('../src/validator');
 
 test('isObject returns true for plain objects', () => {
   assert.ok(isObject({ a: 1 }));
@@ -73,4 +73,63 @@ test('isIPv4 rejects invalid addresses', () => {
   assert.ok(!isIPv4('192.168.1'));
   assert.ok(!isIPv4('not-an-ip'));
   assert.ok(!isIPv4(''));
+});
+
+// S-005 oracle tests
+test('isEmail returns true for valid email', () => {
+  assert.ok(isEmail('user@example.com'));
+  assert.ok(isEmail('a+b@x.co'));
+});
+test('isEmail returns false for invalid email', () => {
+  assert.ok(!isEmail('notanemail'));
+  assert.ok(!isEmail('@example.com'));
+  assert.ok(!isEmail('user@'));
+  assert.ok(!isEmail(''));
+});
+
+// S-013 oracle tests
+test('isURL returns true for http URL', () => {
+  assert.ok(isURL('http://example.com'));
+  assert.ok(isURL('https://example.com/path?q=1'));
+});
+test('isURL returns false for non-URLs', () => {
+  assert.ok(!isURL('example.com'));
+  assert.ok(!isURL('ftp://example.com'));
+  assert.ok(!isURL(''));
+  assert.ok(!isURL(null));
+});
+
+// S-014 oracle tests
+test('validateRequired returns valid when all fields present', () => {
+  const r = validateRequired({ name: 'Alice', age: 30 }, ['name', 'age']);
+  assert.ok(r.valid);
+  assert.equal(r.missing.length, 0);
+});
+test('validateRequired returns missing fields', () => {
+  const r = validateRequired({ name: '' }, ['name', 'age']);
+  assert.ok(!r.valid);
+  assert.ok(r.missing.includes('name') || r.missing.includes('age'));
+});
+test('validateRequired catches undefined fields', () => {
+  const r = validateRequired({}, ['a', 'b']);
+  assert.ok(!r.valid);
+  assert.equal(r.missing.length, 2);
+});
+
+// S-020 oracle tests (nested validateSchema)
+test('validateSchema validates nested object with sub-schema', () => {
+  const schema = { address: { type: 'object', schema: { city: 'string', zip: 'string' } } };
+  const result = validateSchema({ address: { city: 'NYC', zip: '10001' } }, schema);
+  assert.ok(result.valid);
+});
+test('validateSchema reports nested errors with dot notation', () => {
+  const schema = { address: { type: 'object', schema: { city: 'string' } } };
+  const result = validateSchema({ address: { city: 42 } }, schema);
+  assert.ok(!result.valid);
+  assert.ok(result.errors.some(e => e.includes('address.city')));
+});
+test('validateSchema handles missing nested object', () => {
+  const schema = { address: { type: 'object', schema: { city: 'string' } } };
+  const result = validateSchema({ address: null }, schema);
+  assert.ok(!result.valid);
 });
