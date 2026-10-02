@@ -33,7 +33,7 @@ Status: `open` · `in-progress` · `fixed (awaiting review)` · `closed` (senior
 | QB-23 | Successful repairs never reach normal memory persistence | High | 3 | open | |
 | QB-24 | Memory can mix repositories and opposite instructions | Medium | 3 | open | |
 | QB-25 | Memory persistence lacks safe lifecycle and concurrency | Medium | 3 | open | |
-| QB-26 | The project has no effective root regression gate | High | 0 | in-progress | `npm test`, `.github/workflows/ci.yml` |
+| QB-26 | The project has no effective root regression gate | High | 0 | fixed (awaiting review) | `npm test`, `.github/workflows/ci.yml` |
 | QB-27 | The benchmark lets QB define its own scoring target | Critical | 4 | open | |
 | QB-28 | Baseline resources and verification paths are unequal | High | 4 | open | |
 | QB-29 | Latest-per-task aggregation mixes experiments | High | 4 | open | |
@@ -45,7 +45,7 @@ Status: `open` · `in-progress` · `fixed (awaiting review)` · `closed` (senior
 | QB-35 | Signup input, delivery, and abuse handling are fragile | High | 5 | open | |
 | QB-36 | Legacy proxy permits unauthenticated paid upstream calls | Critical* | 1 | open | |
 | QB-37 | Deployment and public claims have drifted | High | 5 | open | |
-| QB-38 | Runs lack a durable, versioned evidence record | High | 0 | open | |
+| QB-38 | Runs lack a durable, versioned evidence record | High | 0 | fixed (awaiting review) | `test/unit/run-store.test.js`, `test/unit/qb-cli.test.js` |
 
 \* Critical only if the legacy proxy is deployed.
 

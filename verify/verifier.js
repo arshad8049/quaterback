@@ -1,6 +1,7 @@
 const { randomUUID } = require('crypto');
 const { runChecks }  = require('./checker');
 const { judgeAll }   = require('./judge');
+const { aggregate }  = require('./verdict');
 const { VerificationReportSchema } = require('./schema');
 
 /**
@@ -45,22 +46,11 @@ async function verify(contract, context, execution, options = {}) {
   }
 
   // ── Verdict ──────────────────────────────────────────────────────────────
-  const failures = criteriaResults
-    .filter(r => r.met === false)
-    .map(r => r.id);
-
-  const unknowns = criteriaResults.filter(r => r.met === null);
-
-  let verdict;
-  if (!diff)                       verdict = 'no-diff';
-  else if (failures.length > 0)    verdict = 'fail';
-  else if (unknowns.length > 0)    verdict = 'partial';
-  else                             verdict = 'pass';
-
-  // If tests failed, force verdict to fail
-  if (testResults && testResults.failed > 0 && verdict === 'pass') {
-    verdict = 'fail';
-  }
+  const { verdict, failures } = aggregate({
+    hasDiff: Boolean(diff),
+    criteriaResults,
+    testResults,
+  });
 
   // ── Repair hints (for failed ACs) ────────────────────────────────────────
   const repairHints = criteriaResults

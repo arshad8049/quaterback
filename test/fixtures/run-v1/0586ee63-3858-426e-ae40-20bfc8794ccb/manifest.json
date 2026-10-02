@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "run_id": "0586ee63-3858-426e-ae40-20bfc8794ccb",
+  "kind": "qb",
+  "qb_revision": "d1fb03d54e01560d9488a6af24bd98ebe9aca344",
+  "request": "fixture: v1 manifest",
+  "repo": {
+    "path": "/tmp",
+    "identity": "11fe14a563f7aed66191800dc08fe0d15049ef7d9dac5f5ab4b0ca20b28e193d",
+    "base_sha": null
+  },
+  "agent": {
+    "type": "dry-run",
+    "version": null,
+    "isolation": null
+  },
+  "models": {},
+  "config": {},
+  "config_hash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+  "contract_hash": "dc998f831fe29fc803f2b8d4af56572afc8841f6d13966bb722ec076afdf91db",
+  "sandbox_policy": null,
+  "pid": 85460,
+  "started_at": "2026-10-02T03:51:15.428Z",
+  "finished_at": "2026-10-02T03:51:15.516Z",
+  "outcome": "FAILED",
+  "legacy_verdict": "fail",
+  "outcome_reason": null,
+  "attempts": [
+    {
+      "attempt": 1,
+      "parent_attempt": null,
+      "repair_reason": [],
+      "started_at": "2026-10-02T03:51:15.466Z",
+      "finished_at": "2026-10-02T03:51:15.508Z",
+      "base_sha": "0000000000000000000000000000000000000000",
+      "patch_sha256": "9e3e63fac9c92100f0f15e616e1abf395028edc8912bebfc42044c65eb17e114",
+      "execution_status": null,
+      "verdict": "fail",
+      "checks": [],
+      "artifacts": {
+        "patch": "a1-patch",
+        "report": "a1-report",
+        "verify_input": "a1-verify-input"
+      }
+    }
+  ],
+  "artifacts": {
+    "contract": {
+      "name": "contract",
+      "sha256": "dc998f831fe29fc803f2b8d4af56572afc8841f6d13966bb722ec076afdf91db",
+      "path": "artifacts/dc998f831fe29fc803f2b8d4af56572afc8841f6d13966bb722ec076afdf91db.json",
+      "bytes": 123
+    },
+    "a1-patch": {
+      "name": "a1-patch",
+      "sha256": "9e3e63fac9c92100f0f15e616e1abf395028edc8912bebfc42044c65eb17e114",
+      "path": "artifacts/9e3e63fac9c92100f0f15e616e1abf395028edc8912bebfc42044c65eb17e114.diff",
+      "bytes": 19
+    },
+    "a1-report": {
+      "name": "a1-report",
+      "sha256": "a630dbacf87a8b72c0509dc05b1595ebd2a01ba5f5a45c2888548f6a729a8f9f",
+      "path": "artifacts/a630dbacf87a8b72c0509dc05b1595ebd2a01ba5f5a45c2888548f6a729a8f9f.json",
+      "bytes": 23
+    },
+    "a1-verify-input": {
+      "name": "a1-verify-input",
+      "sha256": "d60aa73179f9cefe1c8c77f1f0ea67f39bbdf901c38657345a87acfca2d249f8",
+      "path": "artifacts/d60aa73179f9cefe1c8c77f1f0ea67f39bbdf901c38657345a87acfca2d249f8.json",
+      "bytes": 123
+    }
+  }
+}

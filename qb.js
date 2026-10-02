@@ -22,6 +22,13 @@ const { buildContext } = require('./context/builder');
 const { orchestrate }  = require('./agent/orchestrator');
 const { verify }       = require('./verify/verifier');
 const memory           = require('./memory');
+const runStore         = require('./run/store');
+const { inputFromReport } = require('./verify/verdict');
+
+// `qb replay <run_id>` / `qb runs` — inspect stored run records.
+if (['replay', 'runs', 'show'].includes(process.argv[2])) {
+  process.exit(require('./run/cli').main(process.argv.slice(2)));
+}
 
 const QB_VERSION = '0.1.0';
 
@@ -45,6 +52,8 @@ const request = program.args[0];
 const DIVIDER  = '─'.repeat(72);
 const DIVIDER2 = '═'.repeat(72);
 
+let currentRun = null;
+
 async function main() {
   const repoPath   = path.resolve(opts.repo);
   const maxRetries = parseInt(opts.maxRetries, 10) || 3;
@@ -57,6 +66,19 @@ async function main() {
   console.log(`${DIVIDER2}\n`);
 
   const totalStart = Date.now();
+
+  // ── Run record (QB-38) ────────────────────────────────────────────────────
+  const model = process.env.QB_MODEL || 'deepseek-r1:7b';
+  const run = currentRun = runStore.createRun({
+    kind:    'qb',
+    request,
+    repoPath,
+    agent:   { type: opts.agent },
+    models:  { intent: model, context: model, judge: model },
+    config:  { ...opts, maxRetries },
+  });
+  runStore.installSignalHandlers(run);
+  log('RUN', `${run.id}  (${run.dir})`);
 
   // ── Layer 5: Memory — prior run recall ────────────────────────────────────
   const priors = memory.recallPrior(repoPath, request);
@@ -85,6 +107,7 @@ async function main() {
     const answer = await prompt('  Your answer → ');
     if (!answer.trim()) {
       console.log('\n  No answer provided. Exiting.\n');
+      run.finish('BLOCKED', { reason: 'clarification required; no answer provided' });
       process.exit(1);
     }
 
@@ -96,6 +119,7 @@ async function main() {
   console.log(`     Goal: ${contract.goal}`);
   console.log(`     ACs:  ${contract.acceptance_criteria?.length || 0}`);
 
+  run.setContract(contract);
   if (opts.save) saveArtifact('intent/contracts', contract);
 
   // ── Layer 2: Context (memory-boosted) ─────────────────────────────────────
@@ -138,6 +162,12 @@ async function main() {
     const label   = isRetry ? `L3 Agent (repair attempt ${attempt})` : 'L3 Agent';
     log(isRetry ? 'L3↩' : 'L3', `${label}...`);
 
+    run.startAttempt({
+      attempt,
+      parent_attempt: isRetry ? attempt - 1 : null,
+      repair_reason:  repairHints.map(h => h.criterion_id),
+    });
+
     const t3 = Date.now();
     execution = await orchestrate(contract, context, {
       agent:        opts.agent,
@@ -161,6 +191,12 @@ async function main() {
     report = await verify(contract, context, execution, {
       noLlm:    !opts.llmVerify,
       repoPath,
+    });
+    run.finishAttempt(attempt, {
+      execution,
+      report,
+      patch:       execution.diff,
+      verifyInput: inputFromReport(report, execution.diff),
     });
     log('L4', `Verdict: ${verdictIcon(report.verdict)} ${report.verdict.toUpperCase()}  (${Date.now() - t4}ms)`);
 
@@ -213,12 +249,18 @@ async function main() {
   const memStats = memory.stats(repoPath);
   log('L5', `Memory updated  (${memStats.total_runs} run(s), ${memStats.files_tracked} file(s) tracked)`);
 
+  run.finish(
+    runStore.outcomeFor(report?.verdict, { dryRun: opts.agent === 'dry-run' }),
+    { legacy_verdict: report?.verdict || null },
+  );
+
   // ── Final summary ──────────────────────────────────────────────────────────
   const totalMs = Date.now() - totalStart;
   console.log(`\n${DIVIDER2}`);
   console.log(`  RESULT: ${verdictIcon(report?.verdict)} ${(report?.verdict || 'unknown').toUpperCase()}`);
   console.log(`  Attempts: ${attempt} / ${maxRetries}`);
   console.log(`  Total time: ${(totalMs / 1000).toFixed(1)}s`);
+  console.log(`  Run:      ${run.id}  outcome=${run.manifest.outcome}`);
 
   if (report?.verdict === 'pass') {
     console.log(`\n  All ${contract.acceptance_criteria?.length} acceptance criteria met.`);
@@ -301,6 +343,7 @@ async function phonehome(data) {
 }
 
 main().catch(e => {
+  if (currentRun) currentRun.abort('ERROR', e.message);
   console.error(`\n  FATAL: ${e.message}`);
   if (e.errors) e.errors.forEach(x => console.error('  ', JSON.stringify(x)));
   process.exit(1);
