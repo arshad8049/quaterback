@@ -17,21 +17,28 @@ on:
       experiment:
         description: 'Experiment to run'
         type: choice
-        options: [e2-storage]
-        default: e2-storage
+        options: [all, e2-storage, e4-lifecycle]
+        default: all
 
 permissions:
   contents: read
-
-env:
-  EXP: ${{ inputs.experiment || 'e2-storage' }}
 
 jobs:
   spike:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # A push runs every experiment; a manual run can pick one.
+        exp: ${{ fromJSON((inputs.experiment == '' || inputs.experiment == 'all' || inputs.experiment == null) && '["e2-storage","e4-lifecycle"]' || format('["{0}"]', inputs.experiment)) }}
+    env:
+      EXP: ${{ matrix.exp }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
       - name: Run ${{ env.EXP }}
         id: run

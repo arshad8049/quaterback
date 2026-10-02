@@ -47,7 +47,8 @@ trap cleanup EXIT
 
 # Hardening flags shared by every container (design §3).
 HARDEN=(--user 10001:10001 --cap-drop ALL --security-opt no-new-privileges
-        --read-only --network none --init --pids-limit 64 --label "qb.spike=$RUN")
+        --read-only --tmpfs /tmp:rw,nosuid,nodev,size=16m
+        --network none --init --pids-limit 64 --label "qb.spike=$RUN")
 
 # create_vols <prefix> [size] [inodes]
 create_vols() {
@@ -242,27 +243,57 @@ else
     0) result D.contents_after_restart OBSERVED "contents survived the daemon restart" ;;
     *) result D.contents_after_restart ERROR "check stage did not run cleanly after restart (exit '$code')" ;;
   esac
+  # E2 only shows that a detectable signal exists. QB turning it into
+  # infra_error is an implementation test (§11.2), not something E2 proves.
   if [ "$KSTATE" != running ] || [ "$code" != 0 ]; then
-    result D.detectable PASS "restart is detectable (keeper not running and/or sentinels missing) → run must end infra_error"
+    result D.signal_present OBSERVED "a restart leaves a detectable signal (keeper=$KSTATE, stage exit $code); QB's infra_error handling is not tested here"
   else
-    result D.detectable FAIL "restart left keeper running with contents intact — check live_restore; nothing to detect"
+    result D.signal_present FAIL "restart left keeper running with contents intact — check live_restore; no signal to detect"
   fi
 fi
 
 # ------------------------------------------------------------ 7: caps
 log "== E: size and inode caps"
+CAP_BYTES=$((32 * 1024 * 1024))
 create_vols "$RUN-e" 32m 500
 set_mounts "$RUN-e"
-OUTP=$(docker run --rm "${HARDEN[@]}" "${MOUNTS[@]}" "$IMAGE" sh -c \
-  'dd if=/dev/zero of=/v/work/fill bs=1M count=64 2>&1; echo "dd_exit=$?"' 2>&1)
+# Size cap: the write must fail with ENOSPC, the file must have actually filled
+# the volume (not failed early for another reason), and no free blocks remain.
+# `stat -f`: %b total blocks, %a available blocks, %S block size, %c total inodes, %d free inodes.
+OUTP=$(docker run --rm "${HARDEN[@]}" "${MOUNTS[@]}" "$IMAGE" sh -c '
+  dd if=/dev/zero of=/v/work/fill bs=1M count=64 2>/tmp/err; echo "dd_exit=$?"
+  echo "err=$(tr "\n" " " < /tmp/err)"
+  echo "file_bytes=$(stat -c %s /v/work/fill)"
+  echo "fs=$(stat -f -c "%b %a %S %c %d" /v/work)"' 2>&1)
 echo "$OUTP" >> "$LOG"
-case "$OUTP" in *"No space left"*) result E.size_cap PASS "64 MiB write into a 32 MiB volume failed with ENOSPC" ;;
-                *) result E.size_cap FAIL "no ENOSPC on overfill: $(echo "$OUTP" | tail -1)" ;; esac
-OUTP=$(docker run --rm "${HARDEN[@]}" "${MOUNTS[@]}" "$IMAGE" sh -c \
-  'i=0; while [ $i -lt 2000 ]; do : > /v/deps/f$i 2>/dev/null || { echo "stopped_at=$i"; exit 0; }; i=$((i+1)); done; echo "stopped_at=none"' 2>&1)
+FB=$(echo "$OUTP" | sed -n 's/^file_bytes=//p'); set -- $(echo "$OUTP" | sed -n 's/^fs=//p')
+AVAIL_BLOCKS=${2:-NA}
+if echo "$OUTP" | grep -q 'No space left' && [ -n "$FB" ] \
+   && [ "$FB" -le "$CAP_BYTES" ] && [ "$FB" -ge $((CAP_BYTES - 1024 * 1024)) ] && [ "$AVAIL_BLOCKS" = 0 ]; then
+  result E.size_cap PASS "64 MiB write into a 32 MiB volume: ENOSPC; file reached $FB of $CAP_BYTES bytes; 0 blocks free"
+else
+  result E.size_cap FAIL "expected ENOSPC with the file filling the cap: file_bytes=$FB avail_blocks=$AVAIL_BLOCKS ($(echo "$OUTP" | grep '^err='))"
+fi
+# Inode cap: creation must stop with ENOSPC while free inodes are 0 and plenty of
+# bytes remain, which distinguishes inode exhaustion from a full disk or other errors.
+OUTP=$(docker run --rm "${HARDEN[@]}" "${MOUNTS[@]}" "$IMAGE" sh -c '
+  i=0
+  while [ $i -lt 2000 ]; do
+    # touch, not ":" — a failed redirection on a special builtin exits the shell
+    if ! touch /v/deps/f$i 2>/tmp/err; then echo "stopped_at=$i"; echo "err=$(cat /tmp/err)"; break; fi
+    i=$((i+1))
+  done
+  [ $i -lt 2000 ] || echo "stopped_at=none"
+  echo "fs=$(stat -f -c "%b %a %S %c %d" /v/deps)"' 2>&1)
 echo "$OUTP" >> "$LOG"
-case "$OUTP" in *"stopped_at=none"*) result E.inode_cap FAIL "created 2000 files in a 500-inode volume" ;;
-                *) result E.inode_cap PASS "file creation stopped at the inode cap ($OUTP)" ;; esac
+STOP=$(echo "$OUTP" | sed -n 's/^stopped_at=//p'); set -- $(echo "$OUTP" | sed -n 's/^fs=//p')
+TOTAL_B=${1:-0} AVAIL_B=${2:-0} FREE_INODES=${5:-NA}
+if [ "$STOP" != none ] && echo "$OUTP" | grep -q 'No space left' && [ "$FREE_INODES" = 0 ] \
+   && [ "$TOTAL_B" -gt 0 ] && [ $((AVAIL_B * 2)) -gt "$TOTAL_B" ]; then
+  result E.inode_cap PASS "creation stopped at file $STOP with ENOSPC; 0 free inodes while $AVAIL_B of $TOTAL_B blocks still free (inode exhaustion, not space)"
+else
+  result E.inode_cap FAIL "not a clean inode-exhaustion stop: stopped_at=$STOP free_inodes=$FREE_INODES blocks=$AVAIL_B/$TOTAL_B ($(echo "$OUTP" | grep '^err='))"
+fi
 
 # ---------------------------------------------- 7b: memory accounting
 log "== F: memory accounting for tmpfs pages"
@@ -283,9 +314,16 @@ result F.keeper_cgroup OBSERVED "keeper memory.current before/after: $K_BEFORE /
 result F.host_memavail OBSERVED "host MemAvailable before/after (writer exited, data retained): ${H_BEFORE} / ${H_AFTER} KiB"
 OUTP=$(docker run --name "$RUN-f-small" "${HARDEN[@]}" --memory 48m --memory-swap 48m "${MOUNTS[@]}" "$IMAGE" sh -c \
   'dd if=/dev/zero of=/v/deps/blob bs=1M count=96 2>&1; echo "dd_exit=$?"' 2>&1)
-OOM=$(docker inspect -f '{{.State.OOMKilled}} exit={{.State.ExitCode}}' "$RUN-f-small")
+OOMK=$(docker inspect -f '{{.State.OOMKilled}}' "$RUN-f-small"); EXITC=$(docker inspect -f '{{.State.ExitCode}}' "$RUN-f-small")
 echo "$OUTP" >> "$LOG"
-result F.limit_bounds_tmpfs OBSERVED "96 MiB tmpfs write under --memory 48m: OOMKilled=$OOM; $(echo "$OUTP" | tail -1)"
+result F.limit_bounds_tmpfs OBSERVED "96 MiB tmpfs write under --memory 48m: the writing child was killed ($(echo "$OUTP" | tail -1)); the stage's memory limit bounds what it can write"
+# Reporting trap: the child was OOM-killed but the container's main process
+# exited 0. A stage classified by exit code alone would be reported as success.
+if [ "$OOMK" = true ] && [ "$EXITC" = 0 ]; then
+  result F.oom_reporting OBSERVED "State.OOMKilled=true with ExitCode=0: classification must use OOMKilled, not the exit code"
+else
+  result F.oom_reporting OBSERVED "State.OOMKilled=$OOMK ExitCode=$EXITC"
+fi
 
 # --------------------------------------- 8: two concurrent runs at full caps
 log "== G: two concurrent runs, every volume filled to ~90% of cap"
@@ -306,6 +344,21 @@ else
   result G.footprint SKIP "no /proc/meminfo on this host"
 fi
 result G.admission NOT_TESTABLE "QB admission (§8.1) is not implemented yet; G.footprint is the input it will use"
+
+# ------------------------------------------------------------ cleanup check
+# Cleanup is part of the evidence: remove everything this run created, then
+# confirm nothing labelled with the run id remains.
+log "== H: cleanup"
+T0=$(date +%s)
+cleanup
+LEFT_C=$(docker ps -aq --filter "label=qb.spike=$RUN" | wc -l | tr -d ' ')
+LEFT_V=$(docker volume ls -q --filter "label=qb.spike=$RUN" | wc -l | tr -d ' ')
+LEFT_N=$(docker network ls -q --filter "label=qb.spike=$RUN" | wc -l | tr -d ' ')
+if [ "$LEFT_C$LEFT_V$LEFT_N" = 000 ]; then
+  result H.cleanup PASS "0 containers, 0 volumes, 0 networks left after cleanup ($(( $(date +%s) - T0 ))s)"
+else
+  result H.cleanup FAIL "left behind: $LEFT_C containers, $LEFT_V volumes, $LEFT_N networks"
+fi
 
 # ------------------------------------------------------------ summary
 {

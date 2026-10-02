@@ -598,17 +598,22 @@ Every per-run byte that can live in host RAM is budgeted. Per-volume caps alone 
 
 **Per-run peak** is the sum of the volumes that coexist, plus the container memory and `/tmp` that run concurrently. QB computes it from the configured caps and records it. E2 measured about 9% kernel overhead on tmpfs data (two runs × 798 MiB written lowered host `MemAvailable` by 870 MiB), so volume caps are counted at **×1.1**. The peak counts a stage's writes twice (once as volume caps, once inside that stage's memory limit). That is deliberate: it errs high.
 
-**Stage memory sizing rule (E2).** tmpfs pages are charged to the memory cgroup of the container that *writes* them. A container whose `--memory` limit is below what it can write into the volumes is OOM-killed before it reaches the volume cap, and a full disk would then be reported as `oom`. So each stage's limit is at least the caps of the volumes it can write plus a 2 GiB working allowance:
+**Stage memory sizing rule (E2).** tmpfs pages are charged to the memory cgroup of the container that *writes* them. A container whose `--memory` limit is below what it can write into the volumes is OOM-killed before it reaches the volume cap, and a full disk would then look like a memory failure. So each stage's limit covers three things:
 
-| Stage | Writable volumes | Limit at default caps |
-|---|---|---|
-| ① seed | `work` 2 GiB, `git` 1 GiB | 5 GiB |
-| ② deps | scratch copy 2 GiB, `deps` 2 GiB | 6 GiB |
-| ③ agent | `work` 2 GiB | 4 GiB |
-| ④ capture | `git` 1 GiB, `out`, `verify` 2 GiB | 5 GiB |
-| ⑤ verify | `verify` 2 GiB | 4 GiB |
+> **limit = (1.1 × caps of the volumes the stage can write + the stage's application working set) × 1.25 headroom**
 
-Run states keep their meaning: ENOSPC inside a stage is a cap hit (`capture_limit_exceeded` or `setup_failed`), and `oom` means the processes themselves exceeded the 2 GiB allowance.
+- 1.1 is the measured tmpfs overhead.
+- The working set is the memory of the stage's own processes (npm, Claude Code, git, the test runner). The values below are **estimates** until the implementation measures peak usage per stage on the §11.2 fixtures.
+
+| Stage | Writable volumes (caps) | Working set (estimate) | Limit at default caps |
+|---|---|---|---|
+| ① seed | `work` 2 GiB, `git` 1 GiB | 0.5 GiB | 5 GiB |
+| ② deps | scratch copy 2 GiB, `deps` 2 GiB | 2 GiB | 8 GiB |
+| ③ agent | `work` 2 GiB | 2 GiB | 5.5 GiB |
+| ④ capture | `git` 1 GiB, `verify` 2 GiB, `out` (small) | 1 GiB | 5.5 GiB |
+| ⑤ verify | `verify` 2 GiB | 2 GiB | 5.5 GiB |
+
+**Sizing alone does not make failures report correctly.** E2 observed a stage whose writing child was OOM-killed while the container's main process **exited 0** (`State.OOMKilled=true`, `ExitCode=0`). A stage classified by exit code would have been reported as a success. Classification therefore follows §8.4's precedence: `OOMKilled=true` means `oom` whatever the exit code. ENOSPC reported by the stage is a cap hit (`capture_limit_exceeded` or `setup_failed`), not `oom`.
 
 **Admission: beta.** **One run per QB installation.** An exclusive admission lock in the installation's state directory is taken before any per-run resource is created and held until G5b removal. A second `qb run` fails fast with `BLOCKED: run_in_progress`. At admission QB also checks that `MemAvailable` (from `/proc/meminfo`) is at least the per-run peak plus a host reserve (default 2 GiB). Otherwise the run ends `BLOCKED: insufficient_host_resources`, with the numbers.
 
@@ -647,7 +652,11 @@ The work and other volumes are Docker **`local`-driver volumes with `type=tmpfs`
 - With a keeper, all seven volumes kept their contents through all five stages.
 - A stage killed mid-write left earlier contents intact. Its partial writes stay in the workspace, so capture sees them.
 
-**Daemon restart.** A tmpfs volume's contents do not survive a daemon or host restart. E2 confirmed this with `live-restore` off: the keeper exited and the sentinels were gone. A run in progress during one ends `infra_error`, its volumes are reaped, and nothing is resumed. **Detection:** before starting each stage, the CLI checks that the keeper is running and that the `seed` sentinel is present; if either check fails, the run is `infra_error`.
+**Daemon restart.** A tmpfs volume's contents do not survive a daemon or host restart.
+
+- **What E2 proves:** with `live-restore` off, a restart stops the keeper and the volume contents disappear. So a detectable signal exists.
+- **What E2 does not prove:** that QB turns that signal into `infra_error`. That is implementation behaviour, tested in §11.2 T-RES.
+- **Design:** before starting each stage, the CLI checks that the keeper is running and that the `seed` sentinel is present. If either check fails, the run ends `infra_error`, its volumes are reaped, and nothing is resumed.
 
 **Swap and memory accounting.** tmpfs pages can be swapped to host swap if the host has it, so workspace contents and the Mode S credential copy can reach the host's swap device. The E2 CI host had 3 GiB of swap. QB records whether host swap is enabled, warns about it, and does not try to control it.
 
@@ -707,12 +716,21 @@ This is eventual recovery, as G5b states.
 
 These extend QB-22. Each records `exit_code`, `signal`, `oom_killed`, `duration`, and which actor ended it (`self`, `cli`, `supervisor`, `reaper`).
 
+**Precedence.** A stage's state is decided from `docker inspect` in this order, never from the exit code alone:
+
+1. `infra_error`
+2. `timeout` (killed by the supervisor's deadline)
+3. `cancelled`
+4. `oom` (`State.OOMKilled=true`, even when `ExitCode` is 0; observed in E2)
+5. `execution_error` (nonzero exit)
+6. `completed` / `no_change`
+
 | State | Meaning |
 |---|---|
 | `completed` / `no_change` | Agent ended normally |
 | `execution_error` | Nonzero exit |
 | `timeout` | Supervisor deadline hit |
-| `oom` | `State.OOMKilled=true` |
+| `oom` | `State.OOMKilled=true`, regardless of exit code |
 | `cancelled` | User / SIGINT |
 | `infra_error` | Docker daemon unavailable or restarted, image missing or digest mismatch, volume/network creation failure, proxy failed health check, scanner unsupported kernel. Never reported as an agent or verification result. |
 | `setup_failed` | Seed or deps failure |
@@ -871,7 +889,20 @@ v3 is revised from those results before QB-02 is marked final.
 
 **Pass:** the keeper decision is made from evidence, every cap holds, and admission refuses a run that would exceed the budget.
 
-**Result (2026-10-02, [evidence](../../spikes/qb-02/e2-storage/results/e2-20261002T183010Z-2325/results.md)):** keeper decision made (required), and size and inode caps held (ENOSPC). Restart lost the contents and was detectable. A killed stage kept earlier contents. **Admission is not testable until it is implemented**; E2 recorded its inputs (×1.1 overhead). New design rule from E2: the §8.1 stage memory sizing rule.
+**Result (2026-10-02, [evidence](../../spikes/qb-02/e2-storage/results/), first run; a second run with stricter checks is pending):** the **experiment** answers its questions.
+
+- **Keeper:** required.
+- **Caps:** size and inode caps hold with ENOSPC.
+- **Killed stage:** earlier contents intact.
+- **Restart:** stops the keeper and loses the contents.
+- **tmpfs charging:** to the writing container's memory cgroup.
+
+**The product's storage protections are not complete.** Each of these is an implementation item with a §11.2 test:
+
+- admission control (not testable until built; E2 recorded its inputs);
+- enforcing the stage memory limits;
+- classifying `oom` by `OOMKilled`;
+- turning a restart into `infra_error`.
 
 **E3: Networking** (unblocks §4)
 
@@ -969,6 +1000,9 @@ Fidelity fixtures (§6): exported patch applied to the base reproduces the candi
 #### T-RES
 
 - Fork bomb, memory hog, disk fill on each volume, log flood (the CLI must not block or lose the exit state), and sleeping past the deadline each produce the correct state, with no surviving resources (G5).
+- A child OOM-killed under a main process that exits 0 is reported `oom`, not `completed` (E2 observation).
+- A disk fill in each stage is reported as a cap hit (ENOSPC), not `oom`, at the §8.1 stage limits.
+- A daemon restart mid-run ends `infra_error`, with no stage continuing on lost contents.
 - Admission refuses an over-budget run.
 
 #### T-LIFE
