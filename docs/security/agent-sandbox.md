@@ -610,6 +610,13 @@ Every per-run byte that can live in host RAM is budgeted. Per-volume caps alone 
 
 **Per-run peak** is the sum of the volumes that coexist, plus the container memory and `/tmp` that run concurrently. QB computes it from the configured caps and records it. E2 measured about 9% kernel overhead on tmpfs data (two runs × 798 MiB written lowered host `MemAvailable` by 870 MiB), so volume caps are counted at **×1.1**. The peak counts a stage's writes twice (once as volume caps, once inside that stage's memory limit). That is deliberate: it errs high.
 
+**Sizing revision (implementation, 2026-10-02; needs reviewer approval).** With the caps above and every stage's writes counted twice, admission needed ~21 GiB free, so QB would refuse to run on a 16 GB host, CI runner included. The implementation (`lib/sandbox/admission.js`) changes two things:
+
+- **Smaller default caps** (still per-installation configurable): `work` 1 GiB, `deps` 1.5 GiB, scratch 1 GiB, `git` 512 MiB, `verify` 1 GiB.
+- **Per-run peak** = Σ volume caps × 1.1 + the largest stage working set × 1.25 + Ⓟ/Ⓚ/`/tmp`. A stage's writes are counted once, in the volumes; its memory limit covers the same pages.
+
+At defaults this is 9.1 GiB, plus the 2 GiB reserve. The per-stage memory rule below is unchanged.
+
 **Stage memory sizing rule (E2).** tmpfs pages are charged to the memory cgroup of the container that *writes* them. A container whose `--memory` limit is below what it can write into the volumes is OOM-killed before it reaches the volume cap, and a full disk would then look like a memory failure. So each stage's limit covers three things:
 
 > **limit = (1.1 × caps of the volumes the stage can write + the stage's application working set) × 1.25 headroom**
