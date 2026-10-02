@@ -1,6 +1,6 @@
 # Execution sandbox: threat model and design (QB-02)
 
-Status: **v2 DRAFT, resubmitted for review.** v1 was rejected; see §0.
+Status: **v2 — changes requested.** Implementation spikes approved; not a finalized design. v1 was rejected (§0); the v2 review is in [`reviews/agent-sandbox-v2-review.md`](reviews/agent-sandbox-v2-review.md). v3 follows the four experiments listed there.
 Ticket: QB-02 (High, Phase 1). Review reference: p.10, Phase 1 exit gate p.23.
 Platform claims are limited to **Linux x86_64 + Docker Engine** until §11 validation passes. macOS (Docker Desktop) is unsupported until it is validated separately.
 
