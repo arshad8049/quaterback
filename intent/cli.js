@@ -5,6 +5,7 @@ const { Command } = require('commander');
 const readline = require('readline');
 const fs = require('fs');
 const path = require('path');
+const { artifactFile } = require('../lib/fsafe');
 const { compile } = require('./compiler');
 const { buildContext } = require('./context');
 const { buildContext: buildContextPackage } = require('../context/builder');
@@ -66,7 +67,7 @@ program
       if (options.save) {
         const dir = path.join(__dirname, 'contracts');
         fs.mkdirSync(dir, { recursive: true });
-        const outPath = path.join(dir, `${result.id}.json`);
+        const outPath = artifactFile(dir, result.id);
         fs.writeFileSync(outPath, json, 'utf8');
         process.stderr.write(`  Saved → contracts/${result.id}.json\n\n`);
       }

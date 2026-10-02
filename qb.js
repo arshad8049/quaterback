@@ -23,6 +23,7 @@ const { orchestrate }  = require('./agent/orchestrator');
 const { verify }       = require('./verify/verifier');
 const memory           = require('./memory');
 const runStore         = require('./run/store');
+const { artifactFile } = require('./lib/fsafe');
 const { inputFromReport } = require('./verify/verdict');
 
 // `qb replay <run_id>` / `qb runs` — inspect stored run records.
@@ -306,8 +307,7 @@ function verdictIcon(v) {
 function saveArtifact(dir, data, name) {
   const absDir = path.join(__dirname, dir);
   if (!fs.existsSync(absDir)) fs.mkdirSync(absDir, { recursive: true });
-  const filename = name ? `${name}.json` : `${data.id}.json`;
-  fs.writeFileSync(path.join(absDir, filename), JSON.stringify(data, null, 2));
+  fs.writeFileSync(artifactFile(absDir, name || data.id), JSON.stringify(data, null, 2));
 }
 
 function prompt(question) {

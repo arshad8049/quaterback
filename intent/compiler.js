@@ -7,6 +7,12 @@ const { detectAmbiguity } = require('./dsa');
 
 const OLLAMA_URL = process.env.QB_OLLAMA_URL || 'http://127.0.0.1:11434';
 const MODEL      = process.env.QB_MODEL       || 'deepseek-r1:7b';
+// Fields the model is allowed to author. Everything else in its output is ignored.
+const SEMANTIC_FIELDS = [
+  'goal', 'required_behavior', 'constraints', 'acceptance_criteria',
+  'verification_plan', 'relevant_context', 'ambiguity_flags', 'clarifying_question',
+];
+
 const SYSTEM_PROMPT = fs.readFileSync(path.join(__dirname, 'prompts/system.md'), 'utf8');
 
 async function compile(request, repoContext = null, clarification = null) {
@@ -105,12 +111,17 @@ function parseAndValidate(text, request) {
     raw.verification_plan = ['Run the existing test suite and verify acceptance criteria are met.'];
   }
 
+  // Only semantic fields come from the model. Trusted metadata is assigned
+  // afterwards by the application and can never be overridden (QB-04).
+  const semantic = {};
+  for (const key of SEMANTIC_FIELDS) semantic[key] = raw[key];
+
   const contract = {
+    ...semantic,
     id: randomUUID(),
     created_at: new Date().toISOString(),
     raw_request: request,
     repo_path: null,
-    ...raw
   };
 
   return TaskContractSchema.parse(contract);
