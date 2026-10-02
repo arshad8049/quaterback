@@ -1,0 +1,5 @@
+drwxr-xr-x 4096 .
+-rw------- 519 ./.credentials.json
+drwxr-xr-x 4096 ./backups
+-rw------- 84 ./backups/.claude.json.backup.1790980020178
+-rw------- 1143 ./.claude.json
