@@ -197,7 +197,7 @@ async function main() {
       execution,
       report,
       patch:       execution.diff,
-      verifyInput: inputFromReport(report, execution.diff),
+      verifyInput: inputFromReport(report, execution),
     });
     log('L4', `Verdict: ${verdictIcon(report.verdict)} ${report.verdict.toUpperCase()}  (${Date.now() - t4}ms)`);
 
@@ -211,6 +211,17 @@ async function main() {
     });
 
     if (report.verdict === 'pass') break;
+    if (report.verdict === 'error') {
+      console.log(`\n  ✗ Agent execution ${execution.status}: ${execution.error || 'no detail'}`);
+      if (execution.changes.length) console.log('    Partial changes were captured in the run record for inspection.');
+      break;
+    }
+    if (report.verdict === 'unresolved') {
+      console.log(execution.status === 'no_change'
+        ? '\n  ~ Agent changed nothing — requirement not independently verified.'
+        : '\n  ~ Change could not be fully captured — cannot approve.');
+      break;
+    }
     if (report.verdict === 'no-diff') {
       console.log('\n  ○ No diff to verify — running in dry-run mode.');
       break;
@@ -301,7 +312,7 @@ function log(layer, msg) {
 }
 
 function verdictIcon(v) {
-  return { pass: '✓', fail: '✗', partial: '~', 'no-diff': '○' }[v] || '?';
+  return { pass: '✓', fail: '✗', partial: '~', 'no-diff': '○', error: '!', unresolved: '~' }[v] || '?';
 }
 
 function saveArtifact(dir, data, name) {

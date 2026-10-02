@@ -6,7 +6,7 @@ const OutcomeRecordSchema = z.object({
   repo_path:     z.string(),
   goal:          z.string(),
   keywords:      z.array(z.string()),
-  verdict:       z.enum(['pass', 'fail', 'partial', 'no-diff']),
+  verdict:       z.enum(['pass', 'fail', 'partial', 'no-diff', 'error', 'unresolved']),
   attempts:      z.number().int().min(1),
   changed_files: z.array(z.string()),
   ac_count:      z.number().int(),

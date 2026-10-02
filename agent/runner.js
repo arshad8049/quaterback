@@ -1,7 +1,10 @@
-const { execSync, spawnSync } = require('child_process');
 const { randomUUID } = require('crypto');
-const path = require('path');
+const proc    = require('../lib/proc');
+const capture = require('./capture');
 const { ExecutionResultSchema } = require('./schema');
+
+const DEFAULT_AGENT_COMMAND = ['claude', '--print', '--dangerously-skip-permissions'];
+const DEFAULT_TIMEOUT_MS    = 10 * 60 * 1000;
 
 /**
  * Execute the briefing against a coding agent (or dry-run).
@@ -9,7 +12,7 @@ const { ExecutionResultSchema } = require('./schema');
  * @param {string} briefing    - Markdown Agent Briefing from briefing.js
  * @param {object} contract    - TaskContract (for IDs)
  * @param {object|null} context - ContextPackage (for IDs + repo path)
- * @param {object} options     - { agent: 'dry-run'|'claude-code'|'manual', repoPath: string }
+ * @param {object} options     - { agent: 'dry-run'|'claude-code'|'manual', repoPath: string, timeoutMs?: number }
  * @returns {object}           - Validated ExecutionResult
  */
 async function execute(briefing, contract, context, options = {}) {
@@ -17,89 +20,86 @@ async function execute(briefing, contract, context, options = {}) {
   const repo   = options.repoPath || (context?.repo_path) || process.cwd();
 
   const t0 = Date.now();
-  let diff    = null;
-  let status  = 'dry-run';
-  let error   = null;
+  let outcome = {
+    status: 'dry_run', diff: null, changes: [], unsupported_changes: [],
+    base_tree: null, candidate_tree: null,
+    exit_code: null, signal: null, stderr_tail: null, error: null,
+  };
 
   if (agent === 'claude-code') {
-    ({ diff, status, error } = runClaudeCode(briefing, repo));
+    outcome = runAgentCaptured(briefing, repo, { timeoutMs: options.timeoutMs });
   } else if (agent === 'manual') {
     // Print briefing and wait for the dev to run their agent
     process.stdout.write('\n' + briefing + '\n');
-    status = 'dry-run';
   }
   // dry-run: no invocation, just return the briefing
 
-  const changes = diff ? parseDiff(diff) : [];
-
-  const result = {
+  return ExecutionResultSchema.parse({
     id:           randomUUID(),
     contract_id:  contract.id  || 'unknown',
     context_id:   context?.id  || null,
     agent_used:   agent,
-    status,
     duration_ms:  Date.now() - t0,
     generated_at: new Date().toISOString(),
     briefing,
-    changes,
-    diff:  diff  || null,
-    error: error || null,
-  };
-
-  return ExecutionResultSchema.parse(result);
-}
-
-// ─── Claude Code invocation ───────────────────────────────────────────────────
-
-function runClaudeCode(briefing, repoPath) {
-  // claude --print runs non-interactively: reads from stdin, prints output
-  // We pass the briefing as stdin input and capture stdout
-  const result = spawnSync('claude', ['--print', '--dangerously-skip-permissions'], {
-    input:  briefing,
-    cwd:    repoPath,
-    encoding: 'utf8',
-    maxBuffer: 10 * 1024 * 1024,
-    timeout: 10 * 60 * 1000, // 10 min max
+    ...outcome,
   });
-
-  if (result.error) {
-    return { diff: null, status: 'failed', error: result.error.message };
-  }
-  if (result.status !== 0) {
-    const msg = result.stderr || `claude exited with code ${result.status}`;
-    return { diff: null, status: 'failed', error: msg };
-  }
-
-  // Capture git diff of unstaged changes after agent ran
-  let diff = null;
-  try {
-    diff = execSync('git diff', { cwd: repoPath, encoding: 'utf8' });
-    if (!diff.trim()) diff = null;
-  } catch (_) {}
-
-  return { diff, status: 'completed', error: null };
 }
 
-// ─── Diff parser ─────────────────────────────────────────────────────────────
-
-function parseDiff(rawDiff) {
-  const changes = {};
-  let currentFile = null;
-
-  for (const line of rawDiff.split('\n')) {
-    if (line.startsWith('diff --git')) {
-      const match = line.match(/b\/(.+)$/);
-      if (match) {
-        currentFile = match[1];
-        changes[currentFile] = { file: currentFile, additions: 0, deletions: 0 };
-      }
-    } else if (currentFile) {
-      if (line.startsWith('+') && !line.startsWith('+++')) changes[currentFile].additions++;
-      else if (line.startsWith('-') && !line.startsWith('---')) changes[currentFile].deletions++;
-    }
+/** The agent argv. QB_AGENT_COMMAND (JSON array) replaces it for tests/adapters. */
+function agentCommand() {
+  if (!process.env.QB_AGENT_COMMAND) return DEFAULT_AGENT_COMMAND;
+  const argv = JSON.parse(process.env.QB_AGENT_COMMAND);
+  if (!Array.isArray(argv) || !argv.length || !argv.every(a => typeof a === 'string')) {
+    throw new Error('QB_AGENT_COMMAND must be a JSON array of strings');
   }
-
-  return Object.values(changes);
+  return argv;
 }
 
-module.exports = { execute };
+/**
+ * Run the coding agent in `cwd` with `input` on stdin and capture everything
+ * it changed relative to the tree that existed before it started. Changes are
+ * captured on every path — including timeouts and crashes — so partial edits
+ * stay inspectable (QB-22).
+ */
+function runAgentCaptured(input, cwd, { timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
+  const base_tree = capture.snapshot(cwd);
+  const [cmd, ...args] = agentCommand();
+
+  const r = proc.run(cmd, args, { cwd, input, timeout: timeoutMs });
+
+  const candidate_tree = capture.snapshot(cwd);
+  const { patch, changes, unsupported } = capture.diffTrees(cwd, base_tree, candidate_tree);
+
+  let status, error = null;
+  if (r.timedOut) {
+    status = 'timeout';
+    error  = `agent exceeded ${timeoutMs}ms`;
+  } else if (r.error) {
+    status = 'execution_error';
+    error  = r.error.message;
+  } else if (r.signal) {
+    status = 'cancelled';
+    error  = `agent terminated by ${r.signal}`;
+  } else if (r.status !== 0) {
+    status = 'execution_error';
+    error  = `agent exited with code ${r.status}`;
+  } else {
+    status = changes.length ? 'completed' : 'no_change';
+  }
+
+  return {
+    status,
+    diff: patch || null,
+    changes,
+    unsupported_changes: unsupported,
+    base_tree,
+    candidate_tree,
+    exit_code:   r.status,
+    signal:      r.signal,
+    stderr_tail: r.stderr ? String(r.stderr).slice(-2000) : null,
+    error,
+  };
+}
+
+module.exports = { execute, runAgentCaptured };

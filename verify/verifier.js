@@ -1,7 +1,7 @@
 const { randomUUID } = require('crypto');
 const { runChecks }  = require('./checker');
 const { judgeAll }   = require('./judge');
-const { aggregate }  = require('./verdict');
+const { aggregate, FAILED_EXECUTION } = require('./verdict');
 const { VerificationReportSchema } = require('./schema');
 
 /**
@@ -31,7 +31,21 @@ async function verify(contract, context, execution, options = {}) {
   const criteria = contract.acceptance_criteria || [];
   let criteriaResults;
 
-  if (options.noLlm || !diff) {
+  const execStatus = execution?.status ?? null;
+  const notRun     = FAILED_EXECUTION.has(execStatus) || execStatus === 'no_change';
+
+  if (notRun) {
+    // Nothing trustworthy to judge: the agent failed, or changed nothing.
+    criteriaResults = criteria.map(ac => ({
+      id:        ac.id,
+      criterion: ac.criterion,
+      met:       null,
+      method:    'not-run',
+      evidence:  execStatus === 'no_change'
+        ? 'Agent completed without changing any file; requirement not independently verified.'
+        : `Agent execution ${execStatus}: ${execution?.error || 'no detail'}. Not judged.`,
+    }));
+  } else if (options.noLlm || !diff) {
     criteriaResults = criteria.map(ac => ({
       id:        ac.id,
       criterion: ac.criterion,
@@ -50,6 +64,8 @@ async function verify(contract, context, execution, options = {}) {
     hasDiff: Boolean(diff),
     criteriaResults,
     testResults,
+    executionStatus:    execStatus,
+    unsupportedChanges: Boolean(execution?.unsupported_changes?.length),
   });
 
   // ── Repair hints (for failed ACs) ────────────────────────────────────────
