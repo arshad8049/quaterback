@@ -9,7 +9,7 @@ Status: `open` · `in-progress` · `fixed (awaiting review)` · `closed` (senior
 | ID | Finding | Priority | Phase | Status | Regression test |
 |---|---|---|---|---|---|
 | QB-01 | Repository filenames can execute shell commands | Critical | 1 | fixed (awaiting review) | `test/unit/qb01-shell-injection.test.js` |
-| QB-02 | Agent execution has no enforced containment | High | 1 | open | |
+| QB-02 | Agent execution has no enforced containment | High | 1 | design awaiting senior review (`docs/security/agent-sandbox.md`) | |
 | QB-03 | Change capture omits parts of the actual result | High | 1 | fixed (awaiting review) | `test/unit/qb03-qb22-capture-and-states.test.js` |
 | QB-04 | Model output can overwrite trusted metadata | High | 1 | fixed (awaiting review) | `test/unit/qb04-trusted-metadata.test.js` |
 | QB-05 | Benchmark reset is destructive and not reproducible | High | 1 | fixed (awaiting review) | `test/unit/qb05-bench-workspace.test.js` |
