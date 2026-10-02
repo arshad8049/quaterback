@@ -6,7 +6,7 @@ These are the gating experiments in [`docs/security/agent-sandbox.md`](../../doc
 |---|---|---|---|
 | E1 auth | Does subscription auth work with per-run copies and no write-back? | Your machine: needs a real `claude` login | not started |
 | E2 storage | Do tmpfs volumes persist across stages? Keeper or not? Do caps hold? | CI `qb02-spikes` on `ubuntu-24.04` **Done 2026-10-02.** [Run 2](e2-storage/results/e2-20261002T214917Z-2322/results.md) (stricter checks) passes; it supersedes [run 1](e2-storage/results/e2-20261002T183010Z-2325/results.md). Keeper required; caps hold; cleanup verified. Admission still pending (product). |
-| E3 networking | Socket-only egress; do the Squid ACLs hold; does the checked IP equal the connected IP? | CI | not started |
+| E3 networking | Socket-only egress; do the Squid ACLs hold; does the checked IP equal the connected IP? | CI | script ready (Squid 6.13 + socket bridge, test resolver, internal canary); debug run 39/39; **Linux run pending** |
 | E4 lifecycle | Is the run still killed and cleaned up after QB dies and the timeout is disabled? | CI | **Done 2026-10-02.** [Run 2](e4-lifecycle/results/e4-20261002T215833Z-2397/results.md) passes every check on Linux; it supersedes [run 1](e4-lifecycle/results/e4-20261002T214915Z-2306/results.md). Uses the §8.3 prototype. Not covered: wall-clock jump, Docker stopped mid-run (moved to T-LIFE). |
 
 ## Evidence rules
@@ -40,4 +40,18 @@ Run 2 also adds the `OOMKilled`-with-exit-0 observation and a recorded cleanup c
 Run 1 failed only `s1.children` and `s2.children`, with "before=3 after=0". No child survived, but the check could see only 3 of the 4 evasive children beforehand. busybox shows the double-forked child as `sh -c sleep 7002 &`, not `sleep 7002`, so the name pattern missed it. The child was there, reparented to the container's init.
 
 Run 2 replaces the name match with a name-independent check. Every process in the container (host PID + start time) is snapshotted while it runs, and none may exist afterwards. All four children must still be seen beforehand, by a pattern that matches both forms.
+
+## Running E3
+
+`spikes/qb-02/e3-network/run.sh [results_dir]` builds two images:
+
+- `proxy/`: `ubuntu/squid` with the §4.1 policy in `squid.conf`, plus a socat Unix-socket bridge.
+- `client/`: alpine with curl, socat, dnsmasq and dig.
+
+It then starts two per-run proxy networks, a test resolver (Squid's only resolver) and an internal canary. Every check runs from a `--network none` consumer that has the socket volume mounted read-only. Each command and its output is in `raw.log`. The canary's connection log (`canary-r0.log`) must stay empty.
+
+Harness notes from the debug runs:
+
+- **Fallback tunnel devices:** kernels with tunnel modules create devices like `tunl0` and `gre0` in every namespace. So "no external network interface" is checked as no routes except loopback and every non-lo device down, not "only `lo` exists". A container with a network fails this check.
+- **`pipefail` and `grep -q`:** under `set -o pipefail`, `producer | grep -q` can report failure through SIGPIPE when grep exits early. In one E3 check that would have turned a real failure into a PASS. All three scripts now use a `has` helper that reads its whole input.
 

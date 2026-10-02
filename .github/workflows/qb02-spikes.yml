@@ -17,7 +17,7 @@ on:
       experiment:
         description: 'Experiment to run'
         type: choice
-        options: [all, e2-storage, e4-lifecycle]
+        options: [all, e2-storage, e3-network, e4-lifecycle]
         default: all
 
 permissions:
@@ -31,7 +31,7 @@ jobs:
       fail-fast: false
       matrix:
         # A push runs every experiment; a manual run can pick one.
-        exp: ${{ fromJSON((inputs.experiment == '' || inputs.experiment == 'all' || inputs.experiment == null) && '["e2-storage","e4-lifecycle"]' || format('["{0}"]', inputs.experiment)) }}
+        exp: ${{ fromJSON((inputs.experiment == '' || inputs.experiment == 'all' || inputs.experiment == null) && '["e2-storage","e3-network","e4-lifecycle"]' || format('["{0}"]', inputs.experiment)) }}
     env:
       EXP: ${{ matrix.exp }}
     steps:

@@ -33,6 +33,9 @@ export E4_RENEW_MS=1000 E4_LEASE_TIMEOUT_MS=5000 E4_KILL_GRACE_MS=3000 E4_DOCKER
 LEASE=$E4_LEASE_TIMEOUT_MS GRACE=$E4_KILL_GRACE_MS DOP=$E4_DOCKER_OP_MS
 SLACK=1500   # polling granularity of this harness (200 ms) + process start-up
 
+# has <ERE>: like `grep -qE`, but reads all of stdin. Under `set -o pipefail`,
+# `producer | grep -q` can fail (SIGPIPE to the producer) when grep exits early.
+has() { [ "$(grep -cE -- "$1")" != 0 ]; }
 log()    { printf '%s %s\n' "$(date -u +%H:%M:%S)" "$*" | tee -a "$LOG" >&2; }
 result() { printf '%s\t%s\t%s\n' "$1" "$2" "$3" >> "$TSV"; log "RESULT $1 $2 — $3"; }
 now_ms() { perl -MTime::HiRes=time -e 'printf "%d\n", time*1000'; }
@@ -90,10 +93,10 @@ cleanup_all() {
   c=$(docker ps -a --filter "label=qb.run" --format '{{.ID}} {{.Label "qb.run"}}' | awk -v p="$RUN" 'index($2,p)==1 {print $1}')
   [ -n "$c" ] && docker rm -f $c >/dev/null 2>&1
   for n in $(docker network ls -q --filter label=qb.run); do
-    docker network inspect -f '{{index .Labels "qb.run"}}' "$n" | grep -q "^$RUN" && docker network rm "$n" >/dev/null 2>&1
+    docker network inspect -f '{{index .Labels "qb.run"}}' "$n" | has "^$RUN" && docker network rm "$n" >/dev/null 2>&1
   done
   for v in $(docker volume ls -q --filter label=qb.run); do
-    docker volume inspect -f '{{index .Labels "qb.run"}}' "$v" | grep -q "^$RUN" && docker volume rm -f "$v" >/dev/null 2>&1
+    docker volume inspect -f '{{index .Labels "qb.run"}}' "$v" | has "^$RUN" && docker volume rm -f "$v" >/dev/null 2>&1
   done
   pkill -f "$P/(cli|supervisor).js $STATE" 2>/dev/null
   return 0
@@ -190,7 +193,7 @@ timing s1 cli_sigkill "$STOP_MS" "$CLEAN_MS" "$BOUND" "$(term_state "$RUN-s1")"
   || result s1.bounded_termination FAIL "stopped after ${STOP_MS} ms (bound ${BOUND} ms)"
 [ "$CLEAN_MS" -ge 0 ] && result s1.bounded_cleanup OBSERVED "all resources removed ${CLEAN_MS} ms after CLI SIGKILL" \
                       || result s1.bounded_cleanup FAIL "resources still present after 90 s"
-logs_of s1 | grep -q "alive 6" && result s1.in_container_timeout_defeated OBSERVED "payload killed its own 4 s timeout watcher and kept running; only the external lease ended it" \
+logs_of s1 | has "alive 6" && result s1.in_container_timeout_defeated OBSERVED "payload killed its own 4 s timeout watcher and kept running; only the external lease ended it" \
                                 || result s1.in_container_timeout_defeated ERROR "could not confirm the payload outlived its own timeout (see logs)"
 check_children s1 "$P_BEFORE" "$OUT/procs-s1.txt"
 check_clean s1 "ABANDONED/supervisor/lease_expired"
@@ -210,7 +213,7 @@ if [ "$STOP_MS" -ge "$EARLIEST" ] && [ "$STOP_MS" -le "$BOUND" ]; then
 else
   result s2.deadline_enforced FAIL "stopped ${STOP_MS} ms after ack; expected between ${EARLIEST} and ${BOUND}"
 fi
-logs_of s2 | grep -q "alive 6" && result s2.in_container_timeout_defeated OBSERVED "payload outlived its own 4 s timeout; only the external deadline stopped it" \
+logs_of s2 | has "alive 6" && result s2.in_container_timeout_defeated OBSERVED "payload outlived its own 4 s timeout; only the external deadline stopped it" \
                                 || result s2.in_container_timeout_defeated ERROR "could not confirm the payload outlived its own timeout"
 check_children s2 "$P_BEFORE" "$OUT/procs-s2.txt"
 check_clean s2 "timeout/supervisor/stage_deadline"

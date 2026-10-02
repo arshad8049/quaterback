@@ -33,6 +33,9 @@ STAGES="seed deps agent capture verify"
 VOL_SIZE="${QB_SPIKE_VOL_SIZE:-64m}"
 VOL_INODES=20000
 
+# has <ERE>: like `grep -qE`, but reads all of stdin. Under `set -o pipefail`,
+# `producer | grep -q` can fail (SIGPIPE to the producer) when grep exits early.
+has() { [ "$(grep -cE -- "$1")" != 0 ]; }
 log()    { printf '%s %s\n' "$(date -u +%H:%M:%S)" "$*" | tee -a "$LOG" >&2; }
 result() { printf '%s\t%s\t%s\n' "$1" "$2" "$3" >> "$TSV"; log "RESULT $1 $2 — $3"; }
 
@@ -268,7 +271,7 @@ OUTP=$(docker run --rm "${HARDEN[@]}" "${MOUNTS[@]}" "$IMAGE" sh -c '
 echo "$OUTP" >> "$LOG"
 FB=$(echo "$OUTP" | sed -n 's/^file_bytes=//p'); set -- $(echo "$OUTP" | sed -n 's/^fs=//p')
 AVAIL_BLOCKS=${2:-NA}
-if echo "$OUTP" | grep -q 'No space left' && [ -n "$FB" ] \
+if echo "$OUTP" | has 'No space left' && [ -n "$FB" ] \
    && [ "$FB" -le "$CAP_BYTES" ] && [ "$FB" -ge $((CAP_BYTES - 1024 * 1024)) ] && [ "$AVAIL_BLOCKS" = 0 ]; then
   result E.size_cap PASS "64 MiB write into a 32 MiB volume: ENOSPC; file reached $FB of $CAP_BYTES bytes; 0 blocks free"
 else
@@ -288,7 +291,7 @@ OUTP=$(docker run --rm "${HARDEN[@]}" "${MOUNTS[@]}" "$IMAGE" sh -c '
 echo "$OUTP" >> "$LOG"
 STOP=$(echo "$OUTP" | sed -n 's/^stopped_at=//p'); set -- $(echo "$OUTP" | sed -n 's/^fs=//p')
 TOTAL_B=${1:-0} AVAIL_B=${2:-0} FREE_INODES=${5:-NA}
-if [ "$STOP" != none ] && echo "$OUTP" | grep -q 'No space left' && [ "$FREE_INODES" = 0 ] \
+if [ "$STOP" != none ] && echo "$OUTP" | has 'No space left' && [ "$FREE_INODES" = 0 ] \
    && [ "$TOTAL_B" -gt 0 ] && [ $((AVAIL_B * 2)) -gt "$TOTAL_B" ]; then
   result E.inode_cap PASS "creation stopped at file $STOP with ENOSPC; 0 free inodes while $AVAIL_B of $TOTAL_B blocks still free (inode exhaustion, not space)"
 else
