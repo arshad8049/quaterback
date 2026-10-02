@@ -13,7 +13,7 @@ Platform claims are limited to **Linux x86_64 + Docker Engine** until §11 valid
 | Question | Ruling | v3 change | § |
 |---|---|---|---|
 | 1. Credential volume + write-back | Write-back rejected; direct login and per-run copies approved in principle | **No write-back.** Agent-run auth state is always discarded. The persistent credential changes only through the official binary in a clean auth container that has no repository code and no work volume. That includes a pre-run refresh. **[gated: E1]** | §5 |
-| 2. Squid primary, Envoy fallback | Squid approved for a PoC; one proxy only | Squid only; Envoy work is dropped. Exact-host ACLs. The IP that is checked is the IP that is connected to. Consumers mount the socket read-only. **[gated: E3]** | §4 |
+| 2. Squid primary, Envoy fallback | Squid approved for a PoC; one proxy only | Squid only; Envoy work is dropped. Exact-host ACLs. The IP that is checked is the IP that is connected to. Consumers mount the socket read-only. **E3 passed with Squid alone (2026-10-02).** | §4 |
 | 3. tmpfs-backed volumes | Conditional, small Linux beta | Lifecycle experiment E2 before any code. Every volume is budgeted. Host-level admission limit. Mount lifetime and swap behaviour are stated. | §8.1, §8.2 |
 | 4. Read-only deps | Approved as a v1 limitation | Mechanical dependency fingerprint, checked before verification. Explicit supported project profile. Writable dependency build layout. | §3.2 |
 | 5. "Trusted repositories only" | Insufficient alone | Warning text now says execution is **uncontained and runs with the user's privileges**. The current host-execution paths are excluded from the supported beta. | §10 |
@@ -311,7 +311,7 @@ See §6.
   - the docker bridge gateway
 - has no access to credentials.
 
-**The checked IP must be the connected IP. [gated: E3]**
+**The checked IP must be the connected IP.** E3 result: Squid alone satisfies (1)–(3); the resolver contingency is not needed. See the E3 result in §11.1.
 
 Squid can resolve a name more than once, use a cached answer, or try further addresses after a failed connect. So an ACL check on "the destination" is not, by itself, proof that the socket went to a checked address. Requirements:
 
@@ -339,6 +339,18 @@ Squid can resolve a name more than once, use a cached answer, or try further add
 | Limits | `--memory`, `--pids-limit`, connection and request-size limits, bounded access log |
 
 Envoy is no longer an alternative in this round. If Squid fails E3 even with the resolver contingency, the proxy choice goes back to review.
+
+**E3 validated** `ubuntu/squid` (Squid 6.13) with the derived socket bridge, hardened as follows:
+
+- `--cap-drop ALL` plus only `SETUID`/`SETGID`, so Squid can drop to its `proxy` user;
+- `no-new-privileges`, read-only root, `/tmp` tmpfs;
+- 256 MiB memory and a pids limit.
+
+Implementation notes from E3:
+
+- **Logs:** Squid running as `proxy` cannot open `/dev/stdout`, so the entrypoint pre-creates its log files in `/tmp` and streams them.
+- **ICMP:** the pinger needs raw ICMP sockets, so it is disabled (`pinger_enable off`).
+- **Pinning:** the implementation must digest-pin the base. The E3 run recorded the Squid version but not the digest; the script has since been fixed to record it.
 
 ### 4.3 Endpoint policies
 
@@ -919,6 +931,27 @@ v3 is revised from those results before QB-02 is marked final.
 4. Squid resource limits hold under a connection flood.
 
 **Pass:** all of the above with Squid alone, or with the §4.1 resolver contingency (recorded which).
+
+**Result (2026-10-02, [evidence](../../spikes/qb-02/e3-network/results/e3-20261002T221147Z-2455/results.md); CI run 37071150968, ubuntu-24.04, Docker Engine 28.0.4, Squid 6.13): passed with Squid alone, 39/39 checks.**
+
+- **No way out but the proxy:** the consumer had no route except loopback, and every non-lo device was down. The host gateway, host LAN IP, `host.docker.internal`, cloud metadata, IPv6, the internet, DNS (including 8.8.8.8 directly) and the other run's proxy were all unreachable.
+- **Socket:** could not be unlinked or replaced, and remained in place.
+- **CONNECT policy:** only exact allowlisted names on 443 (`api.anthropic.com` → 200). Refused with 403:
+  - non-listed names, subdomains and IP literals;
+  - `169.254.169.254` and `host.docker.internal`;
+  - port 80 and plain HTTP;
+  - raw requests written straight to the socket.
+- **Attacker-chosen names:** refused **without ever reaching the resolver**. The resolver's log contains only allowlisted names.
+- **Rebinding:** an allowlisted name that flipped to an internal address (TTL 0), a mixed public+denied answer set, and an unreachable-public+denied answer set were all refused.
+  - The internal canary on the proxy's own network received **0 connections**.
+  - Every allowed tunnel in Squid's access log went to the checked public address.
+- **Flood:** 100 concurrent CONNECTs all answered; the proxy stayed healthy at 24 MiB of its 256 MiB limit.
+
+**What E3 does not cover:**
+
+- Mixed or flipped answers were tested with **A records**; the fixture served no AAAA records. IPv6 is disabled on the proxy network.
+- Squid's behaviour depends on the tested config (`positive_dns_ttl 1 seconds`, the hostname check before the `dst` check). The implementation must ship exactly this policy, and T-NET must re-run it.
+- As designed, there is no TLS inspection: the allowlist restricts destinations, not API operations (§4.1).
 
 **E4: Lifecycle** (unblocks §8.3, G5)
 

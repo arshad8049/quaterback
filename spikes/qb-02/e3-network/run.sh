@@ -49,6 +49,9 @@ HARDEN=(--user 10001:10001 --cap-drop ALL --security-opt no-new-privileges --rea
         --tmpfs /tmp:rw,nosuid,nodev,size=16m --init --pids-limit 256 "${L[@]}")
 
 # ---------------------------------------------------------------- images + env
+# Pull the bases explicitly so their digests can be recorded (a BuildKit build
+# does not leave the base image inspectable in the daemon).
+docker pull -q ubuntu/squid:latest >> "$LOG" 2>&1; docker pull -q alpine:3.20 >> "$LOG" 2>&1
 docker build -q -t "qb-e3-proxy:$RUN" "$HERE/proxy" >> "$LOG" 2>&1 || { log "proxy image build failed"; exit 2; }
 docker build -q -t "qb-e3-client:$RUN" "$HERE/client" >> "$LOG" 2>&1 || { log "client image build failed"; exit 2; }
 EVIDENCE=yes

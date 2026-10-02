@@ -1,0 +1,6 @@
+scenario	trigger	stopped_after_ms	clean_after_ms	bound_ms	end_state
+s1	cli_sigkill	7680	7930	19500	ABANDONED/supervisor/lease_expired
+s2	stage_deadline	11127	11379	22500	timeout/supervisor/stage_deadline
+s4a	supervisor_sigkill	765	765	12000	infra_error/cli/supervisor_lost
+s4b	reaper	370	370	-	ABANDONED/reaper/owners_dead
+s8	hung_docker	19356	19606	30500	timeout/supervisor/stage_deadline

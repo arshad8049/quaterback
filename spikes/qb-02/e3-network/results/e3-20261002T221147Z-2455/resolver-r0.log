@@ -1,0 +1,61 @@
+dnsmasq[1]: started, version 2.90 cachesize 150
+dnsmasq[1]: DNS service limited to local subnets
+dnsmasq[1]: compile time options: IPv6 GNU-getopt no-DBus no-UBus no-i18n no-IDN DHCP DHCPv6 no-Lua TFTP no-conntrack ipset no-nftset auth no-cryptohash no-DNSSEC loop-detect inotify dumpfile
+dnsmasq[1]: using nameserver 1.1.1.1#53
+dnsmasq[1]: using nameserver 8.8.8.8#53
+dnsmasq[1]: read /tmp/hosts - 0 names
+dnsmasq[1]: query[A] api.anthropic.com from 10.233.0.10
+dnsmasq[1]: forwarded api.anthropic.com to 1.1.1.1
+dnsmasq[1]: forwarded api.anthropic.com to 8.8.8.8
+dnsmasq[1]: query[AAAA] api.anthropic.com from 10.233.0.10
+dnsmasq[1]: forwarded api.anthropic.com to 1.1.1.1
+dnsmasq[1]: forwarded api.anthropic.com to 8.8.8.8
+dnsmasq[1]: reply api.anthropic.com is 2607:6bc0::10
+dnsmasq[1]: reply api.anthropic.com is 160.79.104.10
+dnsmasq[1]: read /tmp/hosts - 6 names
+dnsmasq[1]: query[A] ok.qb.test from 10.233.0.10
+dnsmasq[1]: /tmp/hosts ok.qb.test is 172.66.147.243
+dnsmasq[1]: query[AAAA] ok.qb.test from 10.233.0.10
+dnsmasq[1]: forwarded ok.qb.test to 1.1.1.1
+dnsmasq[1]: reply ok.qb.test is NODATA-IPv6
+dnsmasq[1]: query[A] flip.qb.test from 10.233.0.10
+dnsmasq[1]: /tmp/hosts flip.qb.test is 172.66.147.243
+dnsmasq[1]: query[AAAA] flip.qb.test from 10.233.0.10
+dnsmasq[1]: forwarded flip.qb.test to 1.1.1.1
+dnsmasq[1]: reply flip.qb.test is NODATA-IPv6
+dnsmasq[1]: read /tmp/hosts - 6 names
+dnsmasq[1]: query[A] flip.qb.test from 10.233.0.10
+dnsmasq[1]: /tmp/hosts flip.qb.test is 10.233.0.99
+dnsmasq[1]: query[AAAA] flip.qb.test from 10.233.0.10
+dnsmasq[1]: forwarded flip.qb.test to 1.1.1.1
+dnsmasq[1]: reply flip.qb.test is NODATA-IPv6
+dnsmasq[1]: query[A] mixed.qb.test from 10.233.0.10
+dnsmasq[1]: /tmp/hosts mixed.qb.test is 172.66.147.243
+dnsmasq[1]: /tmp/hosts mixed.qb.test is 10.233.0.99
+dnsmasq[1]: query[AAAA] mixed.qb.test from 10.233.0.10
+dnsmasq[1]: forwarded mixed.qb.test to 1.1.1.1
+dnsmasq[1]: reply mixed.qb.test is NODATA-IPv6
+dnsmasq[1]: query[A] fallback.qb.test from 10.233.0.10
+dnsmasq[1]: /tmp/hosts fallback.qb.test is 198.51.100.7
+dnsmasq[1]: /tmp/hosts fallback.qb.test is 10.233.0.99
+dnsmasq[1]: query[AAAA] fallback.qb.test from 10.233.0.10
+dnsmasq[1]: forwarded fallback.qb.test to 1.1.1.1
+dnsmasq[1]: reply fallback.qb.test is NODATA-IPv6
+dnsmasq[1]: query[A] api.anthropic.com from 10.233.0.10
+dnsmasq[1]: forwarded api.anthropic.com to 1.1.1.1
+dnsmasq[1]: query[AAAA] api.anthropic.com from 10.233.0.10
+dnsmasq[1]: forwarded api.anthropic.com to 1.1.1.1
+dnsmasq[1]: reply api.anthropic.com is 160.79.104.10
+dnsmasq[1]: reply api.anthropic.com is 2607:6bc0::10
+dnsmasq[1]: query[A] api.anthropic.com from 10.233.0.10
+dnsmasq[1]: cached api.anthropic.com is 160.79.104.10
+dnsmasq[1]: query[AAAA] api.anthropic.com from 10.233.0.10
+dnsmasq[1]: cached api.anthropic.com is 2607:6bc0::10
+dnsmasq[1]: query[A] api.anthropic.com from 10.233.0.10
+dnsmasq[1]: cached api.anthropic.com is 160.79.104.10
+dnsmasq[1]: query[AAAA] api.anthropic.com from 10.233.0.10
+dnsmasq[1]: cached api.anthropic.com is 2607:6bc0::10
+dnsmasq[1]: query[A] api.anthropic.com from 10.233.0.10
+dnsmasq[1]: cached api.anthropic.com is 160.79.104.10
+dnsmasq[1]: query[AAAA] api.anthropic.com from 10.233.0.10
+dnsmasq[1]: cached api.anthropic.com is 2607:6bc0::10
