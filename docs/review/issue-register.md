@@ -12,7 +12,7 @@ Status: `open` · `in-progress` · `fixed (awaiting review)` · `closed` (senior
 | QB-02 | Agent execution has no enforced containment | High | 1 | open | |
 | QB-03 | Change capture omits parts of the actual result | High | 1 | fixed (awaiting review) | `test/unit/qb03-qb22-capture-and-states.test.js` |
 | QB-04 | Model output can overwrite trusted metadata | High | 1 | fixed (awaiting review) | `test/unit/qb04-trusted-metadata.test.js` |
-| QB-05 | Benchmark reset is destructive and not reproducible | High | 1 | open | |
+| QB-05 | Benchmark reset is destructive and not reproducible | High | 1 | fixed (awaiting review) | `test/unit/qb05-bench-workspace.test.js` |
 | QB-06 | Test-command failure can still produce PASS | Critical | 2 | open (seeded) | `test/unit/phase2-seeds.test.js` |
 | QB-07 | Loose response parsing reverses negative judgments | Critical | 2 | open (seeded) | `test/unit/phase2-seeds.test.js` |
 | QB-08 | An empty or clarification-only contract can pass | Critical | 2 | open (seeded) | `test/unit/phase2-seeds.test.js` |

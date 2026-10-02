@@ -20,7 +20,6 @@ require('dotenv').config({ path: require('path').join(__dirname, '../intent/.env
 
 const fs      = require('fs');
 const path    = require('path');
-const { execSync } = require('child_process');
 const { program } = require('commander');
 
 const { compile }      = require('../intent/compiler');
@@ -28,6 +27,9 @@ const { buildContext } = require('../context/builder');
 const { orchestrate }  = require('../agent/orchestrator');
 const { verify }       = require('../verify/verifier');
 const { runBaseline }  = require('./baseline');
+const { createWorkspace } = require('../lib/workspace');
+const runStore         = require('../run/store');
+const { inputFromReport } = require('../verify/verdict');
 
 program
   .name('bench')
@@ -38,22 +40,28 @@ program
   .option('--max-retries <n>',   'QB repair loop max retries', '3')
   .option('--runs <n>',          'Run the entire task list N times and aggregate', '1')
   .option('--sandbox',           'Use bench/sandbox-tasks.json with fixtures/ repo')
+  .option('--tasks <file>',      'Task file (overrides --sandbox)')
+  .option('--repo <path>',       'Source repository (overrides the task file)')
+  .option('--base-rev <rev>',    'Commit to pin for every arm (overrides the task file)')
+  .option('--results <dir>',     'Directory for result JSON files')
   .parse(process.argv);
 
 const opts = program.opts();
 
-const tasksFile = opts.sandbox
-  ? path.join(__dirname, 'sandbox-tasks.json')
-  : path.join(__dirname, 'tasks.json');
+const tasksFile = opts.tasks
+  ? path.resolve(opts.tasks)
+  : opts.sandbox
+    ? path.join(__dirname, 'sandbox-tasks.json')
+    : path.join(__dirname, 'tasks.json');
 const tasks = require(tasksFile);
 
 // Resolve relative repo path
-let resolvedRepoPath = tasks.meta.repo;
+let resolvedRepoPath = opts.repo ? path.resolve(opts.repo) : tasks.meta.repo;
 if (!path.isAbsolute(resolvedRepoPath)) {
   resolvedRepoPath = path.join(__dirname, '..', resolvedRepoPath); // QB root + relative
 }
 
-const RESULTS_DIR = path.join(__dirname, 'results');
+const RESULTS_DIR = opts.results ? path.resolve(opts.results) : path.join(__dirname, 'results');
 const D2 = '═'.repeat(72);
 const D1 = '─'.repeat(72);
 
@@ -99,26 +107,23 @@ async function main() {
 
       const result = { task_id: task.id, difficulty: task.difficulty, tags: task.tags, description: task.description };
 
-      // ── Ensure repo is clean ───────────────────────────────────────────────
-      resetRepo(repoPath);
+      // Each arm runs in its own disposable checkout of the pinned revision.
+      // The source repository is only read, never reset or cleaned (QB-05).
 
       // ── QB run ─────────────────────────────────────────────────────────────
       console.log('\n  [QB] Running full pipeline...');
-      result.qb = await runQB(task, repoPath);
+      result.qb = await withWorkspace(repoPath, task, 'qb', ws => runQB(task, ws));
       printQBResult(result.qb);
-
-      // ── Reset between runs ─────────────────────────────────────────────────
-      resetRepo(repoPath);
 
       // ── Baseline run ───────────────────────────────────────────────────────
       if (opts.baseline !== false) {
         console.log('\n  [BASE] Running raw baseline (no pipeline)...');
-        result.baseline = await runBaselineTask(task, repoPath, result.qb.contract);
+        result.baseline = await withWorkspace(repoPath, task, 'base', ws => runBaselineTask(task, ws, result.qb.contract));
         printBaselineResult(result.baseline);
+        if (result.baseline.workspace.base_tree !== result.qb.workspace.base_tree) {
+          throw new Error(`[${task.id}] arms started from different snapshots`);
+        }
       }
-
-      // ── Reset after all runs ───────────────────────────────────────────────
-      resetRepo(repoPath);
 
       // ── Save result ────────────────────────────────────────────────────────
       const outPath = path.join(RESULTS_DIR, `${task.id}_${Date.now()}.json`);
@@ -199,9 +204,11 @@ function wilsonCI(k, n, z = 1.96) {
 
 // ── QB pipeline run ───────────────────────────────────────────────────────────
 
-async function runQB(task, repoPath) {
+async function runQB(task, ws) {
+  const repoPath   = ws.dir;
   const maxRetries = parseInt(opts.maxRetries, 10) || 3;
   const out = { timing: {} };
+  const run = ws.run;
 
   // L1
   let t = Date.now();
@@ -209,6 +216,7 @@ async function runQB(task, repoPath) {
   out.timing.l1_ms = Date.now() - t;
   out.contract     = contract;
   out.ac_count     = contract.acceptance_criteria?.length || 0;
+  run.setContract(contract);
   console.log(`     L1 ${out.timing.l1_ms}ms — ${out.ac_count} ACs`);
 
   // L2
@@ -229,6 +237,13 @@ async function runQB(task, repoPath) {
   while (attempt < maxRetries) {
     attempt++;
 
+    run.startAttempt({
+      attempt,
+      parent_attempt: attempt > 1 ? attempt - 1 : null,
+      repair_reason:  repairHints.map(h => h.criterion_id),
+      base_sha:       ws.baseSha,
+    });
+
     // L3
     t = Date.now();
     execution = await orchestrate(contract, context, {
@@ -243,12 +258,17 @@ async function runQB(task, repoPath) {
     t = Date.now();
     report = await verify(contract, context, execution, { repoPath });
     const l4_ms = Date.now() - t;
+    run.finishAttempt(attempt, {
+      execution, report, patch: execution.diff,
+      verifyInput: inputFromReport(report, execution),
+    });
 
     attempts.push({
       attempt,
       l3_ms,
       l4_ms,
       verdict:       report.verdict,
+      execution_status: execution.status,
       files_changed: execution.changes.map(c => c.file),
       ac_results:    report.criteria_results.map(r => ({ id: r.id, met: r.met, votes: r.votes || null })),
       failures:      report.failures,
@@ -256,8 +276,7 @@ async function runQB(task, repoPath) {
 
     console.log(`     L3+L4 attempt ${attempt}: ${verdictIcon(report.verdict)} ${report.verdict.toUpperCase()} (${l3_ms + l4_ms}ms)`);
 
-    if (report.verdict === 'pass') break;
-    if (report.verdict === 'no-diff') break;
+    if (['pass', 'no-diff', 'error', 'unresolved'].includes(report.verdict)) break;
     if (report.failures.length === 0) break;
     if (attempt >= maxRetries) break;
     repairHints = report.repair_hints;
@@ -275,69 +294,74 @@ async function runQB(task, repoPath) {
 
 // ── Baseline run ──────────────────────────────────────────────────────────────
 
-async function runBaselineTask(task, repoPath, contract) {
+async function runBaselineTask(task, ws, contract) {
+  const repoPath = ws.dir;
+  const run = ws.run;
   const out = {};
 
-  const t = Date.now();
-  const { diff, status, duration_ms, error } = runBaseline(task.description, repoPath);
-  out.agent_ms = duration_ms;
-  out.status   = status;
-  out.error    = error || null;
+  run.setContract(contract);
+  run.startAttempt({ attempt: 1, base_sha: ws.baseSha });
 
-  if (!diff) {
-    out.verdict       = 'no-diff';
-    out.files_changed = [];
-    out.timing_ms     = duration_ms;
-    return out;
-  }
+  const execution = { id: 'baseline', ...runBaseline(task.description, repoPath) };
+  out.agent_ms      = execution.duration_ms;
+  out.status        = execution.status;
+  out.error         = execution.error || null;
+  out.files_changed = execution.changes.map(c => c.file);
 
-  // Run L4 on baseline's diff using the same contract QB used
-  const fakeExecution = { id: 'baseline', diff, changes: parseDiff(diff), status: 'completed' };
+  // Run L4 on baseline's change set using the same contract QB used
   const t4 = Date.now();
-  const report = await verify(contract, null, fakeExecution, { repoPath });
+  const report = await verify(contract, null, execution, { repoPath });
   out.l4_ms = Date.now() - t4;
+  run.finishAttempt(1, { execution, report, patch: execution.diff, verifyInput: inputFromReport(report, execution) });
 
   out.verdict       = report.verdict;
   out.ac_results    = report.criteria_results.map(r => ({ id: r.id, met: r.met }));
   out.failures      = report.failures;
-  out.files_changed = fakeExecution.changes.map(c => c.file);
-  out.timing_ms     = duration_ms + out.l4_ms;
+  out.timing_ms     = execution.duration_ms + out.l4_ms;
 
   return out;
 }
 
-// ── Git helpers ───────────────────────────────────────────────────────────────
+// ── Workspaces ────────────────────────────────────────────────────────────────
 
-function resetRepo(repoPath) {
-  try {
-    execSync('git checkout -- .', { cwd: repoPath, stdio: 'pipe' });
-  } catch (_) {}
-  try {
-    execSync('git clean -fd', { cwd: repoPath, stdio: 'pipe' });
-  } catch (_) {}
-}
-
-// ── Diff parser (same as runner.js) ──────────────────────────────────────────
-
-function parseDiff(rawDiff) {
-  const changes = {};
-  let cur = null;
-  for (const line of rawDiff.split('\n')) {
-    if (line.startsWith('diff --git')) {
-      const m = line.match(/b\/(.+)$/);
-      if (m) { cur = m[1]; changes[cur] = { file: cur, additions: 0, deletions: 0 }; }
-    } else if (cur) {
-      if (line.startsWith('+') && !line.startsWith('+++')) changes[cur].additions++;
-      else if (line.startsWith('-') && !line.startsWith('---')) changes[cur].deletions++;
-    }
+/**
+ * Create a disposable checkout of the pinned revision, run one arm in it with
+ * its own run record, and always remove it afterwards.
+ */
+async function withWorkspace(source, task, arm, fn) {
+  const baseRev = opts.baseRev || tasks.meta.base_rev || 'HEAD';
+  const ws = createWorkspace(source, { baseRev, label: `${task.id}-${arm}` });
+  if (ws.sourceDirty) {
+    console.log(`     note: source has uncommitted changes; arms use committed ${ws.sourceCommit.slice(0, 12)} only`);
   }
-  return Object.values(changes);
+  ws.run = runStore.createRun({
+    kind:     arm === 'qb' ? 'bench-qb' : 'bench-baseline',
+    request:  task.description,
+    repoPath: ws.dir,
+    baseSha:  ws.baseSha,
+    agent:    { type: 'claude-code', isolation: 'workspace-clone' },
+    config:   { task_id: task.id, base_rev: baseRev, source_commit: ws.sourceCommit, mode: ws.mode, max_retries: opts.maxRetries },
+  });
+
+  try {
+    const out = await fn(ws);
+    const verdict = arm === 'qb' ? out.final_verdict : out.verdict;
+    ws.run.finish(runStore.outcomeFor(verdict), { legacy_verdict: verdict });
+    out.run_id = ws.run.id;
+    out.workspace = { base_rev: baseRev, source_commit: ws.sourceCommit, base_sha: ws.baseSha, base_tree: ws.baseTree, mode: ws.mode };
+    return out;
+  } catch (e) {
+    ws.run.abort('ERROR', e.message);
+    throw e;
+  } finally {
+    ws.cleanup();
+  }
 }
 
 // ── Print helpers ─────────────────────────────────────────────────────────────
 
 function verdictIcon(v) {
-  return { pass: '✓', fail: '✗', partial: '~', 'no-diff': '○' }[v] || '?';
+  return { pass: '✓', fail: '✗', partial: '~', 'no-diff': '○', error: '!', unresolved: '~' }[v] || '?';
 }
 
 function printQBResult(r) {
