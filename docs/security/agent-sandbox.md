@@ -24,7 +24,7 @@ Platform claims are limited to **Linux x86_64 + Docker Engine** until §11 valid
 |---|---|---|
 | 1. Write-back crosses the trust boundary | Removed. The "QB never holds the credential" claim is corrected for Mode K. The authentication-obligations check is a beta blocker. | §5 |
 | 2. Timeout backstop is not adversary-proof | Deadlines and the CLI-loss lease are enforced by a **detached host supervisor** outside every container. The in-container `timeout` is kept only as a convenience. G5 is rewritten with explicit bounds. | §1, §8.3 |
-| 3. tmpfs lifecycle | Experiment E2 (the reviewer's exact steps). A keeper container is a documented contingency. Aggregate storage budget plus admission control. | §8.1, §11.1 |
+| 3. tmpfs lifecycle | Experiment E2 (the reviewer's exact steps) **ran 2026-10-02: keeper required**. Aggregate storage budget plus admission control, and a stage memory sizing rule from E2. | §8.1, §8.2, §11.1 |
 | 4. "Partial application is impossible" | Removed. **`qb apply` is deferred.** v1 exports a patch plus a read-only preflight, and the user applies it manually. `--allow-symlinks` is removed; escaping symlinks are never exported. | §9.3 |
 | 5. Deps consistency gate | Fingerprint of manifest, lockfile, package-manager version, runtime/platform and install options. Mismatch → `UNRESOLVED: dependency_change_required`, verification not run. | §3.2 |
 | 6. Verifier scratch | Capture runs **before** verification. The verifier gets a disposable writable checkout of the captured tree, and its outputs are never captured. | §2, §3.5 |
@@ -159,7 +159,7 @@ HOST — QB CLI (trusted) ──spawns──► qb-supervisor (trusted, detached
  │                                                                          │
  │ trusted support services — may overlap workload stages                   │
  │ Ⓟ proxy    on qb-<id>-egress; rw sock; enforces policy (during ②, ③)     │
- │ Ⓚ keeper   only if E2 requires it; holds tmpfs volumes mounted (§8.2)    │
+ │ Ⓚ keeper   required (E2); holds every tmpfs volume mounted (§8.2)       │
  └──────────────────────────────────────────────────────────────────────────┘
    "no ext. net" = --network none: loopback only.
    * Egress only via the read-only-mounted Unix socket to Ⓟ.
@@ -593,10 +593,22 @@ Every per-run byte that can live in host RAM is budgeted. Per-volume caps alone 
 | `cred` | tmpfs | 1 MiB |
 | `sock` | tmpfs | 1 MiB |
 | per-container `/tmp` | tmpfs | 256 MiB × concurrently running containers (≤ 3: workload, Ⓟ, Ⓚ) |
-| container memory limits | RAM | workload 4 GiB, Ⓟ 256 MiB, Ⓚ 64 MiB |
+| container memory limits | RAM | per stage: **caps of the volumes it can write + 2 GiB working allowance** (E2 sizing rule below); Ⓟ 256 MiB; Ⓚ 64 MiB |
 | logs (disk) | `local` driver | 10 MiB per container |
 
-**Per-run peak** is the sum of the volumes that coexist, plus the container memory and `/tmp` that run concurrently. QB computes it from the configured caps and records it.
+**Per-run peak** is the sum of the volumes that coexist, plus the container memory and `/tmp` that run concurrently. QB computes it from the configured caps and records it. E2 measured about 9% kernel overhead on tmpfs data (two runs × 798 MiB written lowered host `MemAvailable` by 870 MiB), so volume caps are counted at **×1.1**. The peak counts a stage's writes twice (once as volume caps, once inside that stage's memory limit). That is deliberate: it errs high.
+
+**Stage memory sizing rule (E2).** tmpfs pages are charged to the memory cgroup of the container that *writes* them. A container whose `--memory` limit is below what it can write into the volumes is OOM-killed before it reaches the volume cap, and a full disk would then be reported as `oom`. So each stage's limit is at least the caps of the volumes it can write plus a 2 GiB working allowance:
+
+| Stage | Writable volumes | Limit at default caps |
+|---|---|---|
+| ① seed | `work` 2 GiB, `git` 1 GiB | 5 GiB |
+| ② deps | scratch copy 2 GiB, `deps` 2 GiB | 6 GiB |
+| ③ agent | `work` 2 GiB | 4 GiB |
+| ④ capture | `git` 1 GiB, `out`, `verify` 2 GiB | 5 GiB |
+| ⑤ verify | `verify` 2 GiB | 4 GiB |
+
+Run states keep their meaning: ENOSPC inside a stage is a cap hit (`capture_limit_exceeded` or `setup_failed`), and `oom` means the processes themselves exceeded the 2 GiB allowance.
 
 **Admission: beta.** **One run per QB installation.** An exclusive admission lock in the installation's state directory is taken before any per-run resource is created and held until G5b removal. A second `qb run` fails fast with `BLOCKED: run_in_progress`. At admission QB also checks that `MemAvailable` (from `/proc/meminfo`) is at least the per-run peak plus a host reserve (default 2 GiB). Otherwise the run ends `BLOCKED: insufficient_host_resources`, with the numbers.
 
@@ -617,7 +629,7 @@ The reservation is removed at G5b, or by the reaper.
 
 A slot or reservation is released by the supervisor at G5b removal, or reclaimed by the reaper when its owner is dead.
 
-### 8.2 tmpfs volume lifetime [gated: E2]
+### 8.2 tmpfs volume lifetime [E2: resolved, keeper required]
 
 The work and other volumes are Docker **`local`-driver volumes with `type=tmpfs`**. This is not a container `--tmpfs` mount, and its lifetime has to be shown, not assumed:
 
@@ -626,12 +638,24 @@ The work and other volumes are Docker **`local`-driver volumes with `type=tmpfs`
 
 | E2 outcome | Design |
 |---|---|
-| Contents survive between sequential containers, cancellation, and stage failure | No keeper. Volumes live from creation to G5b removal. |
-| Contents are lost when no container has the volume mounted | **Keeper Ⓚ.** A trusted, persistent per-run service. It mounts every per-run tmpfs volume and runs a sleep-only trusted entrypoint, with no network, no socket and no repository code. It starts before ① and is removed last at G5b, under the same labels, supervisor and reaper rules as Ⓟ. |
+| ~~Contents survive between sequential containers, cancellation, and stage failure~~ | ~~No keeper.~~ Ruled out by E2. |
+| **Contents are lost when no container has the volume mounted** (observed) | **Keeper Ⓚ.** A trusted, persistent per-run service. It mounts every per-run tmpfs volume and runs a sleep-only trusted entrypoint, with no network, no socket and no repository code. It starts before ① and is removed last at G5b, under the same labels, supervisor and reaper rules as Ⓟ. |
 
-**Daemon restart.** Whichever row applies, a tmpfs volume's contents are not expected to survive a daemon or host restart. A run in progress during one ends `infra_error`, its volumes are reaped, and nothing is resumed. E2 confirms that this failure is detected, not silently passed over.
+**E2 result (Linux x86_64, Docker Engine 28.0.4, Ubuntu 24.04, cgroup v2; [evidence](../../spikes/qb-02/e2-storage/results/e2-20261002T183010Z-2325/results.md)):**
 
-**Swap and memory accounting.** tmpfs pages can be swapped to host swap if the host has it. That means workspace contents, and the Mode S credential copy, can reach the host's swap device. QB records whether host swap is enabled, warns about it, and does not try to control it. E2 also measures which cgroup the tmpfs pages are charged to, because that determines whether a container's `--memory` limit or only the §8.1 admission budget bounds them. The budget is written to hold either way.
+- Without a keeper, every volume's contents were gone at the next stage. That held both when stage containers were removed and when they were left stopped.
+- With a keeper, all seven volumes kept their contents through all five stages.
+- A stage killed mid-write left earlier contents intact. Its partial writes stay in the workspace, so capture sees them.
+
+**Daemon restart.** A tmpfs volume's contents do not survive a daemon or host restart. E2 confirmed this with `live-restore` off: the keeper exited and the sentinels were gone. A run in progress during one ends `infra_error`, its volumes are reaped, and nothing is resumed. **Detection:** before starting each stage, the CLI checks that the keeper is running and that the `seed` sentinel is present; if either check fails, the run is `infra_error`.
+
+**Swap and memory accounting.** tmpfs pages can be swapped to host swap if the host has it, so workspace contents and the Mode S credential copy can reach the host's swap device. The E2 CI host had 3 GiB of swap. QB records whether host swap is enabled, warns about it, and does not try to control it.
+
+E2 measured where tmpfs pages are charged:
+
+- **While the writer runs:** to the writer's cgroup. A writer holding 96 MiB showed `memory.current` of 97 MiB. A writer limited to 48 MiB was OOM-killed when it tried to write 96 MiB, so a stage's `--memory` does bound what it can write (hence the §8.1 sizing rule).
+- **After the writer exits:** the pages stay allocated (the keeper holds the mount), but they are **not** charged to the keeper. Its `memory.current` stayed under 2 MiB.
+- **Consequence:** across stages, only the §8.1 per-run peak and admission bound the total. The single-run `MemAvailable` reading in E2 was within noise of the host's own activity; the two-run measurement is the one used.
 
 ### 8.3 Deadlines and the detached supervisor
 
@@ -846,6 +870,8 @@ v3 is revised from those results before QB-02 is marked final.
 8. Run two concurrent runs at full caps against the admission check.
 
 **Pass:** the keeper decision is made from evidence, every cap holds, and admission refuses a run that would exceed the budget.
+
+**Result (2026-10-02, [evidence](../../spikes/qb-02/e2-storage/results/e2-20261002T183010Z-2325/results.md)):** keeper decision made (required), and size and inode caps held (ENOSPC). Restart lost the contents and was detectable. A killed stage kept earlier contents. **Admission is not testable until it is implemented**; E2 recorded its inputs (×1.1 overhead). New design rule from E2: the §8.1 stage memory sizing rule.
 
 **E3: Networking** (unblocks §4)
 

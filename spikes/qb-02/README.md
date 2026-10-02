@@ -5,7 +5,7 @@ These are the gating experiments in [`docs/security/agent-sandbox.md`](../../doc
 | Exp | Question | Where it runs | Status |
 |---|---|---|---|
 | E1 auth | Does subscription auth work with per-run copies and no write-back? | Your machine: needs a real `claude` login | not started |
-| E2 storage | Do tmpfs volumes persist across stages? Keeper or not? Do caps hold? | CI `qb02-spikes` on `ubuntu-24.04` | script ready |
+| E2 storage | Do tmpfs volumes persist across stages? Keeper or not? Do caps hold? | CI `qb02-spikes` on `ubuntu-24.04` | **done 2026-10-02**: keeper required; caps hold; [results](e2-storage/results/e2-20261002T183010Z-2325/results.md) |
 | E3 networking | Socket-only egress; do the Squid ACLs hold; does the checked IP equal the connected IP? | CI | not started |
 | E4 lifecycle | Is the run still killed and cleaned up after QB dies and the timeout is disabled? | CI | not started |
 
