@@ -236,6 +236,8 @@ If the lockfile is missing, the run ends `BLOCKED: setup_missing_lockfile`. Ther
 
 It is computed in ① for the base and in ④ for the candidate.
 
+*Implementation refinement (needs review):* the `package.json` part is the canonical JSON of the install-relevant fields only: `dependencies`, `devDependencies`, `optionalDependencies`, `peerDependencies`, `bundle(d)Dependencies`, `overrides`, `workspaces`, `packageManager` and `engines`. Without that, any agent edit to `scripts` or metadata would skip verification as a "dependency change". Script tampering is handled by the protected-test guard (§3.5). The lockfile and `.npmrc` are still hashed whole. Node, npm, platform and argv are fixed by the pinned agent image, whose id is recorded per run.
+
 **Gate.** If the candidate fingerprint differs from the one the deps were built from, the run ends `UNRESOLVED: dependency_change_required`:
 
 - ⑤ is **not run**, because tests against the old dependency set would not verify the candidate;

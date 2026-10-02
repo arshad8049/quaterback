@@ -10,7 +10,7 @@ RUN cargo build --release --locked
 # git ≥ 2.42 for GIT_ATTR_SOURCE (in-tree .gitattributes are never consulted).
 FROM debian:trixie-slim
 RUN apt-get update \
- && apt-get install -y --no-install-recommends git ca-certificates \
+ && apt-get install -y --no-install-recommends git ca-certificates jq \
  && rm -rf /var/lib/apt/lists/*
 COPY --from=build /src/target/release/qb-scan /usr/local/bin/qb-scan
 COPY scripts/ /usr/local/lib/qb/

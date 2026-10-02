@@ -11,3 +11,16 @@ tgit() {
     -c core.autocrlf=false -c core.safecrlf=false -c core.filemode=true -c core.symlinks=true \
     -c core.untrackedCache=false -c core.pager=cat -c safe.directory='*' "$@"
 }
+
+# Dependency manifest fingerprint of a tree (agent-sandbox.md §3.2): the
+# install-relevant package.json fields (canonical JSON), the whole lockfile and
+# .npmrc. Script or metadata edits do not change it; dependency edits do.
+manifest_fp() {
+  {
+    tgit cat-file -p "$1:package.json" 2>/dev/null | jq -cS '{dependencies, devDependencies, optionalDependencies,
+      peerDependencies, bundleDependencies, bundledDependencies, overrides, workspaces, packageManager, engines}' 2>/dev/null \
+      || echo "(package.json missing or invalid)"
+    tgit cat-file -p "$1:package-lock.json" 2>/dev/null || echo "(no package-lock.json)"
+    tgit cat-file -p "$1:.npmrc" 2>/dev/null || echo "(no .npmrc)"
+  } | sha256sum | cut -c1-64
+}

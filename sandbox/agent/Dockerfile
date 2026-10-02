@@ -11,4 +11,5 @@ RUN apt-get update \
  && npm cache clean --force
 COPY managed-settings.json /etc/claude-code/managed-settings.json
 COPY entry.sh /usr/local/lib/qb/agent-entry.sh
-RUN chmod 0755 /usr/local/lib/qb/agent-entry.sh
+COPY deps-install.sh /usr/local/lib/qb/deps-install.sh
+RUN chmod 0755 /usr/local/lib/qb/agent-entry.sh /usr/local/lib/qb/deps-install.sh
