@@ -12,7 +12,8 @@ const DEFAULT_TIMEOUT_MS    = 10 * 60 * 1000;
  * @param {string} briefing    - Markdown Agent Briefing from briefing.js
  * @param {object} contract    - TaskContract (for IDs)
  * @param {object|null} context - ContextPackage (for IDs + repo path)
- * @param {object} options     - { agent: 'dry-run'|'claude-code'|'manual', repoPath: string, timeoutMs?: number }
+ * @param {object} options     - { agent: 'dry-run'|'claude-code'|'manual', repoPath: string, timeoutMs?: number,
+ *                                agentCommand?: string[] (injected by test harnesses only; no CLI path sets it) }
  * @returns {object}           - Validated ExecutionResult
  */
 async function execute(briefing, contract, context, options = {}) {
@@ -27,7 +28,7 @@ async function execute(briefing, contract, context, options = {}) {
   };
 
   if (agent === 'claude-code') {
-    outcome = runAgentCaptured(briefing, repo, { timeoutMs: options.timeoutMs });
+    outcome = runAgentCaptured(briefing, repo, { timeoutMs: options.timeoutMs, agentCommand: options.agentCommand });
   } else if (agent === 'manual') {
     // Print briefing and wait for the dev to run their agent
     process.stdout.write('\n' + briefing + '\n');
@@ -46,14 +47,17 @@ async function execute(briefing, contract, context, options = {}) {
   });
 }
 
-/** The agent argv. QB_AGENT_COMMAND (JSON array) replaces it for tests/adapters. */
-function agentCommand() {
-  if (!process.env.QB_AGENT_COMMAND) return DEFAULT_AGENT_COMMAND;
-  const argv = JSON.parse(process.env.QB_AGENT_COMMAND);
-  if (!Array.isArray(argv) || !argv.length || !argv.every(a => typeof a === 'string')) {
-    throw new Error('QB_AGENT_COMMAND must be a JSON array of strings');
+/**
+ * The agent argv. There is deliberately no environment variable or flag that
+ * replaces it: a shipped-CLI override would be a host-execution hook any
+ * user setting could reach (QB-02 §10). Tests inject `agentCommand` directly.
+ */
+function resolveAgentCommand(agentCommand) {
+  if (agentCommand === undefined) return DEFAULT_AGENT_COMMAND;
+  if (!Array.isArray(agentCommand) || !agentCommand.length || !agentCommand.every(a => typeof a === 'string')) {
+    throw new TypeError('agentCommand must be a non-empty array of strings');
   }
-  return argv;
+  return agentCommand;
 }
 
 /**
@@ -62,9 +66,9 @@ function agentCommand() {
  * captured on every path — including timeouts and crashes — so partial edits
  * stay inspectable (QB-22).
  */
-function runAgentCaptured(input, cwd, { timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
+function runAgentCaptured(input, cwd, { timeoutMs = DEFAULT_TIMEOUT_MS, agentCommand } = {}) {
+  const [cmd, ...args] = resolveAgentCommand(agentCommand);
   const base_tree = capture.snapshot(cwd);
-  const [cmd, ...args] = agentCommand();
 
   const r = proc.run(cmd, args, { cwd, input, timeout: timeoutMs });
 

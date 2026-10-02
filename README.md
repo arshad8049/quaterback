@@ -223,6 +223,8 @@ Per-repo outcome store with semantic recall.
 
 ## Running the Full Pipeline
 
+> **Security warning: QB does not yet contain repository code.** It runs the coding agent and your project's test command directly on this machine, with your user's privileges, file access and network access. Use it only on repositories you fully trust. The containment design is in [`docs/security/agent-sandbox.md`](docs/security/agent-sandbox.md). It is experimental and not yet implemented, and this uncontained build is a development preview, not the supported beta.
+
 ```bash
 # From quaterback/ root:
 npm install

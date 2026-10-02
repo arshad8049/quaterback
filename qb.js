@@ -51,6 +51,15 @@ const opts    = program.opts();
 const request = program.args[0];
 
 const DIVIDER  = '─'.repeat(72);
+
+// Interim warning until the QB-02 sandbox lands (docs/security/agent-sandbox.md §10).
+// Printed on stderr so stdout stays machine-readable.
+const UNCONTAINED_WARNING = [
+  '  WARNING: QB does not yet contain repository code. It runs the coding agent',
+  "  and your project's test command directly on this machine, with your user's",
+  '  privileges, file access and network access. Use it only on repositories',
+  '  you fully trust.',
+].join('\n');
 const DIVIDER2 = '═'.repeat(72);
 
 let currentRun = null;
@@ -65,6 +74,7 @@ async function main() {
   console.log(`  Repo:    ${repoPath}`);
   console.log(`  Agent:   ${opts.agent}`);
   console.log(`${DIVIDER2}\n`);
+  console.error(`${UNCONTAINED_WARNING}\n`);
 
   const totalStart = Date.now();
 

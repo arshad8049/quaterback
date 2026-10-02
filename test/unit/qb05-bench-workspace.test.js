@@ -14,11 +14,11 @@ const path   = require('path');
 const { spawnSync } = require('child_process');
 
 const { makeRepo, fingerprint } = require('../helpers/tmprepo');
-const { FAKE_AGENT } = require('../helpers/mocks');
 const { createWorkspace } = require('../../lib/workspace');
 
 const ROOT    = path.join(__dirname, '..', '..');
 const PRELOAD = path.join(__dirname, '..', 'helpers', 'preload-ollama.js');
+const PRELOAD_AGENT = path.join(__dirname, '..', 'helpers', 'preload-fake-agent.js');
 
 function dirtyRepo() {
   const repo = makeRepo({
@@ -108,7 +108,7 @@ describe('bench/run.js', () => {
 
     const before = fingerprint(repo.dir);
     const r = spawnSync(process.execPath, [
-      '--require', PRELOAD, path.join(ROOT, 'bench', 'run.js'),
+      '--require', PRELOAD, '--require', PRELOAD_AGENT, path.join(ROOT, 'bench', 'run.js'),
       '--tasks', tasksFile, '--results', path.join(tmp, 'results'),
       '--no-llm-context', '--max-retries', '1',
     ], {
@@ -116,7 +116,6 @@ describe('bench/run.js', () => {
       timeout: 60_000,
       env: {
         ...process.env,
-        QB_AGENT_COMMAND:     JSON.stringify([process.execPath, FAKE_AGENT]),
         QB_FAKE_AGENT_SCRIPT: script,
         QB_RUNS_DIR:          path.join(tmp, 'runs'),
         QB_MEMORY_DIR:        path.join(tmp, 'mem'),

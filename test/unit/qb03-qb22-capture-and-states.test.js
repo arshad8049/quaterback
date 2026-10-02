@@ -19,11 +19,15 @@ const path   = require('path');
 
 const { makeRepo } = require('../helpers/tmprepo');
 const { FAKE_AGENT, mockFetch, ollamaReply } = require('../helpers/mocks');
-const { execute, runAgentCaptured } = require('../../agent/runner');
+const runner = require('../../agent/runner');
+
+// The fake agent is injected directly; the runner has no env/flag override.
+const FAKE_COMMAND = [process.execPath, FAKE_AGENT];
+const execute = (b, c, ctx, o = {}) => runner.execute(b, c, ctx, { agentCommand: FAKE_COMMAND, ...o });
+const runAgentCaptured = (input, cwd, o = {}) => runner.runAgentCaptured(input, cwd, { agentCommand: FAKE_COMMAND, ...o });
 const { verify } = require('../../verify/verifier');
 
 let repo, scriptFile;
-const savedCmd = process.env.QB_AGENT_COMMAND;
 
 beforeEach(() => {
   repo = makeRepo({
@@ -34,13 +38,11 @@ beforeEach(() => {
     '.gitignore': 'secret.env\n',
   });
   scriptFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'qb-script-')), 'script.json');
-  process.env.QB_AGENT_COMMAND = JSON.stringify([process.execPath, FAKE_AGENT]);
   process.env.QB_FAKE_AGENT_SCRIPT = scriptFile;
 });
 afterEach(() => {
   repo.cleanup();
   fs.rmSync(path.dirname(scriptFile), { recursive: true, force: true });
-  if (savedCmd === undefined) delete process.env.QB_AGENT_COMMAND; else process.env.QB_AGENT_COMMAND = savedCmd;
 });
 
 function agentDoes(steps) {
@@ -143,8 +145,7 @@ describe('QB-22 execution states', () => {
   });
 
   test('a missing agent executable is execution_error, not dry-run', async () => {
-    process.env.QB_AGENT_COMMAND = JSON.stringify(['/nonexistent/qb-agent']);
-    const e = await run([]);
+    const e = await run([], { agentCommand: ['/nonexistent/qb-agent'] });
     assert.equal(e.status, 'execution_error');
     assert.match(e.error, /ENOENT/);
   });
