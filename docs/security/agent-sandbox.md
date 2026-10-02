@@ -76,7 +76,7 @@ The sandbox is implemented in `lib/sandbox/` and `sandbox/`, in seven reviewable
 | 4 | `d576537` | Egress proxy (E3 policy, verbatim) and agent stage |
 | 5 | `afb1eac` | Dependencies and verification; protected-test guard |
 | 6 | `c6fe29e` | Authentication (Mode S: no write-back, pre-run refresh; Mode K) |
-| 7 | (this commit) | Wiring: runner, bench baseline, verifier, `qb patch`, `qb auth`. Host execution, host capture and host test runs removed. |
+| 7 | `8f797db` | Wiring: runner, bench baseline, verifier, `qb patch`, `qb auth`. Host execution, host capture and host test runs removed. |
 
 **Gates passing locally.** The suites below are green locally (Docker Desktop, so not platform evidence). CI runs them on `ubuntu-24.04`:
 
