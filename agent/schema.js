@@ -11,8 +11,12 @@ const FileChangeSchema = z.object({
 
 // Execution states are distinct outcomes (QB-22): an agent that crashed or
 // timed out is never reported as a dry run or as "nothing changed".
-const EXECUTION_STATUSES = ['completed', 'no_change', 'dry_run', 'execution_error', 'timeout', 'cancelled'];
-const FAILED_EXECUTION   = new Set(['execution_error', 'timeout', 'cancelled']);
+// Sandbox states (QB-02, agent-sandbox.md §8.4): oom, infra_error and setup_failed
+// are failures; blocked (setup gate, auth, Docker unavailable) and unresolved
+// (capture could not be faithful) can never be approved.
+const EXECUTION_STATUSES = ['completed', 'no_change', 'dry_run', 'execution_error', 'timeout', 'cancelled',
+  'oom', 'infra_error', 'setup_failed', 'blocked', 'unresolved'];
+const FAILED_EXECUTION   = new Set(['execution_error', 'timeout', 'cancelled', 'oom', 'infra_error', 'setup_failed']);
 
 const ExecutionResultSchema = z.object({
   id:           z.string().uuid(),
@@ -32,6 +36,7 @@ const ExecutionResultSchema = z.object({
   signal:       z.string().nullable().default(null),
   stderr_tail:  z.string().nullable().default(null),
   error:        z.string().nullable().optional(),
+  sandbox:      z.record(z.string(), z.any()).nullable().optional(),
 });
 
 module.exports = { ExecutionResultSchema, FileChangeSchema, EXECUTION_STATUSES, FAILED_EXECUTION };

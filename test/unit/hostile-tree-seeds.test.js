@@ -1,61 +1,45 @@
 /**
- * Hostile output tree (QB-02 review item 4, reopens QB-03).
+ * Hostile output tree (QB-02 review item 4; QB-03).
  *
- * After the agent exits, the workspace — including its .git/ — is untrusted
- * input. Host-side capture currently runs git against the agent's own repo
- * config, so an agent-written core.fsmonitor or clean filter executes on
- * the host.
+ * The two reproduced attacks — an agent-written core.fsmonitor, and a clean
+ * filter + .gitattributes — executed on the host because agent/capture.js ran
+ * git against the agent's own repository. That module is gone: capture now runs
+ * in the trusted capture container with a trusted GIT_DIR and never reads the
+ * agent's .git (agent-sandbox.md §6).
  *
- * Each attack has two tests:
- *   - KNOWN DEFECT: an executable reproduction. It passes while the attack
- *     still executes, and reports it as a demonstrated defect. It is not a
- *     security regression and must never be read as one.
- *   - The security regression: `todo` until capture moves to a trusted
- *     GIT_DIR in a capture container (agent-sandbox.md §6). QB-03 cannot
- *     close until it passes un-todo'd.
- *
- * When the fix lands, the KNOWN DEFECT tests fail on purpose: delete them
- * and remove `todo` from the regressions.
+ * The attacks themselves are executed against the real capture path in
+ * test/integration/qb02-sandbox-capture.test.js ("QB-03 attacks: …"), which needs
+ * Docker. This unit test guards the structural fix: no shipped code runs git on
+ * the host against a workspace, and capture's git uses only trusted config.
  */
 
 const { test } = require('node:test');
-const assert   = require('node:assert/strict');
-const fs       = require('fs');
-const path     = require('path');
+const assert = require('node:assert/strict');
+const fs = require('fs');
+const path = require('path');
 
-const { makeRepo } = require('../helpers/tmprepo');
-const capture = require('../../agent/capture');
+const ROOT = path.join(__dirname, '..', '..');
 
-// Each payload only creates a marker file inside the throwaway test repo.
-const ATTACKS = {
-  'core.fsmonitor': { config: '[core]\n\tfsmonitor = touch PWNED_FSMONITOR\n' },
-  'clean filter':   { config: '[filter "x"]\n\tclean = touch PWNED_FILTER; cat\n', attributes: '*.js filter=x\n' },
-};
+test('the host-side capture that executed agent git config no longer exists', () => {
+  assert.equal(fs.existsSync(path.join(ROOT, 'agent', 'capture.js')), false);
+});
 
-/** Plant the attack in a fresh repo, run host-side capture, return the markers it left. */
-function captureHostileTree(attack) {
-  const repo = makeRepo({ 'a.js': '1\n' });
-  try {
-    fs.appendFileSync(path.join(repo.dir, '.git', 'config'), attack.config);
-    if (attack.attributes) fs.writeFileSync(path.join(repo.dir, '.gitattributes'), attack.attributes);
-    repo.write('a.js', '2\n');
-    try { capture.snapshot(repo.dir); } catch (_) {}
-    return fs.readdirSync(repo.dir).filter(f => f.startsWith('PWNED'));
-  } finally {
-    repo.cleanup();
+test('capture uses only trusted git configuration and never the agent .git', () => {
+  const env = fs.readFileSync(path.join(ROOT, 'sandbox', 'scripts', 'git-env.sh'), 'utf8');
+  for (const needle of ['GIT_CONFIG_NOSYSTEM=1', 'GIT_CONFIG_GLOBAL=/dev/null', 'GIT_DIR=/git/repo',
+    'core.fsmonitor=false', 'core.hooksPath=/dev/null', 'core.attributesFile=/dev/null', 'GIT_ATTR_SOURCE']) {
+    assert.ok(env.includes(needle), `git-env.sh is missing ${needle}`);
   }
-}
+  const capture = fs.readFileSync(path.join(ROOT, 'sandbox', 'scripts', 'capture.sh'), 'utf8');
+  assert.match(capture, /--exclude \.git/);
+  const code = capture.replace(/^\s*#.*$/gm, '');          // executable lines only
+  assert.doesNotMatch(code, /\/work\/\.git/, 'capture must not reference the agent repository');
+  assert.doesNotMatch(code, /git -C \/work|GIT_DIR=\/work/);
+});
 
-for (const [name, attack] of Object.entries(ATTACKS)) {
-  test(`KNOWN DEFECT (QB-03 open): agent-written ${name} executes on the host during capture`, (t) => {
-    const markers = captureHostileTree(attack);
-    assert.notDeepEqual(markers, [],
-      `${name} no longer executes during capture. If §6 capture has landed, delete this ` +
-      'reproduction and remove `todo` from the matching security regression.');
-    t.diagnostic(`DEMONSTRATED DEFECT: ${name} payload ran on the host (${markers.join(', ')})`);
-  });
-
-  test(`agent-written ${name} does not execute during capture`, { todo: 'QB-03 open: demonstrated defect, fixed by agent-sandbox.md §6' }, () => {
-    assert.deepEqual(captureHostileTree(attack), []);
-  });
-}
+test('the integration regression for both attacks exists', () => {
+  const t = fs.readFileSync(path.join(ROOT, 'test', 'integration', 'qb02-sandbox-capture.test.js'), 'utf8');
+  assert.match(t, /QB-03 attacks: agent-written fsmonitor and clean filter never execute during capture/);
+  assert.match(t, /fsmonitor = touch/);
+  assert.match(t, /clean = touch/);
+});

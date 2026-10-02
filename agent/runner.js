@@ -1,19 +1,21 @@
 const { randomUUID } = require('crypto');
-const proc    = require('../lib/proc');
-const capture = require('./capture');
 const { ExecutionResultSchema } = require('./schema');
-
-const DEFAULT_AGENT_COMMAND = ['claude', '--print', '--dangerously-skip-permissions'];
-const DEFAULT_TIMEOUT_MS    = 10 * 60 * 1000;
+const { runSandboxed } = require('../lib/sandbox/pipeline');
 
 /**
  * Execute the briefing against a coding agent (or dry-run).
+ *
+ * The coding agent runs only inside the QB sandbox (QB-02, docs/security/
+ * agent-sandbox.md): a disposable workspace seeded from a read-only copy of the
+ * checkout, no network except the inference proxy, changes captured by trusted
+ * code. There is no host-execution path and no environment variable or flag
+ * that selects one.
  *
  * @param {string} briefing    - Markdown Agent Briefing from briefing.js
  * @param {object} contract    - TaskContract (for IDs)
  * @param {object|null} context - ContextPackage (for IDs + repo path)
  * @param {object} options     - { agent: 'dry-run'|'claude-code'|'manual', repoPath: string, timeoutMs?: number,
- *                                agentCommand?: string[] (injected by test harnesses only; no CLI path sets it) }
+ *                                runSandboxed?: Function (injected by tests only) }
  * @returns {object}           - Validated ExecutionResult
  */
 async function execute(briefing, contract, context, options = {}) {
@@ -28,14 +30,14 @@ async function execute(briefing, contract, context, options = {}) {
   };
 
   if (agent === 'claude-code') {
-    outcome = runAgentCaptured(briefing, repo, { timeoutMs: options.timeoutMs, agentCommand: options.agentCommand });
+    outcome = await runAgentSandboxed(briefing, repo, options);
   } else if (agent === 'manual') {
     // Print briefing and wait for the dev to run their agent
     process.stdout.write('\n' + briefing + '\n');
   }
   // dry-run: no invocation, just return the briefing
 
-  return ExecutionResultSchema.parse({
+  const result = ExecutionResultSchema.parse({
     id:           randomUUID(),
     contract_id:  contract.id  || 'unknown',
     context_id:   context?.id  || null,
@@ -45,65 +47,32 @@ async function execute(briefing, contract, context, options = {}) {
     briefing,
     ...outcome,
   });
+  // Raw patch bytes and the base listing travel alongside the record, not in it
+  // (not JSON, and never redacted): qb.js stores them as binary artifacts for `qb patch`.
+  for (const k of ['patch_raw', 'base_listing']) {
+    if (outcome[k]) Object.defineProperty(result, k, { value: outcome[k], enumerable: false });
+  }
+  return result;
 }
 
 /**
- * The agent argv. There is deliberately no environment variable or flag that
- * replaces it: a shipped-CLI override would be a host-execution hook any
- * user setting could reach (QB-02 §10). Tests inject `agentCommand` directly.
+ * Run the coding agent in the sandbox against `repoPath` (read-only) and return
+ * the ExecutionResult fields. `options.runSandboxed` is a test seam only.
  */
-function resolveAgentCommand(agentCommand) {
-  if (agentCommand === undefined) return DEFAULT_AGENT_COMMAND;
-  if (!Array.isArray(agentCommand) || !agentCommand.length || !agentCommand.every(a => typeof a === 'string')) {
-    throw new TypeError('agentCommand must be a non-empty array of strings');
-  }
-  return agentCommand;
-}
-
-/**
- * Run the coding agent in `cwd` with `input` on stdin and capture everything
- * it changed relative to the tree that existed before it started. Changes are
- * captured on every path — including timeouts and crashes — so partial edits
- * stay inspectable (QB-22).
- */
-function runAgentCaptured(input, cwd, { timeoutMs = DEFAULT_TIMEOUT_MS, agentCommand } = {}) {
-  const [cmd, ...args] = resolveAgentCommand(agentCommand);
-  const base_tree = capture.snapshot(cwd);
-
-  const r = proc.run(cmd, args, { cwd, input, timeout: timeoutMs });
-
-  const candidate_tree = capture.snapshot(cwd);
-  const { patch, changes, unsupported } = capture.diffTrees(cwd, base_tree, candidate_tree);
-
-  let status, error = null;
-  if (r.timedOut) {
-    status = 'timeout';
-    error  = `agent exceeded ${timeoutMs}ms`;
-  } else if (r.error) {
-    status = 'execution_error';
-    error  = r.error.message;
-  } else if (r.signal) {
-    status = 'cancelled';
-    error  = `agent terminated by ${r.signal}`;
-  } else if (r.status !== 0) {
-    status = 'execution_error';
-    error  = `agent exited with code ${r.status}`;
-  } else {
-    status = changes.length ? 'completed' : 'no_change';
-  }
-
+async function runAgentSandboxed(briefing, repoPath, options = {}) {
+  const run = options.runSandboxed || runSandboxed;
+  const r = await run({
+    repoPath, briefing,
+    deadlines: options.timeoutMs ? { agent: options.timeoutMs } : undefined,
+  });
+  const { status, diff = null, changes = [], unsupported_changes = [], base_tree = null, candidate_tree = null,
+    exit_code = null, signal = null, stderr_tail = null, sandbox = null, patch_raw = null, base_listing = null } = r;
   return {
-    status,
-    diff: patch || null,
-    changes,
-    unsupported_changes: unsupported,
-    base_tree,
-    candidate_tree,
-    exit_code:   r.status,
-    signal:      r.signal,
-    stderr_tail: r.stderr ? String(r.stderr).slice(-2000) : null,
-    error,
+    status, diff, changes, unsupported_changes, base_tree, candidate_tree, exit_code, signal, stderr_tail,
+    patch_raw, base_listing,
+    error: ['completed', 'no_change'].includes(status) ? null : (r.reason || r.error || status),
+    sandbox,
   };
 }
 
-module.exports = { execute, runAgentCaptured };
+module.exports = { execute, runAgentSandboxed };

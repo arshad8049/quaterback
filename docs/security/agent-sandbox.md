@@ -64,15 +64,47 @@ Platform claims are limited to **Linux x86_64 + Docker Engine** until §11 valid
 | 7. Export must not harm the checkout | Default artifact dir, no overwrite, no following destination symlinks, diagnostics on stderr, honest status label, safe recovery advice | §9.3 |
 | 8. DNS fallback contradiction | The fallback rejects the whole answer set if any answer is denied | §4.1 |
 
+### 0.2 Implementation status (2026-10-03)
+
+The sandbox is implemented in `lib/sandbox/` and `sandbox/`, in seven reviewable commits on `phase-0-1-hardening`:
+
+| Step | Commit | What |
+|---|---|---|
+| 1 | `75165a1` | Docker foundation: bounded always-draining runner, stage classification (§8.4) |
+| 2 | `22423f9` | Supervisor, lease, reaper, admission (§8.1, §8.3) |
+| 3 | `cb24253` | Keeper, seed, capture (Rust `qb-scan`, trusted GIT_DIR); fixes QB-03 |
+| 4 | `d576537` | Egress proxy (E3 policy, verbatim) and agent stage |
+| 5 | `afb1eac` | Dependencies and verification; protected-test guard |
+| 6 | `c6fe29e` | Authentication (Mode S: no write-back, pre-run refresh; Mode K) |
+| 7 | (this commit) | Wiring: runner, bench baseline, verifier, `qb patch`, `qb auth`. Host execution, host capture and host test runs removed. |
+
+**Gates passing locally.** The suites below are green locally (Docker Desktop, so not platform evidence). CI runs them on `ubuntu-24.04`:
+
+- T-RES, T-LIFE, T-TREE (incl. QB-03's attacks), T-FS, T-NET, T-DEPS, T-VERIFY, T-AUTH (fake credential), T-HARNESS;
+- the QB-02 done-when end to end (`test/integration/qb02-sandbox-pipeline.test.js`).
+
+**Design changes made during implementation (need review):**
+
+1. **Seed reads the checkout through a read-only bind mount** into the trusted seed container. This is one exception to §3's "no host bind mounts" and replaces the host-side helper; it also lets QB run on macOS Docker Desktop.
+2. **Admission sizing (§8.1):** halved default caps, and a stage's writes counted once. At the first-draft numbers QB could not run on a 16 GB host.
+3. **Dependency fingerprint (§3.2):** only install-relevant `package.json` fields, so script edits go to the protected-test guard instead of skipping verification.
+4. **Stage deadlines:** the CLI stops the agent at its deadline and still captures its partial edits (QB-22). The supervisor holds a backstop deadline (stage + grace + 5 min) and the lease.
+5. **Log options:** `--log-opt compress=false` is required with `max-file=1`.
+
+**Still open before QB-02 can close:**
+
+- **T-POLICY:** the real Claude binary through the INFERENCE proxy, plus validating the managed-settings keys. This waits for the E1 watch to finish, so the user's login isn't exercised during the experiment.
+- **The E1 watch result:** whether in-run refresh may stay excluded.
+- **Linux CI run** of the full integration suite.
+- **T-LIFE variants:** wall-clock jump; Docker stopped mid-run.
+- **§5.5:** the authentication-obligations check (beta blocker).
+- **Senior review** of the design changes above.
+
 ### Still open from v2 (QB-03)
 
 `agent/capture.js` runs `git add` on the host using the workspace's own `.git/config`. Two attacks were reproduced against it: an agent-written `core.fsmonitor`, and a clean-filter plus `.gitattributes`. They are executable reproductions in `test/unit/hostile-tree-seeds.test.js` and are reported as **demonstrated defects**, not passing regressions. They become passing security regressions only when the §6 capture replaces `agent/capture.js`, and **QB-03 cannot close before then** (§11.2 T-TREE).
 
-**Host-execution paths still in landed code.** The supported beta release contains none of these (§10):
-
-- `qb.js` runs the agent directly in the user's checkout.
-- `verify/checker.js` runs the repository's test command on the host.
-- `agent/capture.js` runs git against the hostile workspace on the host.
+**Host-execution paths: removed (step 7).** The agent runs only through `lib/sandbox/pipeline.js`, `verify/checker.js` reads test results from the sandbox's verify stage, and `agent/capture.js` is deleted. `test/unit/qb02-no-agent-override.test.js` guards all three.
 
 ---
 
@@ -867,7 +899,7 @@ Global atomicity is not promised.
 - A unit test asserts that the shipped CLI ignores `QB_AGENT_COMMAND` and `NODE_ENV`.
 - Harness results are marked `isolation: "none-test-only"` and cannot satisfy any gate.
 
-**Interim warning, until this ticket's implementation lands.** In the README and the CLI banner on every run:
+**Interim warning (removed in step 7, once the sandbox landed).** Previously in the README and the CLI banner on every run:
 
 > **QB does not yet contain repository code.** It runs the coding agent and your project's test command directly on this machine, with your user's privileges, file access and network access. Use it only on repositories you fully trust.
 

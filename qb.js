@@ -30,6 +30,14 @@ const { inputFromReport } = require('./verify/verdict');
 if (['replay', 'runs', 'show'].includes(process.argv[2])) {
   process.exit(require('./run/cli').main(process.argv.slice(2)));
 }
+// `qb auth login|logout|status` and `qb patch <run_id>` — sandbox commands (QB-02).
+if (['auth', 'patch'].includes(process.argv[2])) {
+  require('./lib/sandbox/cli').main(process.argv.slice(2)).then((code) => process.exit(code), (e) => {
+    console.error(`qb ${process.argv[2]}: ${e.message}`);
+    process.exit(1);
+  });
+  return;
+}
 
 const QB_VERSION = '0.1.0';
 
@@ -52,14 +60,6 @@ const request = program.args[0];
 
 const DIVIDER  = '─'.repeat(72);
 
-// Interim warning until the QB-02 sandbox lands (docs/security/agent-sandbox.md §10).
-// Printed on stderr so stdout stays machine-readable.
-const UNCONTAINED_WARNING = [
-  '  WARNING: QB does not yet contain repository code. It runs the coding agent',
-  "  and your project's test command directly on this machine, with your user's",
-  '  privileges, file access and network access. Use it only on repositories',
-  '  you fully trust.',
-].join('\n');
 const DIVIDER2 = '═'.repeat(72);
 
 let currentRun = null;
@@ -72,9 +72,8 @@ async function main() {
   console.log(`  QUARTERBACK`);
   console.log(`  Request: "${request}"`);
   console.log(`  Repo:    ${repoPath}`);
-  console.log(`  Agent:   ${opts.agent}`);
+  console.log(`  Agent:   ${opts.agent}${opts.agent === 'claude-code' ? '  (sandboxed: docs/security/agent-sandbox.md)' : ''}`);
   console.log(`${DIVIDER2}\n`);
-  console.error(`${UNCONTAINED_WARNING}\n`);
 
   const totalStart = Date.now();
 
@@ -196,6 +195,17 @@ async function main() {
 
     if (opts.save) saveArtifact('agent/executions', execution, `${execution.id}_attempt${attempt}`);
 
+    // A blocked sandbox (Docker unavailable, unsupported project, auth not ready)
+    // never reaches verification: the run ends BLOCKED with the reason.
+    if (execution.status === 'blocked') {
+      console.log(`\n  ✗ Blocked: ${execution.error}`);
+      run.event('sandbox.blocked', { reason: execution.error, sandbox: execution.sandbox || null });
+      run.finish('BLOCKED', { reason: execution.error });
+      process.exitCode = 2;
+      return;
+    }
+    if (execution.sandbox?.run_id) run.event('sandbox.run', { sandbox: execution.sandbox });
+
     // ── Layer 4: Verify ──────────────────────────────────────────────────────
     log('L4', 'Verification...');
     const t4 = Date.now();
@@ -209,6 +219,9 @@ async function main() {
       patch:       execution.diff,
       verifyInput: inputFromReport(report, execution),
     });
+    // Exact patch bytes and touched-path baseline for `qb patch` (QB-02 §9.3).
+    if (execution.patch_raw) run.artifact(`a${attempt}-patch-raw`, execution.patch_raw, { ext: 'bin' });
+    if (execution.base_listing) run.artifact(`a${attempt}-base-ls`, execution.base_listing, { ext: 'bin' });
     log('L4', `Verdict: ${verdictIcon(report.verdict)} ${report.verdict.toUpperCase()}  (${Date.now() - t4}ms)`);
 
     // Print criteria

@@ -223,7 +223,7 @@ Per-repo outcome store with semantic recall.
 
 ## Running the Full Pipeline
 
-> **Security warning: QB does not yet contain repository code.** It runs the coding agent and your project's test command directly on this machine, with your user's privileges, file access and network access. Use it only on repositories you fully trust. The containment design is in [`docs/security/agent-sandbox.md`](docs/security/agent-sandbox.md). It is experimental and not yet implemented, and this uncontained build is a development preview, not the supported beta.
+> **The coding agent runs in the QB sandbox** ([design](docs/security/agent-sandbox.md)). Each run seeds a disposable workspace from a read-only copy of your checkout. The agent gets no network except the Claude API through a policy proxy, and your files and `.git` are never written. Changes are captured by trusted code and handed back as a patch (`qb patch <run_id>`) for you to apply. Requires Docker. Sign in once with `qb auth login` (subscription), or set `ANTHROPIC_API_KEY`. Validated platform: Linux x86_64 + Docker Engine; Docker Desktop on macOS works for development but is not yet validated.
 
 ```bash
 # From quaterback/ root:

@@ -18,7 +18,7 @@ const { createWorkspace } = require('../../lib/workspace');
 
 const ROOT    = path.join(__dirname, '..', '..');
 const PRELOAD = path.join(__dirname, '..', 'helpers', 'preload-ollama.js');
-const PRELOAD_AGENT = path.join(__dirname, '..', 'helpers', 'preload-fake-agent.js');
+const PRELOAD_AGENT = path.join(__dirname, '..', 'helpers', 'preload-fake-sandbox.js');
 
 function dirtyRepo() {
   const repo = makeRepo({

@@ -6,7 +6,7 @@ const { VerificationReportSchema } = require('./schema');
 
 /**
  * Full Layer 4 verification:
- *   Stage 1 — DSA: run tests, check diff scope, scan for AC keywords
+ *   Stage 1 — DSA: test results from the sandbox verify stage, diff scope, AC keyword scan
  *   Stage 2 — LLM: independent per-AC judgment via Ollama
  *
  * @param {object} contract     - TaskContract from Layer 1
@@ -24,7 +24,7 @@ async function verify(contract, context, execution, options = {}) {
 
   // ── Stage 1: DSA checks ──────────────────────────────────────────────────
   const { testResults, scopeViolations, diffSignals } = runChecks(
-    contract, context, diff, repoPath
+    contract, context, diff, repoPath, execution
   );
 
   // ── Stage 2: LLM judgment ────────────────────────────────────────────────
@@ -66,6 +66,10 @@ async function verify(contract, context, execution, options = {}) {
     testResults,
     executionStatus:    execStatus,
     unsupportedChanges: Boolean(execution?.unsupported_changes?.length),
+    verification: execution?.sandbox?.verification
+      ? { status: execution.sandbox.verification.status, reason: execution.sandbox.verification.reason ?? null,
+          state: execution.sandbox.verification.state ?? null }
+      : null,
   });
 
   // ── Repair hints (for failed ACs) ────────────────────────────────────────

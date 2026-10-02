@@ -3,62 +3,41 @@
  *
  * Deterministic evidence collection. No LLM. Runs before the judge.
  * Three passes:
- *   1. Test runner  — actually executes the test suite and captures pass/fail
+ *   1. Test results — taken from the sandbox verification stage (never run on the host)
  *   2. Diff scope   — flags files modified outside the relevant set
  *   3. Signal scan  — checks whether contract keywords / AC terms appear in the diff
  */
 
-const proc = require('../lib/proc');
-const path = require('path');
-
 /**
- * Run all deterministic checks.
+ * Run all deterministic checks. Nothing here executes repository code: test
+ * results come from the sandbox's verification stage (QB-02, agent-sandbox.md
+ * §3.5), which ran the base test command on a disposable copy of the candidate.
  *
  * @param {object} contract  - TaskContract
  * @param {object|null} context  - ContextPackage (for test files + relevant files)
  * @param {string|null} diff     - Raw git diff string from ExecutionResult
- * @param {string} repoPath      - Absolute path to repo
+ * @param {string} _repoPath     - unused (kept for call compatibility)
+ * @param {object|null} execution - ExecutionResult (sandbox.verification carries the test output)
  * @returns {{ testResults, scopeViolations, diffSignals }}
  */
-function runChecks(contract, context, diff, repoPath) {
-  const testResults     = runTests(context, repoPath);
+function runChecks(contract, context, diff, _repoPath, execution = null) {
+  const testResults     = testsFromSandbox(execution, context);
   const scopeViolations = checkScope(diff, context);
   const diffSignals     = scanDiff(diff, contract);
 
   return { testResults, scopeViolations, diffSignals };
 }
 
-// ─── 1. Test runner ───────────────────────────────────────────────────────────
+// ─── 1. Test results (from the sandbox) ───────────────────────────────────────
 
-function runTests(context, repoPath) {
-  if (!repoPath || !context) return null;
-
-  const runner = context.patterns?.test_runner;
-
-  // Pick the right command based on detected runner (argv, never a shell string)
-  let cmd = null;
-  if (runner === 'vitest')         cmd = ['npx', ['vitest', 'run', '--reporter=verbose']];
-  else if (runner === 'jest')      cmd = ['npx', ['jest', '--no-coverage']];
-  else if (runner === 'mocha')     cmd = ['npx', ['mocha']];
-  else if (runner === 'node-test') cmd = ['npm', ['test']];
-  else if (runner === 'go test')   cmd = ['go', ['test', './...']];
-  else if (runner === 'pytest')    cmd = ['python', ['-m', 'pytest', '-v']];
-  else {
-    // Fallback: look for test script in package.json
-    try {
-      const pkg = JSON.parse(require('fs').readFileSync(path.join(repoPath, 'package.json'), 'utf8'));
-      if (pkg.scripts?.test && !pkg.scripts.test.includes('no test')) {
-        cmd = ['npm', ['test']];
-      }
-    } catch (_) {}
-  }
-
-  if (!cmd) return null;
-
-  // Exit code / signal handling is still lossy here — that is QB-06 (Phase 2).
-  const r = proc.run(cmd[0], cmd[1], { cwd: repoPath, timeout: 60_000 });
-  const output = `${r.stdout || ''}${r.stderr || ''}` || (r.error ? r.error.message : '');
-  return parseTestOutput(output, runner);
+function testsFromSandbox(execution, context) {
+  const v = execution?.sandbox?.verification;
+  if (!v || v.status !== 'ran' || typeof v.output !== 'string') return null;
+  const parsed = parseTestOutput(v.output, context?.patterns?.test_runner);
+  // Exit-code handling is still coarse (QB-06, Phase 2): a nonzero exit with no
+  // parsed failures counts as one failure so it can never read as green.
+  if (v.state === 'execution_error' && parsed.failed === 0) parsed.failed = 1;
+  return parsed;
 }
 
 function parseTestOutput(output, runner) {

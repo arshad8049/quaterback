@@ -15,15 +15,18 @@
  * @param {object|null} evidence.testResults - { passed, failed, skipped } or null
  * @param {string}  [evidence.executionStatus] - ExecutionResult.status
  * @param {boolean} [evidence.unsupportedChanges] - capture could not represent part of the change
+ * @param {object}  [evidence.verification] - sandbox verification { status, reason, state } (QB-02)
  * @returns {{ verdict: string, failures: string[] }}
  */
-const FAILED_EXECUTION = new Set(['execution_error', 'timeout', 'cancelled', 'failed']);
+const FAILED_EXECUTION = new Set(['execution_error', 'timeout', 'cancelled', 'failed', 'oom', 'infra_error', 'setup_failed']);
+const NEVER_APPROVED   = new Set(['blocked', 'unresolved']);
 
-function aggregate({ hasDiff, criteriaResults, testResults, executionStatus = null, unsupportedChanges = false }) {
+function aggregate({ hasDiff, criteriaResults, testResults, executionStatus = null, unsupportedChanges = false, verification = null }) {
   const failures = criteriaResults.filter(r => r.met === false).map(r => r.id);
   const unknowns = criteriaResults.filter(r => r.met === null);
 
   if (FAILED_EXECUTION.has(executionStatus)) return { verdict: 'error', failures };
+  if (NEVER_APPROVED.has(executionStatus)) return { verdict: 'unresolved', failures };
   if (executionStatus === 'dry_run' || executionStatus === 'dry-run') return { verdict: 'no-diff', failures };
   if (executionStatus === 'no_change') return { verdict: 'unresolved', failures };
 
@@ -41,6 +44,15 @@ function aggregate({ hasDiff, criteriaResults, testResults, executionStatus = nu
   // A change that could not be fully captured cannot be approved (QB-03).
   if (unsupportedChanges && verdict === 'pass') verdict = 'unresolved';
 
+  // Sandbox verification (QB-02): the tests ran on the disposable copy with the
+  // base versions of protected tests. A failing run fails the task; a run that
+  // could not happen (dependency change, OOM, timeout, infra) cannot approve it.
+  if (verification && (verdict === 'pass' || verdict === 'partial')) {
+    if (verification.status === 'ran' && verification.state === 'execution_error') verdict = 'fail';
+    else if (verification.status === 'ran' && verification.state !== 'completed') verdict = 'unresolved';
+    else if (verification.status === 'not_run' && verification.reason !== 'no_test_command') verdict = 'unresolved';
+  }
+
   return { verdict, failures };
 }
 
@@ -54,6 +66,10 @@ function inputFromReport(report, execution) {
       : null,
     executionStatus:    execution?.status ?? null,
     unsupportedChanges: Boolean(execution?.unsupported_changes?.length),
+    verification:       execution?.sandbox?.verification
+      ? { status: execution.sandbox.verification.status, reason: execution.sandbox.verification.reason ?? null,
+          state: execution.sandbox.verification.state ?? null }
+      : null,
   };
 }
 

@@ -1,177 +1,104 @@
 /**
- * QB-03 — change capture includes the whole result.
- *   Done when: staged, unstaged, new, committed, renamed, deleted, binary,
- *   mode and unusual-path changes are captured or explicitly rejected; no
- *   partial capture can receive PASS.
+ * QB-03 — change capture includes the whole result; no partial capture can PASS.
+ * QB-22 — execution errors are distinct from dry-run / no change; partial edits
+ *         remain inspectable.
  *
- * QB-22 — execution errors are distinct from dry-run / no change.
- *   Done when: timeout, nonzero exit, and a genuine dry-run are distinct;
- *   partial edits remain inspectable.
- *
- * The coding agent is test/helpers/fake-agent.js driven by a JSON script.
+ * Since QB-02 the agent runs only in the sandbox, and capture is trusted code in
+ * a container. Capturing every change type (staged, unstaged, new, committed,
+ * renamed, deleted, binary, modes, symlinks, unusual paths) is proven with real
+ * Docker in test/integration/qb02-sandbox-capture.test.js and
+ * qb02-sandbox-pipeline.test.js. These unit tests drive the runner and verifier
+ * with injected pipeline results, so the state mapping and the "never PASS"
+ * rules are checked without Docker.
  */
 
-const { test, describe, beforeEach, afterEach } = require('node:test');
+const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const fs     = require('fs');
-const os     = require('os');
-const path   = require('path');
 
-const { makeRepo } = require('../helpers/tmprepo');
-const { FAKE_AGENT, mockFetch, ollamaReply } = require('../helpers/mocks');
-const runner = require('../../agent/runner');
-
-// The fake agent is injected directly; the runner has no env/flag override.
-const FAKE_COMMAND = [process.execPath, FAKE_AGENT];
-const execute = (b, c, ctx, o = {}) => runner.execute(b, c, ctx, { agentCommand: FAKE_COMMAND, ...o });
-const runAgentCaptured = (input, cwd, o = {}) => runner.runAgentCaptured(input, cwd, { agentCommand: FAKE_COMMAND, ...o });
+const { mockFetch, ollamaReply } = require('../helpers/mocks');
+const { execute } = require('../../agent/runner');
 const { verify } = require('../../verify/verifier');
 
-let repo, scriptFile;
+const CHANGE = { file: 'src/a.js', status: 'M', additions: 1, deletions: 1, binary: false };
+const DIFF = 'diff --git a/src/a.js b/src/a.js\n--- a/src/a.js\n+++ b/src/a.js\n@@ -1 +1 @@\n-const a = 1;\n+const a = 2;\n';
+const contract = { id: 'c', acceptance_criteria: [{ id: 'AC-1', criterion: 'a is 2', met: null }] };
 
-beforeEach(() => {
-  repo = makeRepo({
-    'src/a.js': 'const a = 1;\n',
-    'src/old.js': 'module.exports = "old";\n',
-    'run.sh': '#!/bin/sh\necho hi\n',
-    'del.js': 'gone\n',
-    '.gitignore': 'secret.env\n',
-  });
-  scriptFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'qb-script-')), 'script.json');
-  process.env.QB_FAKE_AGENT_SCRIPT = scriptFile;
-});
-afterEach(() => {
-  repo.cleanup();
-  fs.rmSync(path.dirname(scriptFile), { recursive: true, force: true });
-});
-
-function agentDoes(steps) {
-  fs.writeFileSync(scriptFile, JSON.stringify({ steps }));
+function run(result) {
+  return execute('task', { id: 'c' }, null, { agent: 'claude-code', repoPath: '/repo', runSandboxed: async () => result });
+}
+async function verdictFor(result, judge = { met: true, evidence: 'ok' }) {
+  const exec = await run(result);
+  const fetchMock = mockFetch(ollamaReply(judge));
+  try {
+    return { exec, report: await verify(contract, null, exec, { repoPath: '/repo' }), judged: fetchMock.calls.length };
+  } finally { fetchMock.restore(); }
 }
 
-describe('QB-03 change capture', () => {
-  test('captures every kind of change regardless of what the agent did with git', () => {
-    agentDoes([
-      { write: 'src/a.js', content: 'const a = 2;\n' },                      // unstaged edit
-      { write: 'src/staged.js', content: 'staged\n' }, { git: ['add', 'src/staged.js'] },   // staged new
-      { write: 'src/untracked.js', content: 'new\n' },                       // untracked new
-      { write: 'src/committed.js', content: 'c\n' },
-      { git: ['add', 'src/committed.js'] }, { git: ['commit', '-q', '-m', 'agent commit'] },  // committed
-      { rename: ['src/old.js', 'src/renamed.js'] },                          // rename
-      { delete: 'del.js' },                                                  // delete
-      { write: 'img.bin', content: 'AAECAwT/AA==', encoding: 'base64' },     // binary
-      { chmod: ['run.sh', 0o755] },                                          // mode
-      { write: 'weird name\nwith newline.js', content: 'w\n' },              // unusual path
-      { symlink: ['src/a.js', 'link.js'] },                                  // symlink
-      { write: 'secret.env', content: 'TOKEN=1\n' },                         // ignored
-    ]);
-
-    const r = runAgentCaptured('task', repo.dir);
-    assert.equal(r.status, 'completed');
-
-    const byFile = Object.fromEntries(r.changes.map(c => [c.file, c]));
-    assert.equal(byFile['src/a.js'].status, 'M');
-    assert.equal(byFile['src/staged.js'].status, 'A');
-    assert.equal(byFile['src/untracked.js'].status, 'A');
-    assert.equal(byFile['src/committed.js'].status, 'A', 'agent-committed file missing');
-    assert.equal(byFile['src/renamed.js'].status, 'R');
-    assert.equal(byFile['src/renamed.js'].old_file, 'src/old.js');
-    assert.equal(byFile['del.js'].status, 'D');
-    assert.equal(byFile['img.bin'].binary, true);
-    assert.equal(byFile['run.sh'].status, 'M', 'mode change missing');
-    assert.ok(byFile['weird name\nwith newline.js'], 'newline path missing');
-    assert.equal(byFile['link.js'].status, 'A');
-    assert.equal(byFile['secret.env'], undefined, 'ignored files are not captured');
-
-    assert.match(r.diff, /GIT binary patch/);
-    assert.match(r.diff, /new mode 100755|old mode 100644/);
-    assert.deepEqual(r.unsupported_changes, []);
-  });
-
-  test('capture does not modify the repository index, HEAD or refs', () => {
-    repo.write('src/a.js', 'user edit\n');
-    repo.git(['add', 'src/a.js']);
-    const before = { head: repo.head(), index: repo.git(['ls-files', '-s']), refs: repo.git(['show-ref']) };
-
-    agentDoes([{ write: 'src/new.js', content: 'n\n' }]);
-    const r = runAgentCaptured('task', repo.dir);
-
-    assert.deepEqual(r.changes.map(c => c.file), ['src/new.js'], "the user's own staged edit is not attributed to the agent");
-    assert.deepEqual({ head: repo.head(), index: repo.git(['ls-files', '-s']), refs: repo.git(['show-ref']) }, before);
-  });
-
-  test('a submodule change is flagged unsupported and cannot PASS', async () => {
-    const sub = makeRepo({ 'x': '1\n' });
-    try {
-      agentDoes([{ git: ['-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', sub.dir, 'vendor/sub'] }]);
-      const exec = await execute('task', { id: 'c' }, null, { agent: 'claude-code', repoPath: repo.dir });
-      assert.ok(exec.unsupported_changes.includes('vendor/sub'), JSON.stringify(exec.unsupported_changes));
-
-      const fetchMock = mockFetch(ollamaReply({ met: true, evidence: 'ok' }));
-      try {
-        const report = await verify(
-          { id: 'c', acceptance_criteria: [{ id: 'AC-1', criterion: 'vendor added', met: null }] },
-          null, exec, { repoPath: repo.dir },
-        );
-        assert.notEqual(report.verdict, 'pass');
-      } finally {
-        fetchMock.restore();
-      }
-    } finally {
-      sub.cleanup();
-    }
-  });
-});
-
-describe('QB-22 execution states', () => {
-  async function run(steps, opts = {}) {
-    agentDoes(steps);
-    return execute('task', { id: 'c' }, null, { agent: 'claude-code', repoPath: repo.dir, ...opts });
-  }
-
+describe('QB-22 execution states (sandbox results)', () => {
   test('nonzero exit is execution_error, and partial edits stay inspectable', async () => {
-    const e = await run([{ write: 'src/a.js', content: 'half done\n' }, { stderr: 'boom' }, { exit: 3 }]);
+    const e = await run({ status: 'execution_error', reason: 'exit 3', exit_code: 3, diff: DIFF, changes: [CHANGE], stderr_tail: 'boom' });
     assert.equal(e.status, 'execution_error');
     assert.equal(e.exit_code, 3);
     assert.match(e.stderr_tail, /boom/);
-    assert.deepEqual(e.changes.map(c => c.file), ['src/a.js']);
-    assert.match(e.diff, /half done/);
+    assert.deepEqual(e.changes.map((c) => c.file), ['src/a.js']);
+    assert.match(e.diff, /const a = 2/);
   });
 
-  test('timeout is its own state', async () => {
-    const e = await run([{ write: 'src/a.js', content: 'slow\n' }, { sleep: 5000 }], { timeoutMs: 300 });
+  test('timeout keeps its own state and its partial edits', async () => {
+    const e = await run({ status: 'timeout', reason: 'stage deadline', diff: DIFF, changes: [CHANGE] });
     assert.equal(e.status, 'timeout');
-    assert.deepEqual(e.changes.map(c => c.file), ['src/a.js']);
+    assert.deepEqual(e.changes.map((c) => c.file), ['src/a.js']);
   });
 
-  test('a missing agent executable is execution_error, not dry-run', async () => {
-    const e = await run([], { agentCommand: ['/nonexistent/qb-agent'] });
-    assert.equal(e.status, 'execution_error');
-    assert.match(e.error, /ENOENT/);
-  });
+  for (const s of ['oom', 'infra_error', 'setup_failed']) {
+    test(`${s} is an error verdict, never judged`, async () => {
+      const { report, judged } = await verdictFor({ status: s, reason: s, diff: DIFF, changes: [CHANGE] });
+      assert.equal(report.verdict, 'error');
+      assert.equal(judged, 0, 'the judge must not run on a failed execution');
+    });
+  }
 
-  test('success without edits is no_change; genuine dry-run is dry_run', async () => {
-    assert.equal((await run([{ stdout: 'already done' }])).status, 'no_change');
-    const dry = await execute('task', { id: 'c' }, null, { agent: 'dry-run', repoPath: repo.dir });
+  for (const s of ['blocked', 'unresolved']) {
+    test(`${s} can never be approved`, async () => {
+      const { report } = await verdictFor({ status: s, reason: s, diff: DIFF, changes: [CHANGE] });
+      assert.equal(report.verdict, 'unresolved');
+    });
+  }
+
+  test('success without edits is no_change; a genuine dry-run is dry_run', async () => {
+    assert.equal((await run({ status: 'no_change' })).status, 'no_change');
+    const dry = await execute('task', { id: 'c' }, null, { agent: 'dry-run', repoPath: '/repo' });
     assert.equal(dry.status, 'dry_run');
   });
+});
 
-  test('verifier maps each state to a distinct verdict and never judges a failed run', async () => {
-    const fetchMock = mockFetch(ollamaReply({ met: true, evidence: 'ok' }));
-    const contract = { id: 'c', acceptance_criteria: [{ id: 'AC-1', criterion: 'a is 2', met: null }] };
-    try {
-      const failed = await run([{ write: 'src/a.js', content: 'const a = 2;\n' }, { exit: 1 }]);
-      const r1 = await verify(contract, null, failed, { repoPath: repo.dir });
-      assert.equal(r1.verdict, 'error');
-      assert.equal(fetchMock.calls.length, 0, 'judge must not run on a failed execution');
+describe('QB-03: no partial or unverifiable capture can PASS', () => {
+  test('unsupported changes (e.g. unsafe symlink, rejected entries, .git paths) block PASS', async () => {
+    const { report } = await verdictFor({ status: 'completed', diff: DIFF, changes: [CHANGE], unsupported_changes: ['evil'] });
+    assert.notEqual(report.verdict, 'pass');
+  });
 
-      const none = await run([]);
-      assert.equal((await verify(contract, null, none, { repoPath: repo.dir })).verdict, 'unresolved');
+  test('tests that failed in the sandbox verification fail the task even when the judge says met', async () => {
+    const { report } = await verdictFor({ status: 'completed', diff: DIFF, changes: [CHANGE],
+      sandbox: { verification: { status: 'ran', state: 'execution_error', output: 'Error: assertion failed\n' } } });
+    assert.equal(report.verdict, 'fail');
+  });
 
-      const dry = await execute('task', contract, null, { agent: 'dry-run', repoPath: repo.dir });
-      assert.equal((await verify(contract, null, dry, { repoPath: repo.dir })).verdict, 'no-diff');
-    } finally {
-      fetchMock.restore();
-    }
+  test('verification not run because dependencies changed → cannot pass', async () => {
+    const { report } = await verdictFor({ status: 'completed', diff: DIFF, changes: [CHANGE],
+      sandbox: { verification: { status: 'not_run', reason: 'dependency_change_required' } } });
+    assert.equal(report.verdict, 'unresolved');
+  });
+
+  test('verification killed (oom/timeout) → cannot pass', async () => {
+    const { report } = await verdictFor({ status: 'completed', diff: DIFF, changes: [CHANGE],
+      sandbox: { verification: { status: 'ran', state: 'oom', output: '' } } });
+    assert.equal(report.verdict, 'unresolved');
+  });
+
+  test('a clean capture with passing sandbox tests and a met criterion can pass', async () => {
+    const { report } = await verdictFor({ status: 'completed', diff: DIFF, changes: [CHANGE],
+      sandbox: { verification: { status: 'ran', state: 'completed', output: 'fixture tests passed\n' } } });
+    assert.equal(report.verdict, 'pass');
   });
 });

@@ -302,7 +302,7 @@ async function runBaselineTask(task, ws, contract) {
   run.setContract(contract);
   run.startAttempt({ attempt: 1, base_sha: ws.baseSha });
 
-  const execution = { id: 'baseline', ...runBaseline(task.description, repoPath) };
+  const execution = { id: 'baseline', ...(await runBaseline(task.description, repoPath)) };
   out.agent_ms      = execution.duration_ms;
   out.status        = execution.status;
   out.error         = execution.error || null;
@@ -339,7 +339,7 @@ async function withWorkspace(source, task, arm, fn) {
     request:  task.description,
     repoPath: ws.dir,
     baseSha:  ws.baseSha,
-    agent:    { type: 'claude-code', isolation: 'workspace-clone' },
+    agent:    { type: 'claude-code', isolation: 'sandbox' },
     config:   { task_id: task.id, base_rev: baseRev, source_commit: ws.sourceCommit, mode: ws.mode, max_retries: opts.maxRetries },
   });
 

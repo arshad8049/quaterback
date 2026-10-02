@@ -19,9 +19,13 @@ tgit rev-parse refs/qb/base^{tree} > /out/base.tree
 tgit rev-parse refs/qb/candidate^{tree} > /out/candidate.tree
 tgit diff --binary --full-index --no-renames --no-textconv --no-ext-diff refs/qb/base refs/qb/candidate > /out/patch.bin
 tgit diff --name-status -z --no-renames refs/qb/base refs/qb/candidate > /out/name-status.z
+tgit diff --numstat -z --no-renames refs/qb/base refs/qb/candidate > /out/numstat.z
+# Baseline of every touched path (mode, blob id), for `qb patch` drift checks (§9.3).
+tgit diff --name-only -z --no-renames refs/qb/base refs/qb/candidate > /tmp/touched
+if [ -s /tmp/touched ]; then xargs -0 sh -c '. /usr/local/lib/qb/git-env.sh; tgit ls-tree -z refs/qb/base -- "$@"' sh < /tmp/touched > /out/base-ls.z; else : > /out/base-ls.z; fi
 
 # Verification gets its own writable copy of exactly the candidate tree.
 [ "$(cat /out/candidate.tree)" = "$EMPTY_TREE" ] || tgit -c core.bare=false --work-tree=/verify checkout -f refs/qb/candidate -- .
 
-cd /out && sha256sum base.tree candidate.tree patch.bin name-status.z scan.json > manifest.sha256
+cd /out && sha256sum base.tree candidate.tree patch.bin name-status.z numstat.z base-ls.z scan.json > manifest.sha256
 echo "captured candidate $(cat /out/candidate.tree)"

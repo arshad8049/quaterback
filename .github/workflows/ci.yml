@@ -13,12 +13,12 @@ on:
 jobs:
   unit:
     # Deterministic regression gate. No secrets, no model, no network services.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - name: Install root + layer packages
         run: |
           npm ci
@@ -27,18 +27,22 @@ jobs:
         run: npm test
 
   integration:
-    # Opt-in only. Records model/CLI versions; needs Docker and agent credentials.
-    if: github.event_name == 'workflow_dispatch' && inputs.integration
-    runs-on: ubuntu-latest
+    # Sandbox integration suite (QB-02): real Docker Engine on the supported
+    # platform, no model credentials. Runs on every push and on demand.
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.integration)
+    timeout-minutes: 60
+    runs-on: ubuntu-24.04
     needs: unit
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - name: Install root + layer packages
         run: |
           npm ci
           for d in intent agent context verify memory bench; do (cd "$d" && npm ci); done
+      - name: Environment
+        run: docker version; uname -a; git --version
       - name: Integration tests
         run: npm run test:integration
