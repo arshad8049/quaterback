@@ -48,6 +48,16 @@ Rules:
 
 Epics: Phase 0 and Phase 1 are In Progress; Phases 2–5 are To Do.
 
+## Migration result (2026-10-02)
+
+Migrated to project **QB** (key **`KAN`**) at https://arshadahmedsworkspace-40204141.atlassian.net. That's 44 issues: KAN-1 to KAN-38 are QB-01 to QB-38, and KAN-39 to KAN-44 are the Phase 0–5 epics. Every task has a parent, its status, and a dated migration comment. Links: KAN-2 blocks KAN-3; KAN-22 relates to KAN-6 and KAN-16; KAN-13 relates to KAN-27.
+
+**Still to do in the Jira UI** (needs project admin):
+
+1. Add the status **Sent Back** (category In Progress), then move **KAN-3** to it. It is in To Do only because the status doesn't exist yet; its comment explains this.
+2. Rename **Done** to **Accepted**. No ticket is there yet.
+3. Optional: change the project key from `KAN` to `QB` in *Project settings → Details*. Jira redirects old keys.
+
 ## Setup (done once, by you, before migration)
 
 1. **Connect Jira to Claude.** In claude.ai, open *Settings → Connectors* and add **Atlassian** (sign in and grant your Jira site), then restart this Claude Code session so the Jira tools load. Alternatively, run `/mcp` in Claude Code and add Atlassian's remote MCP server.
