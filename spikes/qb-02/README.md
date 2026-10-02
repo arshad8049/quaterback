@@ -7,7 +7,7 @@ These are the gating experiments in [`docs/security/agent-sandbox.md`](../../doc
 | E1 auth | Does subscription auth work with per-run copies and no write-back? | Your machine: needs a real `claude` login | not started |
 | E2 storage | Do tmpfs volumes persist across stages? Keeper or not? Do caps hold? | CI `qb02-spikes` on `ubuntu-24.04` **Done 2026-10-02.** [Run 2](e2-storage/results/e2-20261002T214917Z-2322/results.md) (stricter checks) passes; it supersedes [run 1](e2-storage/results/e2-20261002T183010Z-2325/results.md). Keeper required; caps hold; cleanup verified. Admission still pending (product). |
 | E3 networking | Socket-only egress; do the Squid ACLs hold; does the checked IP equal the connected IP? | CI | not started |
-| E4 lifecycle | Is the run still killed and cleaned up after QB dies and the timeout is disabled? | CI [Run 1](e4-lifecycle/results/e4-20261002T214915Z-2306/results.md): every termination, recovery and cleanup check passed on Linux. The child-process check failed on a **harness defect** (see below). **Run 2 pending.** |
+| E4 lifecycle | Is the run still killed and cleaned up after QB dies and the timeout is disabled? | CI **Done 2026-10-02.** [Run 2](e4-lifecycle/results/e4-20261002T215833Z-2397/results.md) passes every check on Linux; it supersedes [run 1](e4-lifecycle/results/e4-20261002T214915Z-2306/results.md). Uses the §8.3 prototype. Not covered: wall-clock jump, Docker stopped mid-run (moved to T-LIFE). |
 
 ## Evidence rules
 

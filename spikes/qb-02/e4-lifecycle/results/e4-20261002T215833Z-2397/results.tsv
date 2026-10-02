@@ -1,0 +1,29 @@
+id	result	detail
+s0.end_state	PASS	recorded completed/supervisor/cli_proposal:exit=0 oom=false
+s0.cleanup	PASS	0 containers, volumes or networks left
+s1.bounded_termination	PASS	all containers stopped 7689 ms after CLI SIGKILL (bound 19500 ms = lease 5000 + grace 3000 + docker_op 10000 + slack 1500)
+s1.bounded_cleanup	OBSERVED	all resources removed 7968 ms after CLI SIGKILL
+s1.in_container_timeout_defeated	OBSERVED	payload killed its own 4 s timeout watcher and kept running; only the external lease ended it
+s1.children	PASS	all 4 evasive children (bg, double-fork, setsid, nohup) seen running; 6 container processes snapshotted (pid+start time); 0 survive
+s1.end_state	PASS	recorded ABANDONED/supervisor/lease_expired
+s1.cleanup	PASS	0 containers, volumes or networks left
+s2.deadline_enforced	PASS	stopped 11155 ms after stage ack (deadline 8000 + grace 3000; bound 22500) while the lease kept renewing
+s2.in_container_timeout_defeated	OBSERVED	payload outlived its own 4 s timeout; only the external deadline stopped it
+s2.children	PASS	all 4 evasive children (bg, double-fork, setsid, nohup) seen running; 6 container processes snapshotted (pid+start time); 0 survive
+s2.end_state	PASS	recorded timeout/supervisor/stage_deadline
+s2.cleanup	PASS	0 containers, volumes or networks left
+s4a.cli_recovery	PASS	CLI detected the dead supervisor and stopped everything in 543 ms (bound 12000)
+s4a.end_state	PASS	recorded infra_error/cli/supervisor_lost
+s4a.cleanup	PASS	0 containers, volumes or networks left
+s4b.unbounded_until_restart	OBSERVED	3 container(s) still running 10 s after both died: with no enforcer alive, termination waits for the next QB start (documented residual, G5b)
+s4b.reaper	OBSERVED	reaper stopped everything 517 ms and removed it 517 ms after it started
+s4b.end_state	PASS	recorded ABANDONED/reaper/owners_dead
+s4b.cleanup	PASS	0 containers, volumes or networks left
+s4c.no_resources	PASS	CLI gave up after the readiness timeout, killed the supervisor, created no Docker resources
+s4c.end_state	PASS	recorded infra_error/cli/supervisor_not_ready
+s4c.cleanup	PASS	0 containers, volumes or networks left
+s8.hung_docker	PASS	first docker kill hung and was killed after 10000 ms; retry stopped everything 19381 ms after ack (bound 30500)
+s8.end_state	PASS	recorded timeout/supervisor/stage_deadline
+s8.cleanup	PASS	0 containers, volumes or networks left
+s6.single_terminal_writer	PASS	exactly one winner and a matching file in every round: {"rounds":200,"exactly_one_winner":200,"violations":[]}
+s7.pid_reuse	PASS	same pid + different start time → reaped; same pid + same start time → left alone

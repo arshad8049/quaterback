@@ -938,6 +938,30 @@ v3 is revised from those results before QB-02 is marked final.
 
 **Pass:** G5a–G5e observed as written.
 
+**Result (2026-10-02, [run 2 evidence](../../spikes/qb-02/e4-lifecycle/results/e4-20261002T215833Z-2397/results.md); CI run 37069919604, ubuntu-24.04, Docker Engine 28.0.4):** passed. The test used a **prototype** of the §8.3 protocol (`spikes/qb-02/e4-lifecycle/proto/`), not product code, with shortened timings: lease 5 s, grace 3 s, Docker op timeout 10 s.
+
+| Scenario | Stopped after | Bound | Recorded end state |
+|---|---|---|---|
+| CLI SIGKILL | 7.7 s | 19.5 s | `ABANDONED` (supervisor, lease expired) |
+| Payload kills its own timeout; CLI keeps renewing | 11.2 s after stage ack | 22.5 s (not before 9.5 s) | `timeout` (supervisor, stage deadline) |
+| Supervisor SIGKILL, CLI alive | 0.5 s | 12 s | `infra_error` (cli, supervisor_lost) |
+| Both dead | still running 10 s later; 0.5 s after the reaper starts | eventual (G5b) | `ABANDONED` (reaper) |
+| First `docker kill` hangs | 19.4 s after stage ack | 30.5 s | `timeout` |
+
+- **Children:** all four evasive children (background, double-fork, setsid, nohup) were seen running. All six container processes were snapshotted by host PID + start time, and none survived.
+- **Cleanup:** 0 containers, volumes or networks left in every scenario.
+- **Supervisor never ready:** no Docker resources were created.
+- **Single terminal writer:** 200/200 rounds.
+- **PID reuse:** a reused PID with a different start time was not treated as the owner.
+- Run 1 differed only in a harness defect in the child-process check, described in `spikes/qb-02/README.md`.
+
+**Not covered by E4:**
+
+- the wall-clock-jump variant (the deadline uses the supervisor's monotonic clock; untested);
+- Docker stopped mid-run.
+
+Both move to §11.2 T-LIFE. **The product supervisor must re-pass every scenario above as T-LIFE regressions.** E4 validates the protocol, not the implementation.
+
 ### 11.2 Integration suite
 
 `QB_INTEGRATION=1`, real Docker, fixture payloads instead of Claude unless stated.
