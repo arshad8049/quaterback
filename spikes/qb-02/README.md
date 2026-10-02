@@ -4,7 +4,7 @@ These are the gating experiments in [`docs/security/agent-sandbox.md`](../../doc
 
 | Exp | Question | Where it runs | Status |
 |---|---|---|---|
-| E1 auth | Does subscription auth work with per-run copies and no write-back? | Your machine: needs a real `claude` login | not started |
+| E1 auth | Does subscription auth work with per-run copies and no write-back? | Your machine: needs a real `claude` login | script ready and self-tested with a fake credential; **needs your login** |
 | E2 storage | Do tmpfs volumes persist across stages? Keeper or not? Do caps hold? | CI `qb02-spikes` on `ubuntu-24.04` **Done 2026-10-02.** [Run 2](e2-storage/results/e2-20261002T214917Z-2322/results.md) (stricter checks) passes; it supersedes [run 1](e2-storage/results/e2-20261002T183010Z-2325/results.md). Keeper required; caps hold; cleanup verified. Admission still pending (product). |
 | E3 networking | Socket-only egress; do the Squid ACLs hold; does the checked IP equal the connected IP? | CI | **Done 2026-10-02.** [Run 1](e3-network/results/e3-20261002T221147Z-2455/results.md): 39/39 with Squid alone; canary 0 connections; non-listed names never resolved. Base digests not recorded in that run (script fixed). |
 | E4 lifecycle | Is the run still killed and cleaned up after QB dies and the timeout is disabled? | CI | **Done 2026-10-02.** [Run 2](e4-lifecycle/results/e4-20261002T215833Z-2397/results.md) passes every check on Linux; it supersedes [run 1](e4-lifecycle/results/e4-20261002T214915Z-2306/results.md). Uses the §8.3 prototype. Not covered: wall-clock jump, Docker stopped mid-run (moved to T-LIFE). |
@@ -54,4 +54,20 @@ Harness notes from the debug runs:
 
 - **Fallback tunnel devices:** kernels with tunnel modules create devices like `tunl0` and `gre0` in every namespace. So "no external network interface" is checked as no routes except loopback and every non-lo device down, not "only `lo` exists". A container with a network fails this check.
 - **`pipefail` and `grep -q`:** under `set -o pipefail`, `producer | grep -q` can report failure through SIGPIPE when grep exits early. In one E3 check that would have turned a real failure into a PASS. All three scripts now use a `has` helper that reads its whole input.
+
+## Running E1 (on your Mac, in the Terminal app)
+
+E1 needs your real Claude subscription login, so it runs locally, not in CI. Auth behaviour is server-side, so Docker Desktop is fine for it. It uses its own Docker volume `qb-e1-auth`; your normal `~/.claude` login is never read or changed.
+
+```
+cd ~/Desktop/millionaire/quaterback
+spikes/qb-02/e1-auth/run.sh login    # once: open the printed URL, sign in, paste the code back
+spikes/qb-02/e1-auth/run.sh probe    # ~10 min, unattended
+spikes/qb-02/e1-auth/run.sh watch    # leave running; checks every 15 min until the token expires (≤ 12 h)
+spikes/qb-02/e1-auth/run.sh logout   # when finished
+```
+
+- **Usage:** each check sends one tiny prompt ("reply OK"): about 8 for `probe`, 1 per 15 minutes for `watch`.
+- **Secrets:** no token is ever printed or saved. Results show only key names, expiry times and 12-character SHA-256 fingerprints, and they are scanned for token-shaped text before saving; the run deletes its results and stops if anything matches.
+- **Self-test:** the harness was tested with a fake `sk-ant-…` credential. No token text reached the results, an invalid login was reported as ERROR, the scanner caught a planted leak, and the auth lock refused a concurrent login.
 
