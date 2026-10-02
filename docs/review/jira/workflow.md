@@ -52,11 +52,12 @@ Epics: Phase 0 and Phase 1 are In Progress; Phases 2–5 are To Do.
 
 Migrated to project **QB** (key **`KAN`**) at https://arshadahmedsworkspace-40204141.atlassian.net. That's 44 issues: KAN-1 to KAN-38 are QB-01 to QB-38, and KAN-39 to KAN-44 are the Phase 0–5 epics. Every task has a parent, its status, and a dated migration comment. Links: KAN-2 blocks KAN-3; KAN-22 relates to KAN-6 and KAN-16; KAN-13 relates to KAN-27.
 
-**Still to do in the Jira UI** (needs project admin):
+**Board configured (2026-10-02).** Columns: To Do → In Progress → In Review → Sent back → **Accepted - Astra**.
 
-1. Add the status **Sent Back** (category In Progress), then move **KAN-3** to it. It is in To Do only because the status doesn't exist yet; its comment explains this.
-2. Rename **Done** to **Accepted**. No ticket is there yet.
-3. Optional: change the project key from `KAN` to `QB` in *Project settings → Details*. Jira redirects old keys.
+- **Accepted - Astra** (status `Accepted`, Done category) is the senior reviewer's green light, and the only way a ticket is finalised. A card moves there only when the senior sign-off is recorded with the closure template; a merged commit never moves it.
+- KAN-3 (QB-03) is in **Sent back**. No ticket is Accepted yet.
+- Leftover statuses `Pending`, `pending 2` and `Done` are unused. Nothing should be moved into them.
+- Optional: change the project key from `KAN` to `QB` in *Project settings → Details*. Jira redirects old keys.
 
 ## Setup (done once, by you, before migration)
 
