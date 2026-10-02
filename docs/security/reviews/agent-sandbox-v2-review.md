@@ -1,6 +1,6 @@
 # QB-02 sandbox design v2: review
 
-Reviewed document: [`../agent-sandbox.md`](../agent-sandbox.md) (v2, commit `d03a2b0`).
+Reviewed document: `../agent-sandbox.md` at v2 (commit `d03a2b0`). The current version is [`../agent-sandbox.md`](../agent-sandbox.md).
 Disposition: **changes requested.** Implementation spikes approved; QB-02 is not yet a finalized design.
 
 This is a review of the design, not verification that the implementation or the reported exploit reproductions work.
