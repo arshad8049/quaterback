@@ -1,0 +1,56 @@
+name: qb02-spikes
+
+# QB-02 sandbox experiments (docs/security/agent-sandbox.md §11.1).
+# Runs on the supported target: Linux x86_64 + Docker Engine,
+# pinned runner image. Results are uploaded as an artifact and shown in the
+# job summary; reviewed results are committed under spikes/qb-02/<exp>/results/.
+
+on:
+  # A push that changes the spikes runs them. The manual trigger only appears
+  # once this file is on the default branch.
+  push:
+    paths:
+      - 'spikes/qb-02/**'
+      - '.github/workflows/qb02-spikes.yml'
+  workflow_dispatch:
+    inputs:
+      experiment:
+        description: 'Experiment to run'
+        type: choice
+        options: [e2-storage]
+        default: e2-storage
+
+permissions:
+  contents: read
+
+env:
+  EXP: ${{ inputs.experiment || 'e2-storage' }}
+
+jobs:
+  spike:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run ${{ env.EXP }}
+        id: run
+        run: |
+          set -o pipefail
+          OUT="$RUNNER_TEMP/$EXP"
+          echo "out=$OUT" >> "$GITHUB_OUTPUT"
+          bash "spikes/qb-02/$EXP/run.sh" "$OUT"
+
+      - name: Summary
+        if: always()
+        run: |
+          f="${{ steps.run.outputs.out }}/results.md"
+          if [ -f "$f" ]; then cat "$f" >> "$GITHUB_STEP_SUMMARY"; else echo "No results produced." >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qb02-${{ env.EXP }}-${{ github.run_id }}
+          path: ${{ steps.run.outputs.out }}
+          if-no-files-found: warn
