@@ -43,7 +43,7 @@ Status: `open` · `in-progress` · `fixed (awaiting review)` · `closed` (senior
 | QB-33 | Metrics can be forged with a known registration email | High | 5 | open | |
 | QB-34 | Admin exports expose avoidable credential and CSV risks | High | 5 | open | |
 | QB-35 | Signup input, delivery, and abuse handling are fragile | High | 5 | open | |
-| QB-36 | Legacy proxy permits unauthenticated paid upstream calls | Critical* | 1 | open | |
+| QB-36 | Legacy proxy permits unauthenticated paid upstream calls | Critical* | 1 | fixed in repo — confirm Netlify env cleared | `test/unit/qb36-legacy-proxy.test.js` |
 | QB-37 | Deployment and public claims have drifted | High | 5 | open | |
 | QB-38 | Runs lack a durable, versioned evidence record | High | 0 | fixed (awaiting review) | `test/unit/run-store.test.js`, `test/unit/qb-cli.test.js` |
 
