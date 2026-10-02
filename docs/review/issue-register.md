@@ -9,8 +9,8 @@ Status: `open` · `in-progress` · `fixed (awaiting review)` · `closed` (senior
 | ID | Finding | Priority | Phase | Status | Regression test |
 |---|---|---|---|---|---|
 | QB-01 | Repository filenames can execute shell commands | Critical | 1 | fixed (awaiting review) | `test/unit/qb01-shell-injection.test.js` |
-| QB-02 | Agent execution has no enforced containment | High | 1 | design awaiting senior review (`docs/security/agent-sandbox.md`) | |
-| QB-03 | Change capture omits parts of the actual result | High | 1 | fixed (awaiting review) | `test/unit/qb03-qb22-capture-and-states.test.js` |
+| QB-02 | Agent execution has no enforced containment | High | 1 | design v2 awaiting review (v1 rejected 2026-10-02) | `docs/security/agent-sandbox.md` |
+| QB-03 | Change capture omits parts of the actual result | High | 1 | reopened — host git reads agent-written config (fsmonitor/filter execute); fix in QB-02 §6 | `test/unit/qb03-qb22-capture-and-states.test.js`, `test/unit/hostile-tree-seeds.test.js` (todo) |
 | QB-04 | Model output can overwrite trusted metadata | High | 1 | fixed (awaiting review) | `test/unit/qb04-trusted-metadata.test.js` |
 | QB-05 | Benchmark reset is destructive and not reproducible | High | 1 | fixed (awaiting review) | `test/unit/qb05-bench-workspace.test.js` |
 | QB-06 | Test-command failure can still produce PASS | Critical | 2 | open (seeded) | `test/unit/phase2-seeds.test.js` |
@@ -58,3 +58,8 @@ Use the review's closure template (p.33) for each ticket:
 - **Review:** senior sign-off for safety/acceptance policy, remaining limitations, closure date.
 
 <!-- entries appended below as tickets land -->
+
+### 2026-10-02 — QB-02 v1 review
+
+Reviewer rejected v1 (API-key-only auth, unpinned proxy image, EOL Node base, unsafe escape hatch, host-side test execution, internal-network-only isolation, unbounded hostile-tree handling). v2 resubmitted with a point-by-point response (§0). While revising, reproduced host code execution via agent-written `core.fsmonitor` and clean filters during capture → QB-03 reopened; seeds in `test/unit/hostile-tree-seeds.test.js`. Landed code still runs repository tests on the host (`verify/checker.js`) and the agent in the user checkout (`qb.js`): **trusted repositories only** until QB-02 is implemented.
+
