@@ -32,7 +32,16 @@ test('the legacy compile proxy and its routing are gone', () => {
   assert.ok(!/\.netlify\/functions/.test(toml), 'netlify.toml still routes /api to functions');
 });
 
+// Files that may name the host only as egress-policy data (QB-02 §4.3: the
+// sandbox proxy's allowlist). Each must make no network requests itself.
+const POLICY_ONLY = new Set([path.join('lib', 'sandbox', 'egress.js')]);
+
 test('no deployed code forwards requests to the Anthropic API', () => {
   const hits = sourceFiles(ROOT).filter(f => fs.readFileSync(f, 'utf8').includes('api.anthropic.com'));
-  assert.deepEqual(hits.map(f => path.relative(ROOT, f)), []);
+  const rel = hits.map(f => path.relative(ROOT, f));
+  assert.deepEqual(rel.filter(f => !POLICY_ONLY.has(f)), []);
+  for (const f of rel.filter(f => POLICY_ONLY.has(f))) {
+    const src = fs.readFileSync(path.join(ROOT, f), 'utf8');
+    assert.doesNotMatch(src, /\bfetch\s*\(|require\(['"](https?|net|tls|undici)['"]\)/, `${f} must not make network requests`);
+  }
 });
