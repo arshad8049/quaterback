@@ -1,0 +1,219 @@
+run_id: e2-20261002T214917Z-2322
+date_utc: 2026-10-02T21:49:18Z
+host: Linux x86_64, kernel 6.17.0-1022-azure
+os: Ubuntu 24.04.5 LTS
+docker_server: 28.0.4 (Docker Engine - Community, linux)
+storage_driver: overlay2
+cgroup: v2 / systemd
+live_restore: false
+host_swap: 1 device(s), 3145724 KiB
+image: busybox@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662
+volume_opts: type=tmpfs size=64m nr_inodes=20000 uid=10001
+evidence: yes
+21:49:20 == A: no keeper, stage containers removed after each stage
+OK
+MISSING work/seed
+MISSING deps/seed
+MISSING git/seed
+MISSING verify/seed
+MISSING out/seed
+MISSING cred/seed
+MISSING sock/seed
+21:49:24 RESULT A.deps LOST — earlier sentinels missing (see raw.log)
+MISSING work/seed
+MISSING work/deps
+MISSING deps/seed
+MISSING deps/deps
+MISSING git/seed
+MISSING git/deps
+MISSING verify/seed
+MISSING verify/deps
+MISSING out/seed
+MISSING out/deps
+MISSING cred/seed
+MISSING cred/deps
+MISSING sock/seed
+MISSING sock/deps
+21:49:24 RESULT A.agent LOST — earlier sentinels missing (see raw.log)
+MISSING work/seed
+MISSING work/deps
+MISSING work/agent
+MISSING deps/seed
+MISSING deps/deps
+MISSING deps/agent
+MISSING git/seed
+MISSING git/deps
+MISSING git/agent
+MISSING verify/seed
+MISSING verify/deps
+MISSING verify/agent
+MISSING out/seed
+MISSING out/deps
+MISSING out/agent
+MISSING cred/seed
+MISSING cred/deps
+MISSING cred/agent
+MISSING sock/seed
+MISSING sock/deps
+MISSING sock/agent
+21:49:24 RESULT A.capture LOST — earlier sentinels missing (see raw.log)
+MISSING work/seed
+MISSING work/deps
+MISSING work/agent
+MISSING work/capture
+MISSING deps/seed
+MISSING deps/deps
+MISSING deps/agent
+MISSING deps/capture
+MISSING git/seed
+MISSING git/deps
+MISSING git/agent
+MISSING git/capture
+MISSING verify/seed
+MISSING verify/deps
+MISSING verify/agent
+MISSING verify/capture
+MISSING out/seed
+MISSING out/deps
+MISSING out/agent
+MISSING out/capture
+MISSING cred/seed
+MISSING cred/deps
+MISSING cred/agent
+MISSING cred/capture
+MISSING sock/seed
+MISSING sock/deps
+MISSING sock/agent
+MISSING sock/capture
+21:49:24 RESULT A.verify LOST — earlier sentinels missing (see raw.log)
+21:49:24 == A2: no keeper, stopped stage containers left in place until the end
+OK
+MISSING work/seed
+MISSING deps/seed
+MISSING git/seed
+MISSING verify/seed
+MISSING out/seed
+MISSING cred/seed
+MISSING sock/seed
+21:49:25 RESULT A2.deps LOST — earlier sentinels missing (see raw.log)
+MISSING work/seed
+MISSING work/deps
+MISSING deps/seed
+MISSING deps/deps
+MISSING git/seed
+MISSING git/deps
+MISSING verify/seed
+MISSING verify/deps
+MISSING out/seed
+MISSING out/deps
+MISSING cred/seed
+MISSING cred/deps
+MISSING sock/seed
+MISSING sock/deps
+21:49:25 RESULT A2.agent LOST — earlier sentinels missing (see raw.log)
+MISSING work/seed
+MISSING work/deps
+MISSING work/agent
+MISSING deps/seed
+MISSING deps/deps
+MISSING deps/agent
+MISSING git/seed
+MISSING git/deps
+MISSING git/agent
+MISSING verify/seed
+MISSING verify/deps
+MISSING verify/agent
+MISSING out/seed
+MISSING out/deps
+MISSING out/agent
+MISSING cred/seed
+MISSING cred/deps
+MISSING cred/agent
+MISSING sock/seed
+MISSING sock/deps
+MISSING sock/agent
+21:49:26 RESULT A2.capture LOST — earlier sentinels missing (see raw.log)
+MISSING work/seed
+MISSING work/deps
+MISSING work/agent
+MISSING work/capture
+MISSING deps/seed
+MISSING deps/deps
+MISSING deps/agent
+MISSING deps/capture
+MISSING git/seed
+MISSING git/deps
+MISSING git/agent
+MISSING git/capture
+MISSING verify/seed
+MISSING verify/deps
+MISSING verify/agent
+MISSING verify/capture
+MISSING out/seed
+MISSING out/deps
+MISSING out/agent
+MISSING out/capture
+MISSING cred/seed
+MISSING cred/deps
+MISSING cred/agent
+MISSING cred/capture
+MISSING sock/seed
+MISSING sock/deps
+MISSING sock/agent
+MISSING sock/capture
+21:49:26 RESULT A2.verify LOST — earlier sentinels missing (see raw.log)
+21:49:26 == B: keeper holds every volume mounted
+OK
+OK
+21:49:27 RESULT B.deps PASS — sentinels from [seed] present in all volumes
+OK
+21:49:27 RESULT B.agent PASS — sentinels from [seed deps] present in all volumes
+OK
+21:49:27 RESULT B.capture PASS — sentinels from [seed deps agent] present in all volumes
+OK
+21:49:28 RESULT B.verify PASS — sentinels from [seed deps agent capture] present in all volumes
+21:49:28 verdicts: A=lost A2=lost B=kept
+21:49:28 RESULT KEEPER.decision OBSERVED — contents lost without a keeper (A=lost A2=lost) but kept with one → keeper Ⓚ required (design row 2)
+21:49:28 == C: stage killed mid-write (keeper present)
+OK
+21:49:30 RESULT C.no_workload_running PASS — killed stage confirmed stopped
+OK
+21:49:31 RESULT C.after_kill PASS — seed sentinels intact after a killed stage
+partial
+21:49:31 RESULT C.partial_write OBSERVED — killed stage's partial write remains in the workspace (capture will see it)
+21:49:31 == D: daemon restart with a keeper holding seeded volumes
+OK
+21:49:32 RESULT D.keeper_after_restart OBSERVED — keeper state after restart: exited (live_restore=false)
+MISSING work/seed
+MISSING deps/seed
+MISSING git/seed
+MISSING verify/seed
+MISSING out/seed
+MISSING cred/seed
+MISSING sock/seed
+21:49:33 RESULT D.contents_after_restart OBSERVED — seed sentinels lost across daemon restart
+21:49:33 RESULT D.signal_present OBSERVED — a restart leaves a detectable signal (keeper=exited, stage exit 3); QB's infra_error handling is not tested here
+21:49:33 == E: size and inode caps
+dd_exit=1
+err=dd: error writing '/v/work/fill': No space left on device 33+0 records in 32+0 records out 33554432 bytes (32.0MB) copied, 0.014086 seconds, 2.2GB/s 
+file_bytes=33554432
+fs=8192 0 4096 500 498
+21:49:33 RESULT E.size_cap PASS — 64 MiB write into a 32 MiB volume: ENOSPC; file reached 33554432 of 33554432 bytes; 0 blocks free
+stopped_at=499
+err=touch: /v/deps/f499: No space left on device
+fs=8192 8192 4096 500 0
+21:49:34 RESULT E.inode_cap PASS — creation stopped at file 499 with ENOSPC; 0 free inodes while 8192 of 8192 blocks still free (inode exhaustion, not space)
+21:49:34 == F: memory accounting for tmpfs pages
+21:49:54 RESULT F.writer_cgroup OBSERVED — writer memory.current while holding 96 MiB in tmpfs: 101650432 bytes
+21:49:54 RESULT F.keeper_cgroup OBSERVED — keeper memory.current before/after: 1363968 / 626688 bytes
+21:49:54 RESULT F.host_memavail OBSERVED — host MemAvailable before/after (writer exited, data retained): 15157668 / 15311488 KiB
+Killed
+dd_exit=137
+21:49:54 RESULT F.limit_bounds_tmpfs OBSERVED — 96 MiB tmpfs write under --memory 48m: the writing child was killed (dd_exit=137); the stage's memory limit bounds what it can write
+21:49:54 RESULT F.oom_reporting OBSERVED — State.OOMKilled=true with ExitCode=0: classification must use OOMKilled, not the exit code
+21:49:54 == G: two concurrent runs, every volume filled to ~90% of cap
+21:49:56 RESULT G.footprint OBSERVED — two runs × 7 volumes × 57 MiB: MemAvailable dropped 862 MiB (data written 798 MiB)
+21:49:56 RESULT G.admission NOT_TESTABLE — QB admission (§8.1) is not implemented yet; G.footprint is the input it will use
+21:49:56 == H: cleanup
+21:49:56 RESULT H.cleanup PASS — 0 containers, 0 volumes, 0 networks left after cleanup (0s)
+21:49:56 results: /home/runner/work/_temp/e2-storage/results.md

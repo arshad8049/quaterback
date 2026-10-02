@@ -42,7 +42,37 @@ resource_count() {
 }
 wait_file() { local i; for i in $(seq 1 150); do [ -e "$1" ] && return 0; sleep 0.2; done; return 1; }
 term_state() { node -e 'const t=require(process.argv[1]); console.log(`${t.state}/${t.actor}/${t.reason}`)' "$STATE/$1/terminal.json" 2>/dev/null || echo none; }
-host_procs() { [ "$(uname -s)" = Linux ] && { pgrep -fc '^sleep 700[1-4]$' || true; } || echo NA; }
+# Children are checked two ways, both from the host (Linux only):
+#  - named: each of the four evasive children (busybox may show the double-forked
+#    one as "sh -c sleep 7002 &") must be seen running beforehand;
+#  - name-independent: every process of the container (pid + start time) is
+#    snapshotted while it runs, and none of them may exist afterwards.
+named_children() { pgrep -f '^(sh -c )?sleep 700[1-4]( &)?$' | wc -l | tr -d ' '; }
+proc_start() { sed 's/^.*) //' "/proc/$1/stat" 2>/dev/null | awk '{print $20}'; }
+snapshot_procs() {   # snapshot_procs <container> <file>
+  local pid
+  : > "$2"
+  for pid in $(docker top "$1" -o pid 2>/dev/null | tail -n +2); do
+    echo "$pid $(proc_start "$pid")" >> "$2"
+  done
+  docker top "$1" -o pid,ppid,args >> "$LOG" 2>&1
+}
+survivors() {        # survivors <file> → processes from the snapshot still alive (same pid + start time)
+  local n=0 pid st
+  while read -r pid st; do [ -n "$st" ] && [ "$(proc_start "$pid")" = "$st" ] && n=$((n + 1)); done < "$1"
+  echo "$n"
+}
+# check_children <scenario> <named-before> <snapshot-file>
+check_children() {
+  local s=$1 named=$2 snap=$3 total surv
+  if [ "$(uname -s)" != Linux ]; then result "$s.children" SKIP "host process checks need Linux"; return; fi
+  total=$(wc -l < "$snap" | tr -d ' '); surv=$(survivors "$snap")
+  if [ "$named" -ge 4 ] && [ "$total" -ge 6 ] && [ "$surv" = 0 ] && [ "$(named_children)" = 0 ]; then
+    result "$s.children" PASS "all 4 evasive children (bg, double-fork, setsid, nohup) seen running; $total container processes snapshotted (pid+start time); 0 survive"
+  else
+    result "$s.children" FAIL "named children before=$named; container processes=$total; survivors=$surv; named after=$(named_children)"
+  fi
+}
 
 # poll_end <run-id> <t0_ms> → sets STOP_MS and CLEAN_MS (elapsed since t0; -1 if never within 90 s)
 poll_end() {
@@ -150,7 +180,7 @@ check_clean s0 "completed/supervisor"
 log "== S1 CLI SIGKILLed mid-stage (payload evasive, deadline far away)"
 start_cli s1 evasive 120000 4
 wait_file "$STATE/$RUN-s1/workload_started"; sleep 6     # past the 4 s in-container timeout
-P_BEFORE=$(host_procs)
+P_BEFORE=$(named_children); snapshot_procs "$RUN-s1-agent" "$OUT/procs-s1.txt"
 T0=$(now_ms); kill -9 "$CLI_PID"; log "S1 CLI killed"
 poll_end "$RUN-s1" "$T0"
 BOUND=$((LEASE + GRACE + DOP + SLACK))
@@ -162,10 +192,7 @@ timing s1 cli_sigkill "$STOP_MS" "$CLEAN_MS" "$BOUND" "$(term_state "$RUN-s1")"
                       || result s1.bounded_cleanup FAIL "resources still present after 90 s"
 logs_of s1 | grep -q "alive 6" && result s1.in_container_timeout_defeated OBSERVED "payload killed its own 4 s timeout watcher and kept running; only the external lease ended it" \
                                 || result s1.in_container_timeout_defeated ERROR "could not confirm the payload outlived its own timeout (see logs)"
-P_AFTER=$(host_procs)
-if [ "$P_BEFORE" = NA ]; then result s1.children SKIP "host process check needs Linux"
-elif [ "$P_BEFORE" -ge 4 ] && [ "$P_AFTER" = 0 ]; then result s1.children PASS "$P_BEFORE child processes (bg, double-fork, setsid, nohup) visible from host before; 0 after"
-else result s1.children FAIL "children before=$P_BEFORE after=$P_AFTER"; fi
+check_children s1 "$P_BEFORE" "$OUT/procs-s1.txt"
 check_clean s1 "ABANDONED/supervisor/lease_expired"
 
 # ------------------------------------------------- S2: deadline vs disabled timeout
@@ -173,7 +200,7 @@ log "== S2 deadline: payload disables its timeout, CLI alive and renewing"
 DEADLINE=8000
 start_cli s2 evasive "$DEADLINE" 4
 wait_file "$STATE/$RUN-s2/workload_started"; sleep 6
-P_BEFORE=$(host_procs)
+P_BEFORE=$(named_children); snapshot_procs "$RUN-s2-agent" "$OUT/procs-s2.txt"
 wait "$CLI_PID"
 A=$(ack_ms s2); enf_times s2 "$A"
 BOUND=$((DEADLINE + GRACE + DOP + SLACK)); EARLIEST=$((DEADLINE + GRACE - SLACK))
@@ -185,10 +212,7 @@ else
 fi
 logs_of s2 | grep -q "alive 6" && result s2.in_container_timeout_defeated OBSERVED "payload outlived its own 4 s timeout; only the external deadline stopped it" \
                                 || result s2.in_container_timeout_defeated ERROR "could not confirm the payload outlived its own timeout"
-P_AFTER=$(host_procs)
-if [ "$P_BEFORE" = NA ]; then result s2.children SKIP "host process check needs Linux"
-elif [ "$P_BEFORE" -ge 4 ] && [ "$P_AFTER" = 0 ]; then result s2.children PASS "$P_BEFORE child processes before; 0 after"
-else result s2.children FAIL "children before=$P_BEFORE after=$P_AFTER"; fi
+check_children s2 "$P_BEFORE" "$OUT/procs-s2.txt"
 check_clean s2 "timeout/supervisor/stage_deadline"
 
 # ------------------------------------------------- S4a: supervisor dies, CLI alive

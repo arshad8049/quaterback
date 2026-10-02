@@ -889,7 +889,11 @@ v3 is revised from those results before QB-02 is marked final.
 
 **Pass:** the keeper decision is made from evidence, every cap holds, and admission refuses a run that would exceed the budget.
 
-**Result (2026-10-02, [evidence](../../spikes/qb-02/e2-storage/results/), first run; a second run with stricter checks is pending):** the **experiment** answers its questions.
+**Result (2026-10-02, [run 2 evidence](../../spikes/qb-02/e2-storage/results/e2-20261002T214917Z-2322/results.md), which supersedes run 1 after stricter checks):** the **experiment** is complete.
+
+- **Size cap:** the file filled exactly the cap, with ENOSPC and 0 blocks free.
+- **Inode cap:** ENOSPC with 0 free inodes and all blocks still free.
+- **Cleanup:** 0 resources left.
 
 - **Keeper:** required.
 - **Caps:** size and inode caps hold with ENOSPC.

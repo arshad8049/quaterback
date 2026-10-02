@@ -1,0 +1,1 @@
+{"cause":"deadline","state":"timeout","reason":"stage_deadline","won_terminal":true,"enforce_at":"2026-10-02T21:49:46.841Z","kill_ms":118,"left":{"containers":0,"networks":0,"volumes":0},"stage":{"id":"agent-1","deadline_ms":8000,"ackAt":55597},"lease_age_ms_at_enforce":621}

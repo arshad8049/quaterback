@@ -5,9 +5,9 @@ These are the gating experiments in [`docs/security/agent-sandbox.md`](../../doc
 | Exp | Question | Where it runs | Status |
 |---|---|---|---|
 | E1 auth | Does subscription auth work with per-run copies and no write-back? | Your machine: needs a real `claude` login | not started |
-| E2 storage | Do tmpfs volumes persist across stages? Keeper or not? Do caps hold? | CI `qb02-spikes` on `ubuntu-24.04` | Run 1 done 2026-10-02 ([results](e2-storage/results/e2-20261002T183010Z-2325/results.md)): keeper required. **Run 2 pending** with stricter checks (see below). |
+| E2 storage | Do tmpfs volumes persist across stages? Keeper or not? Do caps hold? | CI `qb02-spikes` on `ubuntu-24.04` **Done 2026-10-02.** [Run 2](e2-storage/results/e2-20261002T214917Z-2322/results.md) (stricter checks) passes; it supersedes [run 1](e2-storage/results/e2-20261002T183010Z-2325/results.md). Keeper required; caps hold; cleanup verified. Admission still pending (product). |
 | E3 networking | Socket-only egress; do the Squid ACLs hold; does the checked IP equal the connected IP? | CI | not started |
-| E4 lifecycle | Is the run still killed and cleaned up after QB dies and the timeout is disabled? | CI | script + §8.3 prototype ready; Linux run pending |
+| E4 lifecycle | Is the run still killed and cleaned up after QB dies and the timeout is disabled? | CI [Run 1](e4-lifecycle/results/e4-20261002T214915Z-2306/results.md): every termination, recovery and cleanup check passed on Linux. The child-process check failed on a **harness defect** (see below). **Run 2 pending.** |
 
 ## Evidence rules
 
@@ -34,4 +34,10 @@ Run 2 also adds the `OOMKilled`-with-exit-0 observation and a recorded cleanup c
 ## Running E4
 
 `spikes/qb-02/e4-lifecycle/run.sh [results_dir]`. It uses a **prototype** of the §8.3 protocol in `e4-lifecycle/proto/`: a stand-in CLI, the detached supervisor and the next-start reaper. That is spike code for testing the protocol against real Docker, not the product implementation. Timings are shortened for CI (lease 5 s, grace 3 s, Docker op timeout 10 s) and recorded in `env.txt`. The child-process checks need Linux.
+
+### E4 run 1 → run 2
+
+Run 1 failed only `s1.children` and `s2.children`, with "before=3 after=0". No child survived, but the check could see only 3 of the 4 evasive children beforehand. busybox shows the double-forked child as `sh -c sleep 7002 &`, not `sleep 7002`, so the name pattern missed it. The child was there, reparented to the container's init.
+
+Run 2 replaces the name match with a name-independent check. Every process in the container (host PID + start time) is snapshotted while it runs, and none may exist afterwards. All four children must still be seen beforehand, by a pattern that matches both forms.
 
