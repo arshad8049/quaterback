@@ -186,7 +186,7 @@ Settings shared by every container:
 | Filesystem | `--read-only` rootfs; `--tmpfs /tmp:rw,nosuid,nodev,size=256m` |
 | Process limits | `--pids-limit`; `--memory` with `--memory-swap` equal to it (no container swap; host swap of tmpfs pages: §8.2) |
 | Init + cleanup | `--init`; `--restart no`; no `--rm` (QB inspects the exit first, then removes it) |
-| Logs | `--log-driver local --log-opt max-size=… --log-opt max-file=1`. Diagnostic only, never an evidence transport (§8.5). |
+| Logs | `--log-driver local --log-opt max-size=… --log-opt max-file=1 --log-opt compress=false` (Docker rejects `max-file=1` with compression on; found in implementation). Diagnostic only, never an evidence transport (§8.5). |
 | Never | `--privileged`, host network/PID/IPC/UTS namespaces, published ports, the Docker socket, any host bind mount, or `--add-host` |
 | Environment | Built from an allowlist per container. Nothing is inherited from QB's process. |
 
