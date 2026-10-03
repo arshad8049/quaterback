@@ -20,6 +20,13 @@ const TestOutcomeSchema = z.object({                                            
   exit_code:   z.number().int().nullable(),
   state:       z.string().nullable(),
   duration_ms: z.number().int().nullable(),
+  tree:        z.string().nullable().optional(),      // QB-22: the source tree the tests ran on
+});
+
+const JudgmentMaterialSchema = z.object({            // QB-22: what a no-change judgment was based on
+  source: z.literal('sandbox_snapshot'),
+  tree:   z.string(),
+  files:  z.array(z.object({ path: z.string(), oid: z.string() })),
 });
 
 const TestResultsSchema = z.object({
@@ -46,6 +53,7 @@ const VerificationReportSchema = z.object({
   failures:         z.array(z.string()),
   test_results:     TestResultsSchema.nullable(),
   test_outcome:     TestOutcomeSchema.optional(),
+  judgment_material: JudgmentMaterialSchema.optional(),
   scope_violations: z.array(z.string()),
   repair_hints:     z.array(RepairHintSchema),
 });

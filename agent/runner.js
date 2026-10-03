@@ -35,7 +35,9 @@ async function execute(briefing, contract, context, options = {}) {
   if (cs.state !== 'finalized') {
     outcome = { ...outcome, status: 'blocked', error: `contract ${stateReason(cs)}` };
   } else if (agent === 'claude-code') {
-    outcome = await runAgentSandboxed(briefing, repo, options);
+    // The relevant files, exported from the tested tree if the agent changes nothing (QB-22).
+    const snapshotPaths = (context?.relevant_files || []).map(f => (typeof f === 'string' ? f : f?.path)).filter(p => typeof p === 'string' && p);
+    outcome = await runAgentSandboxed(briefing, repo, { ...options, snapshotPaths });
   } else if (agent === 'manual') {
     // Print briefing and wait for the dev to run their agent
     process.stdout.write('\n' + briefing + '\n');
@@ -69,6 +71,7 @@ async function runAgentSandboxed(briefing, repoPath, options = {}) {
   const r = await run({
     repoPath, briefing,
     deadlines: options.timeoutMs ? { agent: options.timeoutMs } : undefined,
+    snapshotPaths: options.snapshotPaths,
   });
   const { status, diff = null, changes = [], unsupported_changes = [], base_tree = null, candidate_tree = null,
     exit_code = null, signal = null, stderr_tail = null, sandbox = null, patch_raw = null, base_listing = null } = r;

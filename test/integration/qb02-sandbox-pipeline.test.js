@@ -30,6 +30,15 @@ const ENABLED = process.env.QB_INTEGRATION === '1';
 const FIXTURE = path.join(__dirname, '..', 'fixtures', 'npm-app');
 let stateDir;
 
+const NODE_TEST = (files) => {
+  const pkg = JSON.parse(files['package.json'].toString());
+  pkg.scripts.test = 'node --test test/*.test.js';
+  files['package.json'] = JSON.stringify(pkg, null, 2) + '\n';
+  files['test/double.test.js'] = "const test = require('node:test');\nconst assert = require('node:assert');\n"
+    + "const double = require('../src/double');\ntest('doubles', () => assert.strictEqual(double(2), 4));\n";
+  delete files['test/run.js'];
+};
+
 function fixtureRepo(mutate) {
   const files = {};
   (function walk(d) {
@@ -155,7 +164,7 @@ describe('QB-02 done-when through the real pipeline', { skip: !ENABLED && 'set Q
       delete files['test/run.js'];
     });
     try {
-      const r = await runSandboxed({ repoPath: repo.dir, briefing: 'x', stateDir, agentStage: hostileAgent('true') });
+      const r = await runSandboxed({ repoPath: repo.dir, briefing: 'x', stateDir, agentStage: hostileAgent('true'), snapshotPaths: ['src/double.js'] });
       assert.equal(r.status, 'no_change', JSON.stringify({ reason: r.reason }));
       assert.deepEqual(r.changes, []);
       const v = r.sandbox.verification;
@@ -166,10 +175,60 @@ describe('QB-02 done-when through the real pipeline', { skip: !ENABLED && 'set Q
       let report;
       try {
         report = await verify(contract, { relevant_files: [{ path: 'src/double.js' }], patterns: {} },
-          { id: 'e', status: r.status, diff: r.diff, changes: r.changes, sandbox: r.sandbox }, { repoPath: repo.dir });
+          { id: 'e', status: r.status, diff: r.diff, changes: r.changes, candidate_tree: r.candidate_tree, sandbox: r.sandbox }, { repoPath: repo.dir });
       } finally { m.restore(); }
       assert.deepEqual([report.test_outcome.outcome, report.test_outcome.reason], ['passed', 'tests_passed'], v.output);
       assert.equal(report.verdict, 'pass');
+      assert.equal(report.judgment_material.tree, r.candidate_tree, 'judged the captured tree');
+      assert.equal(report.test_outcome.tree, r.candidate_tree, 'tested the captured tree');
+    } finally { repo.cleanup(); }
+  });
+
+  test('QB-22 review: a host edit after seeding is never judged — material and tests come from the seeded snapshot', async () => {
+    const repo = fixtureRepo(NODE_TEST);
+    const original = fs.readFileSync(path.join(repo.dir, 'src/double.js'));
+    try {
+      // The agent stage edits the HOST checkout (an editor or another task), after seeding, then changes nothing in /work.
+      const editingAgent = (ws, egress, opts) => {
+        fs.writeFileSync(path.join(repo.dir, 'src/double.js'), 'module.exports = (x) => x * 2;\nmodule.exports.tripleIt = (x) => x * 3;\n');
+        return hostileAgent('true')(ws, egress, opts);
+      };
+      const r = await runSandboxed({ repoPath: repo.dir, briefing: 'x', stateDir, agentStage: editingAgent, snapshotPaths: ['src/double.js'] });
+      assert.equal(r.status, 'no_change', JSON.stringify({ reason: r.reason }));
+      const [f] = r.sandbox.snapshot.files;
+      assert.equal(f.text, original.toString(), 'the exported material is the seeded file, not the later host edit');
+      assert.equal(f.oid, crypto.createHash('sha1').update(`blob ${original.length}\0`).update(original).digest('hex'));
+      const contract = { id: 'c', goal: 'tripleIt', clarifying_question: null,
+        acceptance_criteria: [{ id: 'AC-1', criterion: 'src/double.js exports tripleIt', met: null }] };
+      // A judge that answers only from the material it is given.
+      const m = mockFetch((url, init) => {
+        const user = JSON.parse(init.body).messages.find((x) => x.role === 'user').content;
+        return ollamaReply(/tripleIt/.test(user.split('## Current repository files')[1] || '')
+          ? { met: true, evidence: 'src/double.js exports tripleIt' }
+          : { met: false, evidence: 'src/double.js has no tripleIt', repair: 'add tripleIt' });
+      });
+      let report;
+      try {
+        report = await verify(contract, null, { id: 'e', status: r.status, diff: r.diff, changes: r.changes,
+          candidate_tree: r.candidate_tree, sandbox: r.sandbox }, { repoPath: repo.dir });
+      } finally { m.restore(); }
+      assert.notEqual(report.verdict, 'pass', 'approved code that was never in the tested snapshot');
+      assert.equal(report.verdict, 'fail');
+    } finally { repo.cleanup(); }
+  });
+
+  test('QB-22: the trusted export refuses oversized files, symlinks, directories and missing paths', async () => {
+    const repo = fixtureRepo((files) => { NODE_TEST(files); files['big.txt'] = Buffer.alloc(70 * 1024, 97); });
+    fs.symlinkSync('src/double.js', path.join(repo.dir, 'link.js'));
+    try {
+      const r = await runSandboxed({ repoPath: repo.dir, briefing: 'x', stateDir, agentStage: hostileAgent('true'),
+        snapshotPaths: ['big.txt', 'link.js', 'src', 'nope.js', 'src/double.js'] });
+      assert.equal(r.status, 'no_change', JSON.stringify({ reason: r.reason }));
+      const s = r.sandbox.snapshot;
+      assert.equal(s.tree, r.candidate_tree);
+      assert.deepEqual(s.files.map((f) => f.path), ['src/double.js']);
+      assert.deepEqual(s.skipped.map((x) => [x.path, x.reason]),
+        [['big.txt', 'too_large'], ['link.js', 'not_regular'], ['src', 'not_regular'], ['nope.js', 'missing']]);
     } finally { repo.cleanup(); }
   });
 

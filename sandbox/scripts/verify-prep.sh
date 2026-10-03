@@ -59,5 +59,7 @@ if tgit cat-file -e refs/qb/base:package.json 2>/dev/null && [ -f /verify/packag
     cat /tmp/p.json > /verify/package.json
   fi
 fi
-echo "{\"status\":\"ready\",\"protected_modified\":$MODIFIED,\"test_script_changed\":$SCRIPT_CHANGED}" > /out/verify-prep.json
+# The source tree the tests run on (QB-22: test and judgment evidence name the same tree).
+TREE=$(tgit rev-parse refs/qb/candidate^{tree})
+echo "{\"status\":\"ready\",\"tree\":\"$TREE\",\"protected_modified\":$MODIFIED,\"test_script_changed\":$SCRIPT_CHANGED}" > /out/verify-prep.json
 cat /out/verify-prep.json
