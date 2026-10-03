@@ -1,0 +1,103 @@
+// QB check runner (QB-16), sandbox stage ⑥. Trusted code; runs the contract's
+// registry-validated checks (verify/checks/registry.js, qb-checks/1) against the
+// candidate in /verify, with no network. It never evaluates text from the
+// contract: each check is an adapter name plus JSON parameters.
+//
+//   stdin   {"root": "/verify", "checks": [{ id, ac_id, adapter, params }]}
+//   output  /out/qb-checks.json  {"format":"qb-check-results/1","results":[…],"complete":true}
+//
+// Each check runs in its own child process (`node qb-check-runner.mjs --child`)
+// with a timeout; the child reports on a stdout line prefixed with a random
+// nonce it received on stdin, so output from the code under test cannot be
+// mistaken for a result.
+
+import { spawn } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
+import { readFileSync, writeFileSync, realpathSync } from 'node:fs';
+import path from 'node:path';
+import { pathToFileURL, fileURLToPath } from 'node:url';
+import { isDeepStrictEqual, inspect } from 'node:util';
+
+const SELF = fileURLToPath(import.meta.url);
+const OUT = process.env.QB_CHECK_RESULTS || '/out/qb-checks.json';
+const TIMEOUT_MS = Number(process.env.QB_CHECK_TIMEOUT_MS || 10_000);
+const show = (v) => inspect(v, { depth: 4, breakLength: Infinity, maxStringLength: 300 }).slice(0, 600);
+
+async function child() {
+  const { nonce, root, check } = JSON.parse(readFileSync(0, 'utf8'));
+  const report = (r) => { process.stdout.write(`\n${nonce}${JSON.stringify(r)}\n`); process.exit(0); };
+  try {
+    const { module: mod, export: name } = check.params;
+    const realRoot = realpathSync(root);
+    const file = realpathSync(path.resolve(realRoot, mod));
+    if (!file.startsWith(realRoot + path.sep)) return report({ status: 'error', detail: 'module resolves outside the repository' });
+    const ns = await import(pathToFileURL(file).href);
+    const target = name === 'default' ? ns.default : (name in ns ? ns[name] : ns.default?.[name]);
+    if (check.adapter === 'module_exports') {
+      const type = target === null ? 'null' : Array.isArray(target) ? 'array' : typeof target;
+      return report(type === check.params.type
+        ? { status: 'pass', detail: `${mod} exports ${name} (${type})` }
+        : { status: 'fail', detail: `${mod} export ${name} is ${type}, expected ${check.params.type}`, observed: type });
+    }
+    if (typeof target !== 'function') return report({ status: 'fail', detail: `${mod} export ${name} is not a function`, observed: typeof target });
+    if (check.adapter === 'call_returns') {
+      let value;
+      try { value = await target(...check.params.args); }
+      catch (e) { return report({ status: 'fail', detail: `${name}(…) threw: ${String(e && e.message || e).slice(0, 300)}` }); }
+      return report(isDeepStrictEqual(value, check.params.expect)
+        ? { status: 'pass', detail: `${name}(…) returned the expected value`, observed: show(value) }
+        : { status: 'fail', detail: `${name}(…) returned ${show(value)}, expected ${show(check.params.expect)}`, observed: show(value) });
+    }
+    if (check.adapter === 'call_throws') {
+      try { const v = await target(...check.params.args); return report({ status: 'fail', detail: `${name}(…) returned ${show(v)} instead of throwing` }); }
+      catch (e) {
+        const msg = String(e && e.message || e);
+        const want = check.params.message_includes;
+        return report(!want || msg.includes(want)
+          ? { status: 'pass', detail: `${name}(…) threw: ${msg.slice(0, 200)}` }
+          : { status: 'fail', detail: `${name}(…) threw "${msg.slice(0, 200)}", expected a message including "${want}"` });
+      }
+    }
+    return report({ status: 'error', detail: `unknown adapter ${check.adapter}` });
+  } catch (e) {
+    return report({ status: 'error', detail: `could not load or run the check: ${String(e && e.message || e).slice(0, 300)}` });
+  }
+}
+
+function runOne(root, check) {
+  return new Promise((resolve) => {
+    const nonce = `QBCHECK-${randomBytes(16).toString('hex')}:`;
+    const t0 = Date.now();
+    const p = spawn(process.execPath, [SELF, '--child'], { cwd: root, stdio: ['pipe', 'pipe', 'pipe'],
+      env: { PATH: process.env.PATH, HOME: process.env.HOME || '/tmp', NODE_ENV: 'test' } });
+    let out = '';
+    let timedOut = false;
+    p.stdout.on('data', (d) => { if (out.length < 1 << 20) out += d; });
+    p.stderr.resume();
+    const timer = setTimeout(() => { timedOut = true; p.kill('SIGKILL'); }, TIMEOUT_MS);
+    p.on('close', (code) => {
+      clearTimeout(timer);
+      const base = { id: check.id, ac_id: check.ac_id, adapter: check.adapter, duration_ms: Date.now() - t0 };
+      if (timedOut) return resolve({ ...base, status: 'error', detail: `timed out after ${TIMEOUT_MS} ms` });
+      const line = out.split('\n').reverse().find((l) => l.startsWith(nonce));
+      let r = null;
+      try { r = line ? JSON.parse(line.slice(nonce.length)) : null; } catch { r = null; }
+      if (!r || !['pass', 'fail', 'error'].includes(r.status)) return resolve({ ...base, status: 'error', detail: `no result (exit ${code})` });
+      resolve({ ...base, status: r.status, detail: String(r.detail || '').slice(0, 800), ...(r.observed !== undefined ? { observed: String(r.observed).slice(0, 600) } : {}) });
+    });
+    p.stdin.end(JSON.stringify({ nonce, root, check }));
+  });
+}
+
+async function main() {
+  const { root, checks } = JSON.parse(readFileSync(0, 'utf8'));
+  const results = [];
+  for (const check of checks) {
+    const r = await runOne(root, check);
+    results.push(r);
+    process.stdout.write(`${r.status.toUpperCase().padEnd(5)} ${r.id} (${r.adapter}, ${r.ac_id}) ${r.detail}\n`);
+  }
+  writeFileSync(OUT, JSON.stringify({ format: 'qb-check-results/1', results, complete: true }) + '\n');
+}
+
+if (process.argv.includes('--child')) child(); else main();

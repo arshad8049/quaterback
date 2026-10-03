@@ -34,6 +34,14 @@ Good criterion: "A user who has never signed up, authenticating via Google for t
 **verification_plan**
 How a verification agent would mechanically check the acceptance criteria. Include: which tests to run, which files to inspect, which behaviors to exercise, which things to confirm did NOT change. Be specific — "run the existing auth test suite" and "confirm the /auth/google/callback route does not exist in the diff outside of the expected files" are useful. "Check the code" is not.
 
+**checks**
+Executable checks that prove the behavioural acceptance criteria. Each check is DATA for one approved adapter — never a shell command, never code to evaluate. Anything else is rejected and never run.
+- `module_exports` — params `{ "module": "src/x.js", "export": "name", "type": "function" | "object" | "string" | "number" | "boolean" }`
+- `call_returns` — params `{ "module": "src/x.js", "export": "name", "args": [JSON…], "expect": JSON }`: calling the export with args must return exactly `expect`
+- `call_throws` — params `{ "module": "src/x.js", "export": "name", "args": [JSON…], "message_includes": "optional text" }`
+Every check has a unique `id`, the `ac_id` it proves, and optionally `plan_item` (the 0-based index of the verification_plan step it executes). `module` is a repository-relative .js/.cjs/.mjs path; `export` is an identifier or "default". Give every behavioural criterion at least one check with concrete inputs and expected outputs from the request. A criterion that cannot be checked this way stays unverified.
+Mark a criterion `"kind": "non_behavioral"` only when it is about documentation, naming or wording rather than behaviour.
+
 **relevant_context**
 File paths, API names, database tables, environment variables, or symbols that the coding agent will need. ONLY include these if repository context was provided. If no repo context was given, return an empty array. Never invent file paths.
 
@@ -75,9 +83,13 @@ Return ONLY a valid JSON object. No markdown code fences, no explanation, no pre
   "required_behavior": ["string"],
   "constraints": ["string"],
   "acceptance_criteria": [
-    { "id": "AC-1", "criterion": "string", "met": null }
+    { "id": "AC-1", "criterion": "string", "met": null, "kind": "behavioral" }
   ],
   "verification_plan": ["string"],
+  "checks": [
+    { "id": "CHK-1", "ac_id": "AC-1", "adapter": "call_returns", "plan_item": 0,
+      "params": { "module": "src/utils.js", "export": "clamp", "args": [5, 0, 3], "expect": 3 } }
+  ],
   "relevant_context": ["string or empty array"],
   "ambiguity_flags": ["string or empty array"],
   "clarifying_question": null

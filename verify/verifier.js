@@ -3,6 +3,7 @@ const { runChecks }  = require('./checker');
 const { judgeAll, judgeSnapshot } = require('./judge');
 const { aggregate, verificationInput, FAILED_EXECUTION } = require('./verdict');
 const { classifyTestRun } = require('./tests');
+const { validateCheckResults } = require('./checks/results');
 const { VerificationReportSchema } = require('./schema');
 const { contractState, stateReason } = require('../intent/contract-state');
 
@@ -33,8 +34,14 @@ async function verify(contract, context, execution, options = {}) {
     contract, context, diff, repoPath, execution
   );
 
-  // ── Stage 2: LLM judgment ────────────────────────────────────────────────
-  const criteria = contract.acceptance_criteria || [];
+  // ── Stage 2: criteria ───────────────────────────────────────────────────
+  // QB-16: a behavioural criterion (the default) is decided only by its executed
+  // checks; only a criterion marked kind "non_behavioral" may be decided by the
+  // independent judge. A failed execution decides nothing (both kinds: not run).
+  const allCriteria = contract.acceptance_criteria || [];
+  const checkEval   = evaluateChecks(contract, execution);
+  const execFailed  = FAILED_EXECUTION.has(execution?.status ?? null);
+  const criteria    = execFailed ? allCriteria : allCriteria.filter(ac => ac.kind === 'non_behavioral');
   let criteriaResults;
 
   const execStatus = execution?.status ?? null;
@@ -71,6 +78,11 @@ async function verify(contract, context, execution, options = {}) {
     criteriaResults = await judgeAll(criteria, diff, diffSignals);
   }
 
+  if (!execFailed) {
+    const judged = new Map(criteriaResults.map(r => [r.id, r]));
+    criteriaResults = allCriteria.map(ac => judged.get(ac.id) || criterionFromChecks(ac, checkEval));
+  }
+
   // ── Verdict ──────────────────────────────────────────────────────────────
   const verification = verificationInput(execution);
   const { verdict, failures } = aggregate({
@@ -103,6 +115,8 @@ async function verify(contract, context, execution, options = {}) {
     failures,
     test_results:     testResults || null,
     test_outcome:     testOutcome(execution),
+    checks:           checksReport(contract, checkEval),
+    verification_plan_status: planStatus(contract, checkEval),
     ...(material && material.ok ? { judgment_material: { source: 'sandbox_snapshot', tree: material.tree, files: material.files } } : {}),
     scope_violations: scopeViolations,
     repair_hints:     repairHints,
@@ -133,6 +147,77 @@ function snapshotMaterial(execution) {
     files: snap.files.map(f => ({ path: f.path, oid: f.oid })),
     text: snap.files.map(f => `### ${f.path}\n\`\`\`\n${f.text}\n\`\`\``).join('\n\n'),
   };
+}
+
+/**
+ * QB-16: the executed check results for this contract, validated and bound to the
+ * tested tree, grouped by criterion. Unusable results decide nothing.
+ * @returns {{ requested: Array, byAc: Map, results: Array, error: string|null }}
+ */
+function evaluateChecks(contract, execution) {
+  const requested = Array.isArray(contract.checks) ? contract.checks : [];
+  const out = { requested, byAc: new Map(), results: [], error: null };
+  if (!requested.length) return out;
+  const sb = execution?.sandbox?.checks;
+  if (!sb) { out.error = 'checks_not_run'; return out; }
+  if (sb.error) { out.error = sb.error; return out; }
+  const tested = execution?.sandbox?.verification?.tree;
+  if (!sb.tree || sb.tree !== tested || (execution?.candidate_tree && sb.tree !== execution.candidate_tree)) { out.error = 'checks_tree_mismatch'; return out; }
+  const v = validateCheckResults(sb.results_text, requested);
+  if (!v.ok) { out.error = v.reason; return out; }
+  out.results = v.results;
+  for (const r of v.results) out.byAc.set(r.ac_id, [...(out.byAc.get(r.ac_id) || []), r]);
+  return out;
+}
+
+/** A behavioural criterion's result from its executed checks only. */
+function criterionFromChecks(ac, ev) {
+  const base = { id: ac.id, criterion: ac.criterion, method: 'check' };
+  const mine = ev.requested.filter(c => c.ac_id === ac.id);
+  if (!mine.length) {
+    return { ...base, met: null, method: 'no-check', check_status: 'unresolved',
+      evidence: 'No executable check covers this behavioural criterion; it cannot be verified (QB-16).' };
+  }
+  const results = ev.byAc.get(ac.id) || [];
+  if (ev.error || results.length !== mine.length) {
+    return { ...base, met: null, check_status: 'error',
+      evidence: `Checks could not be used: ${ev.error || 'missing results'}.`, checks: mine.map(c => ({ id: c.id, status: 'error' })) };
+  }
+  const checks = results.map(r => ({ id: r.id, status: r.status, detail: r.detail }));
+  const failed = results.filter(r => r.status === 'fail');
+  if (failed.length) {
+    return { ...base, met: false, check_status: 'failed', checks, evidence: failed.map(r => `${r.id}: ${r.detail}`).join(' | '),
+      repair: `Make these checks pass: ${failed.map(r => r.detail).join('; ')}` };
+  }
+  if (results.some(r => r.status !== 'pass')) {
+    return { ...base, met: null, check_status: 'error', checks,
+      evidence: results.filter(r => r.status !== 'pass').map(r => `${r.id}: ${r.detail}`).join(' | ') };
+  }
+  return { ...base, met: true, check_status: 'passed', checks, evidence: results.map(r => `${r.id}: ${r.detail}`).join(' | ') };
+}
+
+function checksReport(contract, ev) {
+  if (!ev.requested.length && !(contract.checks_rejected || []).length) return undefined;
+  return {
+    registry: contract.checks_registry || null,
+    requested: ev.requested.map(c => ({ id: c.id, ac_id: c.ac_id, adapter: c.adapter })),
+    results: ev.results,
+    rejected: (contract.checks_rejected || []).map(r => ({ id: r.check && typeof r.check.id === 'string' ? r.check.id : null, reason: r.reason })),
+    error: ev.error,
+  };
+}
+
+/** Each verification-plan item is complete only through executed, passing checks mapped to it. */
+function planStatus(contract, ev) {
+  const plan = Array.isArray(contract.verification_plan) ? contract.verification_plan : [];
+  if (!plan.length) return undefined;
+  return plan.map((item, i) => {
+    const ids = ev.requested.filter(c => c.plan_item === i).map(c => c.id);
+    const rs = ev.results.filter(r => ids.includes(r.id));
+    const status = !ids.length || ev.error || rs.length !== ids.length ? 'not_executed'
+      : rs.some(r => r.status === 'fail') ? 'failed' : rs.every(r => r.status === 'pass') ? 'passed' : 'error';
+    return { item: String(item), checks: ids, status };
+  });
 }
 
 /** The classified sandbox test run (QB-06), as recorded in the report. */

@@ -37,7 +37,8 @@ async function execute(briefing, contract, context, options = {}) {
   } else if (agent === 'claude-code') {
     // The relevant files, exported from the tested tree if the agent changes nothing (QB-22).
     const snapshotPaths = (context?.relevant_files || []).map(f => (typeof f === 'string' ? f : f?.path)).filter(p => typeof p === 'string' && p);
-    outcome = await runAgentSandboxed(briefing, repo, { ...options, snapshotPaths });
+    // QB-16: only registry-accepted checks reach the sandbox; they are not in the briefing.
+    outcome = await runAgentSandboxed(briefing, repo, { ...options, snapshotPaths, checks: Array.isArray(contract.checks) ? contract.checks : [] });
   } else if (agent === 'manual') {
     // Print briefing and wait for the dev to run their agent
     process.stdout.write('\n' + briefing + '\n');
@@ -72,6 +73,7 @@ async function runAgentSandboxed(briefing, repoPath, options = {}) {
     repoPath, briefing,
     deadlines: options.timeoutMs ? { agent: options.timeoutMs } : undefined,
     snapshotPaths: options.snapshotPaths,
+    checks: options.checks,
   });
   const { status, diff = null, changes = [], unsupported_changes = [], base_tree = null, candidate_tree = null,
     exit_code = null, signal = null, stderr_tail = null, sandbox = null, patch_raw = null, base_listing = null } = r;

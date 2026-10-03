@@ -39,6 +39,12 @@ const NODE_TEST = (files) => {
   delete files['test/run.js'];
 };
 
+// QB-16: registry-shaped checks for the fixture's src/double.js.
+const DOUBLE_CHECKS = [
+  { id: 'DBL-1', ac_id: 'AC-1', adapter: 'call_returns', params: { module: 'src/double.js', export: 'default', args: [2], expect: 4 } },
+  { id: 'DBL-2', ac_id: 'AC-1', adapter: 'call_returns', params: { module: 'src/double.js', export: 'default', args: ['3'], expect: 6 } },
+];
+
 function fixtureRepo(mutate) {
   const files = {};
   (function walk(d) {
@@ -164,13 +170,14 @@ describe('QB-02 done-when through the real pipeline', { skip: !ENABLED && 'set Q
       delete files['test/run.js'];
     });
     try {
-      const r = await runSandboxed({ repoPath: repo.dir, briefing: 'x', stateDir, agentStage: hostileAgent('true'), snapshotPaths: ['src/double.js'] });
+      const r = await runSandboxed({ repoPath: repo.dir, briefing: 'x', stateDir, agentStage: hostileAgent('true'),
+        snapshotPaths: ['src/double.js'], checks: DOUBLE_CHECKS });
       assert.equal(r.status, 'no_change', JSON.stringify({ reason: r.reason }));
       assert.deepEqual(r.changes, []);
       const v = r.sandbox.verification;
       assert.equal(v.status, 'ran', 'tests must run even when the agent changed nothing');
-      const contract = { id: 'c', goal: 'double numbers', clarifying_question: null,
-        acceptance_criteria: [{ id: 'AC-1', criterion: 'src/double.js exports a function that doubles numbers', met: null }] };
+      const contract = { id: 'c', goal: 'double numbers', clarifying_question: null, checks: DOUBLE_CHECKS,
+        acceptance_criteria: [{ id: 'AC-1', criterion: 'src/double.js exports a function that doubles numbers', met: null, kind: 'behavioral' }] };
       const m = mockFetch(ollamaReply({ met: true, evidence: 'src/double.js exports (x) => Number(x) * 2' }));
       let report;
       try {
@@ -179,7 +186,10 @@ describe('QB-02 done-when through the real pipeline', { skip: !ENABLED && 'set Q
       } finally { m.restore(); }
       assert.deepEqual([report.test_outcome.outcome, report.test_outcome.reason], ['passed', 'tests_passed'], v.output);
       assert.equal(report.verdict, 'pass');
-      assert.equal(report.judgment_material.tree, r.candidate_tree, 'judged the captured tree');
+      // QB-16: the behavioural criterion was decided by the executed checks, on the tested tree.
+      assert.deepEqual(report.checks.results.map((x) => [x.id, x.status]), [['DBL-1', 'pass'], ['DBL-2', 'pass']], JSON.stringify(report.checks));
+      assert.deepEqual([report.criteria_results[0].method, report.criteria_results[0].check_status], ['check', 'passed']);
+      assert.equal(r.sandbox.checks.tree, r.candidate_tree, 'checks ran on the captured tree');
       assert.equal(report.test_outcome.tree, r.candidate_tree, 'tested the captured tree');
     } finally { repo.cleanup(); }
   });
@@ -199,7 +209,8 @@ describe('QB-02 done-when through the real pipeline', { skip: !ENABLED && 'set Q
       assert.equal(f.text, original.toString(), 'the exported material is the seeded file, not the later host edit');
       assert.equal(f.oid, crypto.createHash('sha1').update(`blob ${original.length}\0`).update(original).digest('hex'));
       const contract = { id: 'c', goal: 'tripleIt', clarifying_question: null,
-        acceptance_criteria: [{ id: 'AC-1', criterion: 'src/double.js exports tripleIt', met: null }] };
+        // non_behavioral so the judge decides it: this test is about the judge's snapshot material.
+        acceptance_criteria: [{ id: 'AC-1', criterion: 'src/double.js exports tripleIt', met: null, kind: 'non_behavioral' }] };
       // A judge that answers only from the material it is given.
       const m = mockFetch((url, init) => {
         const user = JSON.parse(init.body).messages.find((x) => x.role === 'user').content;
@@ -213,6 +224,26 @@ describe('QB-02 done-when through the real pipeline', { skip: !ENABLED && 'set Q
           candidate_tree: r.candidate_tree, sandbox: r.sandbox }, { repoPath: repo.dir });
       } finally { m.restore(); }
       assert.notEqual(report.verdict, 'pass', 'approved code that was never in the tested snapshot');
+      assert.equal(report.verdict, 'fail');
+    } finally { repo.cleanup(); }
+  });
+
+  test('QB-16: executed checks fail a regression the judge would have approved', async () => {
+    const repo = fixtureRepo(NODE_TEST);
+    try {
+      // The agent breaks double() for every input but 2; the visible test only checks double(2), so the suite stays green.
+      const r = await runSandboxed({ repoPath: repo.dir, briefing: 'x', stateDir, checks: DOUBLE_CHECKS,
+        agentStage: hostileAgent("printf 'module.exports = (x) => (Number(x) === 2 ? 4 : 0);\\n' > /work/src/double.js") });
+      assert.equal(r.status, 'completed', JSON.stringify({ reason: r.reason }));
+      const contract = { id: 'c', goal: 'double numbers', clarifying_question: null, checks: DOUBLE_CHECKS,
+        acceptance_criteria: [{ id: 'AC-1', criterion: 'src/double.js doubles numbers and rejects non-numbers', met: null, kind: 'behavioral' }] };
+      const m = mockFetch(ollamaReply({ met: true, evidence: 'looks right' }));
+      let report;
+      try {
+        report = await verify(contract, null, { id: 'e', status: r.status, diff: r.diff, changes: r.changes,
+          candidate_tree: r.candidate_tree, sandbox: r.sandbox }, { repoPath: repo.dir });
+      } finally { m.restore(); }
+      assert.deepEqual(report.checks.results.map((x) => [x.id, x.status]), [['DBL-1', 'pass'], ['DBL-2', 'fail']], JSON.stringify(report.checks));
       assert.equal(report.verdict, 'fail');
     } finally { repo.cleanup(); }
   });

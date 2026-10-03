@@ -13,6 +13,7 @@ const SEMANTIC_FIELDS = [
   'goal', 'required_behavior', 'constraints', 'acceptance_criteria',
   'verification_plan', 'relevant_context', 'ambiguity_flags', 'clarifying_question',
 ];
+const { validateChecks } = require('../verify/checks/registry');
 
 const SYSTEM_PROMPT = fs.readFileSync(path.join(__dirname, 'prompts/system.md'), 'utf8');
 
@@ -107,6 +108,8 @@ function parseAndValidate(text, request) {
         id:        obj && typeof ac.id === 'string' && ac.id.trim() ? ac.id : `AC-${i + 1}`,
         criterion: obj && typeof ac.criterion === 'string' ? ac.criterion : '',
         met:       null,
+        // Only an explicit "non_behavioral" opts a criterion out of executed checks (QB-16).
+        kind:      obj && ac.kind === 'non_behavioral' ? 'non_behavioral' : 'behavioral',
       };
     })
     : [];
@@ -121,8 +124,15 @@ function parseAndValidate(text, request) {
   const semantic = {};
   for (const key of SEMANTIC_FIELDS) semantic[key] = raw[key];
 
+  // QB-16: proposed checks are data, validated against the versioned registry;
+  // rejected ones are recorded and never run. No shell text is accepted.
+  const checks = validateChecks(raw.checks, raw.acceptance_criteria);
+
   const contract = {
     ...semantic,
+    checks: checks.accepted,
+    checks_rejected: checks.rejected,
+    checks_registry: checks.version,
     id: randomUUID(),
     created_at: new Date().toISOString(),
     raw_request: request,

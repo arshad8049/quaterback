@@ -24,7 +24,9 @@ const REPORT = (n) => require('fs').readFileSync(require('path').join(__dirname,
 const CHANGE = { file: 'src/a.js', status: 'M', additions: 1, deletions: 1, binary: false };
 const DIFF = 'diff --git a/src/a.js b/src/a.js\n--- a/src/a.js\n+++ b/src/a.js\n@@ -1 +1 @@\n-const a = 1;\n+const a = 2;\n';
 // A finalized contract: only these reach the agent and verification (QB-08).
-const contract = { id: 'c', goal: 'Set a to 2', acceptance_criteria: [{ id: 'AC-1', criterion: 'a is 2', met: null }], clarifying_question: null };
+// The criterion is non_behavioral so the judge decides it: these tests are about capture and
+// test-run gating. Behavioural criteria are decided by executed checks (QB-16, qb16 tests).
+const contract = { id: 'c', goal: 'Set a to 2', acceptance_criteria: [{ id: 'AC-1', criterion: 'a is 2', met: null, kind: 'non_behavioral' }], clarifying_question: null };
 
 function run(result) {
   return execute('task', contract, null, { agent: 'claude-code', repoPath: '/repo', runSandboxed: async () => result });

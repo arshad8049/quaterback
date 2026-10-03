@@ -78,7 +78,7 @@ describe('senior review reproductions (KAN-6 sent back at 90c4921)', () => {
   }
   test('verify(): all six never PASS with an affirmative judge', async () => {
     const { verify } = require('../../verify/verifier');
-    const contract = { id: 'c', goal: 'g', acceptance_criteria: [{ id: 'AC-1', criterion: 'add exists', met: null }], clarifying_question: null };
+    const contract = { id: 'c', goal: 'g', acceptance_criteria: [{ id: 'AC-1', criterion: 'add exists', met: null, kind: 'non_behavioral' }], clarifying_question: null };
     const m = mockFetch(ollamaReply({ met: true, evidence: 'a.js adds add' }));
     try {
       for (const v of [...Object.values(CONSOLE).map((output) => ({ status: 'ran', state: 'completed', exit_code: 0, output, report: null })),
@@ -165,7 +165,7 @@ describe('aggregate (rules 2) and verify()', () => {
     const { verify } = require('../../verify/verifier');
     const m = mockFetch(ollamaReply({ met: true, evidence: 'a.js defines add' }));
     try {
-      const r = await verify({ id: 'c', goal: 'g', acceptance_criteria: [{ id: 'AC-1', criterion: 'add() is defined', met: null }], clarifying_question: null },
+      const r = await verify({ id: 'c', goal: 'g', acceptance_criteria: [{ id: 'AC-1', criterion: 'add() is defined', met: null, kind: 'non_behavioral' }], clarifying_question: null },
         null, { id: 'e', status: 'completed', diff: 'diff --git a/a.js b/a.js\n+function add() {}', sandbox: { verification: ran(0, real('pass')) } }, {});
       assert.equal(r.verdict, 'pass');
       assert.deepEqual([r.test_outcome.outcome, r.test_outcome.runner], ['passed', 'node-test']);
