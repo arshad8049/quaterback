@@ -25,7 +25,7 @@ test('QB-08 Recipe A: clarification-only contract never reaches PASS', { todo: '
   assert.notEqual(r.verdict, 'pass');
 });
 
-test('QB-07 Recipe B: negative prose is never parsed as a positive vote', { todo: 'Phase 2 — QB-07' }, async () => {
+test('QB-07 Recipe B: negative prose is never parsed as a positive vote', async () => {
   const fetchMock = mockFetch(ollamaReply('The criterion is not implemented.'));
   try {
     const { judgeAll } = require('../../verify/judge');

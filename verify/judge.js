@@ -26,7 +26,8 @@ Respond ONLY with valid JSON — no other text, no markdown, no \`\`\`json fence
 {
   "met": true | false | null,
   "evidence": "one sentence citing specific file names, function names, or line content from the diff",
-  "repair": "only when met is false: one precise instruction telling the agent exactly what to add or change — name the file, function, and what is missing"
+  "repair": "only when met is false: one precise instruction telling the agent exactly what to add or change — name the file, function, and what is missing",
+  "refs": ["optional: diff locations you relied on, as \"path:line\""]
 }
 
 Rules:
@@ -69,6 +70,7 @@ async function judgeAll(criteria, diff, signals = {}) {
       criterion: ac.criterion,
       met:       null,
       method:    'no-diff',
+      judgment_status: 'not_judged',
       evidence:  'No diff available — agent ran in dry-run mode. Cannot verify implementation.',
     }));
   }
@@ -118,26 +120,34 @@ async function callOnce(ac, diff, signals) {
     diffChunk,
   ].join('\n');
 
-  const res = await fetch(`${OLLAMA_URL}/api/chat`, {
-    method:  'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      model:    MODEL,
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user',   content: userContent },
-      ],
-      stream:  false,
-      options: { temperature: 0.05, num_ctx: 8192 },
-    }),
-  });
-
-  if (!res.ok) throw new Error(`Ollama ${res.status}`);
-  const data = await res.json();
-  const raw  = data.message?.content;
-  if (!raw) throw new Error('Empty response');
-  return parseJudgment(raw);
+  // At most MAX_FORMAT_RETRIES re-asks for the format. The malformed reply is
+  // not sent back and never becomes evidence (QB-07).
+  for (let attempt = 0; ; attempt++) {
+    const messages = [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user',   content: userContent },
+      ...(attempt ? [{ role: 'user', content: FORMAT_REMINDER }] : []),
+    ];
+    const res = await fetch(`${OLLAMA_URL}/api/chat`, {
+      method:  'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ model: MODEL, messages, stream: false, options: { temperature: 0.05, num_ctx: 8192 } }),
+    });
+    if (!res.ok) throw new Error(`Ollama ${res.status}`);
+    const data = await res.json();
+    const raw  = data.message?.content;
+    try {
+      if (!raw) throw invalid('empty response');
+      return parseJudgment(raw);
+    } catch (e) {
+      if (e.code !== 'invalid_judgment' || attempt >= MAX_FORMAT_RETRIES) throw e;
+    }
+  }
 }
+
+const MAX_FORMAT_RETRIES = 1;
+const FORMAT_REMINDER = 'Your previous reply did not match the required format. Reply with ONLY the JSON object '
+  + '{"met": true|false|null, "evidence": "...", "repair": "..." (only when false), "refs": [...] (optional)}.';
 
 // Criteria that assert the ABSENCE of breakage — can only be verified by
 // running the test suite, never from static diff analysis. Always null.
@@ -167,6 +177,7 @@ async function judgeOne(ac, diff, signals) {
       met:       null,
       method:    'llm-vote-3',
       votes:     [null, null, null],
+      judgment_status: 'not_judged',
       evidence:  'Preservation criterion — requires test suite execution to verify. Cannot determine from diff alone.',
       repair:    null,
     };
@@ -177,12 +188,17 @@ async function judgeOne(ac, diff, signals) {
   for (let i = 0; i < VOTE_COUNT; i++) {
     try {
       const result = await callOnce(ac, diff, signals);
-      votes.push(result);
+      votes.push({ ...result, status: 'ok' });
     } catch (err) {
-      // A failed call counts as null — doesn't tip the vote either way.
-      votes.push({ met: null, evidence: `Call ${i + 1} error: ${err.message}` });
+      // A failed or malformed call counts as null — it doesn't tip the vote either way.
+      votes.push(err.code === 'invalid_judgment'
+        ? { met: null, status: 'invalid_judgment', evidence: `Call ${i + 1}: invalid judgment (${err.message})` }
+        : { met: null, status: 'error', evidence: `Call ${i + 1} error: ${err.message}` });
     }
   }
+  const valid = votes.filter(v => v.status === 'ok');
+  const judgment_status = valid.length ? 'ok'
+    : votes.some(v => v.status === 'invalid_judgment') ? 'invalid_judgment' : 'error';
 
   // Tally
   const tally = { true: 0, false: 0, null: 0 };
@@ -198,8 +214,8 @@ async function judgeOne(ac, diff, signals) {
   else if (tally['false'] >= majority) met = false;
   else met = null; // genuine split — do not invent a verdict
 
-  // Pick evidence from a call that matches the winning verdict (first match).
-  const winning = votes.find(v => {
+  // Pick evidence from a valid call that matches the winning verdict (first match).
+  const winning = valid.find(v => {
     const k = v.met === true ? 'true' : v.met === false ? 'false' : 'null';
     return (met === true && k === 'true') ||
            (met === false && k === 'false') ||
@@ -215,29 +231,36 @@ async function judgeOne(ac, diff, signals) {
     met,
     method:    `llm-vote-${VOTE_COUNT}`,
     votes:     votes.map(v => v.met), // for debugging
-    evidence:  winning?.evidence || 'No evidence provided.',
+    vote_status: votes.map(v => v.status),
+    judgment_status,
+    evidence:  winning?.evidence || (judgment_status === 'ok' ? 'No evidence provided.'
+      : `No valid judgment: ${votes.map(v => v.status).join(', ')}.`),
+    refs:      winning?.refs || [],
     repair:    met === false ? (repairVote?.repair || `Implement the missing behavior: "${ac.criterion}"`) : null,
   };
 }
 
+const invalid = (why) => Object.assign(new Error(why), { code: 'invalid_judgment' });
+
+/**
+ * Parse one judge reply against the strict judgment schema (QB-07):
+ *   { met: true|false|null, evidence: non-empty string, repair?: string|null, refs?: string[] }
+ * Tolerated wrappers: <think>…</think> blocks and one ```json fence around the
+ * whole reply. Anything else (prose, arrays, null, wrong types, missing
+ * fields) throws code 'invalid_judgment'. There is no keyword fallback.
+ */
 function parseJudgment(text) {
-  let s = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
-  s = s.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/, '').trim();
-
-  try { return JSON.parse(s); } catch (_) {}
-
-  const match = s.match(/\{[\s\S]*\}/);
-  if (match) {
-    try { return JSON.parse(match[0]); } catch (_) {}
-  }
-
-  // Fallback: try to extract met from text
-  const metTrue  = /\b(met|satisfied|implemented|yes|true)\b/i.test(s);
-  const metFalse = /\b(not met|not satisfied|missing|no|false|fail)\b/i.test(s);
-  return {
-    met:      metTrue && !metFalse ? true : metFalse ? false : null,
-    evidence: s.slice(0, 200),
-  };
+  let s = String(text).replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+  const fence = /^```(?:json)?\s*\n?([\s\S]*?)\n?```$/i.exec(s);
+  if (fence) s = fence[1].trim();
+  let j;
+  try { j = JSON.parse(s); } catch (_) { throw invalid('not JSON'); }
+  if (j === null || typeof j !== 'object' || Array.isArray(j)) throw invalid('not a JSON object');
+  if (!('met' in j) || !(j.met === true || j.met === false || j.met === null)) throw invalid('met must be true, false or null');
+  if (typeof j.evidence !== 'string' || !j.evidence.trim()) throw invalid('evidence must be a non-empty string');
+  if (j.repair !== undefined && j.repair !== null && typeof j.repair !== 'string') throw invalid('repair must be a string');
+  if (j.refs !== undefined && !(Array.isArray(j.refs) && j.refs.every(r => typeof r === 'string'))) throw invalid('refs must be an array of strings');
+  return { met: j.met, evidence: j.evidence.trim(), repair: j.repair ?? null, refs: j.refs || [] };
 }
 
-module.exports = { judgeAll };
+module.exports = { judgeAll, parseJudgment, MAX_FORMAT_RETRIES };
