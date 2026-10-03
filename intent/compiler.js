@@ -59,10 +59,11 @@ function buildUserContent(request, repoContext, clarification) {
 function parseAndValidate(text, request) {
   const raw = parseJSON(text, request);
 
-  // Normalize clarifying_question — model sometimes returns "None needed" or dismissal phrases instead of null
+  // clarifying_question (QB-08): every nonempty question is preserved. The model
+  // sometimes writes a placeholder instead of null; only an EXACT match of a
+  // documented sentinel (NO_QUESTION_SENTINELS) means "no question".
   const cq = raw.clarifying_question;
-  const isRealQuestion = typeof cq === 'string' && cq.trim().length > 10 &&
-    !/^(null|none|no|n\/a|not needed|none needed|no clarification|no question)/i.test(cq.trim());
+  const isRealQuestion = typeof cq === 'string' && cq.trim() !== '' && !isNoQuestionSentinel(cq);
 
   if (isRealQuestion) {
     return ClarifyingResponseSchema.parse({
@@ -96,12 +97,18 @@ function parseAndValidate(text, request) {
 
   // Acceptance criteria are never invented (QB-08): if the model gave none, the
   // contract has none and the finalization gate (intent/contract-state) blocks it.
+  // The criterion text must be an explicit string in `criterion`: it is never
+  // derived from an id, another property or a serialized object, so a malformed
+  // entry stays blank and the gate blocks the contract.
   raw.acceptance_criteria = Array.isArray(raw.acceptance_criteria)
-    ? raw.acceptance_criteria.map((ac, i) => ({
-      id:        (ac && ac.id) || `AC-${i + 1}`,
-      criterion: ac && typeof ac.criterion === 'string' ? ac.criterion : (ac && extractString(ac)) || '',
-      met:       null,
-    }))
+    ? raw.acceptance_criteria.map((ac, i) => {
+      const obj = ac !== null && typeof ac === 'object' && !Array.isArray(ac);
+      return {
+        id:        obj && typeof ac.id === 'string' && ac.id.trim() ? ac.id : `AC-${i + 1}`,
+        criterion: obj && typeof ac.criterion === 'string' ? ac.criterion : '',
+        met:       null,
+      };
+    })
     : [];
 
   // verification_plan — fall back to a minimal plan if missing
@@ -128,6 +135,18 @@ function parseAndValidate(text, request) {
   if (parsed.success) return parsed.data;
   if (contractState(contract).state === 'invalid') return contract;
   throw parsed.error;
+}
+
+/**
+ * Exact (case-insensitive, trailing "." ignored) placeholders a model writes for
+ * "no question". Anything else nonempty is a real question and is preserved.
+ */
+const NO_QUESTION_SENTINELS = new Set([
+  'null', 'none', 'no', 'n/a', 'na', 'not needed', 'none needed', 'not applicable',
+  'no clarification', 'no clarification needed', 'no question', 'no questions',
+]);
+function isNoQuestionSentinel(q) {
+  return NO_QUESTION_SENTINELS.has(q.trim().toLowerCase().replace(/\.$/, ''));
 }
 
 function extractString(obj) {
@@ -169,4 +188,4 @@ function fixUnquotedKeys(str) {
   return str.replace(/([{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/g, '$1"$2":');
 }
 
-module.exports = { compile };
+module.exports = { compile, NO_QUESTION_SENTINELS };

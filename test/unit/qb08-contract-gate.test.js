@@ -150,3 +150,99 @@ describe('entry points', () => {
       [['bench-qb', 'BLOCKED', 'needs_clarification', 0]]);
   });
 });
+
+// ── Senior review (KAN-8 sent back at 0377296): compiler normalization bypassed the gate ──
+const BASE = { goal: 'Add explicit feature', required_behavior: ['feature'], constraints: [], verification_plan: ['tests'],
+  relevant_context: [], ambiguity_flags: [], clarifying_question: null };
+const BYPASS = {
+  'criterion {} (was serialized to "{}")':          { ...BASE, acceptance_criteria: [{}] },
+  'criterion with only an id (was "AC-1")':         { ...BASE, acceptance_criteria: [{ id: 'AC-1' }] },
+  'criterion text under another key':               { ...BASE, acceptance_criteria: [{ id: 'AC-1', description: 'feature works' }] },
+  'criterion as a non-string':                      { ...BASE, acceptance_criteria: [{ id: 'AC-1', criterion: { text: 'x' } }] },
+  'criterion as a bare string':                     { ...BASE, acceptance_criteria: ['feature works'] },
+};
+const QUESTIONS = {
+  'short real question (was dropped: <=10 chars)':  'Which OS?',
+  'question starting "No" (was dropped by prefix)': 'No tests exist yet; which framework should be used?',
+  'question starting "None"':                       'None of the files match; which directory?',
+  'question starting "N/A"':                        'N/A for web; which mobile platform?',
+};
+
+describe('compiler → gate: malformed criteria and real questions are never finalized', () => {
+  const { compile } = require('../../intent/compiler');
+  const compiled = async (reply) => {
+    const m = mockFetch(ollamaReply(reply));
+    try { return await compile('Add explicit feature to the app'); } finally { m.restore(); }
+  };
+  for (const [name, reply] of Object.entries(BYPASS)) {
+    test(`${name} → invalid, cannot verify`, async () => {
+      const c = await compiled(reply);
+      assert.equal(contractState(c).state, 'invalid');
+      const { verify } = require('../../verify/verifier');
+      const m = mockFetch(ollamaReply({ met: true, evidence: 'x' }));
+      try { assert.equal((await verify(c, null, { id: 'e', status: 'completed', diff: DIFF }, {})).verdict, 'unresolved'); }
+      finally { m.restore(); }
+    });
+  }
+  for (const [name, q] of Object.entries(QUESTIONS)) {
+    test(`${name} → needs_clarification, question preserved`, async () => {
+      for (const reply of [{ ambiguity_flags: [], clarifying_question: q },
+        { ...BASE, acceptance_criteria: [{ id: 'AC-1', criterion: 'feature works' }], clarifying_question: q }]) {
+        const s = contractState(await compiled(reply));
+        assert.deepEqual([s.state, s.question], ['needs_clarification', q]);
+      }
+    });
+  }
+  test('only exact documented sentinels mean "no question"', async () => {
+    const { NO_QUESTION_SENTINELS } = require('../../intent/compiler');
+    for (const q of [null, '', '   ', 'None', 'none.', 'N/A', 'No clarification needed']) {
+      const c = await compiled({ ...BASE, acceptance_criteria: [{ id: 'AC-1', criterion: 'feature works' }], clarifying_question: q });
+      assert.equal(contractState(c).state, 'finalized', JSON.stringify(q));
+    }
+    assert.ok(NO_QUESTION_SENTINELS.has('none'));
+  });
+});
+
+describe('compiler bypasses at the entry points: the agent never runs', () => {
+  let tmp, repo, marker, script;
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'qb08b-'));
+    repo = makeRepo({ 'src/utils.js': 'module.exports = {};\n' });
+    marker = path.join(tmp, 'AGENT-RAN');
+    script = path.join(tmp, 'agent.json');
+    fs.writeFileSync(script, JSON.stringify({ steps: [{ touch: marker }, { write: 'src/utils.js', content: 'x\n' }] }));
+  });
+  afterEach(() => { repo.cleanup(); fs.rmSync(tmp, { recursive: true, force: true }); });
+  const env = (reply) => ({ ...process.env, QB_FAKE_AGENT_SCRIPT: script, QB_RUNS_DIR: path.join(tmp, 'runs'),
+    QB_MEMORY_DIR: path.join(tmp, 'mem'), QB_TEST_OLLAMA_REPLY: JSON.stringify(reply) });
+  const runs = () => fs.readdirSync(path.join(tmp, 'runs')).map((id) => store.loadRun(id, path.join(tmp, 'runs')).manifest);
+
+  const CLI_CASES = { ...BYPASS,
+    'short real question': { ...BASE, acceptance_criteria: [{ id: 'AC-1', criterion: 'feature works' }], clarifying_question: 'Which OS?' } };
+  for (const [name, reply] of Object.entries(CLI_CASES)) {
+    test(`CLI: ${name} → BLOCKED, no attempt, agent never runs`, () => {
+      const r = spawnSync(process.execPath, ['--require', PRELOAD, '--require', PRELOAD_AGENT, path.join(ROOT, 'qb.js'),
+        'Add explicit feature', '--repo', repo.dir, '--agent', 'claude-code', '--no-llm-context'],
+      { env: env(reply), encoding: 'utf8', timeout: 30_000 });
+      assert.equal(r.status, 2, r.stdout + r.stderr);
+      const [m] = runs();
+      assert.deepEqual([m.outcome, m.attempts.length], ['BLOCKED', 0]);
+      assert.equal(fs.existsSync(marker), false, 'the agent ran');
+    });
+  }
+  test('benchmark: criterion {} and a short question block the task; no agent runs', () => {
+    for (const reply of [BYPASS['criterion {} (was serialized to "{}")'],
+      { ...BASE, acceptance_criteria: [{ id: 'AC-1', criterion: 'feature works' }], clarifying_question: 'Which OS?' }]) {
+      fs.rmSync(path.join(tmp, 'runs'), { recursive: true, force: true });
+      const tasks = path.join(tmp, 'tasks.json');
+      fs.writeFileSync(tasks, JSON.stringify({ meta: { repo: repo.dir, base_rev: 'HEAD' },
+        tasks: [{ id: 'X-1', difficulty: 'easy', tags: [], description: 'Add explicit feature' }] }));
+      const r = spawnSync(process.execPath, ['--require', PRELOAD, '--require', PRELOAD_AGENT, path.join(ROOT, 'bench', 'run.js'),
+        '--tasks', tasks, '--results', path.join(tmp, 'results'), '--no-llm-context', '--max-retries', '1'],
+      { env: env(reply), encoding: 'utf8', timeout: 60_000 });
+      assert.equal(r.status, 0, r.stdout + r.stderr);
+      assert.deepEqual(runs().map((m) => [m.outcome, m.attempts.length]), [['BLOCKED', 0]]);
+      assert.equal(fs.existsSync(marker), false);
+    }
+  });
+});
