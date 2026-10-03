@@ -1,6 +1,8 @@
 const { randomUUID } = require('crypto');
 const { runChecks }  = require('./checker');
-const { judgeAll }   = require('./judge');
+const { judgeAll, judgeSnapshot } = require('./judge');
+const fs   = require('fs');
+const path = require('path');
 const { aggregate, verificationInput, FAILED_EXECUTION } = require('./verdict');
 const { classifyTestRun } = require('./tests');
 const { VerificationReportSchema } = require('./schema');
@@ -38,9 +40,14 @@ async function verify(contract, context, execution, options = {}) {
   let criteriaResults;
 
   const execStatus = execution?.status ?? null;
-  const notRun     = FAILED_EXECUTION.has(execStatus) || execStatus === 'no_change';
+  const notRun     = FAILED_EXECUTION.has(execStatus);
+  const snapshot   = execStatus === 'no_change' && !options.noLlm ? readSnapshot(repoPath, context) : null;
 
-  if (notRun) {
+  if (execStatus === 'no_change' && snapshot) {
+    // QB-22: the agent changed nothing. Judge the CURRENT files; the verdict also
+    // needs the sandbox tests (run on the unchanged tree) to have passed.
+    criteriaResults = await judgeSnapshot(criteria, snapshot);
+  } else if (notRun || execStatus === 'no_change') {
     // Nothing trustworthy to judge: the agent failed, or changed nothing.
     criteriaResults = criteria.map(ac => ({
       id:        ac.id,
@@ -48,7 +55,7 @@ async function verify(contract, context, execution, options = {}) {
       met:       null,
       method:    'not-run',
       evidence:  execStatus === 'no_change'
-        ? 'Agent completed without changing any file; requirement not independently verified.'
+        ? 'Agent completed without changing any file, and there were no readable relevant files to judge; requirement not independently verified.'
         : `Agent execution ${execStatus}: ${execution?.error || 'no detail'}. Not judged.`,
     }));
   } else if (options.noLlm || !diff) {
@@ -102,6 +109,34 @@ async function verify(contract, context, execution, options = {}) {
   };
 
   return VerificationReportSchema.parse(report);
+}
+
+const SNAPSHOT_MAX_FILES = 8;
+const SNAPSHOT_MAX_BYTES = 8000;
+
+/**
+ * The relevant files as they are now, for judging a no-change run (QB-22).
+ * Only regular files that resolve inside the repository (no symlink escapes),
+ * read without executing anything; size-capped. Null when nothing is readable.
+ */
+function readSnapshot(repoPath, context) {
+  if (!repoPath) return null;
+  let root;
+  try { root = fs.realpathSync(repoPath); } catch { return null; }
+  const parts = [];
+  let budget = SNAPSHOT_MAX_BYTES;
+  for (const f of (context?.relevant_files || []).slice(0, SNAPSHOT_MAX_FILES)) {
+    const rel = typeof f === 'string' ? f : f?.path;
+    if (typeof rel !== 'string' || !rel || path.isAbsolute(rel)) continue;
+    let abs;
+    try { abs = fs.realpathSync(path.join(root, rel)); } catch { continue; }
+    if (!abs.startsWith(root + path.sep) || !fs.statSync(abs).isFile()) continue;
+    const text = fs.readFileSync(abs, 'utf8').slice(0, budget);
+    budget -= text.length;
+    parts.push(`### ${path.relative(root, abs)}\n\`\`\`\n${text}\n\`\`\``);
+    if (budget <= 0) break;
+  }
+  return parts.length ? parts.join('\n\n') : null;
 }
 
 /** The classified sandbox test run (QB-06), as recorded in the report. */

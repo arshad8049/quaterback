@@ -271,7 +271,10 @@ async function main() {
       console.log(`     ${icon} [${r.id}]${voteStr} ${r.criterion.slice(0, 56)}`);
     });
 
-    if (report.verdict === 'pass') break;
+    if (report.verdict === 'pass') {
+      if (execution.status === 'no_change') console.log('\n  ✓ Already satisfied: the agent changed nothing, and the tests and independent judge confirm the requirement.');
+      break;
+    }
     if (report.verdict === 'error') {
       console.log(`\n  ✗ Agent execution ${execution.status}: ${execution.error || 'no detail'}`);
       if (execution.changes.length) console.log('    Partial changes were captured in the run record for inspection.');

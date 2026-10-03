@@ -22,13 +22,15 @@ const { runSandboxed } = require('../../lib/sandbox/pipeline');
 const { hardened } = require('../../lib/sandbox/workspace');
 const { AGENT_IMAGE } = require('../../lib/sandbox/agent');
 const { aggregate } = require('../../verify/verdict');
+const { verify } = require('../../verify/verifier');
+const { mockFetch, ollamaReply } = require('../helpers/mocks');
 const { makeRepo, fingerprint } = require('../helpers/tmprepo');
 
 const ENABLED = process.env.QB_INTEGRATION === '1';
 const FIXTURE = path.join(__dirname, '..', 'fixtures', 'npm-app');
 let stateDir;
 
-function fixtureRepo() {
+function fixtureRepo(mutate) {
   const files = {};
   (function walk(d) {
     for (const e of fs.readdirSync(d, { withFileTypes: true })) {
@@ -36,6 +38,7 @@ function fixtureRepo() {
       if (e.isDirectory()) walk(abs); else files[path.relative(FIXTURE, abs)] = fs.readFileSync(abs);
     }
   })(FIXTURE);
+  if (mutate) mutate(files);
   return makeRepo(files);
 }
 const gitMeta = (dir) => {
@@ -139,6 +142,34 @@ describe('QB-02 done-when through the real pipeline', { skip: !ENABLED && 'set Q
       });
       assert.equal(r.status, 'timeout');
       assert.deepEqual(r.changes.map((c) => c.file), ['src/partial.js']);
+    } finally { repo.cleanup(); }
+  });
+
+  test('QB-22: an already-satisfied requirement — agent changes nothing, real sandbox tests pass, the task is VERIFIED', async () => {
+    const repo = fixtureRepo((files) => {
+      const pkg = JSON.parse(files['package.json'].toString());
+      pkg.scripts.test = 'node --test test/*.test.js';
+      files['package.json'] = JSON.stringify(pkg, null, 2) + '\n';
+      files['test/double.test.js'] = "const test = require('node:test');\nconst assert = require('node:assert');\n"
+        + "const double = require('../src/double');\ntest('doubles', () => assert.strictEqual(double(2), 4));\n";
+      delete files['test/run.js'];
+    });
+    try {
+      const r = await runSandboxed({ repoPath: repo.dir, briefing: 'x', stateDir, agentStage: hostileAgent('true') });
+      assert.equal(r.status, 'no_change', JSON.stringify({ reason: r.reason }));
+      assert.deepEqual(r.changes, []);
+      const v = r.sandbox.verification;
+      assert.equal(v.status, 'ran', 'tests must run even when the agent changed nothing');
+      const contract = { id: 'c', goal: 'double numbers', clarifying_question: null,
+        acceptance_criteria: [{ id: 'AC-1', criterion: 'src/double.js exports a function that doubles numbers', met: null }] };
+      const m = mockFetch(ollamaReply({ met: true, evidence: 'src/double.js exports (x) => Number(x) * 2' }));
+      let report;
+      try {
+        report = await verify(contract, { relevant_files: [{ path: 'src/double.js' }], patterns: {} },
+          { id: 'e', status: r.status, diff: r.diff, changes: r.changes, sandbox: r.sandbox }, { repoPath: repo.dir });
+      } finally { m.restore(); }
+      assert.deepEqual([report.test_outcome.outcome, report.test_outcome.reason], ['passed', 'tests_passed'], v.output);
+      assert.equal(report.verdict, 'pass');
     } finally { repo.cleanup(); }
   });
 

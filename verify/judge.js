@@ -55,6 +55,39 @@ CRITICAL: only vote false when you can quote a specific diff line that directly 
 - repair (when met: false): be specific — name the file, function, and what is missing or wrong
 - omit repair when met is true or null`;
 
+// QB-22: the agent changed nothing. Did the EXISTING code already satisfy the
+// criterion? Same strict output schema (parseJudgment), but the material is the
+// current content of the relevant files, not a diff.
+const SNAPSHOT_PROMPT = `You are an independent code reviewer. The coding agent made NO change, claiming the requirement was already satisfied.
+You will be shown the current contents of the relevant repository files and a single acceptance criterion.
+Your job: determine whether the EXISTING code already satisfies the criterion.
+
+Respond ONLY with valid JSON — no other text, no markdown, no \`\`\`json fences:
+{
+  "met": true | false | null,
+  "evidence": "one sentence quoting the specific file, function or line that shows the criterion is (or is not) already satisfied",
+  "repair": "only when met is false: one precise instruction naming the file and what must be added or changed",
+  "refs": ["optional: locations you relied on, as \"path:line\""]
+}
+
+Rules:
+- met: true  — you can quote code in the files that clearly satisfies the criterion as written
+- met: false — the files show the criterion is definitively NOT satisfied (e.g. the required function is absent from the file where it must be)
+- met: null  — anything else, including behaviour that can only be confirmed by running the code
+- Never assume code exists outside the files shown. No quote = no true vote.
+- omit repair when met is true or null`;
+
+/**
+ * Judge every criterion against the CURRENT files when the agent changed nothing (QB-22).
+ * @param {Array} criteria
+ * @param {string} snapshot - the relevant files, as "### path" + fenced content blocks
+ */
+async function judgeSnapshot(criteria, snapshot) {
+  const results = [];
+  for (const ac of criteria) results.push(await judgeOne(ac, { kind: 'snapshot', text: snapshot }, {}));
+  return results;
+}
+
 /**
  * Judge all acceptance criteria against the diff.
  * Returns array of {id, criterion, met, evidence} judgments.
@@ -77,15 +110,17 @@ async function judgeAll(criteria, diff, signals = {}) {
 
   const results = [];
   for (const ac of criteria) {
-    const result = await judgeOne(ac, diff, signals);
+    const result = await judgeOne(ac, { kind: 'diff', text: diff }, signals);
     results.push(result);
   }
   return results;
 }
 
 // Single raw LLM call — returns { met, evidence, repair } or throws.
-async function callOnce(ac, diff, signals) {
-  const diffChunk = diff.length > 6000 ? diff.slice(0, 6000) + '\n... [diff truncated]' : diff;
+async function callOnce(ac, material, signals) {
+  const snapshot = material.kind === 'snapshot';
+  const text = material.text;
+  const chunk = text.length > 6000 ? text.slice(0, 6000) + `\n... [${snapshot ? 'files' : 'diff'} truncated]` : text;
 
   // Deterministic function signals (high-confidence, computed from added lines only)
   const fnSignals = Object.entries(signals)
@@ -116,15 +151,15 @@ async function callOnce(ac, diff, signals) {
     `Criterion: ${ac.criterion}`,
     signalBlock ? `\n## Pre-computed signals\n${signalBlock}` : '',
     ``,
-    `## Git diff`,
-    diffChunk,
+    snapshot ? `## Current repository files (the agent changed nothing)` : `## Git diff`,
+    chunk,
   ].join('\n');
 
   // At most MAX_FORMAT_RETRIES re-asks for the format. The malformed reply is
   // not sent back and never becomes evidence (QB-07).
   for (let attempt = 0; ; attempt++) {
     const messages = [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: snapshot ? SNAPSHOT_PROMPT : SYSTEM_PROMPT },
       { role: 'user',   content: userContent },
       ...(attempt ? [{ role: 'user', content: FORMAT_REMINDER }] : []),
     ];
@@ -168,7 +203,7 @@ function isPreservationCriterion(criterion) {
 // Majority-vote judge: runs VOTE_COUNT independent calls, picks the verdict
 // that wins a strict majority (> VOTE_COUNT/2). Ties default to null — never
 // force a false repair on a split vote.
-async function judgeOne(ac, diff, signals) {
+async function judgeOne(ac, material, signals) {
   // Short-circuit: preservation ACs require test execution, not diff analysis.
   if (isPreservationCriterion(ac.criterion)) {
     return {
@@ -187,7 +222,7 @@ async function judgeOne(ac, diff, signals) {
 
   for (let i = 0; i < VOTE_COUNT; i++) {
     try {
-      const result = await callOnce(ac, diff, signals);
+      const result = await callOnce(ac, material, signals);
       votes.push({ ...result, status: 'ok' });
     } catch (err) {
       // A failed or malformed call counts as null — it doesn't tip the vote either way.
@@ -263,4 +298,4 @@ function parseJudgment(text) {
   return { met: j.met, evidence: j.evidence.trim(), repair: j.repair ?? null, refs: j.refs || [] };
 }
 
-module.exports = { judgeAll, parseJudgment, MAX_FORMAT_RETRIES };
+module.exports = { judgeAll, judgeSnapshot, parseJudgment, MAX_FORMAT_RETRIES };

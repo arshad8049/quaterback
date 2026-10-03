@@ -32,6 +32,15 @@ function aggregate({ hasDiff, criteriaResults, testResults, executionStatus = nu
   if (FAILED_EXECUTION.has(executionStatus)) return { verdict: 'error', failures };
   if (NEVER_APPROVED.has(executionStatus)) return { verdict: 'unresolved', failures };
   if (executionStatus === 'dry_run' || executionStatus === 'dry-run') return { verdict: 'no-diff', failures };
+  // QB-22 (rules 2): no change passes only when the requirement is independently
+  // verified — every criterion met in the current files AND the sandbox tests
+  // passed on the unchanged tree. An unmet criterion or failing tests: fail.
+  if (executionStatus === 'no_change' && rules >= 2) {
+    const outcome = verification ? verification.outcome : 'not_run';
+    if (failures.length || outcome === 'failed') return { verdict: 'fail', failures };
+    const allMet = criteriaResults.length > 0 && criteriaResults.every(r => r.met === true);
+    return { verdict: allMet && outcome === 'passed' ? 'pass' : 'unresolved', failures };
+  }
   if (executionStatus === 'no_change') return { verdict: 'unresolved', failures };
 
   // Nothing to verify against can never be approved (QB-08).
