@@ -109,18 +109,22 @@ Done since the step-7 commit (all on Linux CI, ubuntu-24.04 + Docker Engine; uni
   - the no-change snapshot export (QB-22) runs on the tested tree.
 
 **E1 watch result (2026-10-02 22:28 → 2026-10-03 06:46 UTC; `spikes/qb-02/e1-auth/results/e1-watch-20261002T222841Z/`).** This needs a design decision and is not fixed.
-- **What happened:**
-  - runs from a disposable copy of the stored subscription login succeeded for about 8 h;
-  - from about 12 min before the stored access token expired, runs failed;
-  - after expiry, the copy's in-run refresh **rotated the refresh token** (`refreshed_in_run=1`, `rotated=1`);
-  - because Mode S never writes back (by design), the stored login was left with a refresh token that no longer worked;
-  - QB's **pre-run refresh then failed** ("OAuth session expired and could not be refreshed"; W3 FAIL), and later runs failed (rc=1).
-- **What it means:** Mode S as built keeps a subscription login working for about one access-token lifetime, then the user must `qb auth login` again. Mode K (API key) is unaffected.
+- **What happened** (`timeline.tsv`):
+  - runs from a disposable copy of the stored subscription login succeeded for about 8 h, until 06:00;
+  - **06:15**, 12 min before the stored access token expired: the run failed with **no refresh attempted** (`refreshed=0`);
+  - **06:30**, after expiry: the copy refreshed in-run and rotated the refresh token, but **the run still failed**;
+  - **06:45**: the *unchanged* stored refresh token refreshed **again** (it still worked after the 06:30 rotation), and the run failed;
+  - **06:46**: QB's pre-run refresh failed ("OAuth session expired and could not be refreshed"; W3 FAIL).
+- **What it means** (corrected 2026-10-03 after re-reading the raw log):
+  - runs start failing shortly before expiry, independent of rotation;
+  - the stored login ends up revoked;
+  - the most likely mechanism is refresh-token reuse detection: Mode S's disposable copies replay the same stored refresh token, so its second use after a rotation revokes the session. The data is consistent with this but doesn't prove it.
+  - Either way, Mode S as built keeps a subscription login usable for about one access-token lifetime, then needs `qb auth login`. Mode K (API key) is unaffected.
 - **Harness note:** the harness's own W2 summary line says later runs "still succeeded", but the timeline shows they failed. The timeline is authoritative.
 - **Options for the reviewer:**
   - (a) accept: re-login once per token lifetime, detected cleanly as `AUTH_REFRESH_FAILED`;
   - (b) a guarded write-back of a *rotated refresh token only*, under the auth lock;
-  - (c) refresh earlier than the stage deadline plus margin, before the stored token is near expiry.
+  - (c) refresh well before expiry (more than ~15 min of margin), so a run never starts on a nearly expired token and copies never refresh in-run.
 
 **Still open:**
 - **T-POLICY:** the real Claude binary through the INFERENCE proxy, plus validating the managed-settings keys. It needs a working login (`qb auth login` / `run.sh login`) after the E1 result above.
