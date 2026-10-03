@@ -74,3 +74,8 @@ test('a model credential in the CI environment is reported and fails the job', (
     if (summaryFile !== undefined) process.env.GITHUB_STEP_SUMMARY = summaryFile;
   }
 });
+
+test('failing tests are named (published as annotations, readable without a login)', () => {
+  const t = ev.parseTap('not ok 1 - suite\n    not ok 2 - leaf breaks\nnot ok 3 - known # TODO later\n# tests 2\n# pass 0\n# fail 2\n# skipped 0\n# todo 1\n');
+  assert.deepEqual(t.failed_tests, ['suite', 'leaf breaks']);
+});

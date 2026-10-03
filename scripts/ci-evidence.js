@@ -30,7 +30,11 @@ const MODEL_CREDENTIALS = ['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'CLAUDE_
 function parseTap(tap) {
   const count = (k) => { const m = new RegExp(`^# ${k} (\\d+)$`, 'm').exec(tap); return m ? Number(m[1]) : null; };
   const todo = [...tap.matchAll(/^\s*(?:not )?ok \d+ - (.+?) # TODO(?: (.*))?$/gm)].map((m) => ({ test: m[1], note: m[2] || null }));
-  return { tests: count('tests'), pass: count('pass'), fail: count('fail'), skipped: count('skipped'), todo: count('todo'), todo_tests: todo };
+  // Failing leaf tests (not TODO, not a parent suite that only failed because of a child).
+  const failed = [...tap.matchAll(/^\s*not ok \d+ - (.+?)$/gm)]
+    .map((m) => m[1]).filter((t) => !/ # (TODO|SKIP)\b/.test(t));
+  return { tests: count('tests'), pass: count('pass'), fail: count('fail'), skipped: count('skipped'), todo: count('todo'),
+    todo_tests: todo, failed_tests: [...new Set(failed)] };
 }
 
 function version(cmd, args) {
@@ -94,7 +98,11 @@ function main([job, tapFile, out = 'ci-evidence.json']) {
   process.stdout.write(summary(e));
   if (e.cost.credentials_present.length) { console.error(`model credential(s) present in CI: ${e.cost.credentials_present.join(', ')}`); return 1; }
   if (e.tests.tests === null) { console.error(`no TAP totals in ${tapFile}`); return 1; }
-  if (e.tests.fail) return 1;
+  if (e.tests.fail) {
+    // Annotations are visible on the public run page and API without a login.
+    for (const t of e.tests.failed_tests) process.stdout.write(`::error title=${job} test failed::${t.replace(/[\r\n]/g, ' ')}\n`);
+    return 1;
+  }
   return 0;
 }
 
