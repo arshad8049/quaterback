@@ -142,6 +142,70 @@ describe('supervisor protocol (real detached supervisor)', () => {
   });
 });
 
+const DAY = 24 * 60 * 60 * 1000;
+const JUMP = require.resolve('../helpers/preload-clock-jump');
+
+/** Run fn with Date.now moved by `ms` in this process, from `afterMs` on. */
+async function withCliClockJump(ms, afterMs, fn) {
+  const real = Date.now;
+  const timer = setTimeout(() => { Date.now = () => real() + ms; }, afterMs);
+  try { return await fn(); } finally { clearTimeout(timer); Date.now = real; }
+}
+/** Start a real supervisor whose wall clock jumps by `ms` right after it starts. */
+async function startJumped(dir, id, ms) {
+  const saved = { ...process.env };
+  Object.assign(process.env, { NODE_OPTIONS: `--require ${JUMP}`, QB_TEST_CLOCK_JUMP_MS: String(ms), QB_TEST_CLOCK_JUMP_AFTER_MS: '50' });
+  try { return await Supervision.start(dir, id); } finally {
+    for (const k of ['NODE_OPTIONS', 'QB_TEST_CLOCK_JUMP_MS', 'QB_TEST_CLOCK_JUMP_AFTER_MS']) {
+      if (k in saved) process.env[k] = saved[k]; else delete process.env[k];
+    }
+  }
+}
+
+describe('T-LIFE wall-clock jump (§11.2): only monotonic time bounds the protocol', () => {
+  const SLOW = require.resolve('../helpers/slow-ready-supervisor');
+
+  for (const [name, ms] of [['forward', DAY], ['backward', -DAY]]) {
+    test(`CLI: a ${name} jump while waiting for readiness neither fails nor hangs start()`, { timeout: 10_000 }, async () => {
+      const [dir, id] = newRun();
+      const s = await withCliClockJump(ms, 200, () => Supervision.start(dir, id, { supervisorPath: SLOW }));
+      s.close();
+      process.kill(s.supervisor.pid, 'SIGKILL');
+      assert.equal(P.terminal(dir), null);
+    });
+  }
+
+  test('CLI: a backward jump does not stretch the readiness timeout', { timeout: 10_000 }, async () => {
+    const [dir, id] = newRun();
+    const t0 = P.mono();
+    await withCliClockJump(-DAY, 200, () => assert.rejects(
+      Supervision.start(dir, id, { supervisorPath: require.resolve('../helpers/never-ready-supervisor') }),
+      (e) => e.code === 'SUPERVISOR_NOT_READY'));
+    assert.ok(P.mono() - t0 < 4000);
+  });
+
+  test('supervisor: a forward jump does not fire a stage deadline early', async () => {
+    const [dir, id] = newRun();
+    const s = await startJumped(dir, id, DAY);
+    await s.beginStage('agent', 60_000);
+    await sleep(2500);
+    assert.equal(P.terminal(dir), null, 'deadline fired after a wall-clock jump');
+    s.endStage('agent');
+    assert.equal((await s.propose('completed', 'exit 0')).state, 'completed');
+  });
+
+  test('supervisor: a backward jump does not delay a stage deadline', async () => {
+    const [dir, id] = newRun();
+    const s = await startJumped(dir, id, -DAY);
+    const t0 = P.mono();
+    await s.beginStage('agent', 1000);
+    const t = await until(() => P.terminal(dir), 10_000);
+    s.close();
+    assert.equal(t && t.state, 'timeout');
+    assert.ok(P.mono() - t0 < 6000);
+  });
+});
+
 describe('reaper', () => {
   test('owners dead → ABANDONED; owners alive (pid + start time) → left alone; PID reuse does not count', async () => {
     const me = P.identity(process.pid);
