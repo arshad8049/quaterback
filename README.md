@@ -132,7 +132,7 @@ quaterback/
 ├── memory/            ← Layer 5: Memory Store
 ├── bench/             ← Benchmark harness (run.js, report.js, tasks.json)
 ├── docs/              ← test-runs.md, architecture notes
-└── landing_page/      ← Marketing site (live on Netlify)
+└── landing_page/      ← Marketing site (live on Cloudflare: quaterback.velorallc.workers.dev)
 ```
 
 ---
@@ -249,7 +249,7 @@ node report.js --format markdown
 
 ## Landing Page
 
-Static HTML site assembled by `build.js` from 14 section files in `src/`. Deployed on Netlify.
+Static HTML site assembled by `build.js` from 14 section files in `src/`. Deployed on Cloudflare (Workers static assets, `wrangler.toml`) from `main`.
 
 ```bash
 cd landing_page
@@ -267,7 +267,7 @@ node build.js  # regenerates index.html
 - **Local LLM:** DeepSeek-R1:7b via Ollama (`http://127.0.0.1:11434`)
 - **Coding agent:** Claude Code CLI (`claude --print`)
 - **CLI:** Commander.js
-- **Deployment:** Netlify (landing page, free tier)
+- **Deployment:** Cloudflare (landing page), auto-deployed from `main`
 
 ---
 
