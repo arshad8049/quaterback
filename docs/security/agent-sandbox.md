@@ -93,10 +93,13 @@ The sandbox is implemented in `lib/sandbox/` and `sandbox/`, in seven reviewable
 
 **Still open before QB-02 can close:**
 
+- **CI fix:** `c2767aa`'s unit job ran no tests. Node 22.23 reads a directory given to `node --test` as one test file. Fixed in `ab1f4bf` (file globs); the Linux integration run follows the push.
 - **T-POLICY:** the real Claude binary through the INFERENCE proxy, plus validating the managed-settings keys. This waits for the E1 watch to finish, so the user's login isn't exercised during the experiment.
 - **The E1 watch result:** whether in-run refresh may stay excluded.
 - **Linux CI run** of the full integration suite.
-- **T-LIFE variants:** wall-clock jump; Docker stopped mid-run.
+- **T-LIFE variants: implemented, Linux CI pending.**
+  - *Wall-clock jump* (`test/unit/qb02-sandbox-lifecycle.test.js`): ±1 day jumps in the CLI and in the real supervisor. This found and fixed CLI-side waits in `lease.js` that used the wall clock (forward jump: a spurious `SUPERVISOR_NOT_READY`; backward: a hang).
+  - *Docker stopped:* a portable test with a Docker CLI that stops answering (`test/integration/qb02-sandbox-lifecycle.test.js`), and a real `systemctl stop docker` on Linux CI (`test/daemon/`, its own CI step). This found and fixed a G5c defect: an unanswered `docker ps` was read as "nothing running", so the supervisor committed a normal `timeout` and reported `left: 0` without checking. Now an unanswered query is "unknown". The supervisor retries with backoff (up to 10 min, then the reaper), records `infra_error / docker_unavailable`, and removes everything once Docker answers.
 - **§5.5:** the authentication-obligations check (beta blocker).
 - **Senior review** of the design changes above.
 

@@ -12,6 +12,7 @@ process.env.QB_SANDBOX_KILL_GRACE_MS = '500';
 process.env.QB_SANDBOX_READY_MS = '1500';
 process.env.QB_SANDBOX_ACK_MS = '3000';
 process.env.QB_SANDBOX_DOCKER_OP_MS = '5000';
+process.env.QB_SANDBOX_DOCKER_DOWN_MAX_MS = '3000';
 
 const { test, describe, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert/strict');

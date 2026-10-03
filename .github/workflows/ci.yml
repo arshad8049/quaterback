@@ -46,3 +46,8 @@ jobs:
         run: docker version; uname -a; git --version
       - name: Integration tests
         run: npm run test:integration
+      - name: T-LIFE — Docker daemon stopped mid-run (stops dockerd; runs alone, last)
+        if: always()
+        run: npm run test:daemon
+        env:
+          QB_DOCKER_DAEMON_CONTROL: '1'

@@ -9,6 +9,7 @@ process.env.QB_SANDBOX_RENEW_MS = '500';
 process.env.QB_SANDBOX_LEASE_TIMEOUT_MS = '3000';
 process.env.QB_SANDBOX_KILL_GRACE_MS = '1500';
 process.env.QB_SANDBOX_DOCKER_OP_MS = '8000';
+process.env.QB_SANDBOX_DOCKER_DOWN_MAX_MS = '60000';
 
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
@@ -26,6 +27,7 @@ const LINUX = process.platform === 'linux';
 const DRIVER = require.resolve('../helpers/sandbox-driver');
 const BOUND_MS = 3000 + 1500 + 8000 + 1500;   // lease + grace + docker op + harness slack
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function until(fn, ms) { const by = Date.now() + ms; let v; while (!(v = fn()) && Date.now() < by) await sleep(200); return v; }
 
 // Kills its own in-container timeout watcher, spawns every kind of child, ignores signals.
 const EVASIVE = `echo start
@@ -127,6 +129,29 @@ describe('T-LIFE: product supervisor with Docker', { skip: !ENABLED && 'set QB_I
     const t = await stopTimes(d.id, t0);
     assert.ok(t.stopped >= 0 && t.stopped <= 500 + 8000 + 1500, `stopped after ${t.stopped} ms`);
     assert.equal(P.terminal(d.dir).reason, 'supervisor_lost');
+  });
+
+  test('Docker unavailable past the deadline → nothing claimed, retried, infra_error, cleaned up when it returns (G5c)', async () => {
+    const stub = path.join(root, 'docker-down-stub');
+    const down = path.join(root, 'docker-is-down');
+    const real = spawnSync('sh', ['-c', 'command -v docker'], { encoding: 'utf8' }).stdout.trim();
+    // While the marker exists, every new Docker command fails the way a stopped daemon does.
+    fs.writeFileSync(stub, `#!/bin/sh\nif [ -e '${down}' ]; then echo 'Cannot connect to the Docker daemon' >&2; exit 1; fi\nexec '${real}' "$@"\n`, { mode: 0o755 });
+    const d = startDriver(3000, { QB_DOCKER_BIN: stub });
+    await d.started;
+    fs.writeFileSync(down, '');
+    await sleep(3000 + 1500 + 4000);                         // well past deadline + grace
+    assert.equal(P.terminal(d.dir), null, 'nothing may be committed while enforcement cannot be confirmed');
+    assert.ok((await D.runContainers(d.id, { running: true })).length > 0, 'residual: the workload runs while Docker is unreachable');
+    fs.rmSync(down);
+    const t = await until(() => P.terminal(d.dir), 30_000);
+    assert.equal(t.state, 'infra_error');
+    assert.match(t.reason, /docker_unavailable/);
+    const e = await until(() => P.readJson(path.join(d.dir, 'enforcement.json')), 30_000);
+    assert.equal(e.docker_unavailable, true);
+    assert.deepEqual(e.left, { containers: 0, networks: 0, volumes: 0 });
+    assert.match(fs.readFileSync(path.join(d.dir, 'events.jsonl'), 'utf8'), /"docker_unavailable"/);
+    await new Promise((res) => (d.child.exitCode !== null ? res() : d.child.on('exit', res)));
   });
 
   test('first docker kill hangs → enforcement continues after the Docker op timeout', async () => {

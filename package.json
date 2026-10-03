@@ -9,7 +9,8 @@
   "scripts": {
     "start": "node qb.js",
     "test": "node --test test/unit/*.test.js",
-    "test:integration": "QB_INTEGRATION=1 node --test test/integration/*.test.js"
+    "test:integration": "QB_INTEGRATION=1 node --test test/integration/*.test.js",
+    "test:daemon": "node --test test/daemon/*.test.js"
   },
   "dependencies": {
     "commander": "^13.1.0",
