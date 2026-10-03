@@ -11,7 +11,7 @@
         <div style="font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1; color: #6FBF9F; margin-bottom: 12px;">0 escapes</div>
         <div style="font-size: 18px; font-weight: 600; color: #F4F1EA; margin-bottom: 8px;">A hostile agent, boxed in</div>
         <div style="font-size: 16px; line-height: 1.6; color: #8A948F; margin-bottom: 16px;">It tried to write files on the host, reach a forbidden site, and gut the tests so broken code would pass. All three were denied, the user's checkout stayed byte-identical, and the verdict was still FAIL.</div>
-        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #E08A4C;">Pre-release · end-to-end test passing · Linux CI pending</div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #E08A4C;">Pre-release · Linux CI green · senior-accepted (QB-02)</div>
       </a>
 
       <a href="https://github.com/arshad8049/quaterback/blob/phase-0-1-hardening/spikes/qb-02/e3-network/results/e3-20261002T221147Z-2455/results.md" style="display: block; text-decoration: none; padding: 30px 32px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
@@ -32,7 +32,7 @@
         <div style="font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1; color: #6FBF9F; margin-bottom: 12px;">Byte-exact</div>
         <div style="font-size: 18px; font-weight: 600; color: #F4F1EA; margin-bottom: 8px;">What the agent changed, exactly</div>
         <div style="font-size: 16px; line-height: 1.6; color: #8A948F; margin-bottom: 16px;">Every change type round-trips exactly: CRLF, binary, symlinks, executable bits, deletions, file↔folder swaps, even files hidden by .gitignore. Anything we can't capture faithfully can never be approved.</div>
-        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #E08A4C;">Pre-release · integration tests passing · Linux CI pending</div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #E08A4C;">Pre-release · Linux CI green · senior-accepted (QB-03)</div>
       </a>
 
       <a href="https://github.com/arshad8049/quaterback/blob/phase-0-1-hardening/spikes/qb-02/e1-auth/results/e1-probe-20261002T222747Z/results.md" style="display: block; text-decoration: none; padding: 30px 32px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
@@ -43,15 +43,29 @@
       </a>
 
       <a href="https://github.com/arshad8049/quaterback/blob/phase-0-1-hardening/docs/review/issue-register.md" style="display: block; text-decoration: none; padding: 30px 32px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
-        <div style="font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1; color: #6FBF9F; margin-bottom: 12px;">38 findings</div>
-        <div style="font-size: 18px; font-weight: 600; color: #F4F1EA; margin-bottom: 8px;">Our own review, tracked in the open</div>
-        <div style="font-size: 16px; line-height: 1.6; color: #8A948F; margin-bottom: 16px;">Thirty-eight issues from an internal engineering review of Quarterback, from shell injection to how we score ourselves. Phase 0–1 fixes are in senior review, each with a failing test written before the fix.</div>
+        <div style="font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1; color: #6FBF9F; margin-bottom: 12px;">10 / 38</div>
+        <div style="font-size: 18px; font-weight: 600; color: #F4F1EA; margin-bottom: 8px;">Review findings fixed and signed off</div>
+        <div style="font-size: 16px; line-height: 1.6; color: #8A948F; margin-bottom: 16px;">Our internal engineering review found 38 issues, from shell injection to how we score ourselves. Ten are fixed and signed off by a senior reviewer, each with a failing test written before the fix. The rest are tracked in the open.</div>
         <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6FBF9F;">Public issue register</div>
+      </a>
+
+      <a href="https://github.com/arshad8049/quaterback/blob/phase-0-1-hardening/test/unit/phase2-seeds.test.js" style="display: block; text-decoration: none; padding: 30px 32px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
+        <div style="font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1; color: #6FBF9F; margin-bottom: 12px;">3 / 3</div>
+        <div style="font-size: 18px; font-weight: 600; color: #F4F1EA; margin-bottom: 8px;">Known false passes, closed</div>
+        <div style="font-size: 16px; line-height: 1.6; color: #8A948F; margin-bottom: 16px;">Our review found three ways a broken change could still be marked PASS: a task that was only a question, a judge’s “not implemented” read as a yes, and a crashed test run read as green. All three are now permanent tests, and none of them can pass.</div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6FBF9F;">Senior-accepted · QB-06, QB-07, QB-08</div>
+      </a>
+
+      <a href="https://github.com/arshad8049/quaterback/blob/phase-0-1-hardening/test/unit/run-store.test.js" style="display: block; text-decoration: none; padding: 30px 32px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
+        <div style="font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1; color: #6FBF9F; margin-bottom: 12px;">Every run</div>
+        <div style="font-size: 18px; font-weight: 600; color: #F4F1EA; margin-bottom: 8px;">Replayable from its own evidence</div>
+        <div style="font-size: 16px; line-height: 1.6; color: #8A948F; margin-bottom: 16px;">Each run keeps a versioned record: the exact starting commit, the agent version, the test report and the checks. Replaying it recomputes the verdict, and a record whose outcome its evidence does not support is flagged.</div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6FBF9F;">Senior-accepted · QB-38</div>
       </a>
     </div>
 
     <div style="margin-top: 28px; padding: 22px 28px; background: #12100E; border-left: 2px solid #E08A4C; border-radius: 4px; font-size: 16px; line-height: 1.65; color: #9AA5A0;">
-      <strong style="color: #C6CFCB;">What isn't done yet:</strong> the sandbox is built and tested (99 unit + 53 Docker integration tests), but not yet released. Linux CI validation of the full product suite and senior sign-off come first. Read the <a href="https://github.com/arshad8049/quaterback/blob/phase-0-1-hardening/docs/security/agent-sandbox.md" style="color: #6FBF9F; text-decoration: none; border-bottom: 1px solid rgba(111,191,159,0.4);">sandbox design and threat model</a>.
+      <strong style="color: #C6CFCB;">What isn't done yet:</strong> the sandbox and the stricter verification rules run on Linux CI with every push (Node 20, 22 and 24), and ten fixes are signed off by a senior reviewer. None of it is released yet: it lives on our hardening branch until Phase 1 closes. Executable acceptance checks (QB-16) are in review. Read the <a href="https://github.com/arshad8049/quaterback/blob/phase-0-1-hardening/docs/security/agent-sandbox.md" style="color: #6FBF9F; text-decoration: none; border-bottom: 1px solid rgba(111,191,159,0.4);">sandbox design and threat model</a>.
     </div>
   </div>
 </div>
