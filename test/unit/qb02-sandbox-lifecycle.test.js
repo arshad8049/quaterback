@@ -1,11 +1,12 @@
 /**
  * QB-02 step 2 — supervisor protocol, reaper and admission (agent-sandbox.md
- * §8.1, §8.3, G5). Runs the real detached supervisor with shortened timings;
- * no Docker needed (no containers exist, so Docker calls find nothing to kill).
+ * §8.1, §8.3, G5). Runs the real detached supervisor with shortened timings
+ * against an empty stub Docker (test/helpers/empty-docker.js), so no Docker is needed.
  * The Docker scenarios (SIGKILL, evasive payload, children, hung client) are in
  * test/integration/qb02-sandbox-lifecycle.test.js.
  */
 
+require('../helpers/empty-docker');               // before any lib/sandbox module reads QB_DOCKER_BIN
 process.env.QB_SANDBOX_RENEW_MS = '300';
 process.env.QB_SANDBOX_LEASE_TIMEOUT_MS = '1500';
 process.env.QB_SANDBOX_KILL_GRACE_MS = '500';

@@ -12,19 +12,38 @@ on:
 
 jobs:
   unit:
-    # Deterministic regression gate. No secrets, no model, no network services.
+    # Deterministic regression gate. No secrets, no model, no network services,
+    # no Docker (the supervisor tests use an empty stub). Every Node major the
+    # package declares (engines: >=20) that is still maintained.
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22, 24]
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      QB_CI_JOB_TIMEOUT_MINUTES: '15'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: ${{ matrix.node }}
       - name: Install root + layer packages
         run: |
           npm ci
           for d in intent agent context verify memory bench; do (cd "$d" && npm ci); done
       - name: Unit tests
-        run: npm test
+        run: npm run test:ci
+      - name: Evidence (runtime, timeouts, models, cost, counts, known defects)
+        if: always()
+        run: node scripts/ci-evidence.js unit-node${{ matrix.node }} unit.tap ci-evidence.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: evidence-unit-node${{ matrix.node }}
+          path: |
+            ci-evidence.json
+            unit.tap
 
   integration:
     # Sandbox integration suite (QB-02): real Docker Engine on the supported
@@ -33,6 +52,8 @@ jobs:
     timeout-minutes: 60
     runs-on: ubuntu-24.04
     needs: unit
+    env:
+      QB_CI_JOB_TIMEOUT_MINUTES: '60'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -45,9 +66,22 @@ jobs:
       - name: Environment
         run: docker version; uname -a; git --version
       - name: Integration tests
-        run: npm run test:integration
+        run: npm run test:integration:ci
       - name: T-LIFE — Docker daemon stopped mid-run (stops dockerd; runs alone, last)
         if: always()
-        run: npm run test:daemon
+        run: npm run test:daemon:ci
         env:
           QB_DOCKER_DAEMON_CONTROL: '1'
+      - name: Evidence (runtime, timeouts, models, cost, counts)
+        if: always()
+        run: |
+          node scripts/ci-evidence.js integration integration.tap ci-evidence-integration.json
+          node scripts/ci-evidence.js daemon-stop daemon.tap ci-evidence-daemon.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: evidence-integration
+          path: |
+            ci-evidence-*.json
+            integration.tap
+            daemon.tap
