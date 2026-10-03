@@ -95,17 +95,37 @@ The sandbox is implemented in `lib/sandbox/` and `sandbox/`, in seven reviewable
 4. **Stage deadlines:** the CLI stops the agent at its deadline and still captures its partial edits (QB-22). The supervisor holds a backstop deadline (stage + grace + 5 min) and the lease.
 5. **Log options:** `--log-opt compress=false` is required with `max-file=1`.
 
-**Still open before QB-02 can close:**
+**Status at end of day 2026-10-03: QB-02 (KAN-2) accepted by the senior reviewer.**
 
-- **CI fix:** `c2767aa`'s unit job ran no tests. Node 22.23 reads a directory given to `node --test` as one test file. Fixed in `ab1f4bf` (file globs); the Linux integration run follows the push.
-- **T-POLICY:** the real Claude binary through the INFERENCE proxy, plus validating the managed-settings keys. This waits for the E1 watch to finish, so the user's login isn't exercised during the experiment.
-- **The E1 watch result:** whether in-run refresh may stay excluded.
-- **Linux CI run** of the full integration suite.
-- **T-LIFE variants: implemented, Linux CI pending.**
-  - *Wall-clock jump* (`test/unit/qb02-sandbox-lifecycle.test.js`): ±1 day jumps in the CLI and in the real supervisor. This found and fixed CLI-side waits in `lease.js` that used the wall clock (forward jump: a spurious `SUPERVISOR_NOT_READY`; backward: a hang).
-  - *Docker stopped:* a portable test with a Docker CLI that stops answering (`test/integration/qb02-sandbox-lifecycle.test.js`), and a real `systemctl stop docker` on Linux CI (`test/daemon/`, its own CI step). This found and fixed a G5c defect: an unanswered `docker ps` was read as "nothing running", so the supervisor committed a normal `timeout` and reported `left: 0` without checking. Now an unanswered query is "unknown". The supervisor retries with backoff (up to 10 min, then the reaper), records `infra_error / docker_unavailable`, and removes everything once Docker answers.
+Done since the step-7 commit (all on Linux CI, ubuntu-24.04 + Docker Engine; unit tests on Node 20/22/24):
+- **CI:** `node --test <dir>` loaded nothing on Node 22.23; fixed with file globs (`ab1f4bf`).
+- **Linux-only seed defect:** uid 10001 couldn't enter 0700 checkouts. Seed is now two containers, ①a reading as the host uid (`1bf78af`, design change 1 revised). Images are content-hash tagged (design change 6).
+- **T-LIFE variants:**
+  - *wall-clock jump* found CLI-side waits on the wall clock (`3ab394e`, `c81c9bd`);
+  - *Docker stopped* found the G5c "unanswered = nothing running" defect (`25796cd`). Tested portably and with a real `systemctl stop docker` (`test/daemon/`).
+- **Later sandbox stages, from Phase 2 work:**
+  - ⑤ writes a machine-readable test report (QB-06);
+  - ⑥ runs registry-validated executable checks (QB-16);
+  - the no-change snapshot export (QB-22) runs on the tested tree.
+
+**E1 watch result (2026-10-02 22:28 → 2026-10-03 06:46 UTC; `spikes/qb-02/e1-auth/results/e1-watch-20261002T222841Z/`).** This needs a design decision and is not fixed.
+- **What happened:**
+  - runs from a disposable copy of the stored subscription login succeeded for about 8 h;
+  - from about 12 min before the stored access token expired, runs failed;
+  - after expiry, the copy's in-run refresh **rotated the refresh token** (`refreshed_in_run=1`, `rotated=1`);
+  - because Mode S never writes back (by design), the stored login was left with a refresh token that no longer worked;
+  - QB's **pre-run refresh then failed** ("OAuth session expired and could not be refreshed"; W3 FAIL), and later runs failed (rc=1).
+- **What it means:** Mode S as built keeps a subscription login working for about one access-token lifetime, then the user must `qb auth login` again. Mode K (API key) is unaffected.
+- **Harness note:** the harness's own W2 summary line says later runs "still succeeded", but the timeline shows they failed. The timeline is authoritative.
+- **Options for the reviewer:**
+  - (a) accept: re-login once per token lifetime, detected cleanly as `AUTH_REFRESH_FAILED`;
+  - (b) a guarded write-back of a *rotated refresh token only*, under the auth lock;
+  - (c) refresh earlier than the stage deadline plus margin, before the stored token is near expiry.
+
+**Still open:**
+- **T-POLICY:** the real Claude binary through the INFERENCE proxy, plus validating the managed-settings keys. It needs a working login (`qb auth login` / `run.sh login`) after the E1 result above.
+- **The Mode S decision** above (E1).
 - **§5.5:** the authentication-obligations check (beta blocker).
-- **Senior review** of the design changes above.
 
 ### Still open from v2 (QB-03)
 

@@ -1,0 +1,5 @@
+id	result	detail
+W0.start	OBSERVED	stored token expires in 479 min; checking every 15 min for up to 12 h with copy 'creds'
+W1.session_length	OBSERVED	stored access token expired; runs after expiry had to refresh in-run (refreshed_in_run=1)
+W2.rotation	OBSERVED	in-run refresh rotated the refresh token, but later runs from the unchanged stored copy still succeeded (old refresh token remained valid during this window)
+W3.pre_run_refresh	FAIL	pre-run refresh rc=1; following run rc=1 reply_ok=0 (stored login may need 'run.sh login' again)

@@ -36,7 +36,18 @@ Rules:
 | All review tickets | Label `eng-review-v1` |
 | Status | Per the table above, with the dated explanation in the description |
 
-## Current status at migration (2026-10-02)
+## Current status (end of day 2026-10-03)
+
+Jira is authoritative; [`../issue-register.md`](../issue-register.md) keeps the dated closure log.
+
+| Status | Tickets |
+|---|---|
+| Accepted | QB-01, 02, 03, 04, 05, 06, 07, 08, 26, 38 |
+| In Review | QB-16 (`549cc17`), QB-22 (`a4641b5`, 3rd submission) |
+| Pending | QB-36 (repo fix done; the retired Netlify site is left running by owner decision) |
+| To Do | everything else |
+
+## Status at migration (2026-10-02)
 
 | Status | Tickets |
 |---|---|

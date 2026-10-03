@@ -1,0 +1,110 @@
+22:28:42 RESULT W0.start OBSERVED — stored token expires in 479 min; checking every 15 min for up to 12 h with copy 'creds'
+--- fixture on qb-e1-run-1790980122-22348 (rc=0)
+OK
+22:28:45 tick: stored_exp=479min rc=0 ok=1 refreshed=0 rotated=0 stored_changed=0
+--- fixture on qb-e1-run-1790981026-32616 (rc=0)
+OK
+22:43:48 tick: stored_exp=464min rc=0 ok=1 refreshed=0 rotated=0 stored_changed=0
+--- fixture on qb-e1-run-1790981929-10407 (rc=0)
+OK
+22:58:52 tick: stored_exp=449min rc=0 ok=1 refreshed=0 rotated=0 stored_changed=0
+--- fixture on qb-e1-run-1790982832-8820 (rc=0)
+OK
+23:13:56 tick: stored_exp=434min rc=0 ok=1 refreshed=0 rotated=0 stored_changed=0
+--- fixture on qb-e1-run-1790983737-9770 (rc=0)
+OK
+23:29:02 tick: stored_exp=419min rc=0 ok=1 refreshed=0 rotated=0 stored_changed=0
+--- fixture on qb-e1-run-1790984642-23484 (rc=0)
+OK
+23:44:07 tick: stored_exp=403min rc=0 ok=1 refreshed=0 rotated=0 stored_changed=0
+--- fixture on qb-e1-run-1790985548-13046 (rc=0)
+OK
+23:59:10 tick: stored_exp=388min rc=0 ok=1 refreshed=0 rotated=0 stored_changed=0
+--- fixture on qb-e1-run-1790986451-23757 (rc=0)
+OK
+00:14:14 tick: stored_exp=373min rc=0 ok=1 refreshed=0 rotated=0 stored_changed=0
+--- fixture on qb-e1-run-1790987355-25615 (rc=0)
+OK
+00:29:18 tick: stored_exp=358min rc=0 ok=1 refreshed=0 rotated=0 stored_changed=0
+--- fixture on qb-e1-run-1790988259-10150 (rc=0)
+OK
+00:44:22 tick: stored_exp=343min rc=0 ok=1 refreshed=0 rotated=0 stored_changed=0
+--- fixture on qb-e1-run-1790989162-3772 (rc=0)
+OK
+00:59:26 tick: stored_exp=328min rc=0 ok=1 refreshed=0 rotated=0 stored_changed=0
+--- fixture on qb-e1-run-1790990066-16048 (rc=0)
+OK
+01:14:30 tick: stored_exp=313min rc=0 ok=1 refreshed=0 rotated=0 stored_changed=0
+--- fixture on qb-e1-run-1790990970-6035 (rc=0)
+OK
+01:29:33 tick: stored_exp=298min rc=0 ok=1 refreshed=0 rotated=0 stored_changed=0
+--- fixture on qb-e1-run-1790991874-6075 (rc=0)
+OK
+01:44:37 tick: stored_exp=283min rc=0 ok=1 refreshed=0 rotated=0 stored_changed=0
+--- fixture on qb-e1-run-1790992777-31130 (rc=0)
+OK
+01:59:40 tick: stored_exp=268min rc=0 ok=1 refreshed=0 rotated=0 stored_changed=0
+--- fixture on qb-e1-run-1790993681-11822 (rc=0)
+OK
+02:14:44 tick: stored_exp=253min rc=0 ok=1 refreshed=0 rotated=0 stored_changed=0
+--- fixture on qb-e1-run-1790994584-8904 (rc=0)
+OK
+02:29:47 tick: stored_exp=238min rc=0 ok=1 refreshed=0 rotated=0 stored_changed=0
+--- fixture on qb-e1-run-1790995488-26212 (rc=0)
+OK
+02:44:51 tick: stored_exp=223min rc=0 ok=1 refreshed=0 rotated=0 stored_changed=0
+--- fixture on qb-e1-run-1790996392-29745 (rc=0)
+OK
+02:59:55 tick: stored_exp=208min rc=0 ok=1 refreshed=0 rotated=0 stored_changed=0
+--- fixture on qb-e1-run-1790997296-29037 (rc=0)
+OK
+03:15:00 tick: stored_exp=193min rc=0 ok=1 refreshed=0 rotated=0 stored_changed=0
+--- fixture on qb-e1-run-1790998201-14637 (rc=0)
+OK
+03:30:04 tick: stored_exp=177min rc=0 ok=1 refreshed=0 rotated=0 stored_changed=0
+--- fixture on qb-e1-run-1790999104-30225 (rc=0)
+OK
+03:45:07 tick: stored_exp=162min rc=0 ok=1 refreshed=0 rotated=0 stored_changed=0
+--- fixture on qb-e1-run-1791000007-30905 (rc=0)
+OK
+04:00:12 tick: stored_exp=147min rc=0 ok=1 refreshed=0 rotated=0 stored_changed=0
+--- fixture on qb-e1-run-1791000913-13051 (rc=0)
+OK
+04:15:16 tick: stored_exp=132min rc=0 ok=1 refreshed=0 rotated=0 stored_changed=0
+--- fixture on qb-e1-run-1791001816-24879 (rc=0)
+OK
+04:30:19 tick: stored_exp=117min rc=0 ok=1 refreshed=0 rotated=0 stored_changed=0
+--- fixture on qb-e1-run-1791002720-6379 (rc=0)
+OK
+04:45:23 tick: stored_exp=102min rc=0 ok=1 refreshed=0 rotated=0 stored_changed=0
+--- fixture on qb-e1-run-1791003624-25454 (rc=0)
+OK
+05:00:27 tick: stored_exp=87min rc=0 ok=1 refreshed=0 rotated=0 stored_changed=0
+--- fixture on qb-e1-run-1791004528-6940 (rc=0)
+OK
+05:15:31 tick: stored_exp=72min rc=0 ok=1 refreshed=0 rotated=0 stored_changed=0
+--- fixture on qb-e1-run-1791005432-30720 (rc=0)
+OK
+05:30:37 tick: stored_exp=57min rc=0 ok=1 refreshed=0 rotated=0 stored_changed=0
+--- fixture on qb-e1-run-1791006338-22561 (rc=0)
+OK
+05:45:43 tick: stored_exp=42min rc=0 ok=1 refreshed=0 rotated=0 stored_changed=0
+--- fixture on qb-e1-run-1791007244-24342 (rc=0)
+OK
+06:00:47 tick: stored_exp=27min rc=0 ok=1 refreshed=0 rotated=0 stored_changed=0
+--- fixture on qb-e1-run-1791008148-22671 (rc=1)
+You've hit your session limit · resets 7:40am (UTC)
+06:15:50 tick: stored_exp=12min rc=1 ok=0 refreshed=0 rotated=0 stored_changed=0
+--- fixture on qb-e1-run-1791009050-9895 (rc=1)
+You've hit your session limit · resets 7:40am (UTC)
+06:30:53 tick: stored_exp=-3min rc=1 ok=0 refreshed=1 rotated=1 stored_changed=0
+--- fixture on qb-e1-run-1791009954-23044 (rc=1)
+Failed to authenticate: OAuth session expired and could not be refreshed
+06:45:57 tick: stored_exp=-18min rc=1 ok=0 refreshed=1 rotated=1 stored_changed=0
+06:45:57 RESULT W1.session_length OBSERVED — stored access token expired; runs after expiry had to refresh in-run (refreshed_in_run=1)
+06:45:57 RESULT W2.rotation OBSERVED — in-run refresh rotated the refresh token, but later runs from the unchanged stored copy still succeeded (old refresh token remained valid during this window)
+Failed to authenticate: OAuth session expired and could not be refreshed
+--- fixture on qb-e1-run-1791009959-2455 (rc=1)
+Failed to authenticate: OAuth session expired and could not be refreshed
+06:46:00 RESULT W3.pre_run_refresh FAIL — pre-run refresh rc=1; following run rc=1 reply_ok=0 (stored login may need 'run.sh login' again)
+06:46:00 results: /Users/Arshad_1/Desktop/millionaire/quaterback/spikes/qb-02/e1-auth/results/e1-watch-20261002T222841Z/results.md
