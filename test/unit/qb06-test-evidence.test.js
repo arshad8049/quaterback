@@ -186,7 +186,10 @@ describe('live: the real reporter on this Node', { skip: MAJOR < 22 && `node ${p
       fs.writeFileSync(path.join(dir, 'test', 'x.test.js'), body);
       const out = path.join(dir, 'r.ndjson');
       const r = spawnSync(process.execPath, ['--test', 'test/x.test.js'], { cwd: dir, encoding: 'utf8',
-        env: { ...process.env, NODE_OPTIONS: `--test-reporter=spec --test-reporter-destination=stdout --test-reporter=${REPORTER} --test-reporter-destination=${out}` } });
+        // NODE_TEST_CONTEXT (set by the outer test runner) would make the nested run
+        // report to its parent instead of to reporters; the sandbox never has it.
+        env: { ...Object.fromEntries(Object.entries(process.env).filter(([k]) => k !== 'NODE_TEST_CONTEXT')),
+          NODE_OPTIONS: `--test-reporter=spec --test-reporter-destination=stdout --test-reporter=${REPORTER} --test-reporter-destination=${out}` } });
       return classifyTestRun(ran(r.status, fs.existsSync(out) ? fs.readFileSync(out, 'utf8') : null));
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   };
