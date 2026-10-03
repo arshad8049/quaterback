@@ -3,6 +3,7 @@ const { runChecks }  = require('./checker');
 const { judgeAll }   = require('./judge');
 const { aggregate, FAILED_EXECUTION } = require('./verdict');
 const { VerificationReportSchema } = require('./schema');
+const { contractState, stateReason } = require('../intent/contract-state');
 
 /**
  * Full Layer 4 verification:
@@ -16,6 +17,10 @@ const { VerificationReportSchema } = require('./schema');
  * @returns {object}            - Validated VerificationReport
  */
 async function verify(contract, context, execution, options = {}) {
+  // Only a finalized contract can be verified (QB-08): no checks, no judge.
+  const cs = contractState(contract);
+  if (cs.state !== 'finalized') return notFinalizedReport(contract, execution, stateReason(cs));
+
   const diff     = execution?.diff     || null;
   const repoPath = options.repoPath
     || execution?.repo_path
@@ -96,6 +101,23 @@ async function verify(contract, context, execution, options = {}) {
   };
 
   return VerificationReportSchema.parse(report);
+}
+
+/** The report for a contract that is not finalized: unresolved, nothing judged. */
+function notFinalizedReport(contract, execution, reason) {
+  return VerificationReportSchema.parse({
+    id:               randomUUID(),
+    contract_id:      (contract && contract.id) || 'unknown',
+    execution_id:     execution?.id || null,
+    generated_at:     new Date().toISOString(),
+    verdict:          'unresolved',
+    contract_state:   reason,
+    criteria_results: [],
+    failures:         [],
+    test_results:     null,
+    scope_violations: [],
+    repair_hints:     [],
+  });
 }
 
 module.exports = { verify };

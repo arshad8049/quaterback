@@ -29,6 +29,7 @@ const VerificationReportSchema = z.object({
   execution_id:     z.string().nullable(),
   generated_at:     z.string().datetime(),
   verdict:          z.enum(['pass', 'fail', 'partial', 'no-diff', 'error', 'unresolved']),
+  contract_state:   z.string().optional(),       // set when the contract was not finalized (QB-08)
   criteria_results: z.array(CriterionResultSchema),
   failures:         z.array(z.string()),
   test_results:     TestResultsSchema.nullable(),

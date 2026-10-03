@@ -21,10 +21,11 @@ const { verify } = require('../../verify/verifier');
 
 const CHANGE = { file: 'src/a.js', status: 'M', additions: 1, deletions: 1, binary: false };
 const DIFF = 'diff --git a/src/a.js b/src/a.js\n--- a/src/a.js\n+++ b/src/a.js\n@@ -1 +1 @@\n-const a = 1;\n+const a = 2;\n';
-const contract = { id: 'c', acceptance_criteria: [{ id: 'AC-1', criterion: 'a is 2', met: null }] };
+// A finalized contract: only these reach the agent and verification (QB-08).
+const contract = { id: 'c', goal: 'Set a to 2', acceptance_criteria: [{ id: 'AC-1', criterion: 'a is 2', met: null }], clarifying_question: null };
 
 function run(result) {
-  return execute('task', { id: 'c' }, null, { agent: 'claude-code', repoPath: '/repo', runSandboxed: async () => result });
+  return execute('task', contract, null, { agent: 'claude-code', repoPath: '/repo', runSandboxed: async () => result });
 }
 async function verdictFor(result, judge = { met: true, evidence: 'ok' }) {
   const exec = await run(result);
@@ -67,7 +68,7 @@ describe('QB-22 execution states (sandbox results)', () => {
 
   test('success without edits is no_change; a genuine dry-run is dry_run', async () => {
     assert.equal((await run({ status: 'no_change' })).status, 'no_change');
-    const dry = await execute('task', { id: 'c' }, null, { agent: 'dry-run', repoPath: '/repo' });
+    const dry = await execute('task', contract, null, { agent: 'dry-run', repoPath: '/repo' });
     assert.equal(dry.status, 'dry_run');
   });
 });

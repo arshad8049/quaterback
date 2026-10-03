@@ -53,7 +53,7 @@ test('the verifier never runs repository tests on the host', () => {
 test('with the pipeline injected, claude-code goes through it (and only it)', async () => {
   const { execute } = require('../../agent/runner');
   let calls = 0;
-  const r = await execute('brief', { id: 'c' }, null, {
+  const r = await execute('brief', { id: 'c', goal: 'g', acceptance_criteria: [{ id: 'AC-1', criterion: 'c' }] }, null, {
     agent: 'claude-code', repoPath: '/nonexistent',
     runSandboxed: async (o) => { calls++; assert.equal(o.repoPath, '/nonexistent'); return { status: 'no_change', sandbox: { run_id: 'x' } }; },
   });

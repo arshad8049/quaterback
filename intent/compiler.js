@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { randomUUID } = require('crypto');
 const { TaskContractSchema, ClarifyingResponseSchema } = require('./schema');
+const { contractState } = require('./contract-state');
 const { detectAmbiguity } = require('./dsa');
 
 const OLLAMA_URL = process.env.QB_OLLAMA_URL || 'http://127.0.0.1:11434';
@@ -93,18 +94,15 @@ function parseAndValidate(text, request) {
   if (!Array.isArray(raw.ambiguity_flags))   raw.ambiguity_flags   = [];
   if (raw.clarifying_question === undefined) raw.clarifying_question = null;
 
-  // Acceptance criteria — fall back to generating from required_behavior if model dropped them
-  if (!Array.isArray(raw.acceptance_criteria) || raw.acceptance_criteria.length === 0) {
-    raw.acceptance_criteria = (raw.required_behavior || []).map((b, i) => ({
-      id: `AC-${i + 1}`, criterion: typeof b === 'string' ? b : extractString(b), met: null
-    }));
-  } else {
-    raw.acceptance_criteria = raw.acceptance_criteria.map((ac, i) => ({
-      id:        ac.id || `AC-${i + 1}`,
-      criterion: typeof ac.criterion === 'string' ? ac.criterion : extractString(ac) || `Criterion ${i + 1}`,
+  // Acceptance criteria are never invented (QB-08): if the model gave none, the
+  // contract has none and the finalization gate (intent/contract-state) blocks it.
+  raw.acceptance_criteria = Array.isArray(raw.acceptance_criteria)
+    ? raw.acceptance_criteria.map((ac, i) => ({
+      id:        (ac && ac.id) || `AC-${i + 1}`,
+      criterion: ac && typeof ac.criterion === 'string' ? ac.criterion : (ac && extractString(ac)) || '',
       met:       null,
-    }));
-  }
+    }))
+    : [];
 
   // verification_plan — fall back to a minimal plan if missing
   if (!Array.isArray(raw.verification_plan) || raw.verification_plan.length === 0) {
@@ -124,7 +122,12 @@ function parseAndValidate(text, request) {
     repo_path: null,
   };
 
-  return TaskContractSchema.parse(contract);
+  // A contract the gate will reject (no ACs, missing goal, …) is returned as is,
+  // so callers report it as invalid_contract instead of crashing on a schema error.
+  const parsed = TaskContractSchema.safeParse(contract);
+  if (parsed.success) return parsed.data;
+  if (contractState(contract).state === 'invalid') return contract;
+  throw parsed.error;
 }
 
 function extractString(obj) {

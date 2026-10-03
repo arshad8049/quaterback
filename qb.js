@@ -25,6 +25,7 @@ const memory           = require('./memory');
 const runStore         = require('./run/store');
 const { artifactFile } = require('./lib/fsafe');
 const { inputFromReport } = require('./verify/verdict');
+const { contractState, stateReason } = require('./intent/contract-state');
 const { git: gitProc }  = require('./lib/proc');
 const { AGENT_VERSION } = require('./lib/sandbox/agent');
 
@@ -57,6 +58,7 @@ program
   .option('--repo <path>',         'Path to the target repository', process.cwd())
   .option('--agent <type>',        'Coding agent: dry-run | claude-code | manual', 'dry-run')
   .option('--max-retries <n>',     'Max repair loop attempts', '3')
+  .option('--clarify <answer>',    'Answer to the intent compiler\'s clarifying question (noninteractive runs)')
   .option('--no-llm-context',      'Skip LLM enrichment in Layer 2 (faster)')
   .option('--no-llm-verify',       'Skip LLM judgment in Layer 4 (DSA only)')
   .option('--save',                'Save all artifacts to disk')
@@ -120,23 +122,43 @@ async function main() {
   const t1 = Date.now();
   let contract = await compile(request);
 
-  // Handle clarifying question — ask the user and re-compile
-  if (contract.clarifying_question) {
+  // Clarification (QB-08): one round. The answer comes from --clarify, or an
+  // interactive prompt; noninteractive runs stop with the question instead.
+  if (contractState(contract).state === 'needs_clarification') {
     console.log(`\n  ⚠  Ambiguity detected:\n`);
     if (contract.ambiguity_flags?.length) {
       contract.ambiguity_flags.forEach(f => console.log(`     • ${f}`));
     }
     console.log(`\n  ❓ ${contract.clarifying_question}\n`);
 
-    const answer = await prompt('  Your answer → ');
-    if (!answer.trim()) {
-      console.log('\n  No answer provided. Exiting.\n');
-      run.finish('BLOCKED', { reason: 'clarification required; no answer provided' });
-      process.exit(1);
+    let answer = (opts.clarify || '').trim();
+    if (!answer && process.stdin.isTTY) answer = (await prompt('  Your answer → ')).trim();
+    if (!answer) {
+      console.log(`  Not answered. Re-run with --clarify "<answer>" to continue.\n`);
+      run.event('contract.needs_clarification', { question: contract.clarifying_question, round: 1 });
+      run.finish('BLOCKED', { reason: 'needs_clarification' });
+      process.exitCode = 2;
+      return;
     }
 
     log('L1', 'Re-compiling with clarification...');
-    contract = await compile(request, null, answer.trim());
+    contract = await compile(request, null, answer);
+  }
+
+  // Only a finalized contract may reach the agent or verification.
+  const cs = contractState(contract);
+  if (cs.state !== 'finalized') {
+    if (cs.state === 'needs_clarification') {
+      console.log(`\n  ❓ Still ambiguous after one clarification: ${cs.question}`);
+      console.log('     Rephrase the request with that detail and run again.\n');
+      run.event('contract.needs_clarification', { question: cs.question, round: 2 });
+    } else {
+      console.log(`\n  ✗ The intent compiler produced an unusable contract: ${cs.errors.join('; ')}\n`);
+      run.event('contract.invalid', { errors: cs.errors });
+    }
+    run.finish('BLOCKED', { reason: stateReason(cs) });
+    process.exitCode = 2;
+    return;
   }
 
   log('L1', `Contract ready  (${Date.now() - t1}ms)`);

@@ -30,6 +30,7 @@ const { runBaseline }  = require('./baseline');
 const { createWorkspace } = require('../lib/workspace');
 const runStore         = require('../run/store');
 const { AGENT_VERSION } = require('../lib/sandbox/agent');
+const { contractState, stateReason } = require('../intent/contract-state');
 const { inputFromReport } = require('../verify/verdict');
 
 program
@@ -117,7 +118,9 @@ async function main() {
       printQBResult(result.qb);
 
       // ── Baseline run ───────────────────────────────────────────────────────
-      if (opts.baseline !== false) {
+      if (opts.baseline !== false && result.qb.blocked) {
+        console.log(`\n  [BASE] Skipped: the contract is not finalized (${result.qb.blocked}).`);
+      } else if (opts.baseline !== false) {
         console.log('\n  [BASE] Running raw baseline (no pipeline)...');
         result.baseline = await withWorkspace(repoPath, task, 'base', ws => runBaselineTask(task, ws, result.qb.contract));
         printBaselineResult(result.baseline);
@@ -219,6 +222,20 @@ async function runQB(task, ws) {
   out.ac_count     = contract.acceptance_criteria?.length || 0;
   run.setContract(contract);
   console.log(`     L1 ${out.timing.l1_ms}ms — ${out.ac_count} ACs`);
+
+  // Only a finalized contract may reach an agent (QB-08). The benchmark has no
+  // one to answer a clarification, so the task is blocked in both arms.
+  const cs = contractState(contract);
+  if (cs.state !== 'finalized') {
+    console.log(`     ✗ contract ${cs.state}${cs.question ? `: ${cs.question}` : cs.errors ? `: ${cs.errors.join('; ')}` : ''} — task blocked`);
+    run.event(cs.state === 'needs_clarification' ? 'contract.needs_clarification' : 'contract.invalid', cs);
+    Object.assign(out, {
+      blocked: stateReason(cs), attempts: [], final_verdict: cs.state === 'needs_clarification' ? 'needs_clarification' : 'invalid_contract',
+      first_verdict: 'n/a', total_attempts: 0, files_changed: [],
+    });
+    out.timing.total_ms = out.timing.l1_ms;
+    return out;
+  }
 
   // L2
   t = Date.now();
@@ -349,7 +366,8 @@ async function withWorkspace(source, task, arm, fn) {
   try {
     const out = await fn(ws);
     const verdict = arm === 'qb' ? out.final_verdict : out.verdict;
-    ws.run.finish(runStore.outcomeFor(verdict), { legacy_verdict: verdict });
+    if (out.blocked) ws.run.finish('BLOCKED', { reason: out.blocked });
+    else ws.run.finish(runStore.outcomeFor(verdict), { legacy_verdict: verdict });
     out.run_id = ws.run.id;
     out.workspace = { base_rev: baseRev, source_commit: ws.sourceCommit, base_sha: ws.baseSha, base_tree: ws.baseTree, mode: ws.mode };
     return out;

@@ -30,6 +30,9 @@ function aggregate({ hasDiff, criteriaResults, testResults, executionStatus = nu
   if (executionStatus === 'dry_run' || executionStatus === 'dry-run') return { verdict: 'no-diff', failures };
   if (executionStatus === 'no_change') return { verdict: 'unresolved', failures };
 
+  // Nothing to verify against can never be approved (QB-08).
+  if (!criteriaResults.length) return { verdict: 'unresolved', failures };
+
   let verdict;
   if (!hasDiff)                    verdict = 'no-diff';
   else if (failures.length > 0)    verdict = 'fail';

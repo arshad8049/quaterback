@@ -1,4 +1,5 @@
 const { randomUUID } = require('crypto');
+const { contractState, stateReason } = require('../intent/contract-state');
 const { ExecutionResultSchema } = require('./schema');
 const { runSandboxed } = require('../lib/sandbox/pipeline');
 
@@ -29,7 +30,11 @@ async function execute(briefing, contract, context, options = {}) {
     exit_code: null, signal: null, stderr_tail: null, error: null,
   };
 
-  if (agent === 'claude-code') {
+  // Only a finalized contract may reach an agent (QB-08).
+  const cs = contractState(contract);
+  if (cs.state !== 'finalized') {
+    outcome = { ...outcome, status: 'blocked', error: `contract ${stateReason(cs)}` };
+  } else if (agent === 'claude-code') {
     outcome = await runAgentSandboxed(briefing, repo, options);
   } else if (agent === 'manual') {
     // Print briefing and wait for the dev to run their agent

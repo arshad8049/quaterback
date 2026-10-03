@@ -14,7 +14,7 @@ const { makeRepo } = require('../helpers/tmprepo');
 
 const AFFIRMATIVE = ollamaReply({ met: true, evidence: 'looks implemented', repair: null });
 
-test('QB-08 Recipe A: clarification-only contract never reaches PASS', { todo: 'Phase 2 — QB-08' }, async () => {
+test('QB-08 Recipe A: clarification-only contract never reaches PASS', async () => {
   const { verify } = require('../../verify/verifier');
   const r = await verify(
     { id: 'probe', clarifying_question: 'Which behavior?' },
