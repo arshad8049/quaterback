@@ -19,7 +19,7 @@ const crypto = require('crypto');
 
 const D = require('../../lib/sandbox/docker');
 const { runSandboxed } = require('../../lib/sandbox/pipeline');
-const { hardened } = require('../../lib/sandbox/workspace');
+const { hardened, createWorkspace } = require('../../lib/sandbox/workspace');
 const { AGENT_IMAGE } = require('../../lib/sandbox/agent');
 const { aggregate } = require('../../verify/verdict');
 const { verify } = require('../../verify/verifier');
@@ -261,6 +261,39 @@ describe('QB-02 done-when through the real pipeline', { skip: !ENABLED && 'set Q
       assert.deepEqual(s.skipped.map((x) => [x.path, x.reason]),
         [['big.txt', 'too_large'], ['link.js', 'not_regular'], ['src', 'not_regular'], ['nope.js', 'missing']]);
     } finally { repo.cleanup(); }
+  });
+
+  test('KAN-22 re-review: a newline filename is never split into other files; tab, quote and unicode names are exact', async () => {
+    const repo = fixtureRepo((files) => {
+      NODE_TEST(files);
+      Object.assign(files, { 'a': 'file a\n', 'b': 'file b\n', 'a\nb': 'the newline file\n',
+        'tab\tname.js': 'tab\n', 'quote"d.js': 'quoted\n', 'späce ü.js': 'unicode\n' });
+    });
+    try {
+      const r = await runSandboxed({ repoPath: repo.dir, briefing: 'x', stateDir, agentStage: hostileAgent('true'),
+        snapshotPaths: ['a\nb', 'tab\tname.js', 'quote"d.js', 'späce ü.js', 'a'] });
+      assert.equal(r.status, 'no_change', JSON.stringify({ reason: r.reason }));
+      const s = r.sandbox.snapshot;
+      assert.equal(s.error, undefined, s.error);
+      assert.deepEqual(s.files.map((f) => [f.path, f.text]), [['quote"d.js', 'quoted\n'], ['späce ü.js', 'unicode\n'], ['a', 'file a\n']]);
+      assert.deepEqual(s.skipped, [{ path: 'a\nb', reason: 'unsupported_path' }, { path: 'tab\tname.js', reason: 'unsupported_path' }]);
+      assert.ok(!s.files.some((f) => f.path === 'b'), 'b was never requested');
+    } finally { repo.cleanup(); }
+  });
+
+  test('KAN-22 re-review: the export script itself refuses a raw control character instead of splitting', async () => {
+    const repo = fixtureRepo((files) => Object.assign(files, { 'a': 'file a\n', 'b': 'file b\n', 'a\nb': 'nl\n' }));
+    const runId = `qbsnap-${process.pid}`;
+    try {
+      const ws = await createWorkspace(runId);
+      assert.equal((await ws.seed(repo.dir)).stage.state, 'completed');
+      assert.notEqual((await ws.capture()).verdict.state, 'error');
+      const st = await D.runStage(`${runId}-snapraw`, [...hardened(runId, 'snapshot'), '--network', 'none',
+        ...ws.mount('git', true), ...ws.mount('out'), ws.image, '/usr/local/lib/qb/snapshot.sh'], { input: Buffer.from('a\nb\0') });
+      assert.equal(st.state, 'execution_error');
+      assert.equal(st.exit_code, 3);
+      assert.match(st.stderr, /control character/);
+    } finally { await D.removeRun(runId); repo.cleanup(); }
   });
 
   test('Docker-backed admission: a second concurrent run is refused (one run per installation)', async () => {

@@ -150,3 +150,49 @@ describe('execution states stay distinct (done-when)', () => {
     } finally { m.restore(); }
   });
 });
+
+// ── KAN-22 re-review (8dca7c5): the export must answer exactly the requested paths ──
+describe('snapshot export: one entry per requested path, never a substitute', () => {
+  const crypto = require('crypto');
+  const { validateSnapshotIndex, supportedPath } = require('../../lib/sandbox/workspace');
+  const blob = (t) => ({ buf: Buffer.from(t), oid: crypto.createHash('sha1').update(`blob ${Buffer.byteLength(t)}\0`).update(t).digest('hex') });
+  const A = blob('A\n'), B = blob('B\n');
+  const L = (o) => JSON.stringify(o) + '\n';
+  const idx = (...entries) => L({ type: 'tree', tree: TREE }) + entries.map(L).join('') + L({ type: 'end' });
+  const files = new Map([['f0', A.buf], ['f1', B.buf]]);
+  const fa = { type: 'file', path: 'a', oid: A.oid, size: A.buf.length, file: 'f0' };
+  const fb = { type: 'file', path: 'b', oid: B.oid, size: B.buf.length, file: 'f1' };
+
+  test('the reviewer\'s substitution: one path requested, two other files returned → rejected', () => {
+    assert.equal(validateSnapshotIndex(['a\nb'], idx(fa, fb), files).ok, false);
+    assert.equal(validateSnapshotIndex(['x'], idx(fa), files).ok, false, 'a different file answering a request');
+  });
+  const BAD = {
+    'missing entry':      [['a', 'b'], idx(fa)],
+    'extra entry':        [['a'], idx(fa, fb)],
+    'duplicate entry':    [['a', 'b'], idx(fa, fa)],
+    'wrong order':        [['a', 'b'], idx(fb, fa)],
+    'unknown entry type': [['a'], idx({ ...fa, type: 'weird' })],
+    'content/hash mismatch': [['a'], idx({ ...fa, file: 'f1' })],
+    'no end marker':      [['a'], L({ type: 'tree', tree: TREE }) + L(fa)],
+  };
+  for (const [name, [sent, text]] of Object.entries(BAD)) {
+    test(`${name} → rejected`, () => assert.equal(validateSnapshotIndex(sent, text, files).ok, false));
+  }
+  test('an exact answer is accepted (files and explicit skips)', () => {
+    const v = validateSnapshotIndex(['a', 'gone.js', 'b'], idx(fa, { type: 'skip', path: 'gone.js', reason: 'missing' }, fb), files);
+    assert.equal(v.ok, true);
+    assert.deepEqual([v.files.map((f) => f.path), v.skipped], [['a', 'b'], [{ path: 'gone.js', reason: 'missing' }]]);
+  });
+  test('only plain paths without control characters are requested', () => {
+    for (const p of ['a\nb', 'tab\tname.js', 'cr\rx', 'nul\0x', 'del\x7fx', '/abs.js', '../up.js', 'a//b', 'a/./b', 'dir/', '']) assert.equal(supportedPath(p), false, JSON.stringify(p));
+    for (const p of ['a', 'src/x.js', 'quote"d.js', 'späce ü.js', 'with space.js', ':colon.js']) assert.equal(supportedPath(p), true, p);
+  });
+  test('an unsupported requested path makes the judgment unresolved', async () => {
+    const ex = noChange(ran(0, REPORT('pass')), { tree: TREE, files: [{ path: 'src/utils.js', oid: 'b'.repeat(40), size: SATISFIED.length, text: SATISFIED }],
+      skipped: [{ path: 'a\nb', reason: 'unsupported_path' }] });
+    const { report, calls } = await judged(ollamaReply({ met: true, evidence: 'x' }), ex);
+    assert.equal(report.verdict, 'unresolved');
+    assert.equal(calls.length, 0);
+  });
+});
