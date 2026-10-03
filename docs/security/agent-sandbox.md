@@ -86,6 +86,10 @@ The sandbox is implemented in `lib/sandbox/` and `sandbox/`, in seven reviewable
 **Design changes made during implementation (need review):**
 
 1. **Seed reads the checkout through a read-only bind mount** into the trusted seed container. This is one exception to §3's "no host bind mounts" and replaces the host-side helper; it also lets QB run on macOS Docker Desktop.
+   - *Revised after the first Linux CI run:* uid 10001 cannot enter a 0700/0750 home directory on Linux, and Docker Desktop hid this. Seed is now two containers.
+     - ①a `seed-read.sh` runs as the **host user's uid:gid**, so it reads exactly what the user can. It has no network, a read-only rootfs and no capabilities, and writes only to the run's `scratch` volume (mode 0777 for this hand-off).
+     - ①b `seed.sh` runs as uid 10001 and never sees the checkout. It builds the trusted repo and `/work` from that intake, then empties `scratch`.
+6. **Image tags are content hashes** (`qb-sandbox-{tools,agent,proxy}:c-<sha256 of the build inputs>`) instead of a fixed `:dev` tag. Otherwise an updated QB would keep running an image built from older trusted scripts.
 2. **Admission sizing (§8.1):** halved default caps, and a stage's writes counted once. At the first-draft numbers QB could not run on a 16 GB host.
 3. **Dependency fingerprint (§3.2):** only install-relevant `package.json` fields, so script edits go to the protected-test guard instead of skipping verification.
 4. **Stage deadlines:** the CLI stops the agent at its deadline and still captures its partial edits (QB-22). The supervisor holds a backstop deadline (stage + grace + 5 min) and the lease.
