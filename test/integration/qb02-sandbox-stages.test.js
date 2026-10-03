@@ -14,6 +14,7 @@ const D = require('../../lib/sandbox/docker');
 const { createWorkspace, hardened } = require('../../lib/sandbox/workspace');
 const { prepareDeps, runVerification } = require('../../lib/sandbox/stages');
 const { makeRepo } = require('../helpers/tmprepo');
+const { classifyTestRun } = require('../../verify/tests');
 
 const ENABLED = process.env.QB_INTEGRATION === '1';
 const FIXTURE = path.join(__dirname, '..', 'fixtures', 'npm-app');
@@ -138,6 +139,56 @@ describe('T-DEPS and T-VERIFY', { skip: !ENABLED && 'set QB_INTEGRATION=1 (needs
       const { deps, ver } = await pipeline(repo);
       assert.equal(deps.status, 'skip');
       assert.deepEqual([ver.status, ver.reason], ['not_run', 'no_test_command']);
+    } finally { repo.cleanup(); }
+  });
+});
+
+// QB-06: the machine-readable report from QB's node:test reporter, end to end.
+const NODE_TEST = (files) => {
+  const pkg = JSON.parse(files['package.json'].toString());
+  pkg.scripts.test = 'node --test test/*.test.js';
+  files['package.json'] = JSON.stringify(pkg, null, 2) + '\n';
+  files['test/double.test.js'] = "const test = require('node:test');\nconst assert = require('node:assert');\n"
+    + "const double = require('../src/double');\n"
+    + "test('doubles numbers', () => assert.strictEqual(double(2), 4));\n"
+    + "test('doubles numeric strings', () => assert.strictEqual(double('3'), 6));\n"
+    + "test('rejects non-numbers', () => assert.strictEqual(double('x'), null));\n";
+  delete files['test/run.js'];
+};
+
+describe('QB-06: machine-readable test report from the sandbox', { skip: !ENABLED && 'set QB_INTEGRATION=1 (needs Docker + npm registry)' }, () => {
+  before(async () => { assert.ok((await D.op(['pull', '-q', BUSYBOX], { timeoutMs: 120_000 })).ok); });
+  after(async () => { for (const id of runs) await D.removeRun(id); });
+
+  test('node:test project: the report validates and classifies as passed', async () => {
+    const repo = fixtureRepo(NODE_TEST);
+    try {
+      const { ver } = await pipeline(repo);
+      assert.equal(ver.status, 'ran', JSON.stringify({ reason: ver.reason }));
+      assert.equal(typeof ver.report, 'string', ver.report_error);
+      const c = classifyTestRun({ status: 'ran', state: ver.stage.state, exit_code: ver.stage.exit_code, report: ver.report });
+      assert.deepEqual([c.outcome, c.counts.tests, c.counts.passed], ['passed', 3, 3], ver.stage.stdout + ver.stage.stderr);
+      assert.match(ver.stage.stdout, /doubles numbers/, 'the console reporter still prints for people');
+    } finally { repo.cleanup(); }
+  });
+
+  test('node:test project with a regression: classified as a real test failure', async () => {
+    const repo = fixtureRepo(NODE_TEST);
+    try {
+      const { ver } = await pipeline(repo, "printf 'module.exports = () => 0;\\n' > /work/src/double.js");
+      const c = classifyTestRun({ status: 'ran', state: ver.stage.state, exit_code: ver.stage.exit_code, report: ver.report });
+      assert.deepEqual([c.outcome, c.reason, c.counts.failed], ['failed', 'tests_failed', 3]);
+    } finally { repo.cleanup(); }
+  });
+
+  test('a test script that is not node:test writes no report: error, never pass', async () => {
+    const repo = fixtureRepo();
+    try {
+      const { ver } = await pipeline(repo);
+      assert.equal(ver.stage.state, 'completed');
+      assert.equal(ver.report, null);
+      const c = classifyTestRun({ status: 'ran', state: ver.stage.state, exit_code: ver.stage.exit_code, report: ver.report, report_error: ver.report_error });
+      assert.deepEqual([c.outcome, c.reason], ['error', 'no_machine_readable_report']);
     } finally { repo.cleanup(); }
   });
 });

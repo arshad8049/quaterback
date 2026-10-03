@@ -1,0 +1,6 @@
+{"type":"qb:start","format":"qb-node-test-events/1"}
+{"type":"test:pass","name":"a","nesting":0,"file":"/w/timeout/test/x.test.js","kind":"test","skip":false,"todo":false,"failureType":null}
+{"type":"test:fail","name":"slow","nesting":0,"file":"/w/timeout/test/x.test.js","kind":"test","skip":false,"todo":false,"failureType":"testTimeoutFailure"}
+{"type":"test:summary","file":"/w/timeout/test/x.test.js","counts":{"tests":2,"failed":0,"passed":1,"cancelled":1,"skipped":0,"todo":0,"topLevel":2,"suites":0},"success":false}
+{"type":"test:summary","file":null,"counts":{"tests":2,"failed":0,"passed":1,"cancelled":1,"skipped":0,"todo":0,"topLevel":2,"suites":0},"success":false}
+{"type":"qb:end"}

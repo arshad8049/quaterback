@@ -12,4 +12,6 @@ RUN apt-get update \
 COPY managed-settings.json /etc/claude-code/managed-settings.json
 COPY entry.sh /usr/local/lib/qb/agent-entry.sh
 COPY deps-install.sh /usr/local/lib/qb/deps-install.sh
-RUN chmod 0755 /usr/local/lib/qb/agent-entry.sh /usr/local/lib/qb/deps-install.sh
+COPY qb-test-reporter.mjs /usr/local/lib/qb/qb-test-reporter.mjs
+RUN chmod 0755 /usr/local/lib/qb/agent-entry.sh /usr/local/lib/qb/deps-install.sh \
+ && chmod 0644 /usr/local/lib/qb/qb-test-reporter.mjs

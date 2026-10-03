@@ -1,0 +1,10 @@
+{
+  "_about": "Real reports from sandbox/agent/qb-test-reporter.mjs on node:24-bookworm-slim (the sandbox runtime), generated 2026-10-03; value = npm test exit code. ownreporter has no report: a repo script passing its own --test-reporter makes node exit before running.",
+  "pass": 0,
+  "fail": 1,
+  "timeout": 1,
+  "skiponly": 0,
+  "loadfail": 1,
+  "nofiles": 0,
+  "ownreporter": 1
+}

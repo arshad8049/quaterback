@@ -1,0 +1,8 @@
+{"type":"qb:start","format":"qb-node-test-events/1"}
+{"type":"test:pass","name":"a","nesting":0,"file":"/w/pass/test/x.test.js","kind":"test","skip":false,"todo":false,"failureType":null}
+{"type":"test:pass","name":"b","nesting":0,"file":"/w/pass/test/x.test.js","kind":"test","skip":false,"todo":false,"failureType":null}
+{"type":"test:pass","name":"c","nesting":1,"file":"/w/pass/test/x.test.js","kind":"test","skip":false,"todo":false,"failureType":null}
+{"type":"test:pass","name":"s","nesting":0,"file":"/w/pass/test/x.test.js","kind":"suite","skip":false,"todo":false,"failureType":null}
+{"type":"test:summary","file":"/w/pass/test/x.test.js","counts":{"tests":3,"failed":0,"passed":3,"cancelled":0,"skipped":0,"todo":0,"topLevel":3,"suites":1},"success":true}
+{"type":"test:summary","file":null,"counts":{"tests":3,"failed":0,"passed":3,"cancelled":0,"skipped":0,"todo":0,"topLevel":3,"suites":1},"success":true}
+{"type":"qb:end"}

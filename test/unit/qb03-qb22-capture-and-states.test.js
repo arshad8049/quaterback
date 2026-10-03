@@ -18,6 +18,8 @@ const assert = require('node:assert/strict');
 const { mockFetch, ollamaReply } = require('../helpers/mocks');
 const { execute } = require('../../agent/runner');
 const { verify } = require('../../verify/verifier');
+// Real node:test reports from the sandbox reporter (QB-06).
+const REPORT = (n) => require('fs').readFileSync(require('path').join(__dirname, '..', 'fixtures', 'node-test-reports', `${n}.ndjson`), 'utf8');
 
 const CHANGE = { file: 'src/a.js', status: 'M', additions: 1, deletions: 1, binary: false };
 const DIFF = 'diff --git a/src/a.js b/src/a.js\n--- a/src/a.js\n+++ b/src/a.js\n@@ -1 +1 @@\n-const a = 1;\n+const a = 2;\n';
@@ -81,7 +83,7 @@ describe('QB-03: no partial or unverifiable capture can PASS', () => {
 
   test('tests that failed in the sandbox verification fail the task even when the judge says met', async () => {
     const { report } = await verdictFor({ status: 'completed', diff: DIFF, changes: [CHANGE],
-      sandbox: { verification: { status: 'ran', state: 'execution_error', exit_code: 1, output: 'Error: assertion failed\nℹ tests 1\nℹ pass 0\nℹ fail 1\n' } } });
+      sandbox: { verification: { status: 'ran', state: 'execution_error', exit_code: 1, output: 'Error: assertion failed\n', report: REPORT('fail') } } });
     assert.equal(report.verdict, 'fail');
   });
 
@@ -99,7 +101,7 @@ describe('QB-03: no partial or unverifiable capture can PASS', () => {
 
   test('a clean capture with passing sandbox tests and a met criterion can pass', async () => {
     const { report } = await verdictFor({ status: 'completed', diff: DIFF, changes: [CHANGE],
-      sandbox: { verification: { status: 'ran', state: 'completed', exit_code: 0, output: 'ℹ tests 1\nℹ pass 1\nℹ fail 0\n' } } });
+      sandbox: { verification: { status: 'ran', state: 'completed', exit_code: 0, output: '', report: REPORT('pass') } } });
     assert.equal(report.verdict, 'pass');
   });
 });
