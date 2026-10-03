@@ -113,11 +113,17 @@ describe('supervisor protocol (real detached supervisor)', () => {
     const s = await Supervision.start(dir, id);
     await s.beginStage('agent', 60_000);
     s.close();                                    // stop renewing, as a SIGKILLed CLI would
-    const t0 = Date.now();
-    const t = await until(() => P.terminal(dir), 10_000);
-    assert.equal(t.state, 'ABANDONED');
-    assert.equal(t.reason, 'lease_expired');
-    assert.ok(Date.now() - t0 < 1500 + 500 + 3000);
+    const lastRenewal = Date.parse(P.readJson(path.join(dir, 'lease.json')).at);
+    const t = await until(() => P.terminal(dir), 20_000);
+    assert.ok(t, 'no terminal state within 20 s');
+    assert.deepEqual([t.state, t.reason], ['ABANDONED', 'lease_expired']);
+    // Bound measured by the supervisor itself (its enforcement record), not by this
+    // test's polling: last renewal + lease (1.5 s) + grace (0.5 s) + 2 s for its
+    // 200 ms poll and scheduling on a loaded CI runner. The exact G5a bound is
+    // asserted with Docker in test/integration/qb02-sandbox-lifecycle.test.js.
+    const e = await until(() => P.readJson(path.join(dir, 'enforcement.json')), 10_000);
+    const late = Date.parse(e.enforce_at) - lastRenewal;
+    assert.ok(late >= 1500 && late < 1500 + 500 + 2000, `enforced ${late} ms after the last renewal`);
   });
 
   test('a completed proposal is committed by the supervisor, which then exits', async () => {

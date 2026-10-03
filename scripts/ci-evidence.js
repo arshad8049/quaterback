@@ -31,8 +31,14 @@ function parseTap(tap) {
   const count = (k) => { const m = new RegExp(`^# ${k} (\\d+)$`, 'm').exec(tap); return m ? Number(m[1]) : null; };
   const todo = [...tap.matchAll(/^\s*(?:not )?ok \d+ - (.+?) # TODO(?: (.*))?$/gm)].map((m) => ({ test: m[1], note: m[2] || null }));
   // Failing leaf tests (not TODO, not a parent suite that only failed because of a child).
+  // Each failing test with the first line of its error (TAP YAML block), for annotations.
   const failed = [...tap.matchAll(/^\s*not ok \d+ - (.+?)$/gm)]
-    .map((m) => m[1]).filter((t) => !/ # (TODO|SKIP)\b/.test(t));
+    .filter((m) => !/ # (TODO|SKIP)\b/.test(m[1]))
+    .map((m) => {
+      const after = tap.slice(m.index + m[0].length, m.index + m[0].length + 4000);
+      const err = /^\s+error: \|?-?\s*\n?\s*['"]?(.+?)['"]?\s*$/m.exec(after);
+      return err ? `${m[1]} — ${err[1].slice(0, 200)}` : m[1];
+    });
   return { tests: count('tests'), pass: count('pass'), fail: count('fail'), skipped: count('skipped'), todo: count('todo'),
     todo_tests: todo, failed_tests: [...new Set(failed)] };
 }
