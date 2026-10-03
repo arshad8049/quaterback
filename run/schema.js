@@ -47,6 +47,8 @@ const AttemptSchema = z.object({
   started_at:       z.string().datetime(),
   finished_at:      z.string().datetime().nullable(),
   base_sha:         z.string().nullable(),
+  base_tree:        z.string().nullable().optional(),       // seeded tree (incl. uncommitted changes)
+  candidate_tree:   z.string().nullable().optional(),
   patch_sha256:     Sha256.nullable(),
   execution_status: z.string().nullable(),
   verdict:          z.string().nullable(),

@@ -29,6 +29,7 @@ const { verify }       = require('../verify/verifier');
 const { runBaseline }  = require('./baseline');
 const { createWorkspace } = require('../lib/workspace');
 const runStore         = require('../run/store');
+const { AGENT_VERSION } = require('../lib/sandbox/agent');
 const { inputFromReport } = require('../verify/verdict');
 
 program
@@ -261,6 +262,7 @@ async function runQB(task, ws) {
     run.finishAttempt(attempt, {
       execution, report, patch: execution.diff,
       verifyInput: inputFromReport(report, execution),
+      checks: runStore.checksFor(attempt, execution),
     });
 
     attempts.push({
@@ -312,7 +314,8 @@ async function runBaselineTask(task, ws, contract) {
   const t4 = Date.now();
   const report = await verify(contract, null, execution, { repoPath });
   out.l4_ms = Date.now() - t4;
-  run.finishAttempt(1, { execution, report, patch: execution.diff, verifyInput: inputFromReport(report, execution) });
+  run.finishAttempt(1, { execution, report, patch: execution.diff, verifyInput: inputFromReport(report, execution),
+    checks: runStore.checksFor(1, execution) });
 
   out.verdict       = report.verdict;
   out.ac_results    = report.criteria_results.map(r => ({ id: r.id, met: r.met }));
@@ -339,7 +342,7 @@ async function withWorkspace(source, task, arm, fn) {
     request:  task.description,
     repoPath: ws.dir,
     baseSha:  ws.baseSha,
-    agent:    { type: 'claude-code', isolation: 'sandbox' },
+    agent:    { type: 'claude-code', version: AGENT_VERSION, isolation: 'sandbox' },
     config:   { task_id: task.id, base_rev: baseRev, source_commit: ws.sourceCommit, mode: ws.mode, max_retries: opts.maxRetries },
   });
 

@@ -205,6 +205,12 @@ class Run {
     a.execution_status = execution?.status ?? null;
     a.verdict          = report?.verdict ?? null;
     a.checks           = checks;
+    // What the sandbox actually seeded from: the user's HEAD at seed time, and
+    // the exact base / candidate trees (uncommitted changes included).
+    const seededHead = execution?.sandbox?.seed?.user_head;
+    if (seededHead && /^[0-9a-f]{40,64}$/.test(seededHead)) a.base_sha = seededHead;
+    if (execution?.base_tree)      a.base_tree      = execution.base_tree;
+    if (execution?.candidate_tree) a.candidate_tree = execution.candidate_tree;
     a.finished_at      = new Date().toISOString();
     this._save();
     this.event('attempt.finished', { attempt, execution_status: a.execution_status, verdict: a.verdict, patch_sha256: a.patch_sha256 });
@@ -404,10 +410,51 @@ function replay(runId, runsDir = defaultRunsDir()) {
     attempts.push({ attempt: a.attempt, recorded: a.verdict, replayed, ok: replayed === a.verdict });
   }
 
-  const last = run.manifest.attempts[run.manifest.attempts.length - 1];
-  const finalOk = !last || !run.manifest.legacy_verdict || last.verdict === run.manifest.legacy_verdict;
+  const final = replayFinal(run.manifest, attempts);
+  return { ok: final.ok && attempts.every(x => x.ok), outcome: run.manifest.outcome, final, attempts };
+}
 
-  return { ok: finalOk && attempts.every(x => x.ok), outcome: run.manifest.outcome, attempts };
+/**
+ * The run's final outcome must follow from its last attempt's replayed verdict.
+ * A verdict-derived outcome (or any recorded legacy verdict) must equal
+ * outcomeFor(replayed verdict); VERIFIED always needs replayable PASS evidence.
+ * Outcomes that end a run before verification (BLOCKED, CANCELLED, ABANDONED,
+ * an aborted ERROR) claim no verdict and are accepted as recorded.
+ */
+function replayFinal(m, attempts) {
+  const last     = attempts[attempts.length - 1] || null;
+  const replayed = last ? last.replayed : null;
+  const dryRun   = m.agent?.type === 'dry-run';
+  const claimsVerdict = m.legacy_verdict != null || ['VERIFIED', 'FAILED', 'UNRESOLVED', 'DRY_RUN'].includes(m.outcome);
+  const expected = replayed ? outcomeFor(replayed, { dryRun }) : null;
+  let ok = true;
+  if (m.outcome === 'VERIFIED' && replayed !== 'pass') ok = false;
+  if (claimsVerdict && (replayed === null || m.legacy_verdict !== replayed || m.outcome !== expected)) ok = false;
+  return { ok, outcome: m.outcome, expected_outcome: expected, legacy_verdict: m.legacy_verdict, replayed_verdict: replayed };
+}
+
+/**
+ * Structured check results for an attempt (CheckResultSchema). Today the one
+ * executable check is the repository's test suite run in sandbox stage ⑤;
+ * a sandboxed attempt that did not reach it records the check as not_run.
+ */
+function checksFor(attempt, execution) {
+  const sb = execution?.sandbox;
+  if (!sb) return [];
+  const v = sb.verification || { status: 'not_run' };
+  const status = v.status !== 'ran' ? 'not_run'
+    : v.state === 'completed' && v.exit_code === 0 ? 'pass'
+    : v.state === 'execution_error' ? 'fail'
+    : 'error';
+  return [{
+    check_id:     'test-suite',
+    status,
+    exit_code:    Number.isInteger(v.exit_code) ? v.exit_code : null,
+    signal:       v.signal || null,
+    duration_ms:  Number.isInteger(v.duration_ms) ? v.duration_ms : 0,
+    evidence_ids: [`a${attempt}-execution`],
+    runner:       'sandbox: npm test',
+  }];
 }
 
 module.exports = {
@@ -418,6 +465,7 @@ module.exports = {
   installSignalHandlers,
   outcomeFor,
   replay,
+  checksFor,
   redact,
   defaultRunsDir,
   _internal: { canonical, sha256, migrate },

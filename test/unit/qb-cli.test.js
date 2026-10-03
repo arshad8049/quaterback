@@ -63,6 +63,10 @@ test('a dry-run invocation produces a complete, replayable run record', () => {
   assert.match(m.contract_hash, /^[0-9a-f]{64}$/);
   assert.equal(m.attempts.length, 1);
   assert.equal(store.readEvents(run).at(-1).type, 'run.finished');
+  // Pinned decision trail (KAN-38 review): base commit and agent identity are recorded.
+  assert.equal(m.repo.base_sha, repo.head());
+  assert.equal(m.attempts[0].base_sha, repo.head());
+  assert.equal(m.agent.version, 'builtin');
 
   const replay = spawnSync(process.execPath, [QB, 'replay', m.run_id], { env: env(), encoding: 'utf8' });
   assert.equal(replay.status, 0, replay.stdout + replay.stderr);
@@ -83,4 +87,24 @@ test('an interrupted invocation still leaves a terminal run record', async () =>
   const run = onlyRun();
   assert.equal(run.manifest.outcome, 'CANCELLED');
   assert.equal(store.readEvents(run).at(-1).type, 'run.aborted');
+});
+
+test('a sandboxed (claude-code) run records base commit, pinned agent version and structured checks', () => {
+  const script = path.join(runsDir, '..', `qb-fake-${process.pid}.json`);
+  fs.writeFileSync(script, JSON.stringify({ steps: [{ write: 'src/utils.js', content: 'module.exports = { clamp: () => 0 };\n' }] }));
+  try {
+    const r = spawnSync(process.execPath, [
+      '--require', PRELOAD, '--require', path.join(__dirname, '..', 'helpers', 'preload-fake-sandbox.js'), QB,
+      'Add a clamp function to src/utils.js', '--repo', repo.dir, '--agent', 'claude-code',
+      '--no-llm-context', '--no-llm-verify', '--max-retries', '1',
+    ], { env: env({ QB_FAKE_AGENT_SCRIPT: script }), encoding: 'utf8', timeout: 30_000 });
+    const m = onlyRun().manifest;
+    assert.equal(m.repo.base_sha, repo.head(), r.stdout + r.stderr);
+    assert.equal(m.attempts[0].base_sha, repo.head());
+    assert.match(m.agent.version, /^claude-code@\d+\.\d+\.\d+ \(qb-sandbox-agent:c-[0-9a-f]{16}\)$/);
+    assert.equal(m.agent.isolation, 'sandbox');
+    assert.deepEqual(m.attempts[0].checks.map(c => [c.check_id, c.status]), [['test-suite', 'not_run']]);
+    const replay = spawnSync(process.execPath, [QB, 'replay', m.run_id], { env: env(), encoding: 'utf8' });
+    assert.equal(replay.status, 0, replay.stdout + replay.stderr);
+  } finally { fs.rmSync(script, { force: true }); }
 });

@@ -3,7 +3,7 @@
  *
  *   qb runs                 list recent runs
  *   qb show   <run_id>      print the manifest and event trail
- *   qb replay <run_id>      recompute verdicts from stored evidence
+ *   qb replay <run_id>      recompute verdicts and the final outcome from stored evidence
  *
  * Exit code: 0 on success / reproduced verdict, 1 otherwise.
  */
@@ -43,6 +43,9 @@ function main(argv) {
       for (const a of r.attempts) {
         console.log(`  attempt ${a.attempt}: recorded=${a.recorded} replayed=${a.replayed} ${a.ok ? 'OK' : 'MISMATCH'}`);
       }
+      const f = r.final;
+      console.log(`  final: outcome=${f.outcome} legacy=${f.legacy_verdict} replayed=${f.replayed_verdict} `
+        + `expected=${f.expected_outcome} ${f.ok ? 'OK' : 'MISMATCH'}`);
       console.log(`  outcome=${r.outcome}  ${r.ok ? 'reproduced' : 'NOT reproduced'}`);
       return r.ok ? 0 : 1;
     }

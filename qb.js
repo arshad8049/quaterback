@@ -25,6 +25,15 @@ const memory           = require('./memory');
 const runStore         = require('./run/store');
 const { artifactFile } = require('./lib/fsafe');
 const { inputFromReport } = require('./verify/verdict');
+const { git: gitProc }  = require('./lib/proc');
+const { AGENT_VERSION } = require('./lib/sandbox/agent');
+
+/** What the run record names as the agent (QB-38: a pinned decision trail). */
+const AGENT_IDENTITY = {
+  'claude-code': { type: 'claude-code', version: AGENT_VERSION, isolation: 'sandbox' },
+  'dry-run':     { type: 'dry-run',     version: 'builtin',     isolation: 'none' },
+  manual:        { type: 'manual',      version: 'human',       isolation: 'none' },
+};
 
 // `qb replay <run_id>` / `qb runs` — inspect stored run records.
 if (['replay', 'runs', 'show'].includes(process.argv[2])) {
@@ -79,11 +88,16 @@ async function main() {
 
   // ── Run record (QB-38) ────────────────────────────────────────────────────
   const model = process.env.QB_MODEL || 'deepseek-r1:7b';
+  // The checkout's HEAD at start (null in a repo without commits); each sandboxed
+  // attempt also records the HEAD and trees it actually seeded from.
+  const head    = gitProc(['rev-parse', '--verify', '-q', 'HEAD'], repoPath, { allowFail: true });
+  const baseSha = head.status === 0 ? String(head.stdout).trim() : null;
   const run = currentRun = runStore.createRun({
     kind:    'qb',
     request,
     repoPath,
-    agent:   { type: opts.agent },
+    baseSha,
+    agent:   AGENT_IDENTITY[opts.agent] || { type: opts.agent, version: null, isolation: null },
     models:  { intent: model, context: model, judge: model },
     config:  { ...opts, maxRetries },
   });
@@ -176,6 +190,7 @@ async function main() {
       attempt,
       parent_attempt: isRetry ? attempt - 1 : null,
       repair_reason:  repairHints.map(h => h.criterion_id),
+      base_sha:       baseSha,
     });
 
     const t3 = Date.now();
@@ -218,6 +233,7 @@ async function main() {
       report,
       patch:       execution.diff,
       verifyInput: inputFromReport(report, execution),
+      checks:      runStore.checksFor(attempt, execution),
     });
     // Exact patch bytes and touched-path baseline for `qb patch` (QB-02 §9.3).
     if (execution.patch_raw) run.artifact(`a${attempt}-patch-raw`, execution.patch_raw, { ext: 'bin' });

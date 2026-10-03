@@ -122,6 +122,70 @@ describe('run store', () => {
     assert.equal(r.attempts[0].replayed, 'fail');
   });
 
+  // KAN-38 review: replay checked attempt verdicts but not the run's final outcome.
+  const FAILING = { hasDiff: true, criteriaResults: [{ id: 'AC-1', met: false }], testResults: null };
+  const PASSING = { hasDiff: true, criteriaResults: [{ id: 'AC-1', met: true }], testResults: null };
+
+  test('replay rejects a final outcome the evidence does not support (VERIFIED over a failing attempt)', () => {
+    const run = newRun();
+    run.startAttempt({ attempt: 1 });
+    run.finishAttempt(1, { report: { verdict: 'fail' }, verifyInput: FAILING });
+    run.finish('VERIFIED', { legacy_verdict: 'fail' });
+
+    const r = store.replay(run.id, runsDir);
+    assert.equal(r.ok, false);
+    assert.equal(r.attempts[0].ok, true);              // the attempt itself is consistent…
+    assert.equal(r.final.expected_outcome, 'FAILED');  // …the run's outcome is not
+    assert.equal(r.final.ok, false);
+  });
+
+  test('replay rejects VERIFIED with no replayable evidence', () => {
+    const none = newRun();
+    none.finish('VERIFIED', { legacy_verdict: 'pass' });
+    assert.equal(store.replay(none.id, runsDir).ok, false);
+
+    const noInput = newRun();
+    noInput.startAttempt({ attempt: 1 });
+    noInput.finishAttempt(1, { report: { verdict: 'pass' } });
+    noInput.finish('VERIFIED', { legacy_verdict: 'pass' });
+    assert.equal(store.replay(noInput.id, runsDir).ok, false);
+  });
+
+  test('replay rejects a recorded legacy verdict that differs from the final attempt', () => {
+    const run = newRun();
+    run.startAttempt({ attempt: 1 });
+    run.finishAttempt(1, { report: { verdict: 'pass' }, verifyInput: PASSING });
+    run.finish('FAILED', { legacy_verdict: 'fail' });
+    assert.equal(store.replay(run.id, runsDir).ok, false);
+  });
+
+  test('replay accepts consistent FAILED and BLOCKED runs', () => {
+    const failed = newRun();
+    failed.startAttempt({ attempt: 1 });
+    failed.finishAttempt(1, { report: { verdict: 'fail' }, verifyInput: FAILING });
+    failed.finish('FAILED', { legacy_verdict: 'fail' });
+    assert.equal(store.replay(failed.id, runsDir).ok, true);
+
+    const blocked = newRun();
+    blocked.finish('BLOCKED', { reason: 'docker unavailable' });
+    assert.equal(store.replay(blocked.id, runsDir).ok, true);
+  });
+
+  test('checksFor maps sandbox verification to structured check results', () => {
+    const v = (verification) => store.checksFor(1, { sandbox: { verification } })[0];
+    assert.deepEqual(store.checksFor(1, { sandbox: null }), []);
+    assert.equal(v({ status: 'ran', state: 'completed', exit_code: 0, duration_ms: 1200 }).status, 'pass');
+    assert.equal(v({ status: 'ran', state: 'execution_error', exit_code: 1 }).status, 'fail');
+    assert.equal(v({ status: 'ran', state: 'oom', exit_code: 137 }).status, 'error');
+    assert.equal(v({ status: 'ran', state: 'timeout', exit_code: null }).status, 'error');
+    assert.equal(v({ status: 'not_run', reason: 'no_test_command' }).status, 'not_run');
+    const notRun = store.checksFor(2, { sandbox: { isolation: 'sandbox' } })[0];
+    assert.equal(notRun.status, 'not_run', 'a sandboxed attempt without verification still records the check');
+    const c = v({ status: 'ran', state: 'completed', exit_code: 0, duration_ms: 1200 });
+    assert.deepEqual(c, { check_id: 'test-suite', status: 'pass', exit_code: 0, signal: null, duration_ms: 1200,
+      evidence_ids: ['a1-execution'], runner: 'sandbox: npm test' });
+  });
+
   test('a committed v1 manifest still loads (schema compatibility)', () => {
     const fixture = path.join(__dirname, '..', 'fixtures', 'run-v1');
     const id = fs.readdirSync(fixture)[0];
