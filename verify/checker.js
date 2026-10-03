@@ -8,6 +8,8 @@
  *   3. Signal scan  — checks whether contract keywords / AC terms appear in the diff
  */
 
+const { classifyTestRun } = require('./tests');
+
 /**
  * Run all deterministic checks. Nothing here executes repository code: test
  * results come from the sandbox's verification stage (QB-02, agent-sandbox.md
@@ -21,7 +23,7 @@
  * @returns {{ testResults, scopeViolations, diffSignals }}
  */
 function runChecks(contract, context, diff, _repoPath, execution = null) {
-  const testResults     = testsFromSandbox(execution, context);
+  const testResults     = testsFromSandbox(execution);
   const scopeViolations = checkScope(diff, context);
   const diffSignals     = scanDiff(diff, contract);
 
@@ -30,49 +32,15 @@ function runChecks(contract, context, diff, _repoPath, execution = null) {
 
 // ─── 1. Test results (from the sandbox) ───────────────────────────────────────
 
-function testsFromSandbox(execution, context) {
+function testsFromSandbox(execution) {
   const v = execution?.sandbox?.verification;
   if (!v || v.status !== 'ran' || typeof v.output !== 'string') return null;
-  const parsed = parseTestOutput(v.output, context?.patterns?.test_runner);
-  // Exit-code handling is still coarse (QB-06, Phase 2): a nonzero exit with no
-  // parsed failures counts as one failure so it can never read as green.
-  if (v.state === 'execution_error' && parsed.failed === 0) parsed.failed = 1;
-  return parsed;
-}
-
-function parseTestOutput(output, runner) {
-  let passed = 0, failed = 0, skipped = 0;
-
-  if (runner === 'jest' || runner === 'vitest') {
-    const passMatch  = output.match(/(\d+)\s+passed/);
-    const failMatch  = output.match(/(\d+)\s+failed/);
-    const skipMatch  = output.match(/(\d+)\s+skipped/);
-    if (passMatch) passed  = parseInt(passMatch[1],  10);
-    if (failMatch) failed  = parseInt(failMatch[1],  10);
-    if (skipMatch) skipped = parseInt(skipMatch[1], 10);
-  } else if (runner === 'mocha') {
-    const passMatch = output.match(/(\d+)\s+passing/);
-    const failMatch = output.match(/(\d+)\s+failing/);
-    if (passMatch) passed = parseInt(passMatch[1], 10);
-    if (failMatch) failed = parseInt(failMatch[1], 10);
-  } else if (runner === 'node-test') {
-    // Node built-in test runner TAP summary: "# pass N" / "# fail N"
-    const passMatch = output.match(/^#\s+pass\s+(\d+)/m);
-    const failMatch = output.match(/^#\s+fail\s+(\d+)/m);
-    const skipMatch = output.match(/^#\s+(?:skip|todo)\s+(\d+)/m);
-    if (passMatch) passed  = parseInt(passMatch[1], 10);
-    if (failMatch) failed  = parseInt(failMatch[1], 10);
-    if (skipMatch) skipped = parseInt(skipMatch[1], 10);
-  } else {
-    // Generic: parse "N passed / N failed" summary lines only (avoid false positives
-    // from test description text like "should fail gracefully")
-    const passLine = output.match(/(\d+)\s+pass(?:ed|ing)/i);
-    const failLine = output.match(/(\d+)\s+fail(?:ed|ure)/i);
-    if (passLine) passed = parseInt(passLine[1], 10);
-    if (failLine) failed = parseInt(failLine[1], 10);
-  }
-
-  return { passed, failed, skipped, output: output.slice(0, 2000) };
+  // Counts come from the classified run (verify/tests.js, QB-06); the verdict uses
+  // its outcome, so an unparsed or broken run is never read as "0 failed".
+  const c = classifyTestRun(v);
+  const n = c.counts || { passed: 0, failed: 0, skipped: 0 };
+  return { passed: n.passed, failed: c.outcome === 'failed' ? Math.max(1, n.failed) : n.failed, skipped: n.skipped,
+    output: v.output.slice(0, 2000) };
 }
 
 // ─── 2. Diff scope check ─────────────────────────────────────────────────────

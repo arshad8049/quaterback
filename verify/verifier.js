@@ -1,7 +1,8 @@
 const { randomUUID } = require('crypto');
 const { runChecks }  = require('./checker');
 const { judgeAll }   = require('./judge');
-const { aggregate, FAILED_EXECUTION } = require('./verdict');
+const { aggregate, verificationInput, FAILED_EXECUTION } = require('./verdict');
+const { classifyTestRun } = require('./tests');
 const { VerificationReportSchema } = require('./schema');
 const { contractState, stateReason } = require('../intent/contract-state');
 
@@ -65,16 +66,15 @@ async function verify(contract, context, execution, options = {}) {
   }
 
   // ── Verdict ──────────────────────────────────────────────────────────────
+  const verification = verificationInput(execution);
   const { verdict, failures } = aggregate({
+    rules: 2,
     hasDiff: Boolean(diff),
     criteriaResults,
     testResults,
     executionStatus:    execStatus,
     unsupportedChanges: Boolean(execution?.unsupported_changes?.length),
-    verification: execution?.sandbox?.verification
-      ? { status: execution.sandbox.verification.status, reason: execution.sandbox.verification.reason ?? null,
-          state: execution.sandbox.verification.state ?? null }
-      : null,
+    verification,
   });
 
   // ── Repair hints (for failed ACs) ────────────────────────────────────────
@@ -96,11 +96,20 @@ async function verify(contract, context, execution, options = {}) {
     criteria_results: criteriaResults,
     failures,
     test_results:     testResults || null,
+    test_outcome:     testOutcome(execution),
     scope_violations: scopeViolations,
     repair_hints:     repairHints,
   };
 
   return VerificationReportSchema.parse(report);
+}
+
+/** The classified sandbox test run (QB-06), as recorded in the report. */
+function testOutcome(execution) {
+  const v = execution?.sandbox?.verification || null;
+  const c = classifyTestRun(v);
+  return { outcome: c.outcome, reason: c.reason, runner: c.runner, exit_code: c.exit_code,
+    state: v?.state ?? null, duration_ms: Number.isInteger(v?.duration_ms) ? v.duration_ms : null };
 }
 
 /** The report for a contract that is not finalized: unresolved, nothing judged. */

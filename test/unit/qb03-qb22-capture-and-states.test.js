@@ -81,7 +81,7 @@ describe('QB-03: no partial or unverifiable capture can PASS', () => {
 
   test('tests that failed in the sandbox verification fail the task even when the judge says met', async () => {
     const { report } = await verdictFor({ status: 'completed', diff: DIFF, changes: [CHANGE],
-      sandbox: { verification: { status: 'ran', state: 'execution_error', output: 'Error: assertion failed\n' } } });
+      sandbox: { verification: { status: 'ran', state: 'execution_error', exit_code: 1, output: 'Error: assertion failed\nℹ tests 1\nℹ pass 0\nℹ fail 1\n' } } });
     assert.equal(report.verdict, 'fail');
   });
 
@@ -99,7 +99,7 @@ describe('QB-03: no partial or unverifiable capture can PASS', () => {
 
   test('a clean capture with passing sandbox tests and a met criterion can pass', async () => {
     const { report } = await verdictFor({ status: 'completed', diff: DIFF, changes: [CHANGE],
-      sandbox: { verification: { status: 'ran', state: 'completed', output: 'fixture tests passed\n' } } });
+      sandbox: { verification: { status: 'ran', state: 'completed', exit_code: 0, output: 'ℹ tests 1\nℹ pass 1\nℹ fail 0\n' } } });
     assert.equal(report.verdict, 'pass');
   });
 });

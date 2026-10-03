@@ -15,13 +15,17 @@
  * @param {object|null} evidence.testResults - { passed, failed, skipped } or null
  * @param {string}  [evidence.executionStatus] - ExecutionResult.status
  * @param {boolean} [evidence.unsupportedChanges] - capture could not represent part of the change
- * @param {object}  [evidence.verification] - sandbox verification { status, reason, state } (QB-02)
+ * @param {object}  [evidence.verification] - sandbox verification { status, reason, state } (QB-02),
+ *                    plus { outcome, outcome_reason } from verify/tests.js under rules 2
+ * @param {number}  [evidence.rules] - 2 for records made since QB-06; absent = the earlier
+ *                    rules, so stored runs replay exactly as they were decided
  * @returns {{ verdict: string, failures: string[] }}
  */
 const FAILED_EXECUTION = new Set(['execution_error', 'timeout', 'cancelled', 'failed', 'oom', 'infra_error', 'setup_failed']);
 const NEVER_APPROVED   = new Set(['blocked', 'unresolved']);
+const { classifyTestRun } = require('./tests');
 
-function aggregate({ hasDiff, criteriaResults, testResults, executionStatus = null, unsupportedChanges = false, verification = null }) {
+function aggregate({ hasDiff, criteriaResults, testResults, executionStatus = null, unsupportedChanges = false, verification = null, rules = 1 }) {
   const failures = criteriaResults.filter(r => r.met === false).map(r => r.id);
   const unknowns = criteriaResults.filter(r => r.met === null);
 
@@ -47,7 +51,18 @@ function aggregate({ hasDiff, criteriaResults, testResults, executionStatus = nu
   // A change that could not be fully captured cannot be approved (QB-03).
   if (unsupportedChanges && verdict === 'pass') verdict = 'unresolved';
 
-  // Sandbox verification (QB-02): the tests ran on the disposable copy with the
+  // Rules 2 (QB-06): only classified, passing test evidence can approve. A real
+  // failing test fails the task; a broken run (error) or no run cannot approve it.
+  if (rules >= 2) {
+    const outcome = verification ? verification.outcome : 'not_run';
+    if (verdict === 'pass' || verdict === 'partial') {
+      if (outcome === 'failed') verdict = 'fail';
+      else if (outcome !== 'passed' && verdict === 'pass') verdict = 'unresolved';
+    }
+    return { verdict, failures };
+  }
+
+  // Rules 1 — sandbox verification (QB-02): the tests ran on the disposable copy with the
   // base versions of protected tests. A failing run fails the task; a run that
   // could not happen (dependency change, OOM, timeout, infra) cannot approve it.
   if (verification && (verdict === 'pass' || verdict === 'partial')) {
@@ -59,9 +74,20 @@ function aggregate({ hasDiff, criteriaResults, testResults, executionStatus = nu
   return { verdict, failures };
 }
 
+/** The aggregate() verification input for an execution (rules 2: with the classified outcome). */
+function verificationInput(execution) {
+  const v = execution?.sandbox?.verification || null;
+  const c = classifyTestRun(v);
+  return {
+    status: v ? v.status : 'not_run', reason: v ? v.reason ?? null : 'no_test_evidence', state: v ? v.state ?? null : null,
+    exit_code: c.exit_code, outcome: c.outcome, outcome_reason: c.reason,
+  };
+}
+
 /** The aggregate() input that produced a stored report, for the run record. */
 function inputFromReport(report, execution) {
   return {
+    rules:           2,
     hasDiff:         Boolean(execution?.diff),
     criteriaResults: report.criteria_results.map(r => ({ id: r.id, met: r.met })),
     testResults:     report.test_results
@@ -69,11 +95,8 @@ function inputFromReport(report, execution) {
       : null,
     executionStatus:    execution?.status ?? null,
     unsupportedChanges: Boolean(execution?.unsupported_changes?.length),
-    verification:       execution?.sandbox?.verification
-      ? { status: execution.sandbox.verification.status, reason: execution.sandbox.verification.reason ?? null,
-          state: execution.sandbox.verification.state ?? null }
-      : null,
+    verification:       verificationInput(execution),
   };
 }
 
-module.exports = { aggregate, inputFromReport, FAILED_EXECUTION };
+module.exports = { aggregate, inputFromReport, verificationInput, FAILED_EXECUTION };

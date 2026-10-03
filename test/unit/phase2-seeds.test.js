@@ -41,7 +41,7 @@ test('QB-07 Recipe B: negative prose is never parsed as a positive vote', async 
   }
 });
 
-test('QB-06 Recipe C: test command exiting 2 cannot produce PASS', { todo: 'Phase 2 — QB-06' }, async () => {
+test('QB-06 Recipe C: test command exiting 2 cannot produce PASS', async () => {
   const repo = makeRepo({
     'package.json': JSON.stringify({ name: 'fx', scripts: { test: 'node -e "process.exit(2)"' } }),
   });

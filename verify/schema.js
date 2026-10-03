@@ -8,6 +8,18 @@ const CriterionResultSchema = z.object({
   evidence:  z.string(),
   votes:     z.array(z.boolean().nullable()).optional(),
   repair:    z.string().nullable().optional(),
+  vote_status:     z.array(z.enum(['ok', 'invalid_judgment', 'error'])).optional(),   // QB-07
+  judgment_status: z.enum(['ok', 'invalid_judgment', 'error', 'not_judged']).optional(),
+  refs:            z.array(z.string()).optional(),
+});
+
+const TestOutcomeSchema = z.object({                                                // QB-06
+  outcome:     z.enum(['passed', 'failed', 'error', 'not_run']),
+  reason:      z.string(),
+  runner:      z.string().nullable(),
+  exit_code:   z.number().int().nullable(),
+  state:       z.string().nullable(),
+  duration_ms: z.number().int().nullable(),
 });
 
 const TestResultsSchema = z.object({
@@ -33,6 +45,7 @@ const VerificationReportSchema = z.object({
   criteria_results: z.array(CriterionResultSchema),
   failures:         z.array(z.string()),
   test_results:     TestResultsSchema.nullable(),
+  test_outcome:     TestOutcomeSchema.optional(),
   scope_violations: z.array(z.string()),
   repair_hints:     z.array(RepairHintSchema),
 });
