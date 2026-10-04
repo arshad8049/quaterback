@@ -36,7 +36,8 @@ async function until(fn, ms = 10_000) {
 
 let root;
 beforeEach(() => { root = fs.mkdtempSync(path.join(os.tmpdir(), 'qb-sbx-')); });
-afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
+// A supervisor that just committed may still be writing its final records: retry the cleanup briefly.
+afterEach(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 }));
 const newRun = () => { const id = `qbu-${process.pid}-${Math.random().toString(36).slice(2, 8)}`; return [path.join(root, id), id]; };
 
 describe('process identity', () => {
@@ -211,6 +212,7 @@ describe('T-LIFE wall-clock jump (§11.2): only monotonic time bounds the protoc
     s.close();
     assert.equal(t && t.state, 'timeout');
     assert.ok(P.mono() - t0 < 6000);
+    await until(() => !P.alive(s.supervisor), 10_000);     // let it finish its records before cleanup
   });
 });
 
