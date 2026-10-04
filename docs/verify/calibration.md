@@ -54,8 +54,19 @@
   - abstention over all items.
 - `node bench/judge-calibration.js [--votes 3]` prints the table. It writes per-item votes to `bench/calibration/results/<time>.json`.
 
-### Live result
-See the KAN-15 evidence comment and the committed result file for the run on `deepseek-r1:7b`.
+### Live result (2026-10-04, `deepseek-r1:7b`, 13 patches × 3 samples)
+Result file: `bench/calibration/results/2026-10-04T16-48-43-551Z.json`.
+
+| Strategy | Calls / item | False accept (of 6 not-met) | False reject (of 7 met) | Abstain (of 13) | Correct |
+|---|---|---|---|---|---|
+| single | 1 | 2 (33%) | 0 (0%) | 0 (0%) | 11/13 |
+| majority-3 (QB today) | 3 | 1 (17%) | 0 (0%) | 1 (8%) | 11/13 |
+| unanimous-3 | 3 | 0 (0%) | 0 (0%) | 3 (23%) | 10/13 |
+
+- **Majority-3 at 3× the cost** converts one false acceptance into an abstention: `jsdoc-incomplete`, votes `[true, null, false]`. It keeps the other false acceptance: `changelog-wrong-heading`, the flag listed under "Fixed" instead of "Added", votes `[true, true, false]`. It does **not** increase the number of correct decisions.
+- **Unanimous-3** removes every false acceptance on this set, at the cost of 23% abstention: it also abstains on `error-message-ok`, votes `[true, false, true]`.
+- **No false rejections** under any strategy on this set.
+- **What this means:** extra votes mainly trade false acceptance for abstention. They don't buy accuracy. Whether QB should require unanimity for a judged "met" is a policy decision. This ticket measures it; it does not change it.
 
 ## Limitations
 - The labeled set is small (13) and written by one person. It measures the error kinds on this set; it does not estimate field rates with tight confidence.
