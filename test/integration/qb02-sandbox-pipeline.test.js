@@ -279,6 +279,28 @@ describe('QB-02 done-when through the real pipeline', { skip: !ENABLED && 'set Q
     } finally { repo.cleanup(); }
   });
 
+  test('QB-09: a protected file change fails the task though tests, checks and the judge all pass', async () => {
+    const repo = fixtureRepo((files) => { NODE_TEST(files); files['docs/notes.md'] = '# notes\n'; });
+    try {
+      const r = await runSandboxed({ repoPath: repo.dir, briefing: 'x', stateDir, checks: DOUBLE_CHECKS,
+        agentStage: hostileAgent("printf 'module.exports = (x) => Number(x) * 2;\\n' > /work/src/double.js; echo edited >> /work/docs/notes.md") });
+      assert.equal(r.status, 'completed', JSON.stringify({ reason: r.reason }));
+      const contract = approve({ id: 'c', goal: 'double numbers', clarifying_question: null, checks: DOUBLE_CHECKS,
+        acceptance_criteria: [{ id: 'AC-1', criterion: 'src/double.js doubles numbers', met: null, kind: 'behavioral' }],
+        scope: { allowed_changes: ['src/**'], protected_paths: ['docs/**'] } }, { via: 'test' });
+      const m = mockFetch(ollamaReply({ met: true, evidence: 'looks right' }));
+      let report;
+      try {
+        report = await verify(contract, null, { id: 'e', status: r.status, diff: r.diff, changes: r.changes,
+          candidate_tree: r.candidate_tree, sandbox: r.sandbox }, { repoPath: repo.dir });
+      } finally { m.restore(); }
+      assert.equal(report.test_outcome.outcome, 'passed');
+      assert.ok(report.checks.results.every((x) => x.status === 'pass'), JSON.stringify(report.checks.results));
+      assert.deepEqual(report.policy.protected_touched, ['docs/notes.md']);
+      assert.equal(report.verdict, 'fail');
+    } finally { repo.cleanup(); }
+  });
+
   test('QB-22: the trusted export refuses oversized files, symlinks, directories and missing paths', async () => {
     const repo = fixtureRepo((files) => { NODE_TEST(files); files['big.txt'] = Buffer.alloc(70 * 1024, 97); });
     fs.symlinkSync('src/double.js', path.join(repo.dir, 'link.js'));

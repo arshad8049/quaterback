@@ -111,7 +111,7 @@ describe('results: complete, one per requested check, in order', () => {
 // ── verify(): behavioural criteria are decided by executed checks ─────────────
 const TREE = 'e'.repeat(40);
 const REPORT = fs.readFileSync(path.join(__dirname, '..', 'fixtures', 'node-test-reports', 'pass.ndjson'), 'utf8');
-const CONTRACT = (checks = [OK.call_returns]) => approve({ id: 'c', goal: 'Add clamp', clarifying_question: null,
+const CONTRACT = (checks = [OK.call_returns]) => approve({ id: 'c', goal: 'Add clamp', clarifying_question: null, scope: { allowed_changes: ['src/**'] },
   acceptance_criteria: [{ id: 'AC-1', criterion: 'clamp bounds n to [min, max]', met: null, kind: 'behavioral' }],
   verification_plan: ['call clamp(5, 0, 3) and expect 3', 'measure clamp performance'], checks }, { via: 'test' });
 const results = (statuses, checks = [OK.call_returns]) => JSON.stringify({ format: 'qb-check-results/1', complete: true, check_set_hash: checkSetHash(checks),

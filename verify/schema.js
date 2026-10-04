@@ -68,6 +68,13 @@ const VerificationReportSchema = z.object({
   judgment_material: JudgmentMaterialSchema.optional(),
   oracle:           z.object({ approved: z.boolean(), reason: z.string(), contract_hash: z.string(), via: z.string().nullable() }).optional(),   // QB-13
   checks:           ChecksReportSchema.optional(),
+  policy:           z.object({                                                       // QB-09
+    allowed_changes: z.array(z.string()), protected_paths: z.array(z.string()), changed_files: z.array(z.string()),
+    out_of_scope: z.array(z.string()), protected_touched: z.array(z.string()),
+    constraints: z.array(z.object({ index: z.number().int(), text: z.string(), status: z.enum(['enforced', 'violated', 'unresolved', 'advisory']),
+      by: z.array(z.string()), detail: z.string().optional() })),
+    effect: z.enum(['ok', 'fail', 'unresolved']),
+  }).optional(),
   verification_plan_status: z.array(PlanItemStatusSchema).optional(),
   scope_violations: z.array(z.string()),
   repair_hints:     z.array(RepairHintSchema),

@@ -28,6 +28,9 @@ const TaskContractSchema = z.object({
     plan_item: z.number().int().nonnegative().optional() })).optional(),
   checks_rejected: z.array(z.object({ check: z.unknown(), reason: z.string() })).optional(),
   checks_registry: z.string().optional(),
+  // QB-09: enforced scope and per-constraint enforcement (verify/policy.js).
+  scope: z.object({ allowed_changes: z.array(z.string()).optional(), protected_paths: z.array(z.string()).optional() }).optional(),
+  constraint_policy: z.array(z.unknown()).optional(),
 });
 
 // Partial schema for when compiler returns a clarifying question instead of full contract

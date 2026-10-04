@@ -4,7 +4,7 @@
  * Deterministic evidence collection. No LLM. Runs before the judge.
  * Three passes:
  *   1. Test results — taken from the sandbox verification stage (never run on the host)
- *   2. Diff scope   — flags files modified outside the relevant set
+ *   2. (scope is enforced policy: verify/policy.js, QB-09)
  *   3. Signal scan  — checks whether contract keywords / AC terms appear in the diff
  */
 
@@ -20,14 +20,13 @@ const { classifyTestRun } = require('./tests');
  * @param {string|null} diff     - Raw git diff string from ExecutionResult
  * @param {string} _repoPath     - unused (kept for call compatibility)
  * @param {object|null} execution - ExecutionResult (sandbox.verification carries the test output)
- * @returns {{ testResults, scopeViolations, diffSignals }}
+ * @returns {{ testResults, diffSignals }}
  */
 function runChecks(contract, context, diff, _repoPath, execution = null) {
   const testResults     = testsFromSandbox(execution);
-  const scopeViolations = checkScope(diff, context);
   const diffSignals     = scanDiff(diff, contract);
 
-  return { testResults, scopeViolations, diffSignals };
+  return { testResults, diffSignals };
 }
 
 // ─── 1. Test results (from the sandbox) ───────────────────────────────────────
@@ -43,27 +42,8 @@ function testsFromSandbox(execution) {
     output: v.output.slice(0, 2000) };
 }
 
-// ─── 2. Diff scope check ─────────────────────────────────────────────────────
-
-function checkScope(diff, context) {
-  if (!diff || !context?.relevant_files) return [];
-
-  const relevantPaths = new Set(context.relevant_files.map(f => f.path));
-  const violations = [];
-
-  const fileMatches = diff.match(/^diff --git a\/.+ b\/(.+)$/gm) || [];
-  for (const line of fileMatches) {
-    const match = line.match(/b\/(.+)$/);
-    if (match) {
-      const file = match[1];
-      if (!relevantPaths.has(file)) {
-        violations.push(file);
-      }
-    }
-  }
-
-  return violations;
-}
+// (QB-09: scope is enforced policy in verify/policy.js, from the approved contract —
+//  retrieval relevance is never an allowlist.)
 
 // ─── 3. Diff signal scan ──────────────────────────────────────────────────────
 

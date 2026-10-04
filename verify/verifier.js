@@ -5,6 +5,7 @@ const { aggregate, verificationInput, FAILED_EXECUTION } = require('./verdict');
 const { classifyTestRun } = require('./tests');
 const { validateCheckResults } = require('./checks/results');
 const { checkSetHash } = require('./checks/registry');
+const { evaluatePolicy } = require('./policy');
 const { VerificationReportSchema } = require('./schema');
 const { contractState, stateReason, contractHash, approvalState } = require('../intent/contract-state');
 
@@ -31,7 +32,7 @@ async function verify(contract, context, execution, options = {}) {
     || null;
 
   // ── Stage 1: DSA checks ──────────────────────────────────────────────────
-  const { testResults, scopeViolations, diffSignals } = runChecks(
+  const { testResults, diffSignals } = runChecks(
     contract, context, diff, repoPath, execution
   );
 
@@ -87,9 +88,11 @@ async function verify(contract, context, execution, options = {}) {
   // ── Verdict ──────────────────────────────────────────────────────────────
   const verification = verificationInput(execution);
   const oracle = { ...approvalState(contract), contract_hash: contractHash(contract), via: contract.approval?.via ?? null };
+  const policy = evaluatePolicy(contract, execution, checkEval.results);       // QB-09
   const { verdict, failures } = aggregate({
-    rules: 3,
+    rules: 4,
     oracleApproved: oracle.approved,
+    policyEffect: policy.effect,
     hasDiff: Boolean(diff),
     criteriaResults,
     testResults,
@@ -122,8 +125,9 @@ async function verify(contract, context, execution, options = {}) {
     checks:           checksReport(contract, checkEval),
     verification_plan_status: planStatus(contract, checkEval),
     ...(material && material.ok ? { judgment_material: { source: 'sandbox_snapshot', tree: material.tree, files: material.files } } : {}),
-    scope_violations: scopeViolations,
-    repair_hints:     repairHints,
+    scope_violations: [...policy.protected_touched, ...policy.out_of_scope],
+    policy,
+    repair_hints:     [...repairHints, ...policyRepairs(policy)],
   };
 
   return VerificationReportSchema.parse(report);
@@ -229,6 +233,15 @@ function planStatus(contract, ev) {
       : rs.some(r => r.status === 'fail') ? 'failed' : rs.every(r => r.status === 'pass') ? 'passed' : 'error';
     return { item: String(item), checks: ids, status };
   });
+}
+
+/** QB-09: what the agent must undo for a policy failure (a protected or unauthorized change, a violated constraint). */
+function policyRepairs(policy) {
+  const hints = [];
+  for (const f of policy.protected_touched) hints.push({ criterion_id: 'POLICY', diagnosis: `${f} is a protected path`, suggested_fix: `Revert all changes to ${f}; it must not be modified.` });
+  for (const f of policy.out_of_scope) hints.push({ criterion_id: 'POLICY', diagnosis: `${f} is outside the approved scope`, suggested_fix: `Revert ${f}, or ask the human to widen scope.allowed_changes.` });
+  for (const c of policy.constraints.filter(x => x.status === 'violated')) hints.push({ criterion_id: `CONSTRAINT-${c.index}`, diagnosis: `Constraint violated: ${c.text}`, suggested_fix: `Restore compliance with: ${c.text}` });
+  return hints;
 }
 
 /** The classified sandbox test run (QB-06), as recorded in the report. */

@@ -71,7 +71,7 @@ describe('trusted arithmetic for computable examples', () => {
 
 const TREE = 'a'.repeat(40);
 const REPORT = fs.readFileSync(path.join(__dirname, '..', 'fixtures', 'node-test-reports', 'pass.ndjson'), 'utf8');
-const BASE = { id: 'c', goal: 'Add clamp', clarifying_question: null, verification_plan: ['call clamp'],
+const BASE = { id: 'c', goal: 'Add clamp', clarifying_question: null, verification_plan: ['call clamp'], scope: { allowed_changes: ['src/**'] },
   acceptance_criteria: [{ id: 'AC-1', criterion: 'clamp bounds n', met: null, kind: 'behavioral' }],
   checks: [{ id: 'CHK-1', ac_id: 'AC-1', adapter: 'call_returns', params: { module: 'src/u.js', export: 'clamp', args: [5, 0, 3], expect: 3 } }] };
 const PASSING = { id: 'e', status: 'completed', diff: 'diff --git a/src/u.js b/src/u.js\n+x', candidate_tree: TREE,
@@ -234,12 +234,12 @@ describe('the approval view shows everything the approval covers', () => {
     const c = { ...BASE, goal: 'GOAL-x', required_behavior: ['REQ-x'], constraints: ['CON-x'], verification_plan: ['PLAN-x'],
       acceptance_criteria: [{ id: 'AC-1', criterion: 'CRIT-x', kind: 'behavioral' }] };
     const text = formatOracle(c);
-    for (const needle of ['GOAL-x', 'REQ-x', 'CON-x', 'CRIT-x', 'PLAN-x', 'CHK-1', '"expect":3', contractHash(c).slice(0, 16)]) {
+    for (const needle of ['GOAL-x', 'REQ-x', 'CON-x', 'CRIT-x', 'PLAN-x', 'CHK-1', '"expect":3', 'src/**', 'UNENFORCED', contractHash(c).slice(0, 16)]) {
       assert.ok(text.includes(needle), `missing ${needle}`);
     }
     const { approvedContent } = require('../../intent/contract-state');
     assert.deepEqual(Object.keys(approvedContent(c)).sort(),
-      ['acceptance_criteria', 'checks', 'constraints', 'goal', 'required_behavior', 'verification_plan'], 'a new hashed field must be added to the view');
+      ['acceptance_criteria', 'checks', 'constraint_policy', 'constraints', 'goal', 'required_behavior', 'scope', 'verification_plan'], 'a new hashed field must be added to the view');
   });
 });
 

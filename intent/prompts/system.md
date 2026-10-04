@@ -42,6 +42,12 @@ Executable checks that prove the behavioural acceptance criteria. Each check is 
 Every check has a unique `id`, the `ac_id` it proves, and optionally `plan_item` (the 0-based index of the verification_plan step it executes). `module` is a repository-relative .js/.cjs/.mjs path; `export` is an identifier or "default". Give every behavioural criterion at least one check with concrete inputs and expected outputs from the request. A criterion that cannot be checked this way stays unverified.
 Mark a criterion `"kind": "non_behavioral"` only when it is about documentation, naming or wording rather than behaviour.
 
+**scope** (enforced policy, approved by a human)
+`{ "allowed_changes": ["path globs the task may change"], "protected_paths": ["path globs that must not change"] }`. Any change outside allowed_changes is unauthorized and the task cannot pass; any change to a protected path fails it. Being relevant is not permission: list only what the request authorizes. Globs: `**` any depth, `*` within a folder.
+
+**constraint_policy**
+One entry per constraint (0-based index into constraints) saying how it is enforced: `{ "constraint": 0, "enforced_by": [{ "kind": "protected_paths", "ref": "<a glob from scope.protected_paths>" }] }`, `{ "kind": "allowed_changes" }`, `{ "kind": "check", "ref": "<check id>" }`, or `{ "constraint": 1, "advisory": true }` when it cannot be machine-checked. A constraint without an entry stays unresolved.
+
 **relevant_context**
 File paths, API names, database tables, environment variables, or symbols that the coding agent will need. ONLY include these if repository context was provided. If no repo context was given, return an empty array. Never invent file paths.
 
@@ -82,6 +88,8 @@ Return ONLY a valid JSON object. No markdown code fences, no explanation, no pre
   "goal": "string",
   "required_behavior": ["string"],
   "constraints": ["string"],
+  "scope": { "allowed_changes": ["src/utils.js"], "protected_paths": ["test/**"] },
+  "constraint_policy": [{ "constraint": 0, "enforced_by": [{ "kind": "protected_paths", "ref": "test/**" }] }],
   "acceptance_criteria": [
     { "id": "AC-1", "criterion": "string", "met": null, "kind": "behavioral" }
   ],

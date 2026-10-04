@@ -14,6 +14,7 @@
 
 const crypto = require('crypto');
 const { validateExamples } = require('./examples');
+const { policyErrors } = require('../verify/policy');
 
 function contractState(c) {
   if (!c || typeof c !== 'object' || Array.isArray(c)) return { state: 'invalid', errors: ['contract is not an object'] };
@@ -34,6 +35,8 @@ function contractState(c) {
       if (!ac || typeof ac.criterion !== 'string' || !ac.criterion.trim()) errors.push(`criterion ${id || i + 1} has no text`);
     }
   }
+  // QB-09: the scope and constraint policy must be well-formed (they are enforced, not advisory text).
+  if (!errors.length) errors.push(...policyErrors(c));
   // QB-13: every computable example is recomputed with trusted arithmetic; a wrong
   // one makes the contract invalid (it is never corrected to fit).
   if (!errors.length) {
@@ -52,6 +55,8 @@ function approvedContent(c) {
     goal: c?.goal ?? null, required_behavior: c?.required_behavior ?? [], constraints: c?.constraints ?? [],
     acceptance_criteria: (c?.acceptance_criteria || []).map((a) => ({ id: a.id, criterion: a.criterion, kind: a.kind || 'behavioral' })),
     verification_plan: c?.verification_plan ?? [], checks: c?.checks ?? [],
+    scope: { allowed_changes: c?.scope?.allowed_changes ?? [], protected_paths: c?.scope?.protected_paths ?? [] },   // QB-09
+    constraint_policy: c?.constraint_policy ?? [],
   };
 }
 function contractHash(c) {

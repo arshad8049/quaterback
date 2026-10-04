@@ -19,6 +19,12 @@ function formatOracle(contract) {
   list('Constraints', c.constraints.map(String));
   list('Acceptance criteria', c.acceptance_criteria.map((a) => `[${a.id}] (${a.kind}) ${a.criterion}`));
   list('Verification plan', c.verification_plan.map((p, i) => `${i}. ${p}`));
+  list('May change (scope.allowed_changes; anything else is unauthorized)', c.scope.allowed_changes);
+  list('Must not change (scope.protected_paths)', c.scope.protected_paths);
+  list('Constraint enforcement', c.constraints.map((t, i) => {
+    const e = c.constraint_policy.find((p) => p && p.constraint === i);
+    return `${i}. ${t} → ${!e ? 'UNENFORCED (will be unresolved)' : e.advisory ? 'advisory (not machine-checked)' : e.enforced_by.map((b) => `${b.kind}${b.ref ? ` ${b.ref}` : ''}`).join(', ')}`;
+  }));
   list('Executable checks', c.checks.map((k) => `${k.id} → ${k.ac_id}${k.plan_item !== undefined ? ` (plan ${k.plan_item})` : ''}: ${k.adapter} ${JSON.stringify(k.params)}`));
   const rejected = contract?.checks_rejected || [];
   if (rejected.length) list('Rejected by the registry (will not run)', rejected.map((r) => `${r.check && r.check.id ? r.check.id : '?'}: ${r.reason}`));

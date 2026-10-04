@@ -12,6 +12,7 @@ const MODEL      = process.env.QB_MODEL       || 'deepseek-r1:7b';
 const SEMANTIC_FIELDS = [
   'goal', 'required_behavior', 'constraints', 'acceptance_criteria',
   'verification_plan', 'relevant_context', 'ambiguity_flags', 'clarifying_question',
+  'scope', 'constraint_policy',   // QB-09: enforced policy, validated by contractState
 ];
 const { validateChecks } = require('../verify/checks/registry');
 

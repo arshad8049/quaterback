@@ -28,8 +28,14 @@ const { classifyTestRun } = require('./tests');
 
 function aggregate(input) {
   const r = aggregateCore(input);
+  const rules = input.rules || 1;
+  // Rules 4 (QB-09): policy. A protected change or a violated constraint fails the task
+  // (unless the run already failed to execute); an unauthorized change or an
+  // unenforced constraint can never be a PASS.
+  if (rules >= 4 && input.policyEffect === 'fail' && ['pass', 'partial', 'unresolved', 'fail'].includes(r.verdict)) return { ...r, verdict: 'fail' };
+  if (rules >= 4 && input.policyEffect === 'unresolved' && r.verdict === 'pass') return { ...r, verdict: 'unresolved' };
   // Rules 3 (QB-13): a PASS needs a human-approved, unchanged test oracle (the contract).
-  if ((input.rules || 1) >= 3 && input.oracleApproved !== true && r.verdict === 'pass') return { ...r, verdict: 'unresolved' };
+  if (rules >= 3 && input.oracleApproved !== true && r.verdict === 'pass') return { ...r, verdict: 'unresolved' };
   return r;
 }
 
@@ -104,8 +110,9 @@ function verificationInput(execution) {
 /** The aggregate() input that produced a stored report, for the run record. */
 function inputFromReport(report, execution) {
   return {
-    rules:           3,
+    rules:           4,
     oracleApproved:  report.oracle ? report.oracle.approved === true : false,
+    policyEffect:    report.policy ? report.policy.effect : 'ok',
     hasDiff:         Boolean(execution?.diff),
     criteriaResults: report.criteria_results.map(r => ({ id: r.id, met: r.met })),
     testResults:     report.test_results

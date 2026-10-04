@@ -223,6 +223,11 @@ An agent that changed nothing passes only if the requirement is independently ve
 - a PASS needs a human-approved contract, approved in the terminal or by passing a reviewed `--contract-file`;
 - the approval is frozen by hash, so any later change voids it.
 
+**Scope and constraints are enforced policy** (QB-09, [docs/verify/scope-policy.md](docs/verify/scope-policy.md)):
+- the approved contract lists `scope.allowed_changes` and `protected_paths`, and how each constraint is enforced;
+- a protected change fails the task;
+- an unauthorized change, or an unenforced constraint, can't pass.
+
 **Run records** (`run/store.js`, QB-38). Every run keeps a versioned, append-only record: base commit, agent version, contract, patch, test outcome, checks and report. `qb replay <run_id>` recomputes each verdict and the final outcome from the stored evidence.
 
 ---
