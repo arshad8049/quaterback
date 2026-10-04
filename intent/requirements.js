@@ -8,8 +8,11 @@
  * `requirement_ids`.
  *
  * A contract is not executable when:
- *   - a quote is not in the request, or request words are covered by no quote
- *     (part of the request was silently dropped);
+ *   - a quote is not in the request, or any substantive part of the request lies
+ *     outside every quote's span (part of the request was silently dropped).
+ *     Coverage is by source position: each quote claims one span (`occurrence`
+ *     picks among repeats), so a repeated word never covers another clause, and
+ *     negation, numbers and operators always count;
  *   - a requirement is covered by no criterion and is not marked
  *     `disposition: "context"` with a reason (e.g. a file location);
  *   - a criterion traces to no requirement (an unsupported addition) or to an
@@ -19,13 +22,18 @@
  * real contract does (compiler, contract file, benchmark oracle).
  */
 
-const STOP = new Set(['the', 'and', 'that', 'with', 'for', 'from', 'this', 'these', 'those', 'its', 'are', 'was', 'were',
-  'has', 'have', 'into', 'onto', 'which', 'when', 'then', 'than', 'also', 'should', 'would', 'could', 'can', 'will', 'all',
-  'any', 'each', 'some', 'such', 'so', 'but', 'not', 'our', 'your', 'their', 'there', 'here', 'like', 'just', 'add', 'make']);
+// Request text that needs no requirement of its own: articles and pure connectives.
+// Deliberately tiny — negation ("not", "no", "never", "without"), numbers, units,
+// comparison words and operators are NEVER in it, and there is no length cutoff.
+const FILLER = new Set(['a', 'an', 'the', 'and', 'that', 'which', 'please']);
 const norm = (s) => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
-const words = (s) => (norm(s).match(/[a-z0-9_$]+/g) || []).filter((w) => w.length > 2 && !STOP.has(w));
+// Tokens with their positions in the normalized request: words/numbers, and runs of
+// operator symbols (>=, <, %, +, =, …). Plain punctuation is not a token.
+const TOKEN = /[\p{L}\p{N}_$]+(?:[.'][\p{L}\p{N}_$]+)*|[^\s\p{L}\p{N}_$.,;:!?"'()[\]{}]+/gu;
+const tokens = (text) => [...text.matchAll(TOKEN)].map((m) => ({ t: m[0], start: m.index, end: m.index + m[0].length }));
+const occurrences = (hay, needle) => { const at = []; for (let i = hay.indexOf(needle); i !== -1; i = hay.indexOf(needle, i + 1)) at.push(i); return at; };
 
-/** @returns {{ errors: string[], trace: Array<{ id, quote, implied, disposition, covered_by }> }} */
+/** @returns {{ errors: string[], trace: Array<{ id, quote, span, implied, disposition, reason, covered_by }> }} */
 function validateTraceability(c) {
   const request = typeof c?.raw_request === 'string' ? c.raw_request : '';
   if (!request.trim()) return { errors: [], trace: [] };
@@ -33,9 +41,12 @@ function validateTraceability(c) {
   const reqs = Array.isArray(c.requirements) ? c.requirements : [];
   if (!reqs.length) return { errors: ['no requirements traced from the request (requirements[] is empty)'], trace: [] };
 
+  // Each quote claims ONE source span of the request (QB-14 re-review): coverage is by
+  // position, so a word repeated elsewhere never covers an unquoted clause. A quote
+  // that occurs more than once must say which occurrence it means (`occurrence`, 1-based).
   const nreq = norm(request);
   const ids = new Set();
-  const quoted = new Set();
+  const spans = new Map();   // id → [start, end) in the normalized request
   for (const r of reqs) {
     const id = r && typeof r.id === 'string' ? r.id : '';
     if (!/^R-\d{1,3}$/.test(id) || ids.has(id)) { errors.push(`requirement id ${JSON.stringify(r && r.id)} is missing, malformed or duplicated`); continue; }
@@ -45,11 +56,29 @@ function validateTraceability(c) {
       continue;
     }
     if (typeof r.quote !== 'string' || !r.quote.trim()) { errors.push(`${id} has no quote from the request`); continue; }
-    if (!nreq.includes(norm(r.quote))) { errors.push(`${id} quote is not in the request verbatim: ${JSON.stringify(r.quote)}`); continue; }
-    for (const w of words(r.quote)) quoted.add(w);
+    const q = norm(r.quote);
+    const at = occurrences(nreq, q);
+    if (!at.length) { errors.push(`${id} quote is not in the request verbatim: ${JSON.stringify(r.quote)}`); continue; }
+    if (r.occurrence !== undefined && (!Number.isInteger(r.occurrence) || r.occurrence < 1 || r.occurrence > at.length)) {
+      errors.push(`${id} occurrence ${JSON.stringify(r.occurrence)} is not one of the ${at.length} occurrence(s) of its quote`); continue;
+    }
+    if (at.length > 1 && r.occurrence === undefined) { errors.push(`${id} quote ${JSON.stringify(r.quote)} occurs ${at.length} times in the request; say which (occurrence)`); continue; }
+    const start = at[(r.occurrence || 1) - 1];
+    spans.set(id, [start, start + q.length]);
   }
-  const untraced = [...new Set(words(request).filter((w) => !quoted.has(w)))];
-  if (untraced.length) errors.push(`request text not traced to any requirement: ${untraced.join(', ')}`);
+
+  // Every substantive token must lie inside some claimed span; report each uncovered
+  // stretch of the request as the human would read it.
+  const claimed = [...spans.values()];
+  const inSpan = (tk) => claimed.some(([s, e]) => tk.start >= s && tk.end <= e);
+  const runs = [];
+  let cur = null;
+  for (const tk of tokens(nreq)) {
+    if (inSpan(tk)) { cur = null; continue; }
+    if (FILLER.has(tk.t)) { if (cur) cur.end = tk.end; continue; }
+    if (cur) { cur.end = tk.end; cur.substantive = true; } else { cur = { start: tk.start, end: tk.end, substantive: true }; runs.push(cur); }
+  }
+  for (const run of runs) errors.push(`request text not traced to any requirement: ${JSON.stringify(nreq.slice(run.start, run.end))}`);
 
   const acs = Array.isArray(c.acceptance_criteria) ? c.acceptance_criteria : [];
   const coveredBy = new Map([...ids].map((id) => [id, []]));
@@ -71,7 +100,8 @@ function validateTraceability(c) {
     const by = coveredBy.get(r.id) || [];
     const context = r.disposition === 'context' && typeof r.reason === 'string' && r.reason.trim();
     if (!by.length && !context) errors.push(`requirement ${r.id} ${JSON.stringify(r.quote || r.text)} is not covered by any acceptance criterion`);
-    trace.push({ id: r.id, quote: r.quote ?? null, implied: r.implied === true, disposition: by.length ? 'covered' : context ? 'context' : 'uncovered', covered_by: by });
+    trace.push({ id: r.id, quote: r.quote ?? null, span: spans.get(r.id) || null, implied: r.implied === true,
+      disposition: by.length ? 'covered' : context ? 'context' : 'uncovered', reason: typeof r.reason === 'string' ? r.reason : null, covered_by: by });
   }
   return { errors, trace };
 }

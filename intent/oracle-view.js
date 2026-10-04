@@ -19,7 +19,8 @@ function formatOracle(contract) {
   list('Required behaviour', c.required_behavior.map(String));
   list('Constraints', c.constraints.map(String));
   list('Requirements from your request (QB-14)', validateTraceability(contract).trace.map((t) =>
-    `${t.id} ${t.implied ? '(implied) ' : ''}${JSON.stringify(t.quote ?? (c.requirements.find((r) => r.id === t.id) || {}).text)} → ${t.disposition === 'covered' ? t.covered_by.join(', ') : t.disposition.toUpperCase()}`));
+    `${t.id} ${t.implied ? '(implied) ' : ''}${JSON.stringify(t.quote ?? (c.requirements.find((r) => r.id === t.id) || {}).text)} → ${t.disposition === 'covered' ? t.covered_by.join(', ') : t.disposition.toUpperCase()}`
+      + (t.disposition === 'context' || t.implied ? `  (reason: ${t.reason})` : '')));
   list('Acceptance criteria', c.acceptance_criteria.map((a) => `[${a.id}] (${a.kind}) ${a.criterion}${a.requirement_ids.length ? `  ← ${a.requirement_ids.join(', ')}` : ''}`));
   list('Verification plan', c.verification_plan.map((p, i) => `${i}. ${p}`));
   list('May change (scope.allowed_changes; anything else is unauthorized)', c.scope.allowed_changes);

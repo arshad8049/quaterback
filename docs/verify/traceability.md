@@ -9,7 +9,14 @@ T-005 asked for cumulative speech events and duration "tracked since the Adaptiv
 - `requirements[]`: `{ id: "R-n", quote }`, where the quote must appear **verbatim** in the request. QB checks this; it doesn't trust the model.
   - `disposition: "context"` + `reason` for a fragment that is only context, such as a location.
   - `implied: true` + `text` + `reason` for an unstated requirement. It's shown to the human.
-- **Coverage of the request:** every meaningful word of the request must be in some quote, otherwise "request text not traced: …". A dropped clause is caught.
+- **Coverage of the request is by source span (re-review 1).** Each quote claims one span of the (case- and whitespace-normalized) request.
+  - A quote that occurs more than once must say which occurrence it is (`occurrence`, 1-based).
+  - Every token of the request must lie inside a claimed span. Tokens are words, numbers, and runs of operator symbols such as `>=` or `%`.
+  - The only exceptions are a tiny filler list: `a`, `an`, `the`, `and`, `that`, `which`, `please`.
+  - **Negation, numbers, units, comparison words and operators always count,** and there is no length cutoff.
+  - Each uncovered stretch is reported as the human would read it: `request text not traced to any requirement: "do not enable caching for"`.
+  - A repeated word can no longer cover another clause. Before the fix, coverage was a set of unique words with "not" as a stop word, so `"Enable caching for admins. Do not enable caching for guests."` passed with only "guests" quoted.
+- **Context exclusions** quote the full excluded span. Their reason is shown in the approval view: `R-2 "Ignore the legacy folder." → CONTEXT  (reason: …)`.
 - **Each requirement** must be covered by ≥ 1 criterion via `requirement_ids`, or be context.
 - **Blocked before execution:**
   - uncovered requirements;
@@ -36,6 +43,5 @@ T-005 asked for cumulative speech events and duration "tracked since the Adaptiv
   Through `verify()`, the constant-zero VAD is FAIL.
 
 ## Limitations
-- Quotes prove a clause was *assigned*, not that its criteria capture it well. That is shown to the human for approval (QB-13).
-- "Meaningful words" uses a small stop-word list.
+- **Structural coverage, not semantics.** It proves every piece of the request text was accounted for and linked to a criterion. It does **not** prove that the linked criterion captures the clause's meaning: an AC could cite "Do not enable caching for guests." and still be weak. That stays with the human approval (QB-13), where each quote → AC mapping is shown.
 - `call_sequence` covers in-process JavaScript objects.

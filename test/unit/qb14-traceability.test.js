@@ -52,7 +52,7 @@ describe('every request clause has a traceable disposition', () => {
     assert.equal(contractState(traced()).state, 'finalized');
   });
   const BAD = {
-    'a dropped clause (the "tracked since" part)':   [traced({ requirements: REQS.slice(0, 3), acceptance_criteria: ACS.slice(0, 3) }), /request text not traced to any requirement: tracked, since, adaptivevad, created/],
+    'a dropped clause (the "tracked since" part)':   [traced({ requirements: REQS.slice(0, 3), acceptance_criteria: ACS.slice(0, 3) }), /request text not traced to any requirement: "tracked since the adaptivevad was created"/],
     'a quote not in the request':                     [traced({ requirements: [...REQS.slice(0, 3), { id: 'R-4', quote: 'tracked per session' }] }), /R-4 quote is not in the request verbatim/],
     'an uncovered requirement':                       [traced({ acceptance_criteria: ACS.slice(0, 3) }), /requirement R-4 .* is not covered by any acceptance criterion/],
     'an unsupported addition':                        [traced({ acceptance_criteria: [...ACS, { id: 'AC-5', criterion: 'logs every frame to the console', requirement_ids: [] }] }), /AC-5 traces to no requirement \(unsupported addition\)/],
@@ -75,8 +75,66 @@ describe('every request clause has a traceable disposition', () => {
     assert.deepEqual(r.trace.map((t) => t.disposition), ['covered', 'covered', 'covered', 'context', 'covered']);
     const view = formatOracle(c);
     assert.match(view, /Requirements from your request/);
-    assert.match(view, /R-4 "tracked since the AdaptiveVAD was created" → CONTEXT/);
+    assert.match(view, /R-4 "tracked since the AdaptiveVAD was created" → CONTEXT  \(reason: covered by AC-4 wording\)/);
     assert.match(view, /R-5 \(implied\) "existing VAD tests keep passing" → AC-4/);
+  });
+});
+
+describe('QB-14 re-review: coverage is by source span — negation, repeats, numbers and operators count', () => {
+  const { execute } = require('../../agent/runner');
+  const C = (raw_request, requirements, acs) => ({ id: 'c', raw_request, goal: 'g', clarifying_question: null, requirements,
+    acceptance_criteria: acs.map(([id, criterion, rids]) => ({ id, criterion, kind: 'behavioral', requirement_ids: rids })) });
+  const untraced = (c) => validateTraceability(c).errors.filter((e) => /not traced/.test(e)).map((e) => JSON.parse(e.slice(e.indexOf('"'))));
+
+  // The senior's reproduction: the prohibitive clause has no traced occurrence.
+  const CACHING = C('Enable caching for admins. Do not enable caching for guests.',
+    [{ id: 'R-1', quote: 'Enable caching for admins.' }, { id: 'R-2', quote: 'guests', disposition: 'context', reason: 'user category' }],
+    [['AC-1', 'Enable caching for admins', ['R-1']]]);
+
+  test('senior repro: "Do not enable caching for" is untraced → invalid (pre-fix: finalized)', () => {
+    assert.deepEqual(untraced(CACHING), ['do not enable caching for']);
+    assert.equal(contractState(CACHING).state, 'invalid');
+  });
+  test('senior repro through the execution entry point: an approved contract is blocked, the agent never runs', async () => {
+    const out = await execute('briefing', approve(CACHING, { via: 'test' }), null, { agent: 'claude-code', repoPath: '/nonexistent-qb14' });
+    assert.equal(out.status, 'blocked');
+    assert.match(out.error, /do not enable caching for/);
+  });
+  test('the fixed contract: the prohibition is its own requirement, covered by its own criterion', () => {
+    const ok = C('Enable caching for admins. Do not enable caching for guests.',
+      [{ id: 'R-1', quote: 'Enable caching for admins.' }, { id: 'R-2', quote: 'Do not enable caching for guests.' }],
+      [['AC-1', 'admins get cached responses', ['R-1']], ['AC-2', 'guests never get cached responses', ['R-2']]]);
+    assert.deepEqual(validateTraceability(ok).errors, []);
+    assert.equal(contractState(ok).state, 'finalized');
+  });
+  test('negation is never a stop word', () => {
+    for (const [req, quote, missing] of [['Do not log passwords.', 'log passwords', 'do not'], ['Never retry uploads.', 'retry uploads', 'never'],
+      ['Export without headers.', 'Export', 'without headers'], ['Return no results for guests.', 'Return', 'no results for guests']]) {
+      assert.deepEqual(untraced(C(req, [{ id: 'R-1', quote }], [['AC-1', 'x', ['R-1']]])), [missing], req);
+    }
+  });
+  test('numeric thresholds, units, short tokens and operators are never dropped', () => {
+    for (const [req, quote, missing] of [['Reject uploads larger than 10 MB.', 'Reject uploads larger than', '10 mb'],
+      ['Set ttl to 5.', 'Set ttl', 'to 5'], ['Alert when cpu >= 90%.', 'Alert when cpu', '>= 90%'], ['Retry at most 3 times.', 'Retry', 'at most 3 times']]) {
+      assert.deepEqual(untraced(C(req, [{ id: 'R-1', quote }], [['AC-1', 'x', ['R-1']]])), [missing], req);
+    }
+  });
+  test('a repeated clause: one quote covers one occurrence only; repeats must say which occurrence', () => {
+    const req = 'Cache results. Cache results for 5 minutes.';
+    // ambiguous quote → error; quoting occurrence 1 leaves the second clause untraced
+    assert.match(validateTraceability(C(req, [{ id: 'R-1', quote: 'Cache results' }], [['AC-1', 'x', ['R-1']]])).errors.join(' | '), /occurs 2 times in the request; say which/);
+    assert.deepEqual(untraced(C(req, [{ id: 'R-1', quote: 'Cache results', occurrence: 1 }], [['AC-1', 'x', ['R-1']]])), ['cache results for 5 minutes']);
+    const both = C(req, [{ id: 'R-1', quote: 'Cache results', occurrence: 1 }, { id: 'R-2', quote: 'Cache results for 5 minutes' }], [['AC-1', 'x', ['R-1']], ['AC-2', 'y', ['R-2']]]);
+    assert.deepEqual(validateTraceability(both).errors, []);
+    assert.match(validateTraceability(C(req, [{ id: 'R-1', quote: 'Cache results', occurrence: 3 }], [['AC-1', 'x', ['R-1']]])).errors.join(' | '), /occurrence 3 is not one of the 2/);
+  });
+  test('context exclusions refer to the full excluded span and show their reason to the human', () => {
+    const c = C('Add clamp() to src/math.js. Ignore the legacy folder.',
+      [{ id: 'R-1', quote: 'Add clamp() to src/math.js.' }, { id: 'R-2', quote: 'Ignore the legacy folder.', disposition: 'context', reason: 'handled by scope.protected_paths' }],
+      [['AC-1', 'clamp is exported', ['R-1']]]);
+    assert.deepEqual(validateTraceability(c).errors, []);
+    assert.deepEqual(validateTraceability(c).trace[1].span, [28, 53]);
+    assert.match(formatOracle(c), /R-2 "Ignore the legacy folder\." → CONTEXT  \(reason: handled by scope\.protected_paths\)/);
   });
 });
 
