@@ -13,6 +13,15 @@ const CriterionResultSchema = z.object({
   refs:            z.array(z.string()).optional(),
   check_status:    z.enum(['passed', 'failed', 'error', 'unresolved']).optional(),   // QB-16
   checks:          z.array(z.object({ id: z.string(), status: z.enum(['pass', 'fail', 'error']), detail: z.string().optional() })).optional(),
+  evidence_ids:     z.array(z.string()).optional(),                                  // QB-11: what the judgment was based on
+  evidence_missing: z.array(z.object({ what: z.string(), reason: z.string() })).optional(),
+});
+
+const EvidenceItemSchema = z.object({                                                  // QB-11 manifest (no contents)
+  id: z.string().regex(/^EV-[0-9a-f]{12}$/), kind: z.enum(['hunk', 'definition', 'file', 'check']),
+  file: z.string().nullable(), range: z.tuple([z.number().int(), z.number().int()]).nullable(),
+  source: z.enum(['diff', 'candidate_tree', 'check_run']), tree: z.string().nullable(), blob: z.string().nullable(),
+  sha256: z.string().regex(/^[0-9a-f]{64}$/), material: z.boolean(),
 });
 
 const ChecksReportSchema = z.object({                                                  // QB-16
@@ -74,6 +83,7 @@ const VerificationReportSchema = z.object({
   test_results:     TestResultsSchema.nullable(),
   test_outcome:     TestOutcomeSchema.optional(),
   judgment_material: JudgmentMaterialSchema.optional(),
+  evidence:         z.array(EvidenceItemSchema).optional(),
   outcomes:         z.object({ execution: z.string(), policy: z.string(), tests: z.string(), criteria: z.string() }).optional(),   // QB-10
   oracle:           z.object({ approved: z.boolean(), reason: z.string(), contract_hash: z.string(), via: z.string().nullable() }).optional(),   // QB-13
   checks:           ChecksReportSchema.optional(),

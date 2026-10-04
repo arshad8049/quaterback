@@ -87,7 +87,7 @@ describe('verdict and repair actions', () => {
     const e = EX(run([['flaky', false], ['doubles', true]], baseRun([['flaky', false], ['doubles', true]])));
     const r = await V(C({ test_policy: { preexisting_failures: 'waive' } }), e);
     const input = inputFromReport(r, e);
-    assert.deepEqual([input.rules, aggregate(input).verdict], [5, 'pass']);
+    assert.deepEqual([input.rules, aggregate(input).verdict], [6, 'pass']);
     assert.equal(aggregate({ ...input, rules: 4 }).verdict, 'fail', 'pre-QB-10: any failed count forced FAIL');
   });
 });

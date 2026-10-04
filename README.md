@@ -240,6 +240,12 @@ An agent that changed nothing passes only if the requirement is independently ve
 - unsupported additions and duplicates block execution;
 - `call_sequence` checks prove behaviour over time.
 
+**Judge evidence with provenance** (QB-11, [docs/verify/evidence.md](docs/verify/evidence.md)):
+- the judge sees whole changed hunks, ranked within a budget (no silent 6,000-character cut);
+- it also sees the definitions of the helpers the change calls, from the tested tree, unchanged code included;
+- every item has an immutable `EV-…` ID with file, range, blob and hash;
+- missing material evidence makes the criterion unresolved, naming the missing artifact.
+
 **Run records** (`run/store.js`, QB-38). Every run keeps a versioned, append-only record: base commit, agent version, contract, patch, test outcome, checks and report. `qb replay <run_id>` recomputes each verdict and the final outcome from the stored evidence.
 
 ---

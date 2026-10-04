@@ -6,8 +6,13 @@
  *
  * Runs via Ollama (same model as Layers 1+2) but with a different system prompt
  * and different context — this is the "independent verifier" that never saw the
- * original request or the briefing. It only sees the diff + one AC at a time.
+ * original request or the briefing. It sees one AC at a time, with the evidence
+ * QB retrieved for it (verify/evidence.js, QB-11): whole changed hunks, the
+ * definitions of the helpers the change calls (unchanged code from the tested
+ * tree), check results — each with an immutable evidence ID — and an explicit
+ * list of what was NOT shown.
  */
+const { missingText, label } = require('./evidence');
 
 require('dotenv').config({ path: require('path').join(__dirname, '../intent/.env') });
 require('dotenv').config({ path: require('path').join(__dirname, '../context/.env') });
@@ -19,19 +24,20 @@ const MODEL      = process.env.QB_MODEL      || 'deepseek-r1:7b';
 // 3 = minimum for a proper majority vote (2/3 required). Raise to 5 for high-stakes use.
 const VOTE_COUNT = 3;
 
-const SYSTEM_PROMPT = `You are an independent code reviewer. You will be shown a git diff and a single acceptance criterion.
-Your job: determine whether the diff satisfies the criterion.
+const SYSTEM_PROMPT = `You are an independent code reviewer. You will be shown evidence about a code change and a single acceptance criterion.
+The evidence is a set of blocks, each with an ID like [EV-0123456789ab]: changed hunks of the git diff, the definitions of helper functions the change calls (taken from the changed repository, unchanged code included), and check results. A section "Evidence NOT shown" lists what QB could not show you.
+Your job: determine whether the change satisfies the criterion.
 
 Respond ONLY with valid JSON — no other text, no markdown, no \`\`\`json fences:
 {
   "met": true | false | null,
   "evidence": "one sentence citing specific file names, function names, or line content from the diff",
   "repair": "only when met is false: one precise instruction telling the agent exactly what to add or change — name the file, function, and what is missing",
-  "refs": ["optional: diff locations you relied on, as \"path:line\""]
+  "refs": ["the evidence IDs your vote relies on, e.g. \"EV-0123456789ab\" — only IDs shown to you"]
 }
 
 Rules:
-- met: true  — the diff clearly satisfies the criterion
+- met: true  — the evidence clearly satisfies the criterion
 - met: false — the diff contains CONCRETE evidence that the criterion is DEFINITIVELY NOT satisfied (e.g. the function is completely absent, unconditionally throws, or explicitly returns the wrong type like a number/object when a string is required)
 - met: null  — anything else: the diff is ambiguous, you cannot fully verify from static analysis alone, or the implementation looks plausible but you cannot be certain without running the code
 
@@ -44,12 +50,14 @@ WHEN TO VOTE null (not false) — mandatory examples:
 
 WHEN TO VOTE false — requires direct contradictory evidence:
 - A removed (-) line you can quote deletes or renames the required thing, and no added line restores it.
+- The change calls a helper whose definition is shown, and a line of that definition you can quote contradicts the criterion.
 - The function explicitly returns a literal of the wrong type: e.g. \`return 42\` when a string is required.
 - The function unconditionally throws before any return.
 - Never vote false because something is absent from the diff or from the search hints: unchanged code may already contain it.
 
 CRITICAL: absence of proof is NOT proof of absence. If you cannot find a specific added line that DISPROVES the criterion, vote null — not false.
-CRITICAL: only vote false when you can quote a specific diff line that directly contradicts the criterion. No quote = no false vote.
+CRITICAL: only vote false when you can quote a specific line from the evidence that directly contradicts the criterion, and cite its evidence ID in refs. No quote = no false vote.
+CRITICAL: if "Evidence NOT shown" lists something the criterion depends on, vote null — you have not seen everything.
 
 - evidence must reference specific files/functions/lines from the diff — never be generic
 - repair (when met: false): be specific — name the file, function, and what is missing or wrong
@@ -67,7 +75,7 @@ Respond ONLY with valid JSON — no other text, no markdown, no \`\`\`json fence
   "met": true | false | null,
   "evidence": "one sentence quoting the specific file, function or line that shows the criterion is (or is not) already satisfied",
   "repair": "only when met is false: one precise instruction naming the file and what must be added or changed",
-  "refs": ["optional: locations you relied on, as \"path:line\""]
+  "refs": ["the evidence IDs your vote relies on, e.g. \"EV-0123456789ab\" — only IDs shown to you"]
 }
 
 Rules:
@@ -82,9 +90,9 @@ Rules:
  * @param {Array} criteria
  * @param {string} snapshot - the relevant files, as "### path" + fenced content blocks
  */
-async function judgeSnapshot(criteria, snapshot) {
+async function judgeSnapshot(criteria, bundles) {
   const results = [];
-  for (const ac of criteria) results.push(await judgeOne(ac, { kind: 'snapshot', text: snapshot }, {}));
+  for (const ac of criteria) results.push(await judgeOne(ac, { kind: 'snapshot', bundle: bundles.get(ac.id) }, {}));
   return results;
 }
 
@@ -96,7 +104,7 @@ async function judgeSnapshot(criteria, snapshot) {
  * @param {string} diff     - raw git diff
  * @param {object} signals  - keyword signal map from checker.js
  */
-async function judgeAll(criteria, diff, signals = {}) {
+async function judgeAll(criteria, diff, signals = {}, bundles = new Map()) {
   if (!diff || !diff.trim()) {
     return criteria.map(ac => ({
       id:        ac.id,
@@ -110,7 +118,7 @@ async function judgeAll(criteria, diff, signals = {}) {
 
   const results = [];
   for (const ac of criteria) {
-    const result = await judgeOne(ac, { kind: 'diff', text: diff }, signals);
+    const result = await judgeOne(ac, { kind: 'diff', bundle: bundles.get(ac.id) || null, text: diff }, signals);
     results.push(result);
   }
   return results;
@@ -150,8 +158,10 @@ function hintBlock(ac, signals) {
 // Single raw LLM call — returns { met, evidence, repair } or throws.
 async function callOnce(ac, material, signals) {
   const snapshot = material.kind === 'snapshot';
-  const text = material.text;
-  const chunk = text.length > 6000 ? text.slice(0, 6000) + `\n... [${snapshot ? 'files' : 'diff'} truncated]` : text;
+  const b = material.bundle;
+  // QB-11: evidence blocks with IDs, and what was not shown — never a silently cut diff.
+  const chunk = b ? evidenceText(b)
+    : material.text.length > 6000 ? `${material.text.slice(0, 6000)}\n... [diff truncated at 6000 characters — NOT complete]` : material.text;
 
   const signalBlock = hintBlock(ac, signals);
 
@@ -161,7 +171,7 @@ async function callOnce(ac, material, signals) {
     `Criterion: ${ac.criterion}`,
     signalBlock ? `\n## Search hints (computed by QB from the diff — hints, not facts)\n${signalBlock}` : '',
     ``,
-    snapshot ? `## Current repository files (the agent changed nothing)` : `## Git diff`,
+    snapshot ? `## Current repository files (the agent changed nothing)` : b ? `## Evidence (cite the IDs you rely on in "refs")` : `## Git diff`,
     chunk,
   ].join('\n');
 
@@ -176,18 +186,34 @@ async function callOnce(ac, material, signals) {
     const res = await fetch(`${OLLAMA_URL}/api/chat`, {
       method:  'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ model: MODEL, messages, stream: false, options: { temperature: 0.05, num_ctx: 8192 } }),
+      body: JSON.stringify({ model: MODEL, messages, stream: false, options: { temperature: 0.05, num_ctx: b ? 12288 : 8192 } }),
     });
     if (!res.ok) throw new Error(`Ollama ${res.status}`);
     const data = await res.json();
     const raw  = data.message?.content;
     try {
       if (!raw) throw invalid('empty response');
-      return parseJudgment(raw);
+      const j = parseJudgment(raw);
+      if (b) {   // provenance: refs must name evidence that was actually shown
+        const shown = new Set(b.shown.map((it) => it.id));
+        const unknown = j.refs.filter((r) => !shown.has(r));
+        if (unknown.length) throw invalid(`refs name evidence that was not shown: ${unknown.slice(0, 3).join(', ')}`);
+      }
+      return j;
     } catch (e) {
       if (e.code !== 'invalid_judgment' || attempt >= MAX_FORMAT_RETRIES) throw e;
     }
   }
+}
+
+/** The evidence bundle as prompt text: each item with its ID and provenance, then what was not shown. */
+function evidenceText(b) {
+  const L = [];
+  for (const it of b.shown) L.push(`### [${it.id}] ${label(it)}`, '```', it.text, '```');
+  if (!b.shown.length) L.push('(no evidence could be shown)');
+  const notShown = [...b.missing.map((m) => `- ${missingText(m)} [MATERIAL]`), ...b.omitted.filter((it) => !it.material).map((it) => `- ${label(it)} (not shown: evidence budget)`)];
+  if (notShown.length) L.push('', '## Evidence NOT shown', ...notShown);
+  return L.join('\n');
 }
 
 const MAX_FORMAT_RETRIES = 1;
@@ -270,18 +296,24 @@ async function judgeOne(ac, material, signals) {
   // Best repair hint: from any false-voting call (most specific diagnosis).
   const repairVote = votes.find(v => v.met === false && v.repair);
 
+  // QB-11: missing MATERIAL evidence means the criterion was not fully seen — never met.
+  const b = material.bundle;
+  const missing = b ? b.missing : [];
+  const capped = met === true && missing.length > 0;
   return {
     id:        ac.id,
     criterion: ac.criterion,
-    met,
+    met:       capped ? null : met,
     method:    `llm-vote-${VOTE_COUNT}`,
     votes:     votes.map(v => v.met), // for debugging
     vote_status: votes.map(v => v.status),
     judgment_status,
-    evidence:  winning?.evidence || (judgment_status === 'ok' ? 'No evidence provided.'
-      : `No valid judgment: ${votes.map(v => v.status).join(', ')}.`),
+    evidence:  capped ? `Missing material evidence: ${missing.map(missingText).join('; ')}. Not judged as met (the judge saw: ${winning?.evidence || 'n/a'})`.slice(0, 2000)
+      : winning?.evidence || (judgment_status === 'ok' ? 'No evidence provided.'
+        : `No valid judgment: ${votes.map(v => v.status).join(', ')}.`),
     refs:      winning?.refs || [],
     repair:    met === false ? (repairVote?.repair || `Implement the missing behavior: "${ac.criterion}"`) : null,
+    ...(b ? { evidence_ids: b.shown.map((it) => it.id), evidence_missing: missing.map((m) => ({ what: m.what, reason: m.reason })) } : {}),
   };
 }
 

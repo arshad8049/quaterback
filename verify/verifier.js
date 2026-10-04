@@ -6,6 +6,7 @@ const { classifyTestRun } = require('./tests');
 const { validateCheckResults } = require('./checks/results');
 const { checkSetHash } = require('./checks/registry');
 const { evaluatePolicy } = require('./policy');
+const { buildEvidence, candidateFiles, manifestEntry } = require('./evidence');
 const { VerificationReportSchema } = require('./schema');
 const { contractState, stateReason, contractHash, approvalState } = require('../intent/contract-state');
 
@@ -51,10 +52,22 @@ async function verify(contract, context, execution, options = {}) {
   const material   = execStatus === 'no_change' ? snapshotMaterial(execution) : null;
   const snapshot   = material && material.ok && !options.noLlm ? material.text : null;
 
+  // QB-11: per criterion, the evidence the judge sees — with IDs and provenance.
+  const bundles = new Map();
+  const evidenceFor = (wholeFiles) => {
+    const cand = candidateFiles(execution);
+    for (const ac of criteria) {
+      bundles.set(ac.id, buildEvidence({ criterion: ac.criterion, diff: wholeFiles ? null : diff, wholeFiles,
+        files: cand.files, tree: cand.tree, unavailable: cand.unavailable, missing: cand.missing,
+        checks: (checkEval.byAc.get(ac.id) || []).map(r => ({ id: r.id, status: r.status, detail: r.detail })) }));
+    }
+  };
+
   if (execStatus === 'no_change' && snapshot) {
     // QB-22: the agent changed nothing. Judge the CURRENT files; the verdict also
     // needs the sandbox tests (run on the unchanged tree) to have passed.
-    criteriaResults = await judgeSnapshot(criteria, snapshot);
+    evidenceFor(true);
+    criteriaResults = await judgeSnapshot(criteria, bundles);
   } else if (notRun || execStatus === 'no_change') {
     // Nothing trustworthy to judge: the agent failed, or changed nothing.
     criteriaResults = criteria.map(ac => ({
@@ -77,8 +90,10 @@ async function verify(contract, context, execution, options = {}) {
         : 'No diff available — agent ran in dry-run mode.',
     }));
   } else {
-    criteriaResults = await judgeAll(criteria, diff, diffSignals);
+    evidenceFor(false);
+    criteriaResults = await judgeAll(criteria, diff, diffSignals, bundles);
   }
+  const evidenceManifest = [...new Map([...bundles.values()].flatMap(b => b.shown).map(it => [it.id, manifestEntry(it)])).values()];
 
   if (!execFailed) {
     const judged = new Map(criteriaResults.map(r => [r.id, r]));
@@ -91,11 +106,11 @@ async function verify(contract, context, execution, options = {}) {
   const oracle = { ...approvalState(contract), contract_hash: contractHash(contract), via: contract.approval?.via ?? null };
   const policy = evaluatePolicy(contract, execution, checkEval.results);       // QB-09
   const { verdict, failures } = aggregate({
-    rules: 5,
+    rules: 6,
     oracleApproved: oracle.approved,
     policyEffect: policy.effect,
     hasDiff: Boolean(diff),
-    criteriaResults,
+    criteriaResults: criteriaResults.map(r => (r.evidence_missing?.length ? { ...r, missing_evidence: true } : r)),
     testResults,
     executionStatus:    execStatus,
     unsupportedChanges: Boolean(execution?.unsupported_changes?.length),
@@ -127,6 +142,7 @@ async function verify(contract, context, execution, options = {}) {
     checks:           checksReport(contract, checkEval),
     verification_plan_status: planStatus(contract, checkEval),
     ...(material && material.ok ? { judgment_material: { source: 'sandbox_snapshot', tree: material.tree, files: material.files } } : {}),
+    ...(evidenceManifest.length ? { evidence: evidenceManifest } : {}),   // QB-11
     scope_violations: [...policy.protected_touched, ...policy.out_of_scope],
     policy,
     repair_hints:     [...repairHints, ...policyRepairs(policy), ...testRepairs(execution, testOpts)],

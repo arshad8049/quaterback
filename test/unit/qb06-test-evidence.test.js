@@ -156,10 +156,10 @@ describe('aggregate (rules 2) and verify()', () => {
   test('legacy inputs (no rules field) replay with the old rules', () => {
     assert.equal(aggregate({ hasDiff: true, criteriaResults: met, testResults: null, verification: null }).verdict, 'pass');
   });
-  test('run records store the current rules (5) and the classified outcome', () => {
+  test('run records store the current rules (6) and the classified outcome', () => {
     const input = inputFromReport({ criteria_results: [{ id: 'AC-1', met: true }], test_results: null },
       { status: 'completed', diff: 'd', sandbox: { verification: ran(2, real('pass')) } });
-    assert.equal(input.rules, 5);
+    assert.equal(input.rules, 6);
     assert.deepEqual([input.verification.outcome, input.verification.outcome_reason], ['error', 'exit_2_without_test_failures']);
   });
   test('verify(): passing report → pass; judge fields survive the report schema', async () => {

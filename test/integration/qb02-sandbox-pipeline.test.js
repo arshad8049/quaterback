@@ -16,6 +16,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
+const { execFileSync } = require('child_process');
 
 const D = require('../../lib/sandbox/docker');
 const { runSandboxed } = require('../../lib/sandbox/pipeline');
@@ -362,6 +363,59 @@ describe('QB-02 done-when through the real pipeline', { skip: !ENABLED && 'set Q
       } finally { m.restore(); }
       assert.deepEqual(report.checks.results.map((x) => [x.id, x.status]), [['ACC', 'fail'], ['IND', 'pass']], JSON.stringify(report.checks));
       assert.equal(report.verdict, 'fail');
+    } finally { repo.cleanup(); }
+  });
+
+  test('QB-11: an unchanged helper the change calls is retrieved from the tested tree and shown to the judge with provenance', async () => {
+    const FMT = "function fmt(n) {\n  return 'Hi ' + n;\n}\n\nmodule.exports = { fmt };\n";
+    const repo = fixtureRepo((files) => { NODE_TEST(files); files['src/fmt.js'] = FMT; files['src/greet.js'] = "const { fmt } = require('./fmt');\n\nmodule.exports = {};\n"; });
+    const judge = () => {
+      const prompts = [];
+      const m = mockFetch((url, init) => {
+        const user = JSON.parse(init.body).messages.find((x) => x.role === 'user').content;
+        prompts.push(user);
+        const id = (/\[(EV-[0-9a-f]{12})\][^\n]*src\/fmt\.js/.exec(user) || [])[1];
+        return id && user.includes("return 'Hi ' + n") ? ollamaReply({ met: false, evidence: "fmt returns 'Hi ' + n", refs: [id], repair: 'use Hello' })
+          : ollamaReply({ met: true, evidence: 'looks fine' });
+      });
+      return { prompts, restore: m.restore };
+    };
+    const contract = approve({ id: 'c', goal: 'greet', clarifying_question: null, scope: { allowed_changes: ['src/**'] },
+      acceptance_criteria: [{ id: 'AC-1', criterion: "greet() uses the 'Hello, <name>!' format", met: null, kind: 'non_behavioral' }] }, { via: 'test' });
+    try {
+      const r = await runSandboxed({ repoPath: repo.dir, briefing: 'x', stateDir,
+        agentStage: hostileAgent("printf 'module.exports.greet = (n) => fmt(n);\\n' >> /work/src/greet.js") });
+      assert.equal(r.status, 'completed', JSON.stringify({ reason: r.reason }));
+      // the trusted export: the changed file, then the module it imports — one tree, the tested one
+      assert.equal(r.sandbox.snapshot.tree, r.candidate_tree, JSON.stringify(r.sandbox.snapshot));
+      assert.deepEqual(r.sandbox.snapshot.files.map((f) => f.path), ['src/greet.js', 'src/fmt.js']);
+      const j = judge();
+      let report;
+      try { report = await verify(contract, null, { id: 'e', status: r.status, diff: r.diff, changes: r.changes, candidate_tree: r.candidate_tree, sandbox: r.sandbox }, { repoPath: repo.dir }); }
+      finally { j.restore(); }
+      assert.equal(report.verdict, 'fail', JSON.stringify(report.criteria_results));
+      const ev = report.evidence.find((e) => e.id === report.criteria_results[0].refs[0]);
+      const blob = execFileSync('git', ['hash-object', path.join(repo.dir, 'src/fmt.js')], { encoding: 'utf8' }).trim();
+      assert.deepEqual([ev.kind, ev.file, ev.range, ev.blob, ev.tree], ['definition', 'src/fmt.js', [1, 3], blob, r.candidate_tree]);
+      assert.ok(!r.diff.includes("return 'Hi '"), 'the helper is NOT in the diff — it was retrieved');
+    } finally { repo.cleanup(); }
+  });
+
+  test('QB-11: a helper that cannot be exported is named as missing evidence → unresolved', async () => {
+    const big = `function fmt(n) {\n  return 'Hi ' + n;\n}\nmodule.exports = { fmt };\n// ${'x'.repeat(70 * 1024)}\n`;
+    const repo = fixtureRepo((files) => { NODE_TEST(files); files['src/fmt.js'] = big; files['src/greet.js'] = "const { fmt } = require('./fmt');\n\nmodule.exports = {};\n"; });
+    const contract = approve({ id: 'c', goal: 'greet', clarifying_question: null, scope: { allowed_changes: ['src/**'] },
+      acceptance_criteria: [{ id: 'AC-1', criterion: "greet() uses the 'Hello, <name>!' format", met: null, kind: 'non_behavioral' }] }, { via: 'test' });
+    try {
+      const r = await runSandboxed({ repoPath: repo.dir, briefing: 'x', stateDir,
+        agentStage: hostileAgent("printf 'module.exports.greet = (n) => fmt(n);\\n' >> /work/src/greet.js") });
+      assert.equal(r.status, 'completed', JSON.stringify({ reason: r.reason }));
+      const m = mockFetch(ollamaReply({ met: true, evidence: 'looks fine' }));
+      let report;
+      try { report = await verify(contract, null, { id: 'e', status: r.status, diff: r.diff, changes: r.changes, candidate_tree: r.candidate_tree, sandbox: r.sandbox }, { repoPath: repo.dir }); }
+      finally { m.restore(); }
+      assert.equal(report.verdict, 'unresolved');
+      assert.match(report.criteria_results[0].evidence, /Missing material evidence: definition of fmt \(imported from \.\/fmt\) — src\/fmt\.js too_large/);
     } finally { repo.cleanup(); }
   });
 

@@ -17,7 +17,8 @@
  * @param {boolean} [evidence.unsupportedChanges] - capture could not represent part of the change
  * @param {object}  [evidence.verification] - sandbox verification { status, reason, state } (QB-02),
  *                    plus { outcome, outcome_reason } from verify/tests.js under rules 2
- * @param {number}  [evidence.rules] - 2 since QB-06, 3 since QB-13 (oracle approval), 4 since QB-09
+ * @param {number}  [evidence.rules] - 2 since QB-06, 3 since QB-13 (oracle approval), 4 since QB-09,
+ *                    5 since QB-10 (classified tests), 6 since QB-11 (missing material evidence → unresolved)
  *                    (policy), 5 since QB-10 (classified outcome replaces the raw failed count); absent =
  *                    the earlier rules, so stored runs replay exactly as they were decided
  * @param {boolean} [evidence.oracleApproved] - rules 3: the contract was approved by a human, unchanged
@@ -32,6 +33,13 @@ const TESTS_OK = new Set(['passed', 'preexisting_failures']);
 function aggregate(input) {
   const r = aggregateCore(input);
   const rules = input.rules || 1;
+  // Rules 6 (QB-11): a criterion left unknown because material evidence was missing
+  // (named in evidence_missing) is not a partial result — the task is unresolved.
+  if (rules >= 6 && r.verdict === 'partial' && input.criteriaResults.some(c => c.met === null && c.missing_evidence)) return applyPolicyAndOracle(input, rules, { ...r, verdict: 'unresolved' });
+  return applyPolicyAndOracle(input, rules, r);
+}
+
+function applyPolicyAndOracle(input, rules, r) {
   // Rules 4 (QB-09): policy. A protected change or a violated constraint fails the task
   // (unless the run already failed to execute); an unauthorized change or an
   // unenforced constraint can never be a PASS.
@@ -116,11 +124,11 @@ function verificationInput(execution, testOpts = {}) {
 /** The aggregate() input that produced a stored report, for the run record. */
 function inputFromReport(report, execution) {
   return {
-    rules:           5,
+    rules:           6,
     oracleApproved:  report.oracle ? report.oracle.approved === true : false,
     policyEffect:    report.policy ? report.policy.effect : 'ok',
     hasDiff:         Boolean(execution?.diff),
-    criteriaResults: report.criteria_results.map(r => ({ id: r.id, met: r.met })),
+    criteriaResults: report.criteria_results.map(r => ({ id: r.id, met: r.met, ...(r.evidence_missing?.length ? { missing_evidence: true } : {}) })),
     testResults:     report.test_results
       ? { passed: report.test_results.passed, failed: report.test_results.failed, skipped: report.test_results.skipped }
       : null,
