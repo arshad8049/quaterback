@@ -256,6 +256,7 @@ An agent that changed nothing passes only if the requirement is independently ve
 - `qb` and the standalone intent CLI compile with the same repository survey;
 - a vague word ("cleaner") blocks only until the request defines it, or an answer to that question affirmatively selects one choice — mentioning options, negating or deferring keeps it open;
 - up to 3 clarification rounds (`--clarify` is repeatable; select a choice by id with `--clarify cleaner=improve_naming`), with a machine-readable handoff state;
+- a choice that needs a value (a numeric target) stays open until a valid target is given (`--clarify "improve_unmeasured=numeric_target:p95 latency < 200ms"`); the target is recorded in the approved contract;
 - QB's own choices are separate "proposed defaults" that the human approves;
 - incomplete compiler output is rejected, not filled in.
 

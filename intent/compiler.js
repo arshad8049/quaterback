@@ -4,7 +4,7 @@ const path = require('path');
 const { randomUUID } = require('crypto');
 const { TaskContractSchema, ClarifyingResponseSchema } = require('./schema');
 const { contractState } = require('./contract-state');
-const { detectAmbiguity } = require('./dsa');
+const { detectAmbiguity, resolveClarifications } = require('./dsa');
 
 const OLLAMA_URL = process.env.QB_OLLAMA_URL || 'http://127.0.0.1:11434';
 const MODEL      = process.env.QB_MODEL       || 'deepseek-r1:7b';
@@ -30,9 +30,12 @@ async function compile(request, repoContext = null, clarification = null) {
   const history = Array.isArray(clarification) ? clarification
     : clarification ? [{ question: null, answer: String(clarification) }] : [];
   // DSA pre-pass (QB-17): a vague term blocks until the request or an answer defines it.
-  // Each answer is bound to the question it answered (QB-17 re-review 1).
-  const ambiguity = detectAmbiguity(request, history.map((h) => ({ question_id: h.question_id ?? null, answer: h.answer })));
+  // Each answer is bound to the question it answered (QB-17 re-review 1); a
+  // parameterized choice needs its value (re-review 2).
+  const bound = history.map((h) => ({ question_id: h.question_id ?? null, answer: h.answer }));
+  const ambiguity = detectAmbiguity(request, bound);
   if (ambiguity) return ambiguity;
+  const clar = resolveClarifications(request, bound);
 
   const res = await fetch(`${OLLAMA_URL}/api/chat`, {
     method: 'POST',
@@ -41,7 +44,7 @@ async function compile(request, repoContext = null, clarification = null) {
       model: MODEL,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user',   content: buildUserContent(request, repoContext, history) },
+        { role: 'user',   content: buildUserContent(request, repoContext, history, clar.byEntry) },
       ],
       stream: false,
       options: { temperature: 0.1, num_ctx: 16384 },
@@ -57,13 +60,30 @@ async function compile(request, repoContext = null, clarification = null) {
   const raw = data.message?.content;
   if (!raw) throw new Error('Empty response from Ollama');
 
-  return parseAndValidate(raw, request);
+  const result = parseAndValidate(raw, request);
+  // The user's resolved selections, with their values, bound to their questions:
+  // recorded by QB (never by the model), approved with the contract (QB-17 re-review 2).
+  if (result && !result.clarifying_question) {
+    if (clar.resolved.length) result.clarifications = clar.resolved;
+    else delete result.clarifications;
+  }
+  return result;
 }
 
-function buildUserContent(request, repoContext, history) {
+/**
+ * The compiler input. A clarification bound to a DSA question is labelled with its
+ * id, and a resolved selection is given as "<choice> = <value>" (QB-17 re-review 2).
+ */
+function buildUserContent(request, repoContext, history, byEntry = []) {
   let content = `REQUEST:\n${request}`;
   history.forEach((h, i) => {
-    content += h.question ? `\n\nCLARIFICATION ${i + 1}:\nQ: ${h.question}\nA: ${h.answer}` : `\n\nCLARIFICATION:\n${h.answer}`;
+    const b = byEntry[i];
+    const r = b && b.resolved;
+    const answer = r && r.choice && r.value ? `${r.choice} = ${r.value}`                       // a parameterized choice with its value
+      : r && r.choice ? (h.answer.trim() === `${b.rule_id}=${r.choice}` ? r.choice : `${h.answer} [selected: ${r.choice}]`)
+        : h.answer;
+    const q = b ? `Q(${b.rule_id}): ${h.question}` : `Q: ${h.question}`;
+    content += h.question ? `\n\nCLARIFICATION ${i + 1}:\n${q}\nA: ${answer}` : `\n\nCLARIFICATION:\n${answer}`;
   });
   if (repoContext) content += `\n\nREPOSITORY SURVEY (read-only, for grounding — the request decides what to do):\n${repoContext}`;
   return content;
@@ -165,6 +185,9 @@ function contractFromObject(raw, request) {
     raw_request: request,
     repo_path: null,
     ...(incomplete.length ? { incomplete } : {}),   // QB-17: set by QB, never by the model
+    // QB-17 re-review 2: a reviewed contract file may carry its clarifications (validated
+    // by contractState); for model output compile() replaces them with QB's own record.
+    ...(raw.clarifications !== undefined ? { clarifications: raw.clarifications } : {}),
   };
 
   // A contract the gate will reject (no ACs, missing goal, …) is returned as is,

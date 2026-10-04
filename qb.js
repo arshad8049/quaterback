@@ -147,7 +147,8 @@ async function main() {
       (h.ambiguity_flags || []).forEach(f => console.log(`     • ${f}`));
       for (const u of h.unresolved) {
         console.log(`\n  ❓ ${u.question}`);
-        if (u.choices.length) console.log(`     Choices: ${(u.options || []).map(o => `${o.label} [--clarify ${u.id}=${o.id}]`).join(' · ') || u.choices.join(' · ')}`);
+        if (u.choices.length) console.log(`     Choices: ${(u.options || []).map(o => `${o.label} [--clarify ${u.id}=${o.id}${o.needs_value ? ':<value>' : ''}]`).join(' · ') || u.choices.join(' · ')}`);
+        if (u.parent) console.log(`     Answer: --clarify "<target>" (or --clarify "${u.parent}=${u.choice}:<target>")`);   // QB-17: a parameterized choice needs its value
       }
       console.log('');
     };

@@ -25,6 +25,9 @@ function formatOracle(contract) {
   const defaults = validateDefaults(contract).defaults;
   if (defaults.length) list('Proposed defaults (not in your request — QB\'s choice; approving the contract approves them)',
     defaults.map((d) => `${d.id} ${d.text} → ${d.covered_by.join(', ') || 'UNCOVERED'}  (reason: ${d.reason})`));
+  // QB-17 re-review 2: what the user chose when asked, with the values they gave.
+  if (Array.isArray(c.clarifications) && c.clarifications.length) list('Clarified by you (approved with the contract)',
+    c.clarifications.map((x) => `${x.question_id}: ${x.choice ?? 'defined as'}${x.value ? ` = ${x.value}` : ''}`));
   list('Acceptance criteria', c.acceptance_criteria.map((a) => `[${a.id}] (${a.kind}) ${a.criterion}${a.requirement_ids.length ? `  ← ${a.requirement_ids.join(', ')}` : ''}${a.preserves ? `  [preserved = these tests pass: ${a.preserves.tests.join(', ')}]` : ''}`));
   list('Verification plan', c.verification_plan.map((p, i) => `${i}. ${p}`));
   list('May change (scope.allowed_changes; anything else is unauthorized)', c.scope.allowed_changes);

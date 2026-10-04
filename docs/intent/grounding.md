@@ -105,9 +105,29 @@ It returns a handoff state (`format: "qb-intent-handoff/1"`):
   - `history` records it as `{ round, question_id, question, answer }`, and an answer never resolves another question.
   - Example: "Make src/dates.js cleaner and more readable" answered with "remove duplication" resolves `cleaner` only, and `more_quality` stays open.
 
+## Re-review 2: a parameterized choice needs its value (`intent/dsa.js`)
+- **The bug.** `improve_unmeasured=numeric_target` resolved the "Improve performance" rule on the category id alone, so the contract finalized with no metric, threshold, comparator or unit (pre-fix at `7cb2927`).
+- **Parameterized choices.** A choice whose meaning needs a value carries a validator and a follow-up question. Selecting it without a valid value keeps the rule open behind its follow-up: `{ id: "improve_unmeasured.target", parent, choice, question }`. The handoff lists `options[].needs_value`.
+  - **Audit of the rule table:** `improve_unmeasured.numeric_target` is the only parameterized choice (`parameterizedChoices()`). The other choices name a complete aspect (for example `like_existing` → `data_model`), which is their full meaning.
+- **Ways to supply the value:**
+  - `--clarify "improve_unmeasured=numeric_target:p95 latency < 200ms"` (qb and intent/cli);
+  - `{ question, choice, value }` in `compileIntent` answers;
+  - free text answering the follow-up question;
+  - free text in round 1 that is itself a valid target ("p95 latency under 200ms").
+- **Validation is deterministic** (`validTarget`). A target needs all three of:
+  - a **number**;
+  - a **comparator**: `<`, `<=`, `>`, `>=`, `≤`, `≥`, "under", "below", "above", "over", "at most", "at least", "within", "less/more/fewer/greater than", "no more/less than", "up to", or a direction verb with "by"/"to" ("reduce runtime by 30%");
+  - a **metric word** that is not a comparator or unit.
+
+  It must also contain no uncertainty ("maybe", "or", "?" …). Invalid or missing → still open with the follow-up.
+- **Carried into the contract.** The compiler input labels each bound clarification with its question id and gives a resolved value as `Q(improve_unmeasured): … A: numeric_target = p95 latency < 200ms`. QB (never the model) records `contract.clarifications: [{ question_id, choice, value }]`.
+  - It is part of the **approval hash** when present, and shown in the approval view under "Clarified by you".
+  - `contractState` rejects an entry with an unknown question or choice, a parameterized choice without a valid value, or a value on a choice that takes none.
+
 ## Limitations
 - **The survey is lexical.** Relevance is keyword overlap with file names and paths. It reads the live checkout (read-only) and does not parse code.
 - **Free-text selection is deliberately strict.** A real decision phrased with an uncertainty word ("go with naming, not sure about the rest") stays open; the user can select by id instead. The model and the human approval (QB-13) remain the backstop for meaning.
 - **Definition detection is a heuristic.** The DSA "definition marker" is a fixed list. A request can define a term in a way the markers miss, in which case it is asked once more.
+- **Target validation is structural.** It checks that a metric word, a comparator and a number are present, not that the metric exists or can be measured in this repository. The human approval of the contract (QB-13), which shows the target, remains the check on meaning.
 - **One question per round.** If several rules are open, all are listed in `unresolved`. A free-text answer goes to the first one; a structured selection can answer any.
 - **The benchmark is not grounded.** `bench/run.js` and the demo harnesses (`intent/sandbox/run.js`, `agent/sandbox/run.js`) still call `compile()` without a survey. They are not the user-facing entry points.

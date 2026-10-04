@@ -36,6 +36,7 @@ const TaskContractSchema = z.object({
   requirements: z.array(z.unknown()).optional(),     // QB-14: validated by intent/requirements.js
   test_policy: z.unknown().optional(),               // QB-10: validated by verify/tests.js testPolicyErrors
   proposed_defaults: z.array(z.unknown()).optional(), // QB-17: validated by intent/requirements.js
+  clarifications: z.unknown().optional(),            // QB-17 re-review 2: validated by intent/dsa.js clarificationErrors
   incomplete: z.array(z.string()).optional(),        // QB-17: what the compiler output lacked (set by QB) → invalid
 });
 

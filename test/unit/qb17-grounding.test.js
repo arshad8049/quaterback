@@ -125,7 +125,8 @@ describe('bounded clarification with a machine-readable handoff state', () => {
       const s = await compileIntent(req, { repoPath: repo.dir, answers: ['extract helper functions from the long ones'] });
       assert.equal(s.state, 'finalized', JSON.stringify(s));
       const u = JSON.parse(m.calls[0].init.body).messages[1].content;
-      assert.match(u, /CLARIFICATION 1:\nQ: What does "cleaner" mean[^\n]*\nA: extract helper functions/);
+      // re-review 2: the clarification is labelled with its question id and the selected choice
+      assert.match(u, /CLARIFICATION 1:\nQ\(cleaner\): What does "cleaner" mean[^\n]*\nA: extract helper functions from the long ones \[selected: extract_helpers\]/);
       assert.match(u, /REPOSITORY SURVEY/);
       assert.equal(s.survey.files_total, 2);
     } finally { m.restore(); }

@@ -18,6 +18,7 @@ const { policyErrors } = require('../verify/policy');
 const { testPolicyErrors } = require('../verify/tests');
 const { preservationErrors } = require('../verify/preservation');
 const { validateTraceability, validateDefaults } = require('./requirements');
+const { clarificationErrors } = require('./dsa');
 
 function contractState(c) {
   if (!c || typeof c !== 'object' || Array.isArray(c)) return { state: 'invalid', errors: ['contract is not an object'] };
@@ -46,6 +47,8 @@ function contractState(c) {
   }
   // QB-09: the scope and constraint policy must be well-formed (they are enforced, not advisory text).
   if (!errors.length) errors.push(...policyErrors(c), ...testPolicyErrors(c), ...preservationErrors(c));
+  // QB-17 re-review 2: a recorded clarification's parameterized choice carries a valid value.
+  if (!errors.length) errors.push(...clarificationErrors(c));
   // QB-13: every computable example is recomputed with trusted arithmetic; a wrong
   // one makes the contract invalid (it is never corrected to fit).
   if (!errors.length) {
@@ -74,6 +77,8 @@ function approvedContent(c) {
     ...(c?.test_policy !== undefined ? { test_policy: c.test_policy } : {}),
     // QB-17: QB's proposed defaults are approved with the oracle (absent → not hashed)
     ...(c?.proposed_defaults !== undefined ? { proposed_defaults: c.proposed_defaults } : {}),
+    // QB-17 re-review 2: the user's clarified choices and values (e.g. the numeric target)
+    ...(c?.clarifications !== undefined ? { clarifications: c.clarifications } : {}),
   };
 }
 function contractHash(c) {

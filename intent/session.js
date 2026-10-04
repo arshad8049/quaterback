@@ -56,7 +56,8 @@ async function compileIntent(request, { repoPath = null, answers = [], ask = nul
     // Bind the answer to its question: a structured selection names it; free text
     // answers the question asked this round (the first open one).
     const sel = parseSelection(answer);
-    const asked = (sel && unresolved.find((u) => u.id === sel.question)) || unresolved[0];
+    // (a follow-up "<rule>.target" belongs to its rule: a selection naming the rule answers it)
+    const asked = (sel && unresolved.find((u) => u.id === sel.question || u.parent === sel.question)) || unresolved[0];
     history.push({ round, question_id: asked.id, question: asked.question, answer: answerText(answer).trim() });
   }
 }
