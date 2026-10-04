@@ -23,6 +23,22 @@
   - `verify()` uses a cache only when given `judgeCache`.
 - This adds to QB-10: the repair loop already stops on an identical patch.
 
+### Concurrent runs (re-review 1)
+- **Reading the cache, judging, then writing was not enough.** Two overlapping runs could both judge the same evidence, one null and one true, and the later writer replaced the decision. Pre-fix (`dd2b306`): 6 model calls and two different verdicts.
+- **The evidence is now claimed before sampling, across processes:**
+  - **Claim:** `<key>.lock` is created exclusively (`O_EXCL`) with `{ pid, host, token }`. The owner refreshes its mtime as a heartbeat while judging.
+  - **Wait and re-read:** waiters poll the cache with a bound (`QB_JUDGE_LOCK_WAIT_MS`, default 15 min). After claiming, the owner re-reads the cache before sampling.
+  - **Crashed owners:** a claim whose owner is dead (same host, pid gone) or silent (heartbeat older than 60 s) is taken over by atomic rename. Only one waiter wins, and it checks the token it judged stale.
+  - **Publishing:** it is **no-overwrite** (hard link). The first published decision is authoritative, and a competing writer gets it back, never its own.
+  - **A wait that runs out** gives `judgment_cache: "wait_timeout"`: no decision (unresolved), nothing cached, and no model calls.
+- **Tested:**
+  - overlapping in-process runs: 3 calls and one decision;
+  - a **separate process** holding the claim: this run waits and returns that process's decision with 0 calls;
+  - crashed-owner recovery: a dead pid, and a silent foreign host;
+  - a bounded wait;
+  - the first writer winning;
+  - the sequential hit and changed-evidence guards.
+
 ## 2. Preservation is bounded to named tests (`verify/preservation.js`)
 - **A preservation criterion must name what it preserves:** `"preserves": { "tests": ["test/parser.test.js"] }`.
   - Preservation criteria are detected by the existing patterns: "remains unchanged", "no regressions", "backward compatible", "existing tests still pass", …
@@ -66,7 +82,8 @@ Result file: `bench/calibration/results/2026-10-04T16-48-43-551Z.json`.
 - **Majority-3 at 3× the cost** converts one false acceptance into an abstention: `jsdoc-incomplete`, votes `[true, null, false]`. It keeps the other false acceptance: `changelog-wrong-heading`, the flag listed under "Fixed" instead of "Added", votes `[true, true, false]`. It does **not** increase the number of correct decisions.
 - **Unanimous-3** removes every false acceptance on this set, at the cost of 23% abstention: it also abstains on `error-message-ok`, votes `[true, false, true]`.
 - **No false rejections** under any strategy on this set.
-- **What this means:** extra votes mainly trade false acceptance for abstention. They don't buy accuracy. Whether QB should require unanimity for a judged "met" is a policy decision. This ticket measures it; it does not change it.
+- **What this means:** extra votes mainly trade false acceptance for abstention. They don't buy accuracy.
+- **Qualification:** this compares 1 call with 3 calls on the same items. It is **not** a demonstrated advantage at an equal budget, and with 13 items it does not establish field rates. No policy change to unanimity has been approved. Whether QB should require unanimity for a judged "met" is a policy decision. This ticket measures it; it does not change it.
 
 ## Limitations
 - The labeled set is small (13) and written by one person. It measures the error kinds on this set; it does not estimate field rates with tight confidence.

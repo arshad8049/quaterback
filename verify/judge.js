@@ -250,11 +250,26 @@ async function judgeOne(ac, material, signals, cache = null) {
   // reuses it instead of resampling until the vote flips.
   const key = cache ? judgmentKey({ model: MODEL, prompt: material.kind === 'snapshot' ? SNAPSHOT_PROMPT : SYSTEM_PROMPT,
     criterion: ac.criterion, kind: material.kind, bundle: material.bundle, text: material.text }) : null;
-  const hit = key && cache.get(key);
-  if (hit) return { ...hit, id: ac.id, criterion: ac.criterion, judgment_cache: 'hit' };
-  const result = await judgeFresh(ac, material, signals);
-  if (key) cache.set(key, result);
-  return key ? { ...result, judgment_cache: 'miss' } : result;
+  if (!key) return judgeFresh(ac, material, signals);
+  const hitOf = (j) => ({ ...j, id: ac.id, criterion: ac.criterion, judgment_cache: 'hit' });
+  const cached = cache.get(key);
+  if (cached) return hitOf(cached);
+  // Claim the evidence before sampling (across processes), then re-read: another run
+  // may have published the decision while this one waited (QB-15 re-review).
+  const claim = await cache.acquire(key);
+  if (claim.timedOut) {
+    return { id: ac.id, criterion: ac.criterion, met: null, method: `llm-vote-${VOTE_COUNT}`, votes: [], judgment_status: 'error',
+      judgment_cache: 'wait_timeout', refs: [], repair: null,
+      evidence: 'Another verification of this same evidence still holds its judgment claim; no decision was made here (unresolved).' };
+  }
+  if (claim.published) return hitOf(cache.get(key));
+  try {
+    const again = cache.get(key);
+    if (again) return hitOf(again);
+    const result = await judgeFresh(ac, material, signals);
+    const published = cache.publish(key, result);   // first published decision wins
+    return published === result ? { ...result, judgment_cache: 'miss' } : hitOf(published);
+  } finally { claim.release(); }
 }
 
 async function judgeFresh(ac, material, signals) {
@@ -356,4 +371,4 @@ async function sampleVotes(ac, bundle, n = VOTE_COUNT, signals = {}) {
   return votes;
 }
 
-module.exports = { judgeAll, judgeSnapshot, parseJudgment, sampleVotes, MAX_FORMAT_RETRIES, VOTE_COUNT, MODEL };
+module.exports = { judgeAll, judgeSnapshot, parseJudgment, sampleVotes, MAX_FORMAT_RETRIES, VOTE_COUNT, MODEL, SYSTEM_PROMPT };

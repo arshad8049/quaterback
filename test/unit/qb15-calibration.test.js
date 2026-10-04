@@ -169,3 +169,86 @@ describe('calibration: false acceptance, false rejection and abstention are meas
     assert.ok(typeof report.equal_cost === 'string' && report.equal_cost.length > 0);
   });
 });
+
+describe('QB-15 re-review: one authoritative judgment per evidence, across concurrent runs and processes', () => {
+  const { judgeAll } = require('../../verify/judge');
+  const { openCache, judgmentKey } = require('../../verify/judge-cache');
+  const { spawn, spawnSync } = require('child_process');
+  const CRIT = [{ id: 'AC-1', criterion: 'README documents the --verbose flag', kind: 'non_behavioral' }];
+  const alternating = () => { let n = 0; return mockFetch(() => (n++ % 2 === 0 ? ollamaReply({ met: null, evidence: 'cannot tell' }) : ollamaReply({ met: true, evidence: 'README documents --verbose' }))); };
+  const FAST = { waitMs: 5000, pollMs: 20, staleMs: 400, heartbeatMs: 100 };
+
+  test('senior repro: two overlapping identical judgments → one sampling, one decision (pre-fix: 6 calls, null vs true)', async () => {
+    const dir = tmp();
+    const m = alternating();
+    try {
+      const cache = openCache(dir, FAST);
+      const [a, b] = await Promise.all([judgeAll(CRIT, DIFF, {}, new Map(), { cache }), judgeAll(CRIT, DIFF, {}, new Map(), { cache })]);
+      assert.equal(a[0].met, b[0].met, 'both runs return the same decision');
+      assert.deepEqual(a[0].votes, b[0].votes);
+      assert.equal(m.calls.length, 3, 'the evidence was sampled once');
+      assert.deepEqual([a[0].judgment_cache, b[0].judgment_cache].sort(), ['hit', 'miss']);
+    } finally { m.restore(); fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+  test('a separate process holding the claim: this run waits and returns ITS published decision, with no model calls', async () => {
+    const dir = tmp();
+    const key = judgmentKey({ model: require('../../verify/judge').MODEL, prompt: require('../../verify/judge').SYSTEM_PROMPT, criterion: CRIT[0].criterion, kind: 'diff', bundle: null, text: DIFF });
+    const owner = spawn(process.execPath, ['-e', `
+      const { openCache } = require(${JSON.stringify(path.join(__dirname, '..', '..', 'verify', 'judge-cache.js'))});
+      (async () => {
+        const c = openCache(${JSON.stringify(dir)}, { pollMs: 20, heartbeatMs: 100 });
+        const lock = await c.acquire(${JSON.stringify(key)});
+        process.stdout.write('claimed\\n');
+        setTimeout(() => { c.publish(${JSON.stringify(key)}, { id: 'AC-1', criterion: 'x', met: false, evidence: 'decided by the other process', votes: [false, false, false], judgment_status: 'ok', refs: [], repair: 'r', method: 'llm-vote-3' }); lock.release(); }, 400);
+      })();`], { stdio: ['ignore', 'pipe', 'inherit'] });
+    await new Promise((res) => owner.stdout.once('data', res));
+    const m = mockFetch(ollamaReply({ met: true, evidence: 'would approve' }));
+    try {
+      const [r] = await judgeAll(CRIT, DIFF, {}, new Map(), { cache: openCache(dir, FAST) });
+      assert.deepEqual([r.met, r.evidence, r.judgment_cache], [false, 'decided by the other process', 'hit']);
+      assert.equal(m.calls.length, 0);
+    } finally { m.restore(); owner.kill(); fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+  test('a crashed owner (dead pid on this host, or a silent heartbeat) is recovered safely, and the evidence is judged once', async () => {
+    const dir = tmp();
+    const key = judgmentKey({ model: require('../../verify/judge').MODEL, prompt: require('../../verify/judge').SYSTEM_PROMPT, criterion: CRIT[0].criterion, kind: 'diff', bundle: null, text: DIFF });
+    const dead = spawnSync(process.execPath, ['-e', 'process.stdout.write(String(process.pid))'], { encoding: 'utf8' }).stdout;
+    fs.writeFileSync(path.join(dir, `${key}.lock`), JSON.stringify({ pid: Number(dead), host: os.hostname(), token: 'crashed' }));
+    const m = mockFetch(ollamaReply({ met: true, evidence: 'README documents --verbose' }));
+    try {
+      const [r] = await judgeAll(CRIT, DIFF, {}, new Map(), { cache: openCache(dir, FAST) });
+      assert.deepEqual([r.met, r.judgment_cache, m.calls.length], [true, 'miss', 3]);
+      assert.ok(!fs.existsSync(path.join(dir, `${key}.lock`)), 'the lock is released');
+      // a silent owner on another host: taken over once its heartbeat is older than staleMs
+      fs.rmSync(path.join(dir, `${key}.json`));
+      fs.writeFileSync(path.join(dir, `${key}.lock`), JSON.stringify({ pid: 1, host: 'elsewhere', token: 'silent' }));
+      const old = new Date(Date.now() - 5000);
+      fs.utimesSync(path.join(dir, `${key}.lock`), old, old);
+      const [r2] = await judgeAll(CRIT, DIFF, {}, new Map(), { cache: openCache(dir, FAST) });
+      assert.equal(r2.judgment_cache, 'miss');
+    } finally { m.restore(); fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+  test('waiting is bounded: a live claim that never publishes → unresolved (not cached, no model calls)', async () => {
+    const dir = tmp();
+    const key = judgmentKey({ model: require('../../verify/judge').MODEL, prompt: require('../../verify/judge').SYSTEM_PROMPT, criterion: CRIT[0].criterion, kind: 'diff', bundle: null, text: DIFF });
+    const holder = openCache(dir, { ...FAST, heartbeatMs: 50 });
+    const lock = await holder.acquire(key);
+    const m = mockFetch(ollamaReply({ met: true, evidence: 'would approve' }));
+    try {
+      const [r] = await judgeAll(CRIT, DIFF, {}, new Map(), { cache: openCache(dir, { ...FAST, waitMs: 300 }) });
+      assert.deepEqual([r.met, r.judgment_cache, m.calls.length], [null, 'wait_timeout', 0]);
+      assert.ok(!fs.existsSync(path.join(dir, `${key}.json`)));
+    } finally { lock.release(); m.restore(); fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+  test('the first published decision is authoritative: a competing writer gets it back, never its own', () => {
+    const dir = tmp();
+    try {
+      const c = openCache(dir, FAST);
+      const first = { id: 'AC-1', criterion: 'x', met: null, evidence: 'first', votes: [null, null, null], judgment_status: 'ok' };
+      const second = { ...first, met: true, evidence: 'second', votes: [true, true, true] };
+      assert.equal(c.publish('k', first).evidence, 'first');
+      assert.equal(c.publish('k', second).evidence, 'first');
+      assert.equal(c.get('k').met, null);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
