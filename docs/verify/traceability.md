@@ -11,7 +11,10 @@ T-005 asked for cumulative speech events and duration "tracked since the Adaptiv
   - `implied: true` + `text` + `reason` for an unstated requirement. It's shown to the human.
 - **Coverage of the request is by source span (re-review 1).** Each quote claims one span of the (case- and whitespace-normalized) request.
   - A quote that occurs more than once must say which occurrence it is (`occurrence`, 1-based).
-  - Every token of the request must lie inside a claimed span. Tokens are words, numbers, and runs of operator symbols such as `>=` or `%`.
+  - Every token of the request must lie inside a claimed span. Tokens are words, numbers, and runs of symbols.
+  - **Symbols fail closed (re-review 2).** Every symbol counts: `!`, `!=`, `!==`, `&&`, `||`, `??`, `?.`, `-`, `%`, `()`, `[]`, `{}`, `/` …
+  - The **only** exemption is prose punctuation (`. , ; : ? !` and closing quotes) glued to the end of a word and followed by whitespace or the end of the text. Examples: the final `.` of "Return !isAdmin.", or the `,` in "Do it, then". That suffix is trimmed.
+  - So `!isAdmin` keeps its `!`, `90%.` keeps its `%`, and a free-standing ` ?? ` or ` ! ` always counts. Brackets are never exempt.
   - The only exceptions are a tiny filler list: `a`, `an`, `the`, `and`, `that`, `which`, `please`.
   - **Negation, numbers, units, comparison words and operators always count,** and there is no length cutoff.
   - Each uncovered stretch is reported as the human would read it: `request text not traced to any requirement: "do not enable caching for"`.

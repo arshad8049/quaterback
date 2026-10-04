@@ -128,6 +128,47 @@ describe('QB-14 re-review: coverage is by source span — negation, repeats, num
     assert.deepEqual(validateTraceability(both).errors, []);
     assert.match(validateTraceability(C(req, [{ id: 'R-1', quote: 'Cache results', occurrence: 3 }], [['AC-1', 'x', ['R-1']]])).errors.join(' | '), /occurrence 3 is not one of the 2/);
   });
+  test('senior repro 2: an omitted symbolic negation "!" is untraced → invalid, and the approved contract is blocked before the agent runs', async () => {
+    const c = { id: 'c', goal: 'Implement isGuest', raw_request: 'Return !isAdmin.', clarifying_question: null,
+      requirements: [{ id: 'R-1', quote: 'Return' }, { id: 'R-2', quote: 'isAdmin.' }],
+      acceptance_criteria: [{ id: 'AC-1', criterion: 'Return isAdmin', kind: 'behavioral', requirement_ids: ['R-1', 'R-2'] }] };
+    assert.deepEqual(untraced(c), ['!']);
+    assert.equal(contractState(c).state, 'invalid');
+    const out = await execute('briefing', approve(c, { via: 'test' }), null, { agent: 'claude-code', repoPath: '/nonexistent-qb14' });
+    assert.equal(out.status, 'blocked');
+    assert.match(out.error, /not traced to any requirement: "!"/);
+  });
+  test('positive guard: the complete "!isAdmin" span traces cleanly', () => {
+    const c = { id: 'c', goal: 'Implement isGuest', raw_request: 'Return !isAdmin.', clarifying_question: null,
+      requirements: [{ id: 'R-1', quote: 'Return !isAdmin.' }],
+      acceptance_criteria: [{ id: 'AC-1', criterion: 'Return the negation of isAdmin', kind: 'behavioral', requirement_ids: ['R-1'] }] };
+    assert.deepEqual(validateTraceability(c).errors, []);
+    assert.equal(contractState(c).state, 'finalized');
+  });
+  test('symbolic operators and code punctuation are never exempt (fail closed)', () => {
+    for (const [req, quotes, missing] of [
+      ['Return a != b.', ['Return a', 'b.'], ['!=']],
+      ['Return a !== b.', ['Return a', 'b.'], ['!==']],
+      ['Return !!value.', ['Return', 'value.'], ['!!']],
+      ['Return -x.', ['Return', 'x.'], ['-']],
+      ['Return a && b.', ['Return a', 'b.'], ['&&']],
+      ['Return a || b.', ['Return a', 'b.'], ['||']],
+      ['Return a ?? b.', ['Return a', 'b.'], ['??']],
+      ['Return a?.b.', ['Return a', 'b.'], ['?.']],
+      ['Return {} for guests.', ['Return', 'for guests.'], ['{}']],
+      ['Use items[0].', ['Use items', '0].'], ['[']],
+      ['Call reset() first.', ['Call reset', 'first.'], ['()']],
+      ['Match /^ab+/.', ['Match', 'ab'], ['/^', '+/']],
+    ]) {
+      const reqs = quotes.map((quote, i) => ({ id: `R-${i + 1}`, quote }));
+      assert.deepEqual(untraced(C(req, reqs, [['AC-1', 'x', reqs.map((r) => r.id)]])), missing, req);
+    }
+  });
+  test('prose punctuation that ends a word is the only exemption (explicit rule)', () => {
+    const c = C('Do it, then stop; really: done! Why? "Yes."', [{ id: 'R-1', quote: 'Do it' }, { id: 'R-2', quote: 'stop' }, { id: 'R-3', quote: 'really' },
+      { id: 'R-4', quote: 'done' }, { id: 'R-5', quote: 'Why' }, { id: 'R-6', quote: '"Yes' }], [['AC-1', 'x', ['R-1', 'R-2', 'R-3', 'R-4', 'R-5', 'R-6']]]);
+    assert.deepEqual(untraced(c), ['then']);
+  });
   test('context exclusions refer to the full excluded span and show their reason to the human', () => {
     const c = C('Add clamp() to src/math.js. Ignore the legacy folder.',
       [{ id: 'R-1', quote: 'Add clamp() to src/math.js.' }, { id: 'R-2', quote: 'Ignore the legacy folder.', disposition: 'context', reason: 'handled by scope.protected_paths' }],
