@@ -206,3 +206,91 @@ test('every sandbox stage has a deadline (a missing one reached the supervisor a
   assert.ok(names.includes('snapshot') && names.includes('verify-base') && names.includes('checks'));
   for (const n of names) assert.ok(Number.isInteger(DEFAULT_DEADLINES[n]) && DEFAULT_DEADLINES[n] > 0, `stage "${n}" has no deadline`);
 });
+
+describe('QB-11 re-review: the exported binding is resolved — never the first declaration', () => {
+  const DECOY = "function decoy(n) { return 'Hello ' + n; }\nfunction actual(n) { return 'WRONG ' + n; }\nmodule.exports = actual;\n";
+  const greetCjs = "const fmt = require('./fmt');\nmodule.exports.greet = n => fmt(n);\n";
+  const DIFF = hunk('src/greet.js', 2, ['module.exports.greet = n => fmt(n);']);
+  const defs = (b) => b.shown.filter((x) => x.kind === 'definition' && x.material).map((x) => [x.file, x.text.split('(')[0]]);   // material: what the change calls
+
+  test('senior repro: CommonJS callable export with a decoy first → the actual export is shown, the decoy is not (pre-fix: decoy, missing [])', async () => {
+    const b = buildEvidence({ criterion: "greet() greets with 'Hello'", diff: DIFF, files: [file('src/greet.js', greetCjs), file('src/fmt.js', DECOY)], tree: TREE });
+    assert.deepEqual(defs(b), [['src/fmt.js', 'function actual']]);
+    assert.deepEqual(b.missing, []);
+    const j = scriptedJudge("'WRONG '", 'src/fmt\\.js');
+    try {
+      const r = await verify(contract("greet() greets with 'Hello'"), null, exec(DIFF, { files: [file('src/greet.js', greetCjs), file('src/fmt.js', DECOY)] }));
+      assert.equal(r.verdict, 'fail');
+    } finally { j.restore(); }
+  });
+  test('ESM default export with a decoy first → the actual export is shown', () => {
+    const fmt = "function decoy(n) { return 'Hello ' + n; }\nfunction actual(n) { return 'WRONG ' + n; }\nexport default actual;\n";
+    const greet = "import fmt from './fmt.mjs';\nexport const greet = (n) => fmt(n);\n";
+    const b = buildEvidence({ criterion: 'x', diff: hunk('src/greet.mjs', 2, ['export const greet = (n) => fmt(n);']), files: [file('src/greet.mjs', greet), file('src/fmt.mjs', fmt)], tree: TREE });
+    assert.deepEqual(defs(b), [['src/fmt.mjs', 'function actual']]);
+  });
+  test('positive guards: inline default / module function, named exports and object properties bind to the right definition', () => {
+    const cases = [
+      ["const fmt = require('./fmt');", "function decoy() {}\nmodule.exports = function (n) { return 'Hi ' + n; };\n", 'module.exports = function '],
+      ["import fmt from './fmt.mjs';", "function decoy() {}\nexport default function real(n) { return 'Hi ' + n; }\n", 'export default function real'],
+      ["const { fmt } = require('./fmt');", "function fmt2() {}\nfunction realFmt(n) { return n; }\nmodule.exports = { fmt: realFmt };\n", 'function realFmt'],
+      ["const { fmt } = require('./fmt');", "function decoy() {}\nexports.fmt = function (n) { return n; };\n", 'exports.fmt = function '],
+      ["import { fmt } from './fmt.mjs';", "function decoy() {}\nfunction inner(n) { return n; }\nexport { inner as fmt };\n", 'function inner'],
+    ];
+    for (const [imp, target, expect] of cases) {
+      const esm = imp.startsWith('import');
+      const own = esm ? 'src/greet.mjs' : 'src/greet.js';
+      const tgt = esm ? 'src/fmt.mjs' : 'src/fmt.js';
+      const b = buildEvidence({ criterion: 'x', diff: hunk(own, 2, ['const greet = (n) => fmt(n);']), files: [file(own, `${imp}\nconst greet = (n) => fmt(n);\n`), file(tgt, target)], tree: TREE });
+      const d = b.shown.filter((x) => x.kind === 'definition');
+      assert.equal(d.length, 1, `${imp} / ${target}`);
+      assert.ok(d[0].text.startsWith(expect), `${JSON.stringify(d[0].text)} should start with ${expect}`);
+      assert.deepEqual(b.missing, []);
+    }
+  });
+  test('an export binding QB cannot resolve is named as missing material, never substituted', async () => {
+    for (const target of ["module.exports = require('./other');\nfunction decoy() {}\n", "function decoy() {}\nmodule.exports = make();\n",
+      "function actual() {}\nfunction actual2() {}\nmodule.exports = { other: actual };\n"]) {
+      const b = buildEvidence({ criterion: 'x', diff: DIFF, files: [file('src/greet.js', greetCjs), file('src/fmt.js', target)], tree: TREE });
+      assert.deepEqual(b.shown.filter((x) => x.kind === 'definition'), [], target);
+      assert.match(b.missing.map((m) => `${m.what} — ${m.reason}`).join(' | '), /definition of fmt \(imported from \.\/fmt\) — src\/fmt\.js: export binding not resolved/, target);
+    }
+  });
+});
+
+describe('QB-11 re-review: unavailable source of a changed file is named, never silently skipped', () => {
+  const DIFF = hunk('src/greet.js', 20, ['module.exports.greet = n => fmt(n);']);
+  const C = () => contract("greet() greets with 'Hello'");
+  const run = async (e) => { const m = mockFetch(ollamaReply({ met: true, evidence: 'looks fine' })); try { return await verify(C(), null, e); } finally { m.restore(); } };
+
+  test('senior repro: the changed file was too large to export → missing source named, unresolved (pre-fix: missing [], PASS)', async () => {
+    const r = await run(exec(DIFF, { files: [], skipped: [{ path: 'src/greet.js', reason: 'too_large' }] }));
+    assert.equal(r.verdict, 'unresolved');
+    assert.match(r.criteria_results[0].evidence, /source of src\/greet\.js \(to resolve calls to fmt\) — too_large/);
+  });
+  test('beyond the export cap (not_requested), a parse failure, and an absent snapshot are each named', async () => {
+    const notReq = await run(exec(DIFF, { files: [], skipped: [{ path: 'src/greet.js', reason: 'not_requested' }] }));
+    assert.match(notReq.criteria_results[0].evidence, /source of src\/greet\.js \(to resolve calls to fmt\) — not_requested/);
+    const broken = await run(exec(DIFF, { files: [file('src/greet.js', 'module.exports.greet = n => fmt(n);\nfunction (\n')] }));
+    assert.match(broken.criteria_results[0].evidence, /source of src\/greet\.js \(to resolve calls to fmt\) — unparsable/);
+    const absent = await run(exec(DIFF, { snapshot: false }));
+    assert.match(absent.criteria_results[0].evidence, /source of src\/greet\.js \(to resolve calls to fmt\) — no candidate snapshot/);
+    for (const r of [notReq, broken, absent]) assert.equal(r.verdict, 'unresolved');
+  });
+  test('guards: calls defined in the hunk itself, or to built-ins, need no source; an available file resolves same-file helpers', async () => {
+    const self = hunk('src/a.js', 20, ['function twice(n) { return n * 2; }', 'module.exports.f = (n) => twice(parseInt(n, 10)) + Math.max(1, 2);']);
+    assert.equal((await run(exec(self, { snapshot: false }))).verdict, 'pass');
+    const own = "function helper(n) { return 'Hello ' + n; }\n" + '\n'.repeat(18) + 'module.exports.greet = n => helper(n);\n';
+    const b = buildEvidence({ criterion: 'x', diff: hunk('src/greet.js', 20, ['module.exports.greet = n => helper(n);']), files: [file('src/greet.js', own)], tree: TREE });
+    assert.deepEqual(b.shown.filter((x) => x.kind === 'definition').map((x) => x.range), [[1, 1]]);
+    assert.deepEqual(b.missing, []);
+  });
+});
+
+test('QB-11 re-review: the judge is told, every time, what retrieval does not cover (callers, dynamic dispatch, package imports)', async () => {
+  const j = scriptedJudge('never-visible', 'nowhere');
+  try {
+    await verify(contract('README documents --verbose'), null, exec(hunk('README.md', 1, ['--verbose prints stages'])));
+    assert.match(j.prompts[0], /## Not retrieved by QB \(by design\)\n- callers of the changed code, dynamic dispatch, package \(non-relative\) imports/);
+  } finally { j.restore(); }
+});

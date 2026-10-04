@@ -213,6 +213,8 @@ function evidenceText(b) {
   if (!b.shown.length) L.push('(no evidence could be shown)');
   const notShown = [...b.missing.map((m) => `- ${missingText(m)} [MATERIAL]`), ...b.omitted.filter((it) => !it.material).map((it) => `- ${label(it)} (not shown: evidence budget)`)];
   if (notShown.length) L.push('', '## Evidence NOT shown', ...notShown);
+  // QB-11 scope, stated every time: what retrieval does not cover is never implied to be checked.
+  L.push('', '## Not retrieved by QB (by design)', '- callers of the changed code, dynamic dispatch, package (non-relative) imports, and helpers called only from unchanged lines — do not assume any of these were checked.');
   return L.join('\n');
 }
 

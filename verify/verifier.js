@@ -62,7 +62,7 @@ async function verify(contract, context, execution, options = {}) {
     const cand = candidateFiles(execution);
     for (const ac of criteria) {
       bundles.set(ac.id, buildEvidence({ criterion: ac.criterion, diff: wholeFiles ? null : diff, wholeFiles,
-        files: cand.files, tree: cand.tree, unavailable: cand.unavailable, missing: cand.missing,
+        files: cand.files, tree: cand.tree, unavailable: cand.unavailable, missing: cand.missing, sourceUnavailable: cand.sourceUnavailable,
         checks: (checkEval.byAc.get(ac.id) || []).map(r => ({ id: r.id, status: r.status, detail: r.detail })) }));
     }
   };

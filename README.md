@@ -242,9 +242,10 @@ An agent that changed nothing passes only if the requirement is independently ve
 
 **Judge evidence with provenance** (QB-11, [docs/verify/evidence.md](docs/verify/evidence.md)):
 - the judge sees whole changed hunks, ranked within a budget (no silent 6,000-character cut);
-- it also sees the definitions of the helpers the change calls, from the tested tree, unchanged code included;
+- it also sees the definitions of the helpers the change calls, from the tested tree, unchanged code included — resolved through the module's actual export binding, never the first declaration;
 - every item has an immutable `EV-…` ID with file, range, blob and hash;
-- missing material evidence makes the criterion unresolved, naming the missing artifact.
+- missing material evidence makes the criterion unresolved, naming the missing artifact (including a changed file whose own source could not be exported);
+- what retrieval does not cover (callers, dynamic dispatch, package imports) is stated to the judge every time.
 
 **Calibrated judging** (QB-15, [docs/verify/calibration.md](docs/verify/calibration.md)):
 - a judgment is cached per evidence, so an unchanged patch is never resampled into a pass;

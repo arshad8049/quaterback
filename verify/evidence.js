@@ -62,16 +62,76 @@ function parseDiff(diff) {
   return files;
 }
 
-/** JS definitions in one file: { name, range: [startLine, endLine], text } — functions, classes, methods, assigned functions. */
-function definitions(text) {
-  let ast;
+function parseJs(text) {
   for (const sourceType of ['module', 'script']) {
     try {
-      ast = acorn.parse(text, { ecmaVersion: 'latest', sourceType, locations: true, allowHashBang: true,
+      return acorn.parse(text, { ecmaVersion: 'latest', sourceType, locations: true, allowHashBang: true,
         allowReturnOutsideFunction: true, allowAwaitOutsideFunction: true });
-      break;
     } catch { /* try the other source type */ }
   }
+  return null;
+}
+const isFnNode = (n) => n && ['FunctionExpression', 'ArrowFunctionExpression', 'ClassExpression'].includes(n.type);
+const defOf = (name, node, text) => ({ name, range: [node.loc.start.line, node.loc.end.line], text: text.slice(node.start, node.end) });
+const keyOf = (k) => (k && k.type === 'Identifier' ? k.name : k && k.type === 'Literal' && typeof k.value === 'string' ? k.value : null);
+
+/** Module-scope definitions only (QB-11 re-review): name → [definition]. Nested functions never bind a module name. */
+function topLevelDefs(ast, text) {
+  const out = new Map();
+  const add = (name, node) => { if (name) out.set(name, [...(out.get(name) || []), defOf(name, node, text)]); };
+  for (const st of ast.body) {
+    const d = st.type === 'ExportNamedDeclaration' || st.type === 'ExportDefaultDeclaration' ? st.declaration : st;
+    if (!d) continue;
+    if (d.type === 'FunctionDeclaration' || d.type === 'ClassDeclaration') add(d.id && d.id.name, st);
+    else if (d.type === 'VariableDeclaration') for (const v of d.declarations) if (v.id.type === 'Identifier' && isFnNode(v.init)) add(v.id.name, st);
+  }
+  return out;
+}
+
+/**
+ * What a module exports, as bindings (QB-11 re-review): `module` is the module
+ * itself (module.exports = X / export default X), `named` its named exports.
+ * A binding is { local: name } (a module-scope definition), { node } (defined
+ * inline) or { unresolved: why } — never a guess.
+ */
+function exportBindings(ast) {
+  const module = [];
+  const named = new Map();
+  const add = (k, b) => named.set(k, named.has(k) ? { unresolved: `${k} is exported more than once` } : b);
+  const val = (n, stmt) => (n.type === 'Identifier' ? { local: n.name } : isFnNode(n) ? { node: stmt } : { unresolved: `the exported value is a ${n.type}` });
+  const isModuleExports = (n) => n.type === 'MemberExpression' && !n.computed && n.object.type === 'Identifier' && n.object.name === 'module' && n.property.name === 'exports';
+  for (const st of ast.body) {
+    if (st.type === 'ExpressionStatement' && st.expression.type === 'AssignmentExpression' && st.expression.operator === '=') {
+      const { left, right } = st.expression;
+      if (isModuleExports(left)) {
+        if (right.type === 'ObjectExpression') {
+          module.push({ unresolved: 'module.exports is an object, not a function' });
+          for (const p of right.properties) {
+            const k = p.type === 'Property' && !p.computed ? keyOf(p.key) : null;
+            if (k) add(k, p.shorthand ? { local: k } : val(p.value, p));
+          }
+        } else module.push(val(right, st));
+      } else if (left.type === 'MemberExpression' && !left.computed && (isModuleExports(left.object) || (left.object.type === 'Identifier' && left.object.name === 'exports'))) {
+        add(left.property.name, val(right, st));
+      }
+    } else if (st.type === 'ExportDefaultDeclaration') {
+      const d = st.declaration;
+      module.push(d.type === 'FunctionDeclaration' || d.type === 'ClassDeclaration' ? { node: st } : val(d, st));
+    } else if (st.type === 'ExportNamedDeclaration') {
+      const name = (s) => s.exported.name ?? s.exported.value;
+      if (st.source) { for (const sp of st.specifiers) add(name(sp), { unresolved: 're-exported from another module' }); continue; }
+      const d = st.declaration;
+      if (d && d.id) add(d.id.name, { node: st });
+      else if (d && d.type === 'VariableDeclaration') for (const v of d.declarations) if (v.id.type === 'Identifier') add(v.id.name, isFnNode(v.init) ? { node: st } : { unresolved: `${v.id.name} is not a function` });
+      for (const sp of st.specifiers || []) add(name(sp), { local: sp.local.name });
+    }
+  }
+  return { module: module.length === 1 ? module[0] : { unresolved: module.length ? 'the module export is assigned more than once' : 'no module export' }, named };
+}
+
+/** JS definitions in one file: { name, range: [startLine, endLine], text } — functions, classes, methods, assigned functions. */
+function definitions(text) {
+  const ast = parseJs(text);
   if (!ast) return null;
   const defs = [];
   const add = (name, node) => { if (name) defs.push({ name, range: [node.loc.start.line, node.loc.end.line], text: text.slice(node.start, node.end) }); };
@@ -134,6 +194,15 @@ function calledNames(addedText) {
   return { bare, member };
 }
 
+// Names a call needs no source for: language and runtime globals.
+const GLOBALS = new Set(['parseInt', 'parseFloat', 'Number', 'String', 'Boolean', 'Array', 'Object', 'Symbol', 'BigInt', 'Date', 'Error',
+  'TypeError', 'RangeError', 'SyntaxError', 'ReferenceError', 'Promise', 'Map', 'Set', 'WeakMap', 'WeakSet', 'RegExp', 'isNaN', 'isFinite',
+  'encodeURIComponent', 'decodeURIComponent', 'encodeURI', 'decodeURI', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval',
+  'setImmediate', 'queueMicrotask', 'structuredClone', 'require', 'fetch', 'URL', 'Buffer', 'describe', 'test', 'it', 'expect',
+  'before', 'after', 'beforeEach', 'afterEach']);
+/** Names the added code defines itself (visible in the hunk). */
+const definedIn = (code) => new Set([...code.matchAll(/(?:function\s*\*?\s*|class\s+|(?:const|let|var)\s+)([A-Za-z_$][\w$]*)/g)].map((m) => m[1]));
+
 /** Ranking: how many of the criterion's words / file names appear in the item. */
 function relevance(criterion, item) {
   const words = new Set((String(criterion).toLowerCase().match(/[a-z0-9_$]{3,}/g) || []));
@@ -162,9 +231,10 @@ const label = (it) => it.kind === 'check' ? `check results (${it.source})`
  * @param {Array}   [a.missing]        material evidence already known to be missing [{ what, reason }]
  * @param {Array}   [a.checks]         this criterion's check results [{ id, status, detail }]
  * @param {boolean} [a.wholeFiles]     no-change mode: the candidate files themselves are under judgment
+ * @param {string}  [a.sourceUnavailable] why there are no candidate files at all (no snapshot / failed / mismatch)
  * @returns {{ shown: Array, omitted: Array, missing: Array<{ what, reason }> }}
  */
-function buildEvidence({ criterion, diff = null, files = [], tree = null, unavailable = [], missing = [], checks = [], wholeFiles = false, budget = budgetChars() }) {
+function buildEvidence({ criterion, diff = null, files = [], tree = null, unavailable = [], missing = [], checks = [], wholeFiles = false, sourceUnavailable = null, budget = budgetChars() }) {
   const items = [];
   const miss = [...missing];
   const byPath = new Map(files.map((f) => [f.path, f]));
@@ -192,11 +262,29 @@ function buildEvidence({ criterion, diff = null, files = [], tree = null, unavai
     if (fd.deleted || !JS.test(fd.file)) continue;
     const added = fd.hunks.flatMap((h) => h.lines.filter((l) => l.startsWith('+')).map((l) => l.slice(1))).join('\n');
     const { bare, member } = calledNames(added);
+    const local = definedIn(added);
     const own = byPath.get(fd.file);
+    const ownAst = own ? parseJs(own.text) : null;
     const imports = relativeImports(own ? own.text : fd.hunks.map((h) => h.lines.map((l) => l.slice(1)).join('\n')).join('\n'));
-    // same-file helpers (unchanged code outside the hunks included)
-    for (const d of (own && defsOf(own)) || []) if (bare.has(d.name) && !imports.has(d.name)) addDef(own, d, true);
-    // imported helpers: the definition must come from the candidate tree, or be named as missing
+    // Same-file helpers: resolved in the candidate file's module scope. Without that
+    // source (too large, not exported, unparsable, no snapshot) the calls cannot be
+    // resolved — that is named as missing material, never skipped (QB-11 re-review).
+    const needSource = [...bare].filter((n) => !imports.has(n) && !local.has(n) && !GLOBALS.has(n));
+    if (needSource.length) {
+      if (!own || !ownAst) {
+        miss.push({ what: `source of ${fd.file} (to resolve calls to ${needSource.join(', ')})`,
+          reason: own ? 'unparsable' : unavailableReason(fd.file) || sourceUnavailable || 'not exported' });
+      } else {
+        const top = topLevelDefs(ownAst, own.text);
+        for (const n of needSource) {
+          const d = top.get(n) || [];
+          if (d.length === 1) addDef(own, d[0], true);
+          else if (d.length > 1) miss.push({ what: `definition of ${n} (in ${fd.file})`, reason: `${d.length} module-scope definitions: ambiguous` });
+        }
+      }
+    }
+    // Imported helpers: the EXPORTED binding of the target module, from the candidate
+    // tree — never the first declaration in the file; unresolvable → named as missing.
     const wanted = [...[...bare].filter((n) => imports.has(n)).map((n) => [n, imports.get(n), imports.get(n).imported === '*' || imports.get(n).imported === 'default' ? null : imports.get(n).imported]),
       ...member.filter(([ns]) => imports.has(ns) && imports.get(ns).imported === '*').map(([ns, fn]) => [`${ns}.${fn}`, imports.get(ns), fn])];
     for (const [shown, imp, name] of wanted) {
@@ -206,13 +294,23 @@ function buildEvidence({ criterion, diff = null, files = [], tree = null, unavai
       if (!target) {
         const why = cands.map((p) => [p, unavailableReason(p)]).filter(([, r]) => r && r !== 'missing');
         miss.push({ what, reason: why.length ? why.map(([p, r]) => `${p} ${r}`).join(', ')
-          : cands.length && cands.every((p) => unavailableReason(p) === 'missing') ? `not found in the candidate tree (${cands.join(', ')})` : 'not retrieved' });
+          : cands.length && cands.every((p) => unavailableReason(p) === 'missing') ? `not found in the candidate tree (${cands.join(', ')})`
+            : sourceUnavailable || 'not retrieved' });
         continue;
       }
-      const defs = defsOf(target);
-      const d = defs && (name ? defs.filter((x) => x.name === name) : defs.slice(0, 1));
-      if (!d || !d.length) { miss.push({ what, reason: `${target.path}: definition not found${defs ? '' : ' (unparsable)'}` }); continue; }
-      for (const x of d) addDef(target, x, true);
+      const ast = parseJs(target.text);
+      if (!ast) { miss.push({ what, reason: `${target.path}: unparsable` }); continue; }
+      const eb = exportBindings(ast);
+      const binding = name === null ? eb.module : eb.named.get(name) || { unresolved: `${name} is not exported` };
+      let def = null;
+      if (binding.node) def = defOf(name || shown, binding.node, target.text);
+      else if (binding.local) {
+        const d = topLevelDefs(ast, target.text).get(binding.local) || [];
+        if (d.length === 1) def = d[0];
+        else binding.unresolved = d.length ? `${binding.local} has ${d.length} module-scope definitions` : `${binding.local} has no module-scope function definition`;
+      }
+      if (!def) { miss.push({ what, reason: `${target.path}: export binding not resolved (${binding.unresolved})` }); continue; }
+      addDef(target, def, true);
     }
   }
   // Definitions named in the criterion itself (context; not material).
@@ -244,15 +342,17 @@ const missingText = (m) => (m.reason.startsWith('not shown') ? `${m.what} (${m.r
 function candidateFiles(execution) {
   const snap = execution?.sandbox?.snapshot;
   const tested = execution?.sandbox?.verification?.tree;
-  if (!snap) return { files: [], tree: null, unavailable: [], missing: [] };   // no export in this record (older runs, unit fixtures)
-  if (snap.error) return { files: [], tree: null, unavailable: [], missing: [{ what: `candidate source files (${snap.error})`, reason: 'snapshot failed' }] };
+  // No export: nothing is assumed complete — any call that needs candidate source is
+  // named as missing (sourceUnavailable), so older records cannot authorize a judgment.
+  if (!snap) return { files: [], tree: null, unavailable: [], missing: [], sourceUnavailable: 'no candidate snapshot' };
+  if (snap.error) return { files: [], tree: null, unavailable: [], missing: [{ what: `candidate source files (${snap.error})`, reason: 'snapshot failed' }], sourceUnavailable: 'snapshot failed' };
   if (!snap.tree || snap.tree !== execution?.candidate_tree || (tested && tested !== snap.tree)) {
-    return { files: [], tree: null, unavailable: [], missing: [{ what: 'candidate source files (snapshot_tree_mismatch)', reason: 'not the tested tree' }] };
+    return { files: [], tree: null, unavailable: [], missing: [{ what: 'candidate source files (snapshot_tree_mismatch)', reason: 'not the tested tree' }], sourceUnavailable: 'snapshot tree mismatch' };
   }
-  return { files: snap.files || [], tree: snap.tree, unavailable: snap.skipped || [], missing: [] };
+  return { files: snap.files || [], tree: snap.tree, unavailable: snap.skipped || [], missing: [], sourceUnavailable: null };
 }
 
 /** The evidence manifest for the report: provenance only, no contents. */
 const manifestEntry = (it) => ({ id: it.id, kind: it.kind, file: it.file, range: it.range, source: it.source, tree: it.tree, blob: it.blob, sha256: it.sha256, material: it.material });
 
-module.exports = { buildEvidence, parseDiff, definitions, relativeImports, importCandidates, candidateFiles, manifestEntry, missingText, label, budgetChars };
+module.exports = { buildEvidence, parseDiff, definitions, exportBindings, topLevelDefs, parseJs, relativeImports, importCandidates, candidateFiles, manifestEntry, missingText, label, budgetChars };

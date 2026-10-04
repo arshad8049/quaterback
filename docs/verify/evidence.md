@@ -32,6 +32,24 @@ For each criterion the judge decides (`kind: "non_behavioral"`, plus the no-chan
   Both must be the tested tree (`snapshot.tree == candidate_tree == verification.tree`). A file over 64 KiB, a symlink or a missing file is recorded as `skipped` with its reason.
 - **Ranking and budget.** Items are ranked by relevance to the criterion: words of the criterion found in the file name and text, with material items first on ties. They are shown **whole** within `QB_JUDGE_EVIDENCE_CHARS` (default 24,000), and the judge context is `num_ctx` 12288.
 
+## Binding resolution (re-review 1)
+- **An imported helper is the module's EXPORTED binding, never the first declaration in the file.**
+  - QB resolves:
+    - `module.exports = X`;
+    - `module.exports = function …` (inline);
+    - `module.exports = { a, b: c }`;
+    - `exports.a = …`;
+    - `export default X` / `export default function …`;
+    - `export function a`;
+    - `export { x as a }`.
+  - A `local` binding must have exactly one **module-scope** definition.
+  - Anything else is named as missing material evidence (`src/fmt.js: export binding not resolved (…)`). This covers a call result, `require(...)`, an object where a function is called, a re-export, an ambiguous or absent definition, or a name that isn't exported.
+  - Pre-fix, `module.exports = actual` with a `decoy` declared first showed the **decoy**, and nothing was missing.
+- **Same-file helpers** resolve in the candidate file's module scope. Calls to names defined in the hunk itself, or to language/runtime globals, need no source.
+- **When the changed file's own source is unavailable, the calls are named as missing:** `source of src/greet.js (to resolve calls to fmt) — too_large` (or `not_requested`, `unparsable`, `no candidate snapshot`, `snapshot failed`).
+  - Pre-fix, an oversized changed file silently erased the same-file helper evidence.
+  - An execution record with **no snapshot** gets no exemption.
+
 ## Nothing partial is presented as complete
 - The prompt lists every block as `### [EV-…] hunk README.md +10..10 (diff)` or `definition src/fmt.js 1..3 (candidate tree, blob …)`.
 - It then has an **"Evidence NOT shown"** section: everything omitted, with each material item marked `[MATERIAL]`.
@@ -49,6 +67,10 @@ For each criterion the judge decides (`kind: "non_behavioral"`, plus the no-chan
 ## Also fixed here
 - `snapshot`, `verify-base` and `checks` had **no stage deadline** (`DEFAULT_DEADLINES`). The supervisor received `deadline_ms: null`, which counts as already due, so it would kill one of those stages as a timeout once it ran longer than the 10-second grace period.
 - They now have real deadlines. A unit test checks that every `stage('…')` name has one.
+
+## Scope, stated to the judge every time
+Every evidence prompt ends with **"Not retrieved by QB (by design)"**: callers of the changed code, dynamic dispatch, package (non-relative) imports, and helpers called only from unchanged lines. So none of these is ever implied to have been checked.
+- The original ticket also asks for **callers**. That is an explicit **scope reduction** for this card: callers are not retrieved, and the judge and this note both say so.
 
 ## Limitations
 - **Retrieval is static and name-based.** It finds:
