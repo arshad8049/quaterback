@@ -27,6 +27,15 @@ These fields are part of the approved oracle (QB-13): they're shown in the appro
 | `unresolved` | a change outside `allowed_changes`, or a constraint with no enforcement or no usable evidence | never PASS |
 | `ok` | otherwise | unchanged |
 
+### Path semantics (re-review 1)
+- **One exact semantics for every captured name.** A glob matches the **whole** path. `*` and `?` match any character except `/`, and `**` also matches `/`. That includes newline, CR and U+2028/2029, which Git allows in filenames.
+- Before this, `**` compiled to `.*`, which stops at line terminators, while `*` did not. So `src/a⏎b.js` was allowed by `src/*` while protection `src/**` missed it.
+- **Unsupported changed paths:** control characters, line terminators, absolute paths, or `.`/`..`/empty segments.
+  - They are listed in `policy.unsupported_paths`.
+  - They are never authorized by `allowed_changes`, so the task is never PASS.
+  - Protected matching still applies to them, so **protection wins (FAIL)**.
+- Git **C-quoted diff headers** (`diff --git "a/x\nb" "b/x\nb"`, octal UTF-8 escapes) are decoded, so a quoted name is still checked.
+
 - **No scope declared:** every change is unauthorized.
 - **Widening the scope** changes the contract, which voids the approval, so a new human approval is required.
 - The report carries `policy`: allowed, protected, changed files, out-of-scope, protected-touched, per-constraint status and effect.

@@ -135,3 +135,56 @@ describe('agent briefing, replay', () => {
     assert.equal(aggregate({ ...input, rules: 3 }).verdict, 'pass', 'the same evidence under rules 3 (pre-QB-09)');
   });
 });
+
+describe('QB-09 re-review: one exact path semantics for every captured name', () => {
+  // Every JS line terminator plus other control characters a real Git path may contain.
+  const ODD = { newline: 'src/a\nb.js', cr: 'src/a\rb.js', crlf: 'src/a\r\nb.js', ls: 'src/a b.js', ps: 'src/a b.js', tab: 'src/a\tb.js', esc: 'src/a\u001bb.js' };
+  const overlap = (extra = {}) => contract({ scope: { allowed_changes: ['src/*'], protected_paths: ['src/**'] }, ...extra });
+
+  for (const [name, file] of Object.entries(ODD)) {
+    test(`${name} in a changed filename: overlapping allow "src/*" / protect "src/**" → protected wins (FAIL)`, () => {
+      const p = evaluatePolicy(overlap(), { changes: [CHANGE(file)], diff: '' });
+      assert.equal(p.effect, 'fail');
+      assert.deepEqual(p.protected_touched, [file]);
+      assert.deepEqual(p.unsupported_paths, [file]);
+    });
+    test(`${name} in a changed filename that is only allowed (not protected) → never ok: unsupported, unresolved`, () => {
+      const c = contract({ scope: { allowed_changes: ['src/**'], protected_paths: ['docs/**'] } });
+      const p = evaluatePolicy(c, { changes: [CHANGE(file)], diff: '' });
+      assert.equal(p.effect, 'unresolved');
+      assert.deepEqual(p.unsupported_paths, [file]);
+    });
+  }
+
+  test('every wildcard matches line terminators the same way (whole-string, no partial-line match)', () => {
+    for (const file of Object.values(ODD)) {
+      const globs = ['src/**', 'src/*', '**', '**/*.js', ...([...file].length === 9 ? ['src/a?b.js'] : [])];   // `?` = exactly one character (CRLF is two)
+      for (const g of globs) {
+        const p = evaluatePolicy(contract({ scope: { allowed_changes: [], protected_paths: [g] } }), { changes: [CHANGE(file)], diff: '' });
+        assert.deepEqual(p.protected_touched, [file], `${JSON.stringify(g)} must match ${JSON.stringify(file)}`);
+      }
+    }
+    // whole-string: a protected "src/x.js" does not match a name that only CONTAINS it on one line
+    const p = evaluatePolicy(contract({ scope: { allowed_changes: ['**'], protected_paths: ['src/x.js'] } }), { changes: [CHANGE('src/x.js\nother')], diff: '' });
+    assert.deepEqual(p.protected_touched, []);
+    assert.equal(p.effect, 'unresolved');
+  });
+
+  test('git-quoted diff headers are decoded, so a quoted protected path is still seen', () => {
+    const diff = 'diff --git "a/src/legacy/a\\nb.js" "b/src/legacy/a\\nb.js"\n';
+    assert.deepEqual(changedFiles({ changes: [], diff }), ['src/legacy/a\nb.js']);
+    const octal = 'diff --git "a/src/legacy/sp\\303\\244ce.js" "b/src/legacy/sp\\303\\244ce.js"\n';
+    assert.deepEqual(changedFiles({ changes: [], diff: octal }), ['src/legacy/späce.js']);
+    assert.equal(evaluatePolicy(contract(), { changes: [], diff }).effect, 'fail');
+  });
+
+  test('verifier: affirmative AC votes and passing tests cannot approve the newline bypass', async () => {
+    const file = 'src/a\nb.js';
+    const QDIFF = 'diff --git "a/src/a\\nb.js" "b/src/a\\nb.js"\n--- "a/src/a\\nb.js"\n+++ "b/src/a\\nb.js"\n@@ -1 +1 @@\n-x\n+y\n';  // as Git writes it
+    const r = await run(overlap(), exec([], { changes: [CHANGE(file)], diff: QDIFF }));
+    assert.equal(r.verdict, 'fail');
+    assert.deepEqual(r.policy.protected_touched, [file]);
+    const r2 = await run(contract({ scope: { allowed_changes: ['src/**', 'README.md'], protected_paths: [] } }), exec([], { changes: [CHANGE('src/clamp.js'), CHANGE(file)], diff: DIFF('src/clamp.js') + QDIFF }));
+    assert.notEqual(r2.verdict, 'pass');
+  });
+});
