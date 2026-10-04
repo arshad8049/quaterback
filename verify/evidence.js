@@ -98,14 +98,19 @@ function topLevelDefs(ast, text) {
  * `module.exports = …` starts a NEW export object (earlier named exports are gone)
  * and detaches the `exports` alias, so a later `exports.x = …` exports nothing;
  * `module.exports.x = …` adds to the current object; the last assignment wins.
- * Any export change QB cannot follow statically — inside a function or block,
- * through a call such as Object.assign(module.exports, …), or by reassigning
- * `exports`/`module` — makes every binding unresolved.
+ * Re-review 3: every reference to module / module.exports / exports must be an
+ * export statement QB interpreted (marked only AFTER interpreting it) or a plain
+ * property read; any other write, delete, update, compound or destructuring
+ * assignment, or the export object escaping as a value, makes every binding
+ * unresolved (a systematic audit, not a list of spellings).
  */
 function exportBindings(ast) {
-  const isModuleExports = (n) => n && n.type === 'MemberExpression' && !n.computed && n.object.type === 'Identifier' && n.object.name === 'module' && n.property.name === 'exports';
-  const isExportsId = (n) => n && n.type === 'Identifier' && n.name === 'exports';
-  const val = (n, stmt) => (n.type === 'Identifier' ? { local: n.name } : isFnNode(n) ? { node: stmt } : { unresolved: `the exported value is a ${n.type}` });
+  // ── what counts as the export object ──
+  const propName = (m) => (!m.computed ? m.property.name : m.property.type === 'Literal' && typeof m.property.value === 'string' ? m.property.value : null);
+  const isId = (n, name) => n && n.type === 'Identifier' && n.name === name;
+  const isModuleExports = (n) => n && n.type === 'MemberExpression' && isId(n.object, 'module') && propName(n) === 'exports';
+  const isExportObj = (n) => isModuleExports(n) || isId(n, 'exports');
+  const val = (n, stmt) => (n.type === 'Identifier' ? { local: n.name } : isFnNode(n) ? { node: stmt } : { unresolved: `the exported value is a ${n.type === 'Literal' ? `literal ${JSON.stringify(n.value)}` : n.type}` });
   const line = (n) => n.loc.start.line;
 
   let cjsModule = null;               // the current module.exports value, if replaced
@@ -113,40 +118,52 @@ function exportBindings(ast) {
   let replacedAt = null;              // line of the last module.exports replacement
   let opaqueNamed = null;             // module.exports is a value whose properties QB cannot see
   const detachedWrites = new Map();   // exports.x written after the alias was detached
-  let opaque = null;                  // an export change QB cannot follow
-  const topLevel = new Set();
+  const deletedAt = new Map();        // named exports removed by a top-level delete
+  let opaque = null;                  // an export mutation QB did not interpret
+  const interpreted = new Set();      // write targets QB actually interpreted (marked only after interpreting)
 
   const esmNamed = new Map();
   const esmDefault = [];
   const addEsm = (k, b) => esmNamed.set(k, esmNamed.has(k) ? { unresolved: `${k} is exported more than once` } : b);
 
+  // ── 1. interpret the supported top-level forms, in statement order ──
   for (const st of ast.body) {
     if (st.type === 'ExpressionStatement' && st.expression.type === 'AssignmentExpression' && st.expression.operator === '=') {
       const { left, right } = st.expression;
-      topLevel.add(st.expression);
       if (isModuleExports(left)) {
         replacedAt = line(st);
         cjsNamed = new Map();
         opaqueNamed = null;
+        deletedAt.clear();
         if (right.type === 'ObjectExpression') {
           cjsModule = { unresolved: 'module.exports is an object, not a function' };
+          let ok = true;
           for (const p of right.properties) {
-            if (p.type !== 'Property' || p.computed) { opaque = opaque || `module.exports at line ${line(st)} has a computed or spread property`; continue; }
-            const k = keyOf(p.key);
-            if (k) cjsNamed.set(k, p.shorthand ? { local: k } : val(p.value, p));
+            const k = p.type === 'Property' ? (p.computed ? (p.key.type === 'Literal' && typeof p.key.value === 'string' ? p.key.value : null) : keyOf(p.key)) : null;
+            if (!k) { ok = false; break; }
+            cjsNamed.set(k, p.shorthand ? { local: k } : val(p.value, p));
           }
+          if (!ok) continue;                 // a spread / computed key: not interpreted — the audit below fails it closed
         } else {
           cjsModule = val(right, st);
           if (!isFnNode(right)) opaqueNamed = `module.exports was replaced at line ${line(st)} by a value whose properties QB cannot see`;
         }
+        interpreted.add(left);
         continue;
       }
-      if (left.type === 'MemberExpression' && !left.computed && isModuleExports(left.object)) { cjsNamed.set(left.property.name, val(right, st)); continue; }
-      if (left.type === 'MemberExpression' && !left.computed && isExportsId(left.object)) {
-        if (replacedAt) detachedWrites.set(left.property.name, line(st)); else cjsNamed.set(left.property.name, val(right, st));
-        continue;
+      if (left.type === 'MemberExpression' && propName(left) !== null && isModuleExports(left.object)) {
+        cjsNamed.set(propName(left), val(right, st)); deletedAt.delete(propName(left)); interpreted.add(left); continue;
       }
-      if (left.type === 'Identifier' && (left.name === 'exports' || left.name === 'module')) { opaque = opaque || `\`${left.name}\` is reassigned at line ${line(st)}`; continue; }
+      if (left.type === 'MemberExpression' && propName(left) !== null && isId(left.object, 'exports')) {
+        if (replacedAt) detachedWrites.set(propName(left), line(st)); else { cjsNamed.set(propName(left), val(right, st)); deletedAt.delete(propName(left)); }
+        interpreted.add(left); continue;
+      }
+    } else if (st.type === 'ExpressionStatement' && st.expression.type === 'UnaryExpression' && st.expression.operator === 'delete') {
+      const a = st.expression.argument;
+      if (a.type === 'MemberExpression' && propName(a) !== null && (isModuleExports(a.object) || (isId(a.object, 'exports') && !replacedAt))) {
+        cjsNamed.delete(propName(a)); deletedAt.set(propName(a), line(st)); interpreted.add(a); continue;
+      }
+      if (a.type === 'MemberExpression' && propName(a) !== null && isId(a.object, 'exports')) { interpreted.add(a); continue; }   // detached alias: no effect
     } else if (st.type === 'ExportDefaultDeclaration') {
       const d = st.declaration;
       esmDefault.push(d.type === 'FunctionDeclaration' || d.type === 'ClassDeclaration' ? { node: st } : val(d, st));
@@ -160,37 +177,83 @@ function exportBindings(ast) {
     }
   }
 
-  // Anything else that touches the export object (not a plain top-level assignment): QB cannot follow it.
-  const touches = (n) => isModuleExports(n) || isExportsId(n) || (n && n.type === 'MemberExpression' && (isModuleExports(n.object) || isExportsId(n.object)));
-  const walk = (n) => {
-    if (!n || typeof n.type !== 'string' || opaque) return;
-    if (n.type === 'AssignmentExpression' && !topLevel.has(n) && (touches(n.left) || (n.left.type === 'Identifier' && (n.left.name === 'exports' || n.left.name === 'module')))) {
-      opaque = `the export object is changed at line ${line(n)}, outside a plain top-level assignment`;
-    }
-    if (n.type === 'CallExpression' && n.arguments.some(touches)) opaque = `the export object is passed to a call at line ${line(n)}`;
+  // ── 2. audit every other reference to module / module.exports / exports ──
+  // Allowed: an interpreted write target, or a plain READ of a property of the export
+  // object. Anything else — any other write (=, compound, ??=, ++/--, delete,
+  // destructuring or for-in/of target), or the export object (or `module`) escaping as
+  // a value (passed to a call, aliased, returned, spread) — is a mutation QB did not
+  // interpret: every binding becomes unresolved.
+  const parent = new Map();
+  const index = (n) => {
     for (const k of Object.keys(n)) {
       if (k === 'loc') continue;
       const v = n[k];
-      if (Array.isArray(v)) v.forEach(walk); else if (v && typeof v.type === 'string') walk(v);
+      for (const c of Array.isArray(v) ? v : [v]) if (c && typeof c.type === 'string') { parent.set(c, n); index(c); }
     }
   };
-  walk(ast);
+  index(ast);
+  const isWriteTarget = (n) => {
+    const p = parent.get(n);
+    if (!p) return false;
+    if (p.type === 'AssignmentExpression' && p.left === n) return true;
+    if (p.type === 'UpdateExpression' || (p.type === 'UnaryExpression' && p.operator === 'delete')) return true;
+    if ((p.type === 'ForInStatement' || p.type === 'ForOfStatement') && p.left === n) return true;
+    if (p.type === 'ArrayPattern' || p.type === 'RestElement' || (p.type === 'AssignmentPattern' && p.left === n)) return true;
+    if (p.type === 'Property' && p.value === n && parent.get(p) && parent.get(p).type === 'ObjectPattern') return true;
+    return false;
+  };
+  const isReference = (n) => {   // an Identifier used as a variable (not a property name or key)
+    const p = parent.get(n);
+    if (!p) return true;
+    if (p.type === 'MemberExpression' && p.property === n && !p.computed) return false;
+    if ((p.type === 'Property' || p.type === 'MethodDefinition' || p.type === 'PropertyDefinition') && p.key === n && !p.computed) return false;
+    return true;
+  };
+  const why = (n, what) => `${what} at line ${line(n)} is not a form QB interprets`;
+  const audit = (n) => {
+    if (opaque || !n || typeof n.type !== 'string') return;
+    if (isModuleExports(n) || (isId(n, 'exports') && isReference(n))) {
+      const p = parent.get(n);
+      if (interpreted.has(n)) return;                                         // an interpreted replacement
+      if (p && p.type === 'MemberExpression' && p.object === n) {             // a property of the export object
+        if (isWriteTarget(p) && !interpreted.has(p)) opaque = why(p, 'a change to an exported property');
+        return;
+      }
+      opaque = isWriteTarget(n) ? why(n, 'a change to the export object') : `the export object is used as a value at line ${line(n)} (aliased, passed or returned), so later changes cannot be followed`;
+      return;
+    }
+    if (isId(n, 'module') && isReference(n)) {
+      const p = parent.get(n);
+      // reads: a property access, a comparison (require.main === module), typeof module
+      const read = p && ((p.type === 'BinaryExpression' && ['===', '!==', '==', '!='].includes(p.operator)) || (p.type === 'UnaryExpression' && p.operator === 'typeof'));
+      if (read) return;
+      if (!(p && p.type === 'MemberExpression' && p.object === n)) { opaque = `\`module\` is used as a value at line ${line(n)}`; return; }
+      if (propName(p) === null && isWriteTarget(p)) { opaque = why(p, 'a computed write to module'); return; }
+    }
+    for (const k of Object.keys(n)) {
+      if (k === 'loc') continue;
+      const v = n[k];
+      for (const c of Array.isArray(v) ? v : [v]) if (c && typeof c.type === 'string') audit(c);
+    }
+  };
+  audit(ast);
 
-  const cjsTouched = replacedAt !== null || cjsNamed.size > 0 || detachedWrites.size > 0;
+  const cjsTouched = replacedAt !== null || cjsNamed.size > 0 || detachedWrites.size > 0 || deletedAt.size > 0;
   const named = new Map([...esmNamed]);
   for (const [k, b] of cjsNamed) named.set(k, esmNamed.has(k) ? { unresolved: `${k} is exported by both CommonJS and ESM` } : b);
   const lookup = (k) => {
     if (opaque) return { unresolved: opaque };
     if (named.has(k)) return named.get(k);
+    if (deletedAt.has(k)) return { unresolved: `${k} was deleted from the exports at line ${deletedAt.get(k)}` };
     if (opaqueNamed) return { unresolved: opaqueNamed };
     if (detachedWrites.has(k)) return { unresolved: `exports.${k} was assigned after module.exports was replaced (the exports alias is detached)` };
     return { unresolved: replacedAt ? `${k} is not exported: module.exports was replaced at line ${replacedAt}` : `${k} is not exported` };
   };
-  let module;
-  if (opaque) module = { unresolved: opaque };
-  else if (esmDefault.length + (cjsModule ? 1 : 0) > 1) module = { unresolved: 'the module export is defined more than once (CommonJS and/or ESM default)' };
-  else module = esmDefault[0] || cjsModule || { unresolved: cjsTouched ? 'module.exports is the default object, not a function' : 'no module export' };
-  return { module, named: { get: lookup, has: (k) => !lookup(k).unresolved } };
+  let moduleBinding;
+  if (opaque) moduleBinding = { unresolved: opaque };
+  else if (esmDefault.length + (cjsModule ? 1 : 0) > 1) moduleBinding = { unresolved: 'the module export is defined more than once (CommonJS and/or ESM default)' };
+  else moduleBinding = esmDefault[0] || cjsModule || { unresolved: cjsTouched ? 'module.exports is the default object, not a function' : 'no module export' };
+  return { module: moduleBinding, named: { get: lookup, has: (k) => !lookup(k).unresolved } };
 }
 
 /** JS definitions in one file: { name, range: [startLine, endLine], text } — functions, classes, methods, assigned functions. */

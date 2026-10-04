@@ -50,6 +50,17 @@ For each criterion the judge decides (`kind: "non_behavioral"`, plus the no-chan
   - `module.exports.x = …` adds to the current object, and the last assignment wins.
   - Any export change QB cannot follow statically makes every binding unresolved. That includes a change inside a function or block, one through a call (`Object.assign(module.exports, …)`), and reassigning `exports` or `module`.
   - Pre-fix: `module.exports = {fmt}; module.exports = {};` still showed `fmt`, which is undefined at runtime.
+- **Every export mutation is interpreted or fails closed (re-review 3).**
+  - A write is marked handled only **after** QB interprets it. Interpreted forms:
+    - top-level `=` to `module.exports`, `module['exports']` and `module.exports.x` / `['x']`;
+    - `exports.x` / `['x']`;
+    - top-level `delete module.exports.x`, which is reported as `x was deleted from the exports at line N`.
+  - Every other reference to `module`, `module.exports` or `exports` must be a plain **read**: a property access, `require.main === module`, `typeof module`.
+  - **Anything else makes every binding unresolved:**
+    - other writes: computed non-literal keys, compound `+=` / `??=`, `++` / `--`, unhandled `delete`, destructuring or `for-in`/`for-of` targets, and writes inside functions or blocks;
+    - the export object or `module` escaping as a value: aliased (`const e = module.exports`), passed to a call (`Object.assign`, `Object.defineProperty(module, 'exports', …)`) or returned.
+  - Pre-fix: `module.exports['fmt'] = null` and `delete module.exports.fmt` still showed `fmt`.
+  - Of this repository's own 148 JavaScript modules, none is flagged.
 - **Same-file helpers** resolve in the candidate file's module scope. Calls to names defined in the hunk itself, or to language/runtime globals, need no source.
 - **When the changed file's own source is unavailable, the calls are named as missing:** `source of src/greet.js (to resolve calls to fmt) — too_large` (or `not_requested`, `unparsable`, `no candidate snapshot`, `snapshot failed`).
   - Pre-fix, an oversized changed file silently erased the same-file helper evidence.

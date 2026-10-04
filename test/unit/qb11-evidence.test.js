@@ -345,3 +345,68 @@ describe('QB-11 re-review 2: CommonJS export order — a replaced export object 
     }
   });
 });
+
+describe('QB-11 re-review 3: every export mutation is interpreted or fails closed', () => {
+  const GREET = "const {fmt}=require('./fmt');\nmodule.exports.greet=n=>fmt(n);\n";
+  const DIFF = hunk('src/greet.js', 2, ['module.exports.greet=n=>fmt(n);']);
+  const BASE = "function fmt(n) { return 'Hello '+n; }\nmodule.exports = {fmt};\n";
+  const build = (fmt) => buildEvidence({ criterion: 'x', diff: DIFF, files: [file('src/greet.js', GREET), file('src/fmt.js', fmt)], tree: TREE });
+  const shownDefs = (b) => b.shown.filter((x) => x.kind === 'definition');
+  const why = (b) => b.missing.map((m) => `${m.what} — ${m.reason}`).join(' | ');
+
+  test('senior repros: module.exports[\'fmt\'] = null and delete module.exports.fmt → no stale definition, unresolved via verify() (pre-fix: fmt shown, missing [])', async () => {
+    for (const tail of ["module.exports['fmt'] = null;\n", 'delete module.exports.fmt;\n']) {
+      const b = build(BASE + tail);
+      assert.deepEqual(shownDefs(b), [], tail);
+      assert.match(why(b), /definition of fmt \(imported from \.\/fmt\) — src\/fmt\.js: export binding not resolved/, tail);
+      const m = mockFetch(ollamaReply({ met: true, evidence: 'looks fine' }));
+      try {
+        const r = await verify(contract("greet() greets with 'Hello'"), null, exec(DIFF, { files: [file('src/greet.js', GREET), file('src/fmt.js', BASE + tail)] }));
+        assert.deepEqual([r.verdict, r.criteria_results[0].met], ['unresolved', null], tail);
+      } finally { m.restore(); }
+    }
+  });
+  test('the mutation audit: computed keys, compound assignment, update, destructuring targets, aliases and escapes all fail closed', () => {
+    for (const tail of [
+      "module['exports'] = {};\n",                       // computed module['exports'] replacement
+      "module['exports'].fmt = null;\n",
+      "const k = 'fmt';\nmodule.exports[k] = null;\n",    // computed, non-literal key
+      'module.exports.fmt += 1;\n',                      // compound assignment
+      'module.exports.fmt ??= null;\n',
+      'module.exports.fmt++;\n',                         // update expression
+      '--exports.fmt;\n',
+      '({ fmt: module.exports.fmt } = { fmt: null });\n', // destructuring target
+      '[exports.fmt] = [null];\n',
+      'const e = module.exports;\ne.fmt = null;\n',      // alias escape
+      'reset(module.exports);\n',                        // escape to a call
+      "Object.defineProperty(module, 'exports', { value: {} });\n",
+      'for (exports.fmt in {}) {}\n',                    // for-in target
+    ]) {
+      const b = build(BASE + tail);
+      assert.deepEqual(shownDefs(b), [], JSON.stringify(tail));
+      assert.match(why(b), /export binding not resolved/, JSON.stringify(tail));
+    }
+  });
+  test('positive guards: reads of the export object, and interpreted literal-key forms, stay resolved', () => {
+    const cases = [
+      [BASE + "const g = module.exports.fmt;\nconsole.log(exports.fmt, module.exports.fmt('x'));\n", 'function fmt'],
+      ["function fmt(n) { return 'Hello '+n; }\nmodule.exports['fmt'] = fmt;\n", 'function fmt'],
+      ["function fmt(n) { return 'Hello '+n; }\nexports['fmt'] = fmt;\n", 'function fmt'],
+      ["function fmt(n) { return 'Hello '+n; }\nmodule['exports'] = { fmt };\n", 'function fmt'],
+    ];
+    for (const [src, expect] of cases) {
+      const b = build(src);
+      assert.equal(shownDefs(b).length, 1, src);
+      assert.ok(shownDefs(b)[0].text.startsWith(expect), src);
+      assert.deepEqual(b.missing, [], src);
+    }
+  });
+});
+
+test('QB-11 re-review 3: common read idioms (require.main === module, typeof module) do not make exports unresolved', () => {
+  const fmt = "function fmt(n) { return 'Hello '+n; }\nmodule.exports = { fmt };\nif (require.main === module) fmt('x');\nif (typeof module !== 'undefined') {}\n";
+  const b = buildEvidence({ criterion: 'x', diff: hunk('src/greet.js', 2, ['module.exports.greet=n=>fmt(n);']),
+    files: [file('src/greet.js', "const {fmt}=require('./fmt');\nmodule.exports.greet=n=>fmt(n);\n"), file('src/fmt.js', fmt)], tree: TREE });
+  assert.equal(b.shown.filter((x) => x.kind === 'definition').length, 1);
+  assert.deepEqual(b.missing, []);
+});
