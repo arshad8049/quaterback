@@ -1,0 +1,10 @@
+{
+  "goal": "g",
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "c",
+      "met": null
+    }
+  ]
+}

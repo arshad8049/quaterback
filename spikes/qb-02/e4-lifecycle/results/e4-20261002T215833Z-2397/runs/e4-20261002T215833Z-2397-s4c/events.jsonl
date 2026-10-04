@@ -1,0 +1,2 @@
+{"t":"2026-10-02T21:59:23.702Z","who":"supervisor","what":"started_never_ready"}
+{"t":"2026-10-02T21:59:33.707Z","who":"cli","what":"supervisor_not_ready","created_resources":false}

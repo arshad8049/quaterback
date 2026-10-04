@@ -195,16 +195,72 @@ Builds a structured **Agent Briefing** and invokes the coding agent.
 
 ## Layer 4: Verification Engine (`verify/`)
 
-Independent verification — never sees the original request or the briefing. Only the diff and one AC at a time.
+Independent verification. It never sees the original request or the briefing, and nothing it trusts comes from the agent's own claims.
 
-**Stage 1 (DSA):**
-- Runs the test suite (detects jest/vitest/mocha/pytest/go-test/node:test from patterns)
-- Diff scope check — flags files modified outside the relevant set
-- Keyword signal scan — maps AC terms against the diff
+**Only a finalized contract is verified** (`intent/contract-state.js`). That means a goal, non-empty acceptance criteria (ACs) with unique ids, and no open clarifying question. Anything else is `unresolved`, and the agent never runs.
 
-**Stage 2 (LLM — independent):** One Ollama call per acceptance criterion. Verdict per AC: `met: true | false | null` with a one-sentence evidence string.
+**Evidence, all gathered inside the sandbox on the exact captured tree:**
+- **Test suite (stage ⑤).** The repository's own `npm test` runs on a disposable copy, with protected tests restored to their base versions. QB's node:test reporter writes a machine-readable report, which `verify/tests.js` validates for completeness and count consistency. The run is classified as `passed`, `failed` (a real failing test), `error` (timeout, OOM, crash, load failure, cancelled tests, zero tests, unreadable report) or `not_run`. Console output decides nothing.
+- **Executable checks (stage ⑥, QB-16).** The contract's checks come from a versioned registry (`verify/checks/registry.js`, `qb-checks/1`): `module_exports`, `call_returns` and `call_throws`, with typed JSON parameters. They are run by QB's runner, never as shell text, and are not shown to the agent. Design: [docs/verify/executable-checks.md](docs/verify/executable-checks.md).
+- **Independent judge.** Only for criteria marked `non_behavioral` (documentation, naming, wording). It uses a strict JSON judgment schema, and malformed output is `invalid_judgment`. For a no-change run, it reads the files of the tested tree, exported by trusted code.
 
-**Verdicts:** `pass` (all met) | `fail` (any false) | `partial` (any uncertain) | `no-diff`
+**Per-criterion decision:**
+- a behavioural criterion is met only through its executed checks;
+- a failing check → not met;
+- no check → explicit `unresolved`.
+
+**Verdicts:**
+- `pass`: every criterion met and the tests passed;
+- `fail`: a criterion not met, or a real failing test;
+- `partial` / `unresolved`: anything that couldn't be verified;
+- `error`: the agent run failed;
+- `no-diff`.
+
+An agent that changed nothing passes only if the requirement is independently verified on the unchanged tree.
+
+**A human approves the test oracle** (QB-13, [docs/verify/test-oracle.md](docs/verify/test-oracle.md)):
+- the model's contract is only a proposal, and QB recomputes its examples with trusted arithmetic;
+- a PASS needs a human-approved contract, approved in the terminal or by passing a reviewed `--contract-file`;
+- the approval is frozen by hash, so any later change voids it.
+
+**Scope and constraints are enforced policy** (QB-09, [docs/verify/scope-policy.md](docs/verify/scope-policy.md)):
+- the approved contract lists `scope.allowed_changes` and `protected_paths`, and how each constraint is enforced;
+- a protected change fails the task;
+- an unauthorized change, or an unenforced constraint, can't pass.
+
+**Failure routing** (QB-10, [docs/verify/failure-routing.md](docs/verify/failure-routing.md)):
+- when the candidate's tests fail, the same suite runs on the base tree;
+- only new failures are regressions, and each gets a repair action with its evidence;
+- pre-existing failures stay listed;
+- infrastructure errors go to environment recovery, and an unchanged patch stops the loop.
+
+**Traceable requirements** (QB-14, [docs/verify/traceability.md](docs/verify/traceability.md)):
+- every request clause is a requirement with a verbatim quote;
+- each requirement must be covered by criteria;
+- unsupported additions and duplicates block execution;
+- `call_sequence` checks prove behaviour over time.
+
+**Judge evidence with provenance** (QB-11, [docs/verify/evidence.md](docs/verify/evidence.md)):
+- the judge sees whole changed hunks, ranked within a budget (no silent 6,000-character cut);
+- it also sees the definitions of the helpers the change calls, from the tested tree, unchanged code included — resolved through the module's actual export binding, never the first declaration;
+- every item has an immutable `EV-…` ID with file, range, blob and hash;
+- missing material evidence makes the criterion unresolved, naming the missing artifact (including a changed file whose own source could not be exported);
+- what retrieval does not cover (callers, dynamic dispatch, package imports) is stated to the judge every time.
+
+**Calibrated judging** (QB-15, [docs/verify/calibration.md](docs/verify/calibration.md)):
+- a judgment is cached per evidence, so an unchanged patch is never resampled into a pass;
+- preservation criteria must name the tests they preserve (`preserves.tests`) and are decided by the test report;
+- `bench/judge-calibration.js` measures false accepts, false rejects and abstentions separately, on labeled patches.
+
+**Grounded intent, bounded clarification** (QB-17, [docs/intent/grounding.md](docs/intent/grounding.md)):
+- `qb` and the standalone intent CLI compile with the same repository survey;
+- a vague word ("cleaner") blocks only until the request defines it, or an answer to that question affirmatively selects one choice — mentioning options, negating or deferring keeps it open;
+- up to 3 clarification rounds (`--clarify` is repeatable; select a choice by id with `--clarify cleaner=improve_naming`), with a machine-readable handoff state;
+- a choice that needs a value (a numeric target) stays open until a valid target is given (`--clarify "improve_unmeasured=numeric_target:p95 latency < 200ms"`); the target is recorded in the approved contract;
+- QB's own choices are separate "proposed defaults" that the human approves;
+- incomplete compiler output is rejected, not filled in.
+
+**Run records** (`run/store.js`, QB-38). Every run keeps a versioned, append-only record: base commit, agent version, contract, patch, test outcome, checks and report. `qb replay <run_id>` recomputes each verdict and the final outcome from the stored evidence.
 
 ---
 
@@ -223,6 +279,8 @@ Per-repo outcome store with semantic recall.
 
 ## Running the Full Pipeline
 
+> **The coding agent runs in the QB sandbox** ([design](docs/security/agent-sandbox.md)). Each run seeds a disposable workspace from a read-only copy of your checkout. The agent gets no network except the Claude API through a policy proxy, and your files and `.git` are never written. Changes are captured by trusted code and handed back as a patch (`qb patch <run_id>`) for you to apply. Requires Docker. Sign in once with `qb auth login` (subscription), or set `ANTHROPIC_API_KEY`. Validated platform: Linux x86_64 + Docker Engine; Docker Desktop on macOS works for development but is not yet validated.
+
 ```bash
 # From quaterback/ root:
 npm install
@@ -233,6 +291,25 @@ node qb.js "..." --repo /path --no-llm-context   # skip LLM in L2 (fast, offline
 node qb.js "..." --repo /path --no-llm-verify    # skip LLM in L4 (DSA-only verify)
 node qb.js "..." --repo /path --max-retries 5    # up to 5 repair attempts
 ```
+
+## Tests and CI
+
+```bash
+npm test                    # unit suite (no Docker, no model, no network)
+npm run test:integration    # sandbox integration suite (needs Docker; QB_INTEGRATION=1)
+npm run test:daemon         # Docker-daemon-stop lifecycle test (Linux CI only; stops dockerd)
+```
+
+CI (`.github/workflows/ci.yml`) runs on every push:
+- the unit suite on **Node 20, 22 and 24**;
+- the Docker integration suite and the daemon-stop test on ubuntu-24.04 + Docker Engine.
+
+Every job publishes an evidence record (`scripts/ci-evidence.js`) covering:
+- the runtime and the pinned agent version;
+- timeouts and the models called (none; $0, and the job fails if a model credential is present);
+- test counts, with the known-defect TODOs listed by name.
+
+Failing tests are also published as public GitHub annotations. Review findings are tracked in [docs/review/issue-register.md](docs/review/issue-register.md); Jira is authoritative.
 
 ## Running the Benchmark
 

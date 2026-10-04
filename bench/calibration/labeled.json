@@ -1,0 +1,117 @@
+{
+  "format": "qb-judge-calibration/1",
+  "note": "Labels written by a person from the criterion and patch alone, before any judge run. Do not relabel after seeing judge output.",
+  "items": [
+    {
+      "id": "readme-verbose-ok",
+      "label": "met",
+      "criterion": "README documents what the --verbose flag prints",
+      "diff": "diff --git a/README.md b/README.md\n--- a/README.md\n+++ b/README.md\n@@ -20,0 +20,3 @@\n+## Flags\n+\n+`--verbose` prints each pipeline stage name and how long it took.\n",
+      "rationale": "States what --verbose prints."
+    },
+    {
+      "id": "readme-verbose-todo",
+      "label": "not_met",
+      "criterion": "README documents what the --verbose flag prints",
+      "diff": "diff --git a/README.md b/README.md\n--- a/README.md\n+++ b/README.md\n@@ -20,0 +20,3 @@\n+## Flags\n+\n+`--verbose`: TODO\n",
+      "rationale": "Flag listed, output not documented."
+    },
+    {
+      "id": "readme-after-6000",
+      "label": "met",
+      "criterion": "README documents what the --verbose flag prints",
+      "diff": "diff --git a/src/big.js b/src/big.js\n--- a/src/big.js\n+++ b/src/big.js\n@@ -1,0 +1,140 @@\n+const filler0 = 0; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler1 = 1; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler2 = 2; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler3 = 3; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler4 = 4; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler5 = 5; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler6 = 6; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler7 = 7; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler8 = 8; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler9 = 9; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler10 = 10; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler11 = 11; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler12 = 12; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler13 = 13; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler14 = 14; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler15 = 15; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler16 = 16; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler17 = 17; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler18 = 18; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler19 = 19; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler20 = 20; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler21 = 21; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler22 = 22; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler23 = 23; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler24 = 24; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler25 = 25; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler26 = 26; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler27 = 27; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler28 = 28; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler29 = 29; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler30 = 30; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler31 = 31; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler32 = 32; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler33 = 33; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler34 = 34; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler35 = 35; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler36 = 36; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler37 = 37; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler38 = 38; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler39 = 39; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler40 = 40; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler41 = 41; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler42 = 42; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler43 = 43; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler44 = 44; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler45 = 45; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler46 = 46; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler47 = 47; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler48 = 48; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler49 = 49; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler50 = 50; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler51 = 51; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler52 = 52; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler53 = 53; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler54 = 54; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler55 = 55; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler56 = 56; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler57 = 57; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler58 = 58; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler59 = 59; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler60 = 60; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler61 = 61; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler62 = 62; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler63 = 63; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler64 = 64; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler65 = 65; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler66 = 66; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler67 = 67; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler68 = 68; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler69 = 69; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler70 = 70; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler71 = 71; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler72 = 72; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler73 = 73; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler74 = 74; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler75 = 75; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler76 = 76; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler77 = 77; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler78 = 78; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler79 = 79; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler80 = 80; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler81 = 81; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler82 = 82; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler83 = 83; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler84 = 84; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler85 = 85; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler86 = 86; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler87 = 87; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler88 = 88; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler89 = 89; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler90 = 90; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler91 = 91; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler92 = 92; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler93 = 93; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler94 = 94; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler95 = 95; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler96 = 96; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler97 = 97; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler98 = 98; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler99 = 99; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler100 = 100; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler101 = 101; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler102 = 102; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler103 = 103; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler104 = 104; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler105 = 105; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler106 = 106; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler107 = 107; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler108 = 108; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler109 = 109; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler110 = 110; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler111 = 111; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler112 = 112; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler113 = 113; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler114 = 114; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler115 = 115; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler116 = 116; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler117 = 117; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler118 = 118; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler119 = 119; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler120 = 120; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler121 = 121; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler122 = 122; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler123 = 123; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler124 = 124; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler125 = 125; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler126 = 126; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler127 = 127; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler128 = 128; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler129 = 129; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler130 = 130; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler131 = 131; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler132 = 132; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler133 = 133; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler134 = 134; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler135 = 135; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler136 = 136; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler137 = 137; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler138 = 138; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n+const filler139 = 139; // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\ndiff --git a/README.md b/README.md\n--- a/README.md\n+++ b/README.md\n@@ -20,0 +20,1 @@\n+`--verbose` prints each pipeline stage name and how long it took.\n",
+      "rationale": "Same as readme-verbose-ok, behind a 7,000-character hunk (QB-11)."
+    },
+    {
+      "id": "jsdoc-complete",
+      "label": "met",
+      "criterion": "clamp() has a JSDoc comment documenting both bounds parameters and its return value",
+      "diff": "diff --git a/src/math.js b/src/math.js\n--- a/src/math.js\n+++ b/src/math.js\n@@ -1,0 +1,7 @@\n+/**\n+ * Clamp a value into [lo, hi].\n+ * @param {number} v  the value\n+ * @param {number} lo lower bound\n+ * @param {number} hi upper bound\n+ * @returns {number} v limited to [lo, hi]\n+ */\n",
+      "rationale": "lo, hi and @returns all documented."
+    },
+    {
+      "id": "jsdoc-incomplete",
+      "label": "not_met",
+      "criterion": "clamp() has a JSDoc comment documenting both bounds parameters and its return value",
+      "diff": "diff --git a/src/math.js b/src/math.js\n--- a/src/math.js\n+++ b/src/math.js\n@@ -1,0 +1,5 @@\n+/**\n+ * Clamp a value.\n+ * @param {number} v the value\n+ * @param {number} lo lower bound\n+ */\n",
+      "rationale": "hi and the return value are not documented."
+    },
+    {
+      "id": "changelog-added",
+      "label": "met",
+      "criterion": "CHANGELOG lists the new --json flag under the \"Added\" heading",
+      "diff": "diff --git a/CHANGELOG.md b/CHANGELOG.md\n--- a/CHANGELOG.md\n+++ b/CHANGELOG.md\n@@ -3,2 +3,5 @@\n ## Unreleased\n \n+### Added\n+- `--json` flag: print the verification report as JSON.\n+\n",
+      "rationale": "Under Added."
+    },
+    {
+      "id": "changelog-wrong-heading",
+      "label": "not_met",
+      "criterion": "CHANGELOG lists the new --json flag under the \"Added\" heading",
+      "diff": "diff --git a/CHANGELOG.md b/CHANGELOG.md\n--- a/CHANGELOG.md\n+++ b/CHANGELOG.md\n@@ -3,2 +3,5 @@\n ## Unreleased\n \n+### Fixed\n+- `--json` flag: print the verification report as JSON.\n+\n",
+      "rationale": "Listed under Fixed, not Added."
+    },
+    {
+      "id": "rename-ok",
+      "label": "met",
+      "criterion": "the retry counter variable in src/retry.js is named retryCount",
+      "diff": "diff --git a/src/retry.js b/src/retry.js\n--- a/src/retry.js\n+++ b/src/retry.js\n@@ -3,3 +3,3 @@\n-  let x = 0;\n-  while (x < max) {\n-    x++;\n+  let retryCount = 0;\n+  while (retryCount < max) {\n+    retryCount++;\n",
+      "rationale": "Renamed everywhere in the hunk."
+    },
+    {
+      "id": "rename-partial",
+      "label": "not_met",
+      "criterion": "the retry counter variable in src/retry.js is named retryCount",
+      "diff": "diff --git a/src/retry.js b/src/retry.js\n--- a/src/retry.js\n+++ b/src/retry.js\n@@ -3,3 +3,3 @@\n   let x = 0;\n-  while (x < max) {\n+  while (x < max && !stopped) {\n     x++;\n",
+      "rationale": "The counter is still x."
+    },
+    {
+      "id": "helper-format-wrong",
+      "label": "not_met",
+      "criterion": "greet() greets in the 'Hello, <name>!' format",
+      "diff": "diff --git a/src/greet.js b/src/greet.js\n--- a/src/greet.js\n+++ b/src/greet.js\n@@ -4,2 +4,3 @@\n \n module.exports = {};\n+module.exports.greet = (n) => fmt(n);\n",
+      "files": [
+        {
+          "path": "src/greet.js",
+          "text": "const { fmt } = require('./fmt');\n\nmodule.exports = {};\nmodule.exports.greet = (n) => fmt(n);\n"
+        },
+        {
+          "path": "src/fmt.js",
+          "text": "function fmt(n) {\n  return 'Hi ' + n;\n}\n\nmodule.exports = { fmt };\n"
+        }
+      ],
+      "rationale": "The unchanged helper formats \"Hi <name>\" (QB-11 retrieval)."
+    },
+    {
+      "id": "helper-format-ok",
+      "label": "met",
+      "criterion": "greet() greets in the 'Hello, <name>!' format",
+      "diff": "diff --git a/src/greet.js b/src/greet.js\n--- a/src/greet.js\n+++ b/src/greet.js\n@@ -4,2 +4,3 @@\n \n module.exports = {};\n+module.exports.greet = (n) => fmt(n);\n",
+      "files": [
+        {
+          "path": "src/greet.js",
+          "text": "const { fmt } = require('./fmt');\n\nmodule.exports = {};\nmodule.exports.greet = (n) => fmt(n);\n"
+        },
+        {
+          "path": "src/fmt.js",
+          "text": "function fmt(n) {\n  return `Hello, ${n}!`;\n}\n\nmodule.exports = { fmt };\n"
+        }
+      ],
+      "rationale": "The helper formats \"Hello, <name>!\"."
+    },
+    {
+      "id": "error-message-ok",
+      "label": "met",
+      "criterion": "the error for an invalid port states the allowed range 1-65535",
+      "diff": "diff --git a/src/server.js b/src/server.js\n--- a/src/server.js\n+++ b/src/server.js\n@@ -10,0 +10,1 @@\n+  if (!(port >= 1 && port <= 65535)) throw new RangeError(`port must be between 1 and 65535, got ${port}`);\n",
+      "rationale": "Message states the range."
+    },
+    {
+      "id": "error-message-vague",
+      "label": "not_met",
+      "criterion": "the error for an invalid port states the allowed range 1-65535",
+      "diff": "diff --git a/src/server.js b/src/server.js\n--- a/src/server.js\n+++ b/src/server.js\n@@ -10,0 +10,1 @@\n+  if (!(port >= 1 && port <= 65535)) throw new RangeError('invalid port');\n",
+      "rationale": "Message does not state the range."
+    }
+  ]
+}

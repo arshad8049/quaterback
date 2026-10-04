@@ -1,0 +1,9 @@
+{"t":"2026-10-02T21:49:35.413Z","who":"supervisor","what":"ready","renewMs":1000,"leaseTimeoutMs":5000,"killGraceMs":3000,"dockerOpMs":10000,"readyMs":10000,"pollMs":200}
+{"t":"2026-10-02T21:49:35.492Z","who":"cli","what":"supervisor_ready","pid":5076,"start":"5517"}
+{"t":"2026-10-02T21:49:35.816Z","who":"supervisor","what":"stage_ack","id":"agent-1","deadline_ms":8000}
+{"t":"2026-10-02T21:49:35.910Z","who":"cli","what":"stage_acked","id":"agent-1"}
+{"t":"2026-10-02T21:49:36.019Z","who":"cli","what":"workload_started","ok":true,"id":"fa14d77d4763"}
+{"t":"2026-10-02T21:49:46.939Z","who":"supervisor","what":"docker_kill","count":3,"ok":true,"timedOut":false}
+{"t":"2026-10-02T21:49:46.959Z","who":"cli","what":"proposed","state":"execution_error"}
+{"t":"2026-10-02T21:49:47.261Z","who":"supervisor","what":"cleanup","ms":301,"left":{"containers":0,"networks":0,"volumes":0}}
+{"t":"2026-10-02T21:49:47.262Z","who":"supervisor","what":"exit","state":"timeout","won":true}

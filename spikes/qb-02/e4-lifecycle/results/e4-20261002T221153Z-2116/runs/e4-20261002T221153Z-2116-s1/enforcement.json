@@ -1,0 +1,1 @@
+{"cause":"lease","state":"ABANDONED","reason":"lease_expired","won_terminal":true,"enforce_at":"2026-10-02T22:12:21.733Z","kill_ms":116,"left":{"containers":0,"networks":0,"volumes":0},"stage":{"id":"agent-1","deadline_ms":120000,"ackAt":45148},"lease_age_ms_at_enforce":8399}

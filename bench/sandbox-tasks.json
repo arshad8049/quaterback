@@ -1,0 +1,251 @@
+{
+  "meta": {
+    "repo": "bench/fixtures",
+    "repo_description": "qb-sandbox — self-contained JS utility library, node:test, ~60 tests",
+    "created": "2026-10-01",
+    "author": "Velora / Quarterback project",
+    "note": "repo path is relative to QB root — resolved at runtime"
+  },
+  "tasks": [
+    {
+      "id": "S-001",
+      "difficulty": "easy",
+      "tags": ["add-function", "single-file", "pure"],
+      "description": "Add a clamp(n, min, max) function to src/utils.js that returns n clamped to the range [min, max]. Export it.",
+      "expected_files": ["src/utils.js"],
+      "oracle_tests": [
+        "clamp returns value when in range",
+        "clamp clamps to min",
+        "clamp clamps to max"
+      ]
+    },
+    {
+      "id": "S-002",
+      "difficulty": "easy",
+      "tags": ["add-function", "single-file", "pure"],
+      "description": "Add a compact(arr) function to src/utils.js that removes all falsy values from an array and returns the filtered result. Export it.",
+      "expected_files": ["src/utils.js"],
+      "oracle_tests": [
+        "compact removes falsy values",
+        "compact returns empty array for all-falsy input",
+        "compact preserves truthy values"
+      ]
+    },
+    {
+      "id": "S-003",
+      "difficulty": "easy",
+      "tags": ["add-function", "single-file", "pure"],
+      "description": "Add a capitalize(str) function to src/formatter.js that returns the string with the first letter uppercased and the rest lowercased. Export it.",
+      "expected_files": ["src/formatter.js"],
+      "oracle_tests": [
+        "capitalize uppercases first letter",
+        "capitalize lowercases rest",
+        "capitalize handles empty string"
+      ]
+    },
+    {
+      "id": "S-004",
+      "difficulty": "easy",
+      "tags": ["add-function", "single-file", "pure"],
+      "description": "Add a formatBytes(bytes, decimals=1) function to src/formatter.js that formats a byte count as a human-readable string: '0 B' for 0, '1.5 KB' for 1536, '1.0 MB' for 1048576, etc. Export it.",
+      "expected_files": ["src/formatter.js"],
+      "oracle_tests": [
+        "formatBytes formats bytes",
+        "formatBytes formats kilobytes",
+        "formatBytes formats megabytes",
+        "formatBytes formats gigabytes"
+      ]
+    },
+    {
+      "id": "S-005",
+      "difficulty": "easy",
+      "tags": ["add-function", "single-file", "validation"],
+      "description": "Add an isEmail(str) function to src/validator.js that returns true if str looks like a valid email (contains @, has characters before @, has a . after @). Export it.",
+      "expected_files": ["src/validator.js"],
+      "oracle_tests": [
+        "isEmail returns true for valid email",
+        "isEmail returns false for invalid email"
+      ]
+    },
+    {
+      "id": "S-006",
+      "difficulty": "easy",
+      "tags": ["add-function", "single-file", "parsing"],
+      "description": "Add a parseIntSafe(str, fallback=0) function to src/parser.js that parses an integer from a string, returning the fallback if the input is not a string or results in NaN. Export it.",
+      "expected_files": ["src/parser.js"],
+      "oracle_tests": [
+        "parseIntSafe parses valid integer string",
+        "parseIntSafe returns fallback for non-numeric",
+        "parseIntSafe returns fallback for non-string"
+      ]
+    },
+    {
+      "id": "S-007",
+      "difficulty": "easy",
+      "tags": ["add-method", "single-file", "factory"],
+      "description": "Add a getLevel() method to the object returned by createLogger in src/logger.js that returns the current log level string.",
+      "expected_files": ["src/logger.js"],
+      "oracle_tests": [
+        "getLevel returns current log level",
+        "getLevel reflects setLevel changes",
+        "getLevel returns default level"
+      ]
+    },
+    {
+      "id": "S-008",
+      "difficulty": "easy",
+      "tags": ["add-method", "single-file", "factory"],
+      "description": "Add a keys() method to the object returned by createCache in src/cache.js that returns an array of all non-expired cache keys.",
+      "expected_files": ["src/cache.js"],
+      "oracle_tests": [
+        "keys returns all non-expired keys",
+        "keys excludes expired entries"
+      ]
+    },
+    {
+      "id": "S-009",
+      "difficulty": "medium",
+      "tags": ["add-function", "single-file", "async", "timing"],
+      "description": "Add a debounce(fn, ms) function to src/utils.js that returns a debounced version of fn — it delays invocation until ms milliseconds have passed since the last call (trailing edge). Export it.",
+      "expected_files": ["src/utils.js"],
+      "oracle_tests": [
+        "debounce delays execution",
+        "debounce resets timer on repeated calls"
+      ]
+    },
+    {
+      "id": "S-010",
+      "difficulty": "medium",
+      "tags": ["add-function", "single-file", "async", "timing"],
+      "description": "Add a throttle(fn, ms) function to src/utils.js that returns a throttled version of fn — it fires immediately on the first call (leading edge) and suppresses subsequent calls within the ms window. Export it.",
+      "expected_files": ["src/utils.js"],
+      "oracle_tests": [
+        "throttle calls fn immediately on first call",
+        "throttle suppresses calls within window",
+        "throttle allows call after window expires"
+      ]
+    },
+    {
+      "id": "S-011",
+      "difficulty": "medium",
+      "tags": ["add-function", "single-file", "pure"],
+      "description": "Add a formatPercent(n, decimals=1) function to src/formatter.js that formats a number in [0,1] as a percentage string like '42.5%'. Input 0.5 should produce '50.0%'. Export it.",
+      "expected_files": ["src/formatter.js"],
+      "oracle_tests": [
+        "formatPercent formats number as percent",
+        "formatPercent respects decimals param",
+        "formatPercent handles 0 and 1"
+      ]
+    },
+    {
+      "id": "S-012",
+      "difficulty": "medium",
+      "tags": ["add-function", "single-file", "parsing"],
+      "description": "Add a parseCSVTable(csv) function to src/parser.js that parses a multi-line CSV string where the first row is headers. Returns an array of plain objects keyed by header names. Use the existing parseCSVLine function internally. Export it.",
+      "expected_files": ["src/parser.js"],
+      "oracle_tests": [
+        "parseCSVTable returns array of objects",
+        "parseCSVTable handles empty body",
+        "parseCSVTable handles quoted fields"
+      ]
+    },
+    {
+      "id": "S-013",
+      "difficulty": "medium",
+      "tags": ["add-function", "single-file", "validation"],
+      "description": "Add an isURL(str) function to src/validator.js that returns true if str starts with 'http://' or 'https://' and has a valid-looking hostname. Returns false for null/undefined/non-string. Export it.",
+      "expected_files": ["src/validator.js"],
+      "oracle_tests": [
+        "isURL returns true for http URL",
+        "isURL returns false for non-URLs"
+      ]
+    },
+    {
+      "id": "S-014",
+      "difficulty": "medium",
+      "tags": ["add-function", "single-file", "validation"],
+      "description": "Add a validateRequired(data, fields) function to src/validator.js that checks all listed fields exist and are not null/undefined/empty-string. Returns { valid: boolean, missing: string[] }. Export it.",
+      "expected_files": ["src/validator.js"],
+      "oracle_tests": [
+        "validateRequired returns valid when all fields present",
+        "validateRequired returns missing fields",
+        "validateRequired catches undefined fields"
+      ]
+    },
+    {
+      "id": "S-015",
+      "difficulty": "medium",
+      "tags": ["add-method", "single-file", "factory", "events"],
+      "description": "Add a once(event, fn) method to the object returned by createEmitter in src/events.js that registers fn as a one-time listener: it fires exactly once and is automatically removed after the first emission.",
+      "expected_files": ["src/events.js"],
+      "oracle_tests": [
+        "once fires listener exactly once",
+        "once listener is removed after firing"
+      ]
+    },
+    {
+      "id": "S-016",
+      "difficulty": "medium",
+      "tags": ["add-method", "single-file", "factory", "modify-existing"],
+      "description": "Add a getStats() method to the object returned by createCache in src/cache.js that returns { size, hits, misses }. Modify the existing get() to track hits (found, not expired) and misses (not found or expired).",
+      "expected_files": ["src/cache.js"],
+      "oracle_tests": [
+        "getStats returns initial zeros",
+        "getStats tracks hits and misses"
+      ]
+    },
+    {
+      "id": "S-017",
+      "difficulty": "hard",
+      "tags": ["add-function", "multi-file", "cross-module"],
+      "description": "Add formatBytes(bytes, decimals=1) to src/formatter.js (exported) AND add a getSizeReport() method to createCache in src/cache.js. getSizeReport must require('./formatter') to use formatBytes and return a string like '3 entries, 1.2 KB' (summing JSON.stringify length of all non-expired values).",
+      "expected_files": ["src/formatter.js", "src/cache.js"],
+      "oracle_tests": [
+        "formatBytes formats bytes",
+        "formatBytes formats kilobytes",
+        "formatBytes formats megabytes",
+        "getSizeReport returns string with entry count",
+        "getSizeReport includes size unit"
+      ]
+    },
+    {
+      "id": "S-018",
+      "difficulty": "hard",
+      "tags": ["add-function", "multi-file", "caching", "factory"],
+      "description": "Add memoize(fn, keyResolver) to src/utils.js (exported) that caches fn results by argument key (uses JSON.stringify if no keyResolver). AND add getOrSet(key, factory, ttl) method to createCache in src/cache.js — returns cached value if present, otherwise calls factory(), stores the result, and returns it.",
+      "expected_files": ["src/utils.js", "src/cache.js"],
+      "oracle_tests": [
+        "memoize caches function results",
+        "memoize returns different results for different args",
+        "memoize uses keyResolver when provided",
+        "getOrSet stores and returns factory result",
+        "getOrSet returns cached value without calling factory again"
+      ]
+    },
+    {
+      "id": "S-019",
+      "difficulty": "hard",
+      "tags": ["add-method", "single-file", "events", "complex"],
+      "description": "Add once(event, fn) to createEmitter in src/events.js AND add a pipe(targetEmitter) method. pipe() registers forwarding listeners on all currently-known events. The existing on() must also register pipe-forwarding listeners for new events added after pipe() is called.",
+      "expected_files": ["src/events.js"],
+      "oracle_tests": [
+        "once fires listener exactly once",
+        "once listener is removed after firing",
+        "pipe forwards events to target emitter",
+        "pipe does not affect direct listeners"
+      ]
+    },
+    {
+      "id": "S-020",
+      "difficulty": "hard",
+      "tags": ["modify-existing", "single-file", "validation", "recursive"],
+      "description": "Extend validateSchema in src/validator.js to support nested object schemas: if a field's rule is { type: 'object', schema: {...} }, recursively validate the nested object. Errors should use dot-notation paths like 'address.city must be a string'.",
+      "expected_files": ["src/validator.js"],
+      "oracle_tests": [
+        "validateSchema validates nested object with sub-schema",
+        "validateSchema reports nested errors with dot notation",
+        "validateSchema handles missing nested object"
+      ]
+    }
+  ]
+}

@@ -25,6 +25,11 @@ const MAX_CONTEXT_CHARS = 8000; // total context budget — ~2k tokens, leaves r
  * @returns {string} Context string to inject into the compiler prompt
  */
 function buildContext(repoPath, request) {
+  return surveyDetails(repoPath, request).text;
+}
+
+/** The survey text plus what it contains (QB-17: recorded with the contract's grounding). */
+function surveyDetails(repoPath, request) {
   const absRepo = path.resolve(repoPath);
 
   if (!fs.existsSync(absRepo)) {
@@ -78,7 +83,12 @@ function buildContext(repoPath, request) {
     contextParts.push('## Relevant file contents', ...snippets);
   }
 
-  return contextParts.join('\n\n');
+  return {
+    text: contextParts.join('\n\n'),
+    files_total: files.length,
+    tree_files: treeLines.length,
+    snippet_files: snippets.map((sn) => sn.slice(3, sn.indexOf('\n'))),
+  };
 }
 
 function walk(base, dir, results) {
@@ -142,4 +152,4 @@ const STOP_WORDS = new Set([
   'what', 'which', 'their', 'there', 'about', 'your', 'work'
 ]);
 
-module.exports = { buildContext };
+module.exports = { buildContext, surveyDetails };

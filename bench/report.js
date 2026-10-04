@@ -14,7 +14,7 @@ const { program } = require('commander');
 
 program
   .name('report')
-  .option('--format <type>', 'Output format: table | markdown | csv | json', 'table')
+  .option('--format <type>', 'Output format: table | markdown | csv | json | latex', 'table')
   .option('--results <dir>',  'Results directory', path.join(__dirname, 'results'))
   .parse(process.argv);
 
@@ -52,6 +52,11 @@ function main() {
 
   if (opts.format === 'markdown') {
     printMarkdown(results);
+    return;
+  }
+
+  if (opts.format === 'latex') {
+    printLatex(results);
     return;
   }
 
@@ -119,18 +124,94 @@ function printMarkdown(results) {
   const basePass  = baseRan.filter(r => r.baseline.verdict === 'pass').length;
   const avgMs     = results.reduce((s,r) => s + (r.qb?.timing?.total_ms||0), 0) / results.length;
   const avgTries  = results.reduce((s,r) => s + (r.qb?.total_attempts||0), 0) / results.length;
+  const n         = results.length;
+
+  const [qbLo, qbHi]     = wilsonCI(qbPass, n);
+  const [baseLo, baseHi] = wilsonCI(basePass, baseRan.length);
 
   console.log('## Aggregate Statistics\n');
   console.log(`| Metric | Value |`);
   console.log(`|--------|-------|`);
-  console.log(`| QB pass rate | ${qbPass}/${results.length} (${pct(qbPass, results.length)}%) |`);
-  console.log(`| QB first-attempt pass rate | ${qbFirst}/${results.length} (${pct(qbFirst, results.length)}%) |`);
+  console.log(`| QB pass rate | ${qbPass}/${n} (${pct(qbPass, n)}%, 95% CI: ${(qbLo*100).toFixed(0)}%–${(qbHi*100).toFixed(0)}%) |`);
+  console.log(`| QB first-attempt pass rate | ${qbFirst}/${n} (${pct(qbFirst, n)}%) |`);
   console.log(`| QB average attempts | ${avgTries.toFixed(2)} |`);
   console.log(`| QB average time | ${(avgMs/1000).toFixed(1)}s |`);
   if (baseRan.length) {
-    console.log(`| Baseline pass rate | ${basePass}/${baseRan.length} (${pct(basePass, baseRan.length)}%) |`);
-    console.log(`| QB lift over baseline | +${pct(qbPass,results.length) - pct(basePass,baseRan.length)} pp |`);
+    console.log(`| Baseline pass rate | ${basePass}/${baseRan.length} (${pct(basePass, baseRan.length)}%, 95% CI: ${(baseLo*100).toFixed(0)}%–${(baseHi*100).toFixed(0)}%) |`);
+    console.log(`| QB lift over baseline | +${pct(qbPass,n) - pct(basePass,baseRan.length)} pp |`);
   }
+
+  // AC-level breakdown
+  console.log('\n## AC-level Breakdown (final attempt)\n');
+  console.log('| Task | AC true | AC false | AC null | Verdict |');
+  console.log('|------|---------|----------|---------|---------|');
+  for (const r of results) {
+    const attempts = r.qb?.attempts || [];
+    if (!attempts.length) continue;
+    const lastAtt = attempts[attempts.length - 1];
+    const acResults = lastAtt.ac_results || [];
+    let trueCount = 0, falseCount = 0, nullCount = 0;
+    for (const ac of acResults) {
+      if (ac.met === true) trueCount++;
+      else if (ac.met === false) falseCount++;
+      else nullCount++;
+    }
+    console.log(`| ${r.task_id} | ${trueCount} | ${falseCount} | ${nullCount} | ${r.qb?.final_verdict || '?'} |`);
+  }
+}
+
+function printLatex(results) {
+  const qbPass   = results.filter(r => r.qb?.final_verdict === 'pass').length;
+  const baseRan  = results.filter(r => r.baseline);
+  const basePass = baseRan.filter(r => r.baseline.verdict === 'pass').length;
+  const n        = results.length;
+
+  const [qbLo, qbHi]     = wilsonCI(qbPass, n);
+  const [baseLo, baseHi] = wilsonCI(basePass, baseRan.length);
+
+  const lines = [];
+  lines.push('\\begin{table}[h]');
+  lines.push('\\centering');
+  lines.push('\\begin{tabular}{llccccc}');
+  lines.push('\\hline');
+  lines.push('\\textbf{Task} & \\textbf{Diff.} & \\textbf{QB} & \\textbf{1st Att.} & \\textbf{Tries} & \\textbf{Time (s)} & \\textbf{Base} \\\\');
+  lines.push('\\hline');
+
+  for (const r of results) {
+    const qb   = r.qb   || {};
+    const base = r.baseline;
+
+    const qbCell   = qb.final_verdict  === 'pass' ? '\\checkmark pass' : '\\ding{55} ' + (qb.final_verdict  || '?');
+    const firstCell= qb.first_verdict  === 'pass' ? '\\checkmark pass' : '\\ding{55} ' + (qb.first_verdict  || '?');
+    const baseCell = base
+      ? (base.verdict === 'pass' ? '\\checkmark pass' : '\\ding{55} ' + base.verdict)
+      : '---';
+    const tries    = String(qb.total_attempts || '?');
+    const timeSec  = qb.timing?.total_ms ? (qb.timing.total_ms / 1000).toFixed(1) : '?';
+    const diff     = (r.difficulty || '?').slice(0, 6);
+
+    lines.push(`${r.task_id} & ${diff} & ${qbCell} & ${firstCell} & ${tries} & ${timeSec} & ${baseCell} \\\\`);
+  }
+
+  lines.push('\\hline');
+
+  const qbCIStr   = `${(qbLo*100).toFixed(0)}\\%--${(qbHi*100).toFixed(0)}\\%`;
+  const baseCIStr = baseRan.length
+    ? `${(baseLo*100).toFixed(0)}\\%--${(baseHi*100).toFixed(0)}\\%`
+    : 'N/A';
+
+  lines.push(`\\multicolumn{7}{l}{QB: ${qbPass}/${n} (${pct(qbPass,n)}\\%, 95\\% CI: [${qbCIStr}])} \\\\`);
+  if (baseRan.length) {
+    lines.push(`\\multicolumn{7}{l}{Baseline: ${basePass}/${baseRan.length} (${pct(basePass,baseRan.length)}\\%, 95\\% CI: [${baseCIStr}])} \\\\`);
+  }
+
+  lines.push('\\hline');
+  lines.push('\\end{tabular}');
+  lines.push('\\caption{Quarterback benchmark results. CI computed using Wilson score interval.}');
+  lines.push('\\label{tab:results}');
+  lines.push('\\end{table}');
+
+  console.log(lines.join('\n'));
 }
 
 function printCSV(results) {
@@ -181,5 +262,21 @@ function printStats(results) {
 function icon(v)   { return `${({pass:'✓',fail:'✗',partial:'~','no-diff':'○'}[v]||'?')} ${v||'?'}`; }
 function mdIcon(v) { return `${({pass:'✅',fail:'❌',partial:'⚠️','no-diff':'○'}[v]||'?')} ${v||'?'}`; }
 function pct(n, d) { return d ? Math.round(n/d*100) : 0; }
+
+/**
+ * Wilson score confidence interval.
+ * @param {number} k  number of successes
+ * @param {number} n  total trials
+ * @param {number} [z=1.96]  z-score for confidence level (default 95%)
+ * @returns {[number, number]} [lower, upper] as proportions in [0,1]
+ */
+function wilsonCI(k, n, z = 1.96) {
+  if (n === 0) return [0, 0];
+  const p      = k / n;
+  const denom  = 1 + z * z / n;
+  const center = (p + z * z / (2 * n)) / denom;
+  const margin = (z * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n))) / denom;
+  return [Math.max(0, center - margin), Math.min(1, center + margin)];
+}
 
 main();

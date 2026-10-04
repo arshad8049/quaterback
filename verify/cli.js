@@ -2,6 +2,7 @@
 require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const fs   = require('fs');
 const path = require('path');
+const { artifactFile } = require('../lib/fsafe');
 const { program } = require('commander');
 const { verify } = require('./verifier');
 
@@ -79,7 +80,7 @@ async function run() {
   if (opts.save) {
     const dir = path.join(__dirname, 'reports');
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    const file = path.join(dir, `${report.id}.json`);
+    const file = artifactFile(dir, report.id);
     fs.writeFileSync(file, JSON.stringify(report, null, 2));
     console.log(`  Saved → verify/reports/${report.id}.json`);
   }

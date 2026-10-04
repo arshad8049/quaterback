@@ -1,9 +1,11 @@
-const { execSync } = require('child_process');
-const path = require('path');
+const proc = require('../lib/proc');
 
 /**
  * Extract git context for a set of file paths within a repo.
  * Returns recent commit activity per file. Fails gracefully if git unavailable.
+ *
+ * Paths come from the repository and from model output, so they are passed
+ * to git as argv after `--` and never through a shell (QB-01).
  */
 function buildGitContext(repoPath, filePaths) {
   if (!isGitRepo(repoPath)) return { recent_changes: [] };
@@ -17,23 +19,27 @@ function buildGitContext(repoPath, filePaths) {
 
 function getFileActivity(repoPath, filePath) {
   try {
-    // Count commits touching this file in the last 30 days
-    const log = run(
-      `git log --oneline --since="30 days ago" -- "${filePath}"`,
+    const rel = proc.containedPath(repoPath, filePath);
+    if (!rel) return null;
+
+    // Count commits touching this file in the last 30 days.
+    // -z keeps filenames with newlines from splitting a record.
+    const log = proc.git(
+      ['log', '-z', '--format=%H', '--since=30 days ago', '--', `:(literal)${rel}`],
       repoPath
     );
-    const lines = log.trim().split('\n').filter(Boolean);
-    if (lines.length === 0) return null;
+    const commits = log.split('\0').filter(s => s.trim()).length;
+    if (commits === 0) return null;
 
     // Get the most recent commit date
-    const lastLog = run(
-      `git log -1 --format="%ar" -- "${filePath}"`,
+    const lastLog = proc.git(
+      ['log', '-1', '--format=%ar', '--', `:(literal)${rel}`],
       repoPath
     ).trim();
 
     return {
       file:         filePath,
-      commits:      lines.length,
+      commits,
       last_changed: lastLog || 'unknown',
     };
   } catch (_) {
@@ -43,15 +49,11 @@ function getFileActivity(repoPath, filePath) {
 
 function isGitRepo(repoPath) {
   try {
-    run('git rev-parse --git-dir', repoPath);
+    proc.git(['rev-parse', '--git-dir'], repoPath);
     return true;
   } catch (_) {
     return false;
   }
-}
-
-function run(cmd, cwd) {
-  return execSync(cmd, { cwd, stdio: ['pipe', 'pipe', 'pipe'] }).toString();
 }
 
 module.exports = { buildGitContext };

@@ -1,0 +1,28 @@
+22:27:48 RESULT P1.auth_files OBSERVED — login wrote: ./.credentials.json(519B) ./backups(4096B) ./backups/.claude.json.backup.1790980020178(84B) ./.claude.json(1143B) 
+persistent: {"file":"/c/.credentials.json","file_fp":"8cdb7398b19c","top_keys":["claudeAiOauth"],"oauth_keys":["accessToken","refreshToken","expiresAt","refreshTokenExpiresAt","scopes","subscriptionType","rateLimitTier"],"expires_at":"2026-10-03T06:27:30.381Z","expires_in_min":480,"scopes":["user:file_upload","user:inference","user:mcp_servers","user:plugins","user:profile","user:sessions:claude_code"],"subscription":"pro","access_fp":"182d3e8fd8a9","refresh_fp":"9d55edcb2982"}
+22:27:48 RESULT P1.credential_shape OBSERVED — keys=[accessToken,refreshToken,expiresAt,refreshTokenExpiresAt,scopes,subscriptionType,rateLimitTier] subscription=pro expires_in_min=480 scopes=[user:file_upload,user:inference,user:mcp_servers,user:plugins,user:profile,user:sessions:claude_code]
+--- fixture on qb-e1-run-1790980068-28321 (rc=0)
+OK
+22:27:51 RESULT P2.copy_creds PASS — run succeeded with per-run copy 'creds'
+--- fixture on qb-e1-run-1790980071-8274 (rc=0)
+OK
+22:27:53 RESULT P2.copy_creds+config PASS — run succeeded with per-run copy 'creds+config'
+--- fixture on qb-e1-run-1790980073-21903 (rc=0)
+OK
+22:27:55 RESULT P2.copy_full PASS — run succeeded with per-run copy 'full'
+22:27:55 RESULT P2.minimal_copy OBSERVED — smallest working per-run copy: creds
+22:27:55 RESULT P3.no_write_back PASS — stored credential unchanged after 3 runs (fingerprint 8cdb7398b19c)
+--- fixture on qb-e1-run-1790980076-29597 (rc=0)
+OK
+22:27:58 RESULT P4.overwrite_attack PASS — copy overwritten with attacker values (fp 2470d41ebf3f) and discarded; stored credential unchanged; next run used the original and succeeded
+--- fixture on qb-e1-run-1790980078-23662 (rc=0)
+OK
+OK
+--- fixture on qb-e1-run-1790980085-21362 (rc=0)
+OK
+22:28:07 RESULT P5.concurrent_with_refresh PASS — run A (copy before refresh) and run B (copy after) both succeeded; pre-run refresh rc=0
+persistent after refresh: {"file":"/c/.credentials.json","file_fp":"8cdb7398b19c","top_keys":["claudeAiOauth"],"oauth_keys":["accessToken","refreshToken","expiresAt","refreshTokenExpiresAt","scopes","subscriptionType","rateLimitTier"],"expires_at":"2026-10-03T06:27:30.381Z","expires_in_min":479,"scopes":["user:file_upload","user:inference","user:mcp_servers","user:plugins","user:profile","user:sessions:claude_code"],"subscription":"pro","access_fp":"182d3e8fd8a9","refresh_fp":"9d55edcb2982"}
+22:28:08 RESULT P5.refresh_effect OBSERVED — pre-run refresh did not change the stored credential (token not near expiry)
+22:28:14 RESULT P6.auth_lock PASS — a login attempted while refresh+copy holds the lock is refused (auth_busy) instead of interleaving
+22:28:14 RESULT P7.expiry_and_rotation PENDING — covered by '/Users/Arshad_1/Desktop/millionaire/quaterback/spikes/qb-02/e1-auth/run.sh watch' (needs the access token to expire)
+22:28:14 results: /Users/Arshad_1/Desktop/millionaire/quaterback/spikes/qb-02/e1-auth/results/e1-probe-20261002T222747Z/results.md

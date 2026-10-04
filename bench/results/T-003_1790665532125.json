@@ -1,0 +1,94 @@
+{
+  "task_id": "T-003",
+  "difficulty": "easy",
+  "tags": [
+    "add-function",
+    "single-file",
+    "guard"
+  ],
+  "description": "Add an isAvailable() method to the STT object returned by createSTT() in src/stt.js that returns true when at least one provider has an API key configured",
+  "qb": {
+    "timing": {
+      "l1_ms": 36219,
+      "l2_ms": 30273,
+      "total_ms": 203160
+    },
+    "contract": {
+      "id": "525d5d02-cc97-4302-b41a-c8df6d1a9d73",
+      "created_at": "2026-09-29T07:02:44.991Z",
+      "raw_request": "Add an isAvailable() method to the STT object returned by createSTT() in src/stt.js that returns true when at least one provider has an API key configured",
+      "repo_path": null,
+      "goal": "Add an isAvailable() method to the STT object returned by createSTT() in src/stt.js that returns true when at least one provider has an API key configured",
+      "required_behavior": [
+        "The STT.createSTT() function returns an object with an isAvailable() method that checks if at least one provider has an API key configured"
+      ],
+      "constraints": [
+        "The STT.createSTT() function must not be altered beyond adding the isAvailable() method",
+        "The isAvailable() method must not interfere with other providers' API key configurations"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "AC-1",
+          "criterion": "The STT.createSTT() function returns an object with an isAvailable() method that correctly checks if at least one provider has an API key configured",
+          "met": null
+        },
+        {
+          "id": "AC-2",
+          "criterion": "The isAvailable() method is implemented correctly and does not break existing functionality",
+          "met": null
+        }
+      ],
+      "verification_plan": [
+        "Run tests to verify that the isAvailable() method correctly returns true when at least one provider has an API key configured and false otherwise",
+        "Verify that the isAvailable() method does not affect other providers' API key configurations",
+        "Ensure that the isAvailable() method is correctly implemented"
+      ],
+      "relevant_context": [
+        "src/stt.js"
+      ],
+      "ambiguity_flags": [],
+      "clarifying_question": null
+    },
+    "ac_count": 2,
+    "files_in_scope": 24,
+    "symbols": 7,
+    "attempts": [
+      {
+        "attempt": 1,
+        "l3_ms": 38583,
+        "l4_ms": 98085,
+        "verdict": "pass",
+        "files_changed": [
+          "src/stt.js"
+        ],
+        "ac_results": [
+          {
+            "id": "AC-1",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          },
+          {
+            "id": "AC-2",
+            "met": true,
+            "votes": [
+              true,
+              true,
+              true
+            ]
+          }
+        ],
+        "failures": []
+      }
+    ],
+    "final_verdict": "pass",
+    "total_attempts": 1,
+    "first_verdict": "pass",
+    "files_changed": [
+      "src/stt.js"
+    ]
+  }
+}

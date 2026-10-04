@@ -6,7 +6,7 @@ require('dotenv').config({ path: require('path').join(__dirname, '../../intent/.
 
 const fs   = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const proc = require('../../lib/proc');
 const { verify }   = require('../verifier');
 
 const CONTRACT_PATH = path.join(__dirname, '../../intent/contracts/73788344-2720-4569-bb12-201da96710f7.json');
@@ -60,11 +60,9 @@ async function run() {
   let diff = MOCK_DIFF;
   if (real) {
     try {
-      diff = execSync('git diff HEAD~1', {
-        cwd: path.join(__dirname, '../..'),
-        encoding: 'utf8',
-      });
-      if (!diff.trim()) diff = execSync('git diff', { cwd: path.join(__dirname, '../..'), encoding: 'utf8' });
+      const root = path.join(__dirname, '../..');
+      diff = proc.git(['diff', 'HEAD~1'], root);
+      if (!diff.trim()) diff = proc.git(['diff'], root);
       console.log(`  Using real git diff (${diff.length} chars)\n`);
     } catch (_) {
       console.log('  Could not get real diff, using mock\n');

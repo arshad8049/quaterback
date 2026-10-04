@@ -1,0 +1,4 @@
+{"type":"qb:start","format":"qb-node-test-events/1"}
+{"type":"test:fail","name":"test/x.test.js","nesting":0,"file":"/w/loadfail/test/x.test.js","kind":"test","skip":false,"todo":false,"failureType":"testCodeFailure"}
+{"type":"test:summary","file":null,"counts":{"tests":1,"failed":1,"passed":0,"cancelled":0,"skipped":0,"todo":0,"topLevel":1,"suites":0},"success":false}
+{"type":"qb:end"}

@@ -1,0 +1,4 @@
+start
+killed in-container timeout watcher
+alive 1
+alive 2

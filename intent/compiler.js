@@ -3,18 +3,39 @@ const fs = require('fs');
 const path = require('path');
 const { randomUUID } = require('crypto');
 const { TaskContractSchema, ClarifyingResponseSchema } = require('./schema');
-const { detectAmbiguity } = require('./dsa');
+const { contractState } = require('./contract-state');
+const { detectAmbiguity, resolveClarifications } = require('./dsa');
 
 const OLLAMA_URL = process.env.QB_OLLAMA_URL || 'http://127.0.0.1:11434';
 const MODEL      = process.env.QB_MODEL       || 'deepseek-r1:7b';
+// Fields the model is allowed to author. Everything else in its output is ignored.
+const SEMANTIC_FIELDS = [
+  'goal', 'required_behavior', 'constraints', 'acceptance_criteria',
+  'verification_plan', 'relevant_context', 'ambiguity_flags', 'clarifying_question',
+  'scope', 'constraint_policy',   // QB-09: enforced policy, validated by contractState
+  'requirements',                 // QB-14: request clauses with verbatim quotes, validated by contractState
+  'test_policy',                  // QB-10: explicit, approved waiver of pre-existing test failures
+  'proposed_defaults',            // QB-17: QB's own choices where the request is silent — shown and approved, never silent
+];
+const { validateChecks } = require('../verify/checks/registry');
+
 const SYSTEM_PROMPT = fs.readFileSync(path.join(__dirname, 'prompts/system.md'), 'utf8');
 
+/**
+ * @param {string} request
+ * @param {string|null} repoContext   the repository survey text (intent/survey.js, QB-17)
+ * @param {string|Array<{question, answer}>|null} clarification  answers so far, round by round
+ */
 async function compile(request, repoContext = null, clarification = null) {
-  // DSA pre-pass: catch deterministic ambiguity patterns before touching the LLM
-  if (!clarification) {
-    const ambiguity = detectAmbiguity(request);
-    if (ambiguity) return ambiguity;
-  }
+  const history = Array.isArray(clarification) ? clarification
+    : clarification ? [{ question: null, answer: String(clarification) }] : [];
+  // DSA pre-pass (QB-17): a vague term blocks until the request or an answer defines it.
+  // Each answer is bound to the question it answered (QB-17 re-review 1); a
+  // parameterized choice needs its value (re-review 2).
+  const bound = history.map((h) => ({ question_id: h.question_id ?? null, answer: h.answer }));
+  const ambiguity = detectAmbiguity(request, bound);
+  if (ambiguity) return ambiguity;
+  const clar = resolveClarifications(request, bound);
 
   const res = await fetch(`${OLLAMA_URL}/api/chat`, {
     method: 'POST',
@@ -23,7 +44,7 @@ async function compile(request, repoContext = null, clarification = null) {
       model: MODEL,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user',   content: buildUserContent(request, repoContext, clarification) },
+        { role: 'user',   content: buildUserContent(request, repoContext, history, clar.byEntry) },
       ],
       stream: false,
       options: { temperature: 0.1, num_ctx: 16384 },
@@ -39,23 +60,52 @@ async function compile(request, repoContext = null, clarification = null) {
   const raw = data.message?.content;
   if (!raw) throw new Error('Empty response from Ollama');
 
-  return parseAndValidate(raw, request);
+  const result = parseAndValidate(raw, request);
+  // The user's resolved selections, with their values, bound to their questions:
+  // recorded by QB (never by the model), approved with the contract (QB-17 re-review 2).
+  if (result && !result.clarifying_question) {
+    if (clar.resolved.length) result.clarifications = clar.resolved;
+    else delete result.clarifications;
+  }
+  return result;
 }
 
-function buildUserContent(request, repoContext, clarification) {
+/**
+ * The compiler input. A clarification bound to a DSA question is labelled with its
+ * id, and a resolved selection is given as "<choice> = <value>" (QB-17 re-review 2).
+ */
+function buildUserContent(request, repoContext, history, byEntry = []) {
   let content = `REQUEST:\n${request}`;
-  if (clarification) content += `\n\nCLARIFICATION:\n${clarification}`;
-  if (repoContext)   content += `\n\nREPO CONTEXT:\n${repoContext}`;
+  history.forEach((h, i) => {
+    const b = byEntry[i];
+    const r = b && b.resolved;
+    const answer = r && r.choice && r.value ? `${r.choice} = ${r.value}`                       // a parameterized choice with its value
+      : r && r.choice ? (h.answer.trim() === `${b.rule_id}=${r.choice}` ? r.choice : `${h.answer} [selected: ${r.choice}]`)
+        : h.answer;
+    const q = b ? `Q(${b.rule_id}): ${h.question}` : `Q: ${h.question}`;
+    content += h.question ? `\n\nCLARIFICATION ${i + 1}:\n${q}\nA: ${answer}` : `\n\nCLARIFICATION:\n${answer}`;
+  });
+  if (repoContext) content += `\n\nREPOSITORY SURVEY (read-only, for grounding — the request decides what to do):\n${repoContext}`;
   return content;
 }
 
 function parseAndValidate(text, request) {
-  const raw = parseJSON(text, request);
+  return contractFromObject(parseJSON(text, request), request);
+}
 
-  // Normalize clarifying_question — model sometimes returns "None needed" or dismissal phrases instead of null
+/**
+ * Normalize a contract object (model output, or a human-reviewed contract file,
+ * QB-13) with the same rules: explicit criterion text only, registry-validated
+ * checks, trusted metadata assigned by QB. The result is NOT approved.
+ */
+function contractFromObject(raw, request) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('contract must be a JSON object');
+
+  // clarifying_question (QB-08): every nonempty question is preserved. The model
+  // sometimes writes a placeholder instead of null; only an EXACT match of a
+  // documented sentinel (NO_QUESTION_SENTINELS) means "no question".
   const cq = raw.clarifying_question;
-  const isRealQuestion = typeof cq === 'string' && cq.trim().length > 10 &&
-    !/^(null|none|no|n\/a|not needed|none needed|no clarification|no question)/i.test(cq.trim());
+  const isRealQuestion = typeof cq === 'string' && cq.trim() !== '' && !isNoQuestionSentinel(cq);
 
   if (isRealQuestion) {
     return ClarifyingResponseSchema.parse({
@@ -66,20 +116,28 @@ function parseAndValidate(text, request) {
 
   raw.clarifying_question = null;
 
-  // required_behavior — generate from goal if model returned empty
-  if (!Array.isArray(raw.required_behavior) || raw.required_behavior.length === 0) {
-    raw.required_behavior = raw.goal ? [raw.goal] : ['Implement the requested feature as described.'];
+  // QB-17: incomplete output is recorded, never filled with fallback text. A
+  // contract with `incomplete` entries is invalid (intent/contract-state.js).
+  const incomplete = [];
+  for (const key of ['required_behavior', 'verification_plan']) {
+    if (!Array.isArray(raw[key]) || raw[key].length === 0) incomplete.push(`missing ${key}`);
   }
 
-  // Normalize string arrays — model sometimes returns objects instead of strings
+  // Normalize string arrays — the model sometimes returns objects with a text field.
+  // An entry with no recognizable text is reported, not stringified.
   for (const key of ['required_behavior', 'constraints', 'verification_plan', 'ambiguity_flags']) {
     if (Array.isArray(raw[key])) {
-      raw[key] = raw[key].map(item =>
-        typeof item === 'string' ? item : extractString(item)
-      ).filter(Boolean);
+      raw[key] = raw[key].map((item, i) => {
+        const t = typeof item === 'string' ? item : extractString(item);
+        if (t === null) incomplete.push(`unreadable ${key}[${i}]`);
+        return t;
+      }).filter(Boolean);
     } else {
       raw[key] = raw[key] ? [String(raw[key])] : [];
     }
+  }
+  for (const key of ['required_behavior', 'verification_plan']) {
+    if (!raw[key].length && !incomplete.includes(`missing ${key}`)) incomplete.push(`missing ${key}`);
   }
 
   // Default missing fields so schema validation doesn't fail on incomplete model output
@@ -87,45 +145,80 @@ function parseAndValidate(text, request) {
   if (!Array.isArray(raw.ambiguity_flags))   raw.ambiguity_flags   = [];
   if (raw.clarifying_question === undefined) raw.clarifying_question = null;
 
-  // Acceptance criteria — fall back to generating from required_behavior if model dropped them
-  if (!Array.isArray(raw.acceptance_criteria) || raw.acceptance_criteria.length === 0) {
-    raw.acceptance_criteria = (raw.required_behavior || []).map((b, i) => ({
-      id: `AC-${i + 1}`, criterion: typeof b === 'string' ? b : extractString(b), met: null
-    }));
-  } else {
-    raw.acceptance_criteria = raw.acceptance_criteria.map((ac, i) => ({
-      id:        ac.id || `AC-${i + 1}`,
-      criterion: typeof ac.criterion === 'string' ? ac.criterion : extractString(ac) || `Criterion ${i + 1}`,
-      met:       null,
-    }));
-  }
+  // Acceptance criteria are never invented (QB-08): if the model gave none, the
+  // contract has none and the finalization gate (intent/contract-state) blocks it.
+  // The criterion text must be an explicit string in `criterion`: it is never
+  // derived from an id, another property or a serialized object, so a malformed
+  // entry stays blank and the gate blocks the contract.
+  raw.acceptance_criteria = Array.isArray(raw.acceptance_criteria)
+    ? raw.acceptance_criteria.map((ac, i) => {
+      const obj = ac !== null && typeof ac === 'object' && !Array.isArray(ac);
+      return {
+        id:        obj && typeof ac.id === 'string' && ac.id.trim() ? ac.id : `AC-${i + 1}`,
+        criterion: obj && typeof ac.criterion === 'string' ? ac.criterion : '',
+        met:       null,
+        // Only an explicit "non_behavioral" opts a criterion out of executed checks (QB-16).
+        kind:      obj && ac.kind === 'non_behavioral' ? 'non_behavioral' : 'behavioral',
+        // QB-14: which requirements this criterion covers (validated by contractState).
+        requirement_ids: obj && Array.isArray(ac.requirement_ids) ? ac.requirement_ids.filter((x) => typeof x === 'string') : [],
+        ...(obj && ac.preserves !== undefined ? { preserves: ac.preserves } : {}),   // QB-15: validated by contractState
+      };
+    })
+    : [];
 
-  // verification_plan — fall back to a minimal plan if missing
-  if (!Array.isArray(raw.verification_plan) || raw.verification_plan.length === 0) {
-    raw.verification_plan = ['Run the existing test suite and verify acceptance criteria are met.'];
-  }
+  // Only semantic fields come from the model. Trusted metadata is assigned
+  // afterwards by the application and can never be overridden (QB-04).
+  const semantic = {};
+  for (const key of SEMANTIC_FIELDS) semantic[key] = raw[key];
+
+  // QB-16: proposed checks are data, validated against the versioned registry;
+  // rejected ones are recorded and never run. No shell text is accepted.
+  const checks = validateChecks(raw.checks, raw.acceptance_criteria);
 
   const contract = {
+    ...semantic,
+    checks: checks.accepted,
+    checks_rejected: checks.rejected,
+    checks_registry: checks.version,
     id: randomUUID(),
     created_at: new Date().toISOString(),
     raw_request: request,
     repo_path: null,
-    ...raw
+    ...(incomplete.length ? { incomplete } : {}),   // QB-17: set by QB, never by the model
+    // QB-17 re-review 2: a reviewed contract file may carry its clarifications (validated
+    // by contractState); for model output compile() replaces them with QB's own record.
+    ...(raw.clarifications !== undefined ? { clarifications: raw.clarifications } : {}),
   };
 
-  return TaskContractSchema.parse(contract);
+  // A contract the gate will reject (no ACs, missing goal, …) is returned as is,
+  // so callers report it as invalid_contract instead of crashing on a schema error.
+  const parsed = TaskContractSchema.safeParse(contract);
+  if (parsed.success) return parsed.data;
+  if (contractState(contract).state === 'invalid') return contract;
+  throw parsed.error;
 }
 
+/**
+ * Exact (case-insensitive, trailing "." ignored) placeholders a model writes for
+ * "no question". Anything else nonempty is a real question and is preserved.
+ */
+const NO_QUESTION_SENTINELS = new Set([
+  'null', 'none', 'no', 'n/a', 'na', 'not needed', 'none needed', 'not applicable',
+  'no clarification', 'no clarification needed', 'no question', 'no questions',
+]);
+function isNoQuestionSentinel(q) {
+  return NO_QUESTION_SENTINELS.has(q.trim().toLowerCase().replace(/\.$/, ''));
+}
+
+/** The text of a list entry the model wrote as an object, or null (QB-17: never guessed). */
 function extractString(obj) {
   if (typeof obj === 'string') return obj;
-  if (typeof obj !== 'object' || obj === null) return String(obj);
-  // Try common keys the model uses when it returns objects instead of strings
+  if (typeof obj === 'number' || typeof obj === 'boolean') return String(obj);
+  if (typeof obj !== 'object' || obj === null) return null;
   for (const key of ['text', 'description', 'behavior', 'criterion', 'constraint', 'step', 'item', 'value', 'content']) {
-    if (typeof obj[key] === 'string') return obj[key];
+    if (typeof obj[key] === 'string' && obj[key].trim()) return obj[key];
   }
-  // Last resort: join all string values
-  const strings = Object.values(obj).filter(v => typeof v === 'string');
-  return strings.join(' ') || JSON.stringify(obj);
+  return null;
 }
 
 function parseJSON(text, request) {
@@ -155,4 +248,4 @@ function fixUnquotedKeys(str) {
   return str.replace(/([{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/g, '$1"$2":');
 }
 
-module.exports = { compile };
+module.exports = { compile, contractFromObject, NO_QUESTION_SENTINELS };

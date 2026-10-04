@@ -1,46 +1,33 @@
 /**
  * baseline.js — raw coding agent run with no QB pipeline
  *
- * Sends the raw task description directly to claude-code.
+ * Sends the raw task description directly to the coding agent.
  * No contract, no context package, no repair loop.
- * Returns the git diff and execution time for fair comparison.
+ * Uses the same sandboxed invocation and capture as the QB arm (agent/runner.js,
+ * QB-02) so both arms are measured the same way and neither runs on the host.
  */
 
-const { spawnSync, execSync } = require('child_process');
+const { runAgentSandboxed, executionGate } = require('../agent/runner');
 
 /**
- * Run the task description directly through claude-code, no QB layers.
  * @param {string} description  - raw task string
- * @param {string} repoPath     - absolute repo path
- * @returns {{ diff, status, duration_ms, error }}
+ * @param {string} repoPath     - absolute path of the disposable workspace (read-only to the sandbox)
+ * @param {object} o
+ * @param {object} o.contract   - the contract both arms are graded against; the baseline
+ *                                runs only through the same execution gate (QB-13) and is
+ *                                checked with the same approved executable checks (QB-16)
+ * @param {boolean} [o.exploration] - the explicit unapproved mode (never PASS)
+ * @returns {Promise<{ diff, changes, status, duration_ms, error, ... }>}
  */
-function runBaseline(description, repoPath) {
+async function runBaseline(description, repoPath, { contract, exploration = false, runSandboxed } = {}) {
   const t0 = Date.now();
-
-  const result = spawnSync('claude', ['--print', '--dangerously-skip-permissions'], {
-    input:     description,
-    cwd:       repoPath,
-    encoding:  'utf8',
-    maxBuffer: 10 * 1024 * 1024,
-    timeout:   8 * 60 * 1000,
-  });
-
-  const duration_ms = Date.now() - t0;
-
-  if (result.error) {
-    return { diff: null, status: 'failed', duration_ms, error: result.error.message };
+  const gate = executionGate(contract, { agent: 'claude-code', exploration });
+  if (gate) {
+    return { status: 'blocked', error: gate, diff: null, changes: [], unsupported_changes: [], duration_ms: Date.now() - t0 };
   }
-  if (result.status !== 0) {
-    return { diff: null, status: 'failed', duration_ms, error: result.stderr || `exit ${result.status}` };
-  }
-
-  let diff = null;
-  try {
-    diff = execSync('git diff', { cwd: repoPath, encoding: 'utf8' });
-    if (!diff.trim()) diff = null;
-  } catch (_) {}
-
-  return { diff, status: 'completed', duration_ms, error: null };
+  const r = await runAgentSandboxed(description, repoPath, { timeoutMs: 8 * 60 * 1000, runSandboxed,
+    checks: Array.isArray(contract?.checks) ? contract.checks : [] });
+  return { ...r, duration_ms: Date.now() - t0 };
 }
 
 module.exports = { runBaseline };

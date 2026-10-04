@@ -1,0 +1,224 @@
+sha256:02571aabc7bd6383329f1cad246e8492bcaea3c905e49b5cf7851d815b1ea252
+sha256:6674453c31f3ecaa1e088ac25d54e822552488602874070d49e064d39c85dc3c
+run_id: e3-20261002T221147Z-2455
+date_utc: 2026-10-02T22:12:01Z
+host: Linux x86_64, kernel 6.17.0-1022-azure
+os: Ubuntu 24.04.5 LTS
+docker_server: 28.0.4 (Docker Engine - Community)
+proxy_base: 
+squid: Squid Cache: Version 6.13
+client_base: 
+evidence: yes
+
+### net.interfaces
+$ ls /sys/class/net | tr "\n" " "; echo
+v4=$(tail -n +2 /proc/net/route | wc -l)
+v6=$(awk "\$10 != \"lo\"" /proc/net/ipv6_route 2>/dev/null | wc -l)
+up=0; for i in /sys/class/net/*; do [ -d "$i" ] || continue; n=${i##*/}; [ "$n" = lo ] && continue; [ "$(cat $i/operstate)" = down ] || up=$((up+1)); done
+echo "ipv4_routes=$v4 non_lo_ipv6_routes=$v6 non_lo_up=$up"
+[ "$v4" = 0 ] && [ "$v6" = 0 ] && [ "$up" = 0 ]
+lo 
+ipv4_routes=0 non_lo_ipv6_routes=0 non_lo_up=0
+(rc=0)
+22:12:04 RESULT net.interfaces PASS — no route except loopback, and every non-lo device is down (no external network interface)
+
+### net.gateway
+$ nc -w 3 -z 172.17.0.1 18080
+
+(rc=1)
+22:12:04 RESULT net.gateway PASS — direct TCP to the docker bridge gateway 172.17.0.1:18080 (host service) (rc=1)
+
+### net.lan
+$ nc -w 3 -z 10.1.0.231 18080
+
+(rc=1)
+22:12:04 RESULT net.lan PASS — direct TCP to the host's LAN IP 10.1.0.231:18080 (rc=1)
+
+### net.host_internal
+$ nc -w 3 -z host.docker.internal 18080
+nc: bad address 'host.docker.internal'
+(rc=1)
+22:12:10 RESULT net.host_internal PASS — host.docker.internal is unreachable (rc=1)
+
+### net.metadata
+$ nc -w 3 -z 169.254.169.254 80
+
+(rc=1)
+22:12:10 RESULT net.metadata PASS — direct TCP to 169.254.169.254:80 (cloud metadata) (rc=1)
+
+### net.ipv6
+$ nc -w 3 -z 2606:4700:4700::1111 443
+
+(rc=1)
+22:12:10 RESULT net.ipv6 PASS — direct IPv6 (2606:4700:4700::1111:443) (rc=1)
+
+### net.internet
+$ nc -w 3 -z 1.1.1.1 443
+
+(rc=1)
+22:12:10 RESULT net.internet PASS — direct TCP to 1.1.1.1:443 (bypassing the proxy) (rc=1)
+
+### net.dns
+$ nslookup -timeout=3 example.com
+;; UDP setup with 168.63.129.16#53(168.63.129.16) for example.com failed: network unreachable.
+;; no servers could be reached
+;; UDP setup with 168.63.129.16#53(168.63.129.16) for example.com failed: network unreachable.
+;; no servers could be reached
+;; UDP setup with 168.63.129.16#53(168.63.129.16) for example.com failed: network unreachable.
+;; no servers could be reached
+(rc=1)
+22:12:10 RESULT net.dns PASS — resolve example.com (any resolver) (rc=1)
+
+### net.dns_explicit
+$ nslookup -timeout=3 example.com 8.8.8.8
+;; UDP setup with 8.8.8.8#53(8.8.8.8) for example.com failed: network unreachable.
+;; no servers could be reached
+;; UDP setup with 8.8.8.8#53(8.8.8.8) for example.com failed: network unreachable.
+;; no servers could be reached
+;; UDP setup with 8.8.8.8#53(8.8.8.8) for example.com failed: network unreachable.
+;; no servers could be reached
+(rc=1)
+22:12:10 RESULT net.dns_explicit PASS — resolve via 8.8.8.8 explicitly (rc=1)
+
+### net.other_run_proxy
+$ nc -w 3 -z 10.233.1.10 3128
+
+(rc=1)
+22:12:10 RESULT net.other_run_proxy PASS — TCP to the other run's proxy 10.233.1.10:3128 (rc=1)
+
+### net.other_run_sock
+$ [ "$(ls -A /sock)" = proxy.sock ]
+
+(rc=0)
+22:12:10 RESULT net.other_run_sock PASS — only this run's socket is visible (the other run's socket volume is not mounted)
+
+### sock.unlink
+$ rm -f /sock/proxy.sock
+rm: can't remove '/sock/proxy.sock': Read-only file system
+(rc=1)
+22:12:10 RESULT sock.unlink PASS — cannot unlink the proxy socket (read-only mount) (rc=1)
+
+### sock.replace
+$ touch /sock/evil.sock
+touch: /sock/evil.sock: Read-only file system
+(rc=1)
+22:12:10 RESULT sock.replace PASS — cannot create files in the socket directory (rc=1)
+
+### sock.still_there
+$ [ -S /sock/proxy.sock ]
+
+(rc=0)
+22:12:10 RESULT sock.still_there PASS — socket still present after the attempts
+
+### policy.allowed
+$ curl -s -o /dev/null --max-time 15 -w '%{http_connect}' -p -x http://127.0.0.1:8888 https://api.anthropic.com/ ; true
+200
+(rc=0)
+22:12:10 RESULT policy.allowed PASS — CONNECT to allowlisted api.anthropic.com:443 (CONNECT → 200)
+
+### policy.not_listed
+$ curl -s -o /dev/null --max-time 15 -w '%{http_connect}' -p -x http://127.0.0.1:8888 https://example.com/ ; true
+403
+(rc=0)
+22:12:10 RESULT policy.not_listed PASS — CONNECT to a non-allowlisted host (example.com) (CONNECT → 403)
+
+### policy.subdomain
+$ curl -s -o /dev/null --max-time 15 -w '%{http_connect}' -p -x http://127.0.0.1:8888 https://evil.api.anthropic.com/ ; true
+403
+(rc=0)
+22:12:10 RESULT policy.subdomain PASS — CONNECT to a subdomain of an allowlisted host (CONNECT → 403)
+
+### policy.ip_literal
+$ curl -s -o /dev/null --max-time 15 -w '%{http_connect}' -p -x http://127.0.0.1:8888 https://1.1.1.1/ ; true
+403
+(rc=0)
+22:12:10 RESULT policy.ip_literal PASS — CONNECT to an IP literal (1.1.1.1) (CONNECT → 403)
+
+### policy.metadata_lit
+$ curl -s -o /dev/null --max-time 15 -w '%{http_connect}' -p -x http://127.0.0.1:8888 https://169.254.169.254/ ; true
+403
+(rc=0)
+22:12:10 RESULT policy.metadata_lit PASS — CONNECT to 169.254.169.254 (CONNECT → 403)
+
+### policy.host_internal
+$ curl -s -o /dev/null --max-time 15 -w '%{http_connect}' -p -x http://127.0.0.1:8888 https://host.docker.internal/ ; true
+403
+(rc=0)
+22:12:11 RESULT policy.host_internal PASS — CONNECT to host.docker.internal (CONNECT → 403)
+
+### policy.port
+$ curl -s -o /dev/null --max-time 15 -w '%{http_connect}' -p -x http://127.0.0.1:8888 http://api.anthropic.com:80/ ; true
+403
+(rc=0)
+22:12:11 RESULT policy.port PASS — CONNECT to an allowlisted host on port 80 (CONNECT → 403)
+
+### policy.plain_http
+$ curl -sf --max-time 15 -x http://127.0.0.1:8888 http://api.anthropic.com/
+
+(rc=22)
+22:12:11 RESULT policy.plain_http PASS — plain (non-CONNECT) HTTP request through the proxy is refused (rc=22)
+
+### policy.bypass_fwd
+$ printf 'CONNECT example.com:443 HTTP/1.1\r\nHost: example.com:443\r\n\r\n' | socat -t 5 - UNIX-CONNECT:/sock/proxy.sock | head -1 | grep -q ' 403 '
+
+(rc=0)
+22:12:11 RESULT policy.bypass_fwd PASS — talking to the socket directly (bypassing the forwarder) is still policed: 403
+
+### policy.exfil_name
+$ curl -s -o /dev/null --max-time 15 -w '%{http_connect}' -p -x http://127.0.0.1:8888 https://exfil-2400721025.attacker.test/ ; true
+403
+(rc=0)
+22:12:11 RESULT policy.exfil_name PASS — CONNECT to an attacker-chosen name (CONNECT → 403)
+22:12:11 RESULT policy.exfil_not_resolved PASS — the resolver never saw exfil-2400721025.attacker.test
+public test address (example.com): 172.66.147.243
+hosts r0: 172.66.147.243 ok.qb.test 172.66.147.243 flip.qb.test 172.66.147.243 mixed.qb.test 10.233.0.99 mixed.qb.test 198.51.100.7 fallback.qb.test 10.233.0.99 fallback.qb.test
+
+### dns.public_ok
+$ curl -s -o /dev/null --max-time 15 -w '%{http_connect}' -p -x http://127.0.0.1:8888 https://ok.qb.test/ ; true
+200
+(rc=0)
+22:12:13 RESULT dns.public_ok PASS — allowlisted test name resolving to a public IP (CONNECT → 200)
+
+### dns.flip_before
+$ curl -s -o /dev/null --max-time 15 -w '%{http_connect}' -p -x http://127.0.0.1:8888 https://flip.qb.test/ ; true
+200
+(rc=0)
+22:12:13 RESULT dns.flip_before PASS — flip.qb.test before the flip (public IP) (CONNECT → 200)
+hosts r0: 172.66.147.243 ok.qb.test 10.233.0.99 flip.qb.test 172.66.147.243 mixed.qb.test 10.233.0.99 mixed.qb.test 198.51.100.7 fallback.qb.test 10.233.0.99 fallback.qb.test
+
+### dns.flip_after
+$ curl -s -o /dev/null --max-time 15 -w '%{http_connect}' -p -x http://127.0.0.1:8888 https://flip.qb.test/ ; true
+403
+(rc=0)
+22:12:16 RESULT dns.flip_after PASS — flip.qb.test after it rebinds to the internal canary 10.233.0.99 (TTL 0) (CONNECT → 403)
+
+### dns.mixed
+$ curl -s -o /dev/null --max-time 15 -w '%{http_connect}' -p -x http://127.0.0.1:8888 https://mixed.qb.test/ ; true
+403
+(rc=0)
+22:12:16 RESULT dns.mixed PASS — mixed.qb.test: one public and one denied answer → refused outright (CONNECT → 403)
+
+### dns.fallback
+$ curl -s -o /dev/null --max-time 15 -w '%{http_connect}' -p -x http://127.0.0.1:8888 https://fallback.qb.test/ ; true
+403
+(rc=0)
+22:12:16 RESULT dns.fallback PASS — fallback.qb.test: unreachable public answer + denied answer → no failover to the denied one (CONNECT → 403)
+22:12:16 RESULT dns.canary_untouched PASS — the internal canary (10.233.0.99:443) received 0 connections across all cases
+22:12:16 RESULT dns.connected_ip PASS — every allowed test-name tunnel connected to 172.66.147.243 (from Squid's access log)
+22:12:16 RESULT dns.no_internal_tunnel PASS — no allowed tunnel in the access log went to a denied range
+flood: 100/100 returned 200; proxy running=true oom=false; mem 23.82MiB / 256MiB
+
+### flood.after
+$ curl -s -o /dev/null --max-time 15 -w '%{http_connect}' -p -x http://127.0.0.1:8888 https://api.anthropic.com/ ; true
+200
+(rc=0)
+22:12:20 RESULT flood.after PASS — allowlisted CONNECT still works after the flood (CONNECT → 200)
+22:12:20 RESULT flood.proxy_healthy PASS — 100 concurrent CONNECTs: 100 answered 200; proxy still running, not OOM-killed (mem 23.82MiB / 256MiB, limit 256 MiB)
+inspect e3-20261002T221147Z-2455-r0-consumer: net=none pid= ports=0 priv=false mounts=/var/lib/docker/volumes/e3-20261002T221147Z-2455-r0-sock/_data,
+22:12:20 RESULT inspect.consumer PASS — no published ports, no host network/PID namespace, not privileged, no Docker socket
+inspect e3-20261002T221147Z-2455-r0-proxy: net=e3-20261002T221147Z-2455-r0-net pid= ports=0 priv=false mounts=/var/lib/docker/volumes/35676db572d8a34157fea74cefd3cc263086228dff8c7437e97d48f4a05bc23c/_data,/var/lib/docker/volumes/5211b1fe6867602fa77d06bb66f92a6bf2501307804582a35dcbdebd5cec5eb8/_data,/var/lib/docker/volumes/e3-20261002T221147Z-2455-r0-sock/_data,
+22:12:20 RESULT inspect.proxy PASS — no published ports, no host network/PID namespace, not privileged, no Docker socket
+22:12:20 RESULT inspect.consumer_network PASS — consumer network mode is none
+22:12:20 == cleanup
+22:12:21 RESULT cleanup PASS — 0 containers, networks or volumes left
+22:12:21 results: /home/runner/work/_temp/e3-network/results.md

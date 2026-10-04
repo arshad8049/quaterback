@@ -1,0 +1,721 @@
+{
+  "as_of": "2026-10-02",
+  "epics": [
+    {
+      "id": "phase-0",
+      "summary": "Phase 0 - Freeze evidence and establish regression tests",
+      "issuetype": "Epic",
+      "status": "In Progress",
+      "labels": [
+        "eng-review-v1",
+        "phase-0"
+      ],
+      "description": "- **Source:** Engineering Review v1.0, Delivery Roadmap.\n- **Owner / dependency:** Junior developer; technical lead approves schemas.\n\n## Exit gate\nA clean install runs meaningful tests without cloud credentials. Seeded defects fail assertions. One run manifest connects input, patch, checks, and outcome, including a deliberately interrupted run.\n\n## Tickets\nQB-26, QB-38\n\n## Where it stands (2026-10-02)\n- QB-26: In Review\n- QB-38: In Review",
+      "jira_key": "KAN-39"
+    },
+    {
+      "id": "phase-1",
+      "summary": "Phase 1 - Contain execution and preserve the full result",
+      "issuetype": "Epic",
+      "status": "In Progress",
+      "labels": [
+        "eng-review-v1",
+        "phase-1"
+      ],
+      "description": "- **Source:** Engineering Review v1.0, Delivery Roadmap.\n- **Owner / dependency:** Junior developer with senior security review. Depends on Phase 0.\n\n## Exit gate\nHost-write and forbidden-egress fixtures are denied. Original user files survive every success/failure path. New, staged, and committed changes are inspectable. Execution failures are never reported as dry-runs.\n\n## Tickets\nQB-01, QB-02, QB-03, QB-04, QB-05, QB-22, QB-36\n\n## Where it stands (2026-10-02)\n- QB-01: In Review\n- QB-02: In Progress\n- QB-03: Sent Back\n- QB-04: In Review\n- QB-05: In Review\n- QB-22: In Review\n- QB-36: In Review",
+      "jira_key": "KAN-40"
+    },
+    {
+      "id": "phase-2",
+      "summary": "Phase 2 - Make acceptance mean something",
+      "issuetype": "Epic",
+      "status": "To Do",
+      "labels": [
+        "eng-review-v1",
+        "phase-2"
+      ],
+      "description": "- **Source:** Engineering Review v1.0, Delivery Roadmap.\n- **Owner / dependency:** Depends on safe execution, real regression tests, and agreed evidence schemas.\n\n## Exit gate\nAll mandatory adversarial regression fixtures pass, every required clause maps to checks, and no required unknown/error receives VERIFIED. A senior reviewer can trace every approval from original request to executed evidence.\n\n## Tickets\nQB-06, QB-07, QB-08, QB-09, QB-10, QB-11, QB-12, QB-13, QB-14, QB-15, QB-16, QB-17\n\n## Where it stands (2026-10-02)\n- QB-06: To Do\n- QB-07: To Do\n- QB-08: To Do\n- QB-09: To Do\n- QB-10: To Do\n- QB-11: To Do\n- QB-12: To Do\n- QB-13: To Do\n- QB-14: To Do\n- QB-15: To Do\n- QB-16: To Do\n- QB-17: To Do",
+      "jira_key": "KAN-41"
+    },
+    {
+      "id": "phase-3",
+      "summary": "Phase 3 - Improve context and memory reliably",
+      "issuetype": "Epic",
+      "status": "To Do",
+      "labels": [
+        "eng-review-v1",
+        "phase-3"
+      ],
+      "description": "- **Source:** Engineering Review v1.0, Delivery Roadmap.\n- **Owner / dependency:** Depends on stable contracts and decision semantics.\n\n## Exit gate\nThe supported-size fixture set passes, recall cannot confer authority, and p50/p95 latency and resource use are recorded. Numeric service targets come from pilot hardware measurements.\n\n## Tickets\nQB-18, QB-19, QB-20, QB-21, QB-23, QB-24, QB-25\n\n## Where it stands (2026-10-02)\n- QB-18: To Do\n- QB-19: To Do\n- QB-20: To Do\n- QB-21: To Do\n- QB-23: To Do\n- QB-24: To Do\n- QB-25: To Do",
+      "jira_key": "KAN-42"
+    },
+    {
+      "id": "phase-4",
+      "summary": "Phase 4 - Run an experiment you can defend",
+      "issuetype": "Epic",
+      "status": "To Do",
+      "labels": [
+        "eng-review-v1",
+        "phase-4"
+      ],
+      "description": "- **Source:** Engineering Review v1.0, Delivery Roadmap.\n- **Owner / dependency:** Depends on frozen Phase 2 semantics and Phase 3 behaviour. An independent reviewer approves the protocol before holdout execution.\n\n## Exit gate\nA third party can reproduce each result from a manifest and patch. Cost and correctness are reported together, with confidence intervals, exclusions, and ablations. If gains vanish, the product hypothesis is narrowed or revised before broad release.\n\n## Tickets\nQB-27, QB-28, QB-29, QB-30\n\n## Where it stands (2026-10-02)\n- QB-27: To Do\n- QB-28: To Do\n- QB-29: To Do\n- QB-30: To Do",
+      "jira_key": "KAN-43"
+    },
+    {
+      "id": "phase-5",
+      "summary": "Phase 5 - Qualify a supervised beta",
+      "issuetype": "Epic",
+      "status": "To Do",
+      "labels": [
+        "eng-review-v1",
+        "phase-5"
+      ],
+      "description": "- **Source:** Engineering Review v1.0, Delivery Roadmap.\n- **Owner / dependency:** Depends on earlier gates and an independently reviewed evaluation. Website safety fixes may proceed earlier.\n\n## Exit gate\nFresh users complete onboarding and recovery without the founder operating their machine. No open critical safety/false-approval findings remain in supported scope. Pilot evidence demonstrates useful review-effort reduction at the agreed quality and cost thresholds.\n\n## Tickets\nQB-31, QB-32, QB-33, QB-34, QB-35, QB-37\n\n## Where it stands (2026-10-02)\n- QB-31: To Do\n- QB-32: To Do\n- QB-33: To Do\n- QB-34: To Do\n- QB-35: To Do\n- QB-37: To Do",
+      "jira_key": "KAN-44"
+    }
+  ],
+  "issues": [
+    {
+      "id": "QB-01",
+      "summary": "[QB-01] Repository filenames can execute shell commands",
+      "issuetype": "Task",
+      "priority": "Highest",
+      "labels": [
+        "eng-review-v1",
+        "phase-1",
+        "effort-S",
+        "evidence-reproduced"
+      ],
+      "epic": "phase-1",
+      "status": "In Review",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-01.\n- **Severity:** Critical · **Evidence:** Reproduced · **Phase:** 1 · **Effort:** S\n- **Code at review:** context/git.js : 18\n\n## Problem\nA repository filename is interpolated into an execSync shell string. Double quotes do not neutralize shell command substitution. A harmless filename probe created a marker during context collection, before any coding agent ran.\n\n## Implement\n1. Replace shell strings with execFile/spawn argument arrays and shell:false.\n2. Preserve the -- path separator.\n3. Audit all subprocess calls for interpolation and reject paths outside the selected repository.\n\n## Done when (acceptance criteria)\nA filename containing shell metacharacters is treated as a literal path; no marker is created. Spaces, quotes, newlines, and leading hyphens are handled without command execution.\n\n## Where it stands (2026-10-02)\n- **Status:** In Review\n- **Done so far:** All git and test subprocesses run with argv arrays and shell:false via lib/proc.js; a static test forbids shell-string subprocess calls (test/unit/no-shell-subprocess.test.js).\n- **Commits (branch phase-0-1-hardening):** 6258295\n- **Evidence / regression tests:** test/unit/qb01-shell-injection.test.js\n- **Remaining:** Senior security sign-off.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-1"
+    },
+    {
+      "id": "QB-02",
+      "summary": "[QB-02] Agent execution has no enforced containment",
+      "issuetype": "Task",
+      "priority": "High",
+      "labels": [
+        "eng-review-v1",
+        "phase-1",
+        "effort-L",
+        "evidence-code-design"
+      ],
+      "epic": "phase-1",
+      "status": "In Progress",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-02.\n- **Severity:** High · **Evidence:** Code / design · **Phase:** 1 · **Effort:** L\n- **Code at review:** agent/runner.js : 54; bench/baseline.js : 17\n\n## Problem\nClaude is started in the supplied repository with --dangerously-skip-permissions and inherited environment. Agent edits, repository scripts, and prompt injection can reach resources outside the intended task. Existing tests and package scripts are writable by the agent.\n\n## Implement\n1. Run in a disposable clone inside an OS/container sandbox.\n2. Allow only required environment variables, credentials, mounts, and egress.\n3. Keep policy, trusted tests, and grading outside the writable checkout; document the threat model.\n\n## Done when (acceptance criteria)\nA fixture attempting a host-file write, forbidden network request, and trusted-test modification is denied. The user checkout and its Git metadata remain unchanged. A senior engineer approves the boundary.\n\n## Where it stands (2026-10-02)\n- **Status:** In Progress\n- **Done so far:** Design history: v1 rejected (2026-10-02). v2: changes requested; implementation spikes approved. v3: approved as the working design for experiments E1-E4 and incremental implementation. v3.1 applies the eight targeted corrections from the v3 review (4370778). Separately landed (140020a): the README and CLI banner warning that execution is uncontained and runs with the user's privileges; removal of the production QB_AGENT_COMMAND host-execution override.\n- **Commits (branch phase-0-1-hardening):** d9221cf, d03a2b0, 4370778, 140020a\n- **Evidence / regression tests:** docs/security/agent-sandbox.md (design); test/unit/qb02-no-agent-override.test.js\n- **Remaining:** Run E1 (auth), E2 (tmpfs storage), E3 (Squid networking) and E4 (lifecycle supervisor) on Linux x86_64 + Docker Engine, recording versions, commands, sanitised output and pass/fail per criterion. Fold the results into the design, implement the sandbox, and pass the §11.2 integration suite. Before beta: the §5.5 authentication-obligations check for subscription mode. Done-when not yet met: no host-write, egress or trusted-test-modification fixture exists against a real boundary.\n- **Blocker:** Needs a Linux + Docker Engine host (the dev machine is macOS). E1 needs a real Claude subscription login.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-2"
+    },
+    {
+      "id": "QB-03",
+      "summary": "[QB-03] Change capture omits parts of the actual result",
+      "issuetype": "Task",
+      "priority": "High",
+      "labels": [
+        "eng-review-v1",
+        "phase-1",
+        "effort-M",
+        "evidence-reproduced"
+      ],
+      "epic": "phase-1",
+      "status": "Sent Back",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-03.\n- **Severity:** High · **Evidence:** Reproduced · **Phase:** 1 · **Effort:** M\n- **Code at review:** agent/runner.js : 73; bench/baseline.js : 37\n\n## Problem\nBare git diff captures only unstaged tracked changes. New files, staged edits, and agent-created commits can be invisible. A fixture with a staged edit and a new file produced an empty captured diff.\n\n## Implement\n1. Pin a trusted base revision before execution.\n2. Capture the complete final state in the isolated checkout, including untracked files and changes relative to that base.\n3. Use NUL-safe path handling and record renames, deletions, binary changes, modes, and symlinks.\n\n## Done when (acceptance criteria)\nFixtures covering staged, unstaged, new, committed, renamed, deleted, binary, and unusual-path changes are captured or explicitly rejected as unsupported. No partial capture can receive PASS.\n\n## Where it stands (2026-10-02)\n- **Status:** Sent Back\n- **Done so far:** 5019dc4 replaced bare git diff with full tree-snapshot capture (staged, unstaged, new, committed, renamed, deleted, binary, mode, symlink, unusual paths), and it went to review. Reopened during the QB-02 v2 revision: host-side capture runs git against the agent-written .git/config, so an agent-written core.fsmonitor, or a clean filter plus .gitattributes, executes on the host. Confirmed by the QB-02 v2 review. 5107056 adds executable reproductions: two KNOWN DEFECT tests that pass while each attack still fires, with the matching security regressions held as todo.\n- **Commits (branch phase-0-1-hardening):** 5019dc4, 5107056\n- **Evidence / regression tests:** test/unit/qb03-qb22-capture-and-states.test.js; test/unit/hostile-tree-seeds.test.js\n- **Remaining:** The fix is the capture container with a trusted GIT_DIR and a fresh candidate index (agent-sandbox.md §6). Then delete the KNOWN DEFECT tests, un-todo the regressions, and add the §6 fidelity fixtures (deletions, file<->dir, .gitignore-hidden files, CRLF/binary/mode/symlink).\n- **Blocker:** Blocked by QB-02 (the §6 capture is part of the sandbox implementation).\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-3"
+    },
+    {
+      "id": "QB-04",
+      "summary": "[QB-04] Model output can overwrite trusted metadata",
+      "issuetype": "Task",
+      "priority": "High",
+      "labels": [
+        "eng-review-v1",
+        "phase-1",
+        "effort-S",
+        "evidence-reproduced"
+      ],
+      "epic": "phase-1",
+      "status": "In Review",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-04.\n- **Severity:** High · **Evidence:** Reproduced · **Phase:** 1 · **Effort:** S\n- **Code at review:** intent/compiler.js : 108; intent/schema.js : 9; qb.js : 264\n\n## Problem\nThe compiler spreads model output after its own id, timestamp, and raw_request. A mocked response replaced the original request and set id to ../../model-chosen-location. The artifact path then resolved outside the intended contract directory.\n\n## Implement\n1. Parse only allowed semantic fields from the model.\n2. Generate trusted metadata after validation and never accept it from model output.\n3. Validate artifact identifiers and verify resolved output paths stay beneath the artifact root.\n\n## Done when (acceptance criteria)\nInjected id, repo_path, created_at, and raw_request values cannot override application metadata. Traversal identifiers cannot write outside the designated run directory.\n\n## Where it stands (2026-10-02)\n- **Status:** In Review\n- **Done so far:** Model output can no longer set contract id, timestamps, raw_request or repo_path; artifact identifiers are validated and output paths are confined (lib/fsafe.js).\n- **Commits (branch phase-0-1-hardening):** 14fdc49\n- **Evidence / regression tests:** test/unit/qb04-trusted-metadata.test.js\n- **Remaining:** Senior sign-off.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-4"
+    },
+    {
+      "id": "QB-05",
+      "summary": "[QB-05] Benchmark reset is destructive and not reproducible",
+      "issuetype": "Task",
+      "priority": "High",
+      "labels": [
+        "eng-review-v1",
+        "phase-1",
+        "effort-M",
+        "evidence-code-confirmed"
+      ],
+      "epic": "phase-1",
+      "status": "In Review",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-05.\n- **Severity:** High · **Evidence:** Code-confirmed · **Phase:** 1 · **Effort:** M\n- **Code at review:** bench/run.js : 218; bench/tasks.json : 2\n\n## Problem\nThe harness runs checkout and clean in a hard-coded working repository and swallows errors. It can discard a developer's changes, does not restore a pinned commit or staged state, and leaves ignored files and external state behind.\n\n## Implement\n1. Accept an explicit repository plus base revision.\n2. Create a disposable checkout per arm and task.\n3. Reset database/service/cache fixtures explicitly and fail on setup errors; never clean the supplied working tree.\n\n## Done when (acceptance criteria)\nStart with dirty tracked, staged, untracked, and ignored files in the source checkout. The harness preserves them all and produces identical initial snapshots for both arms, even after an agent commit.\n\n## Where it stands (2026-10-02)\n- **Status:** In Review\n- **Done so far:** Benchmark arms run in disposable workspaces pinned to an explicit repo and base revision (lib/workspace.js). A dirty source checkout (tracked, staged, untracked, ignored) is preserved byte-for-byte, and both arms start from identical snapshots even after an agent commit.\n- **Commits (branch phase-0-1-hardening):** df4ced7\n- **Evidence / regression tests:** test/unit/qb05-bench-workspace.test.js\n- **Remaining:** Senior sign-off.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-5"
+    },
+    {
+      "id": "QB-06",
+      "summary": "[QB-06] Test-command failure can still produce PASS",
+      "issuetype": "Task",
+      "priority": "Highest",
+      "labels": [
+        "eng-review-v1",
+        "phase-2",
+        "effort-M",
+        "evidence-reproduced"
+      ],
+      "epic": "phase-2",
+      "status": "To Do",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-06.\n- **Severity:** Critical · **Evidence:** Reproduced · **Phase:** 2 · **Effort:** M\n- **Code at review:** verify/checker.js : 33; verify/verifier.js : 60\n\n## Problem\nNonzero exits and runner failures are converted into parsed output counts. A command exiting 2 yielded zero failed tests; affirmative judge responses then produced PASS. Missing runners, timeouts, and unrecognized formats are not distinct outcomes.\n\n## Implement\n1. Preserve exit code, signal, timeout, duration, and raw evidence.\n2. Use a runner adapter with machine-readable results.\n3. Treat runner error, missing required tests, and zero unexpected tests as verification errors that cannot approve a task.\n\n## Done when (acceptance criteria)\nExit 2, timeout, missing executable, collection failure, malformed report, and zero-test fixtures never pass. A real failing test is distinguished from infrastructure failure.\n\n## Where it stands (2026-10-02)\n- **Status:** To Do\n- **Done so far:** Failing reproduction seeded as a todo test (exit 2 must not produce PASS).\n- **Commits (branch phase-0-1-hardening):** d1fb03d\n- **Evidence / regression tests:** test/unit/phase2-seeds.test.js (QB-06 Recipe C, todo)\n- **Remaining:** All implementation work. Phase 2 starts after the Phase 1 gate.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-6"
+    },
+    {
+      "id": "QB-07",
+      "summary": "[QB-07] Loose response parsing reverses negative judgments",
+      "issuetype": "Task",
+      "priority": "Highest",
+      "labels": [
+        "eng-review-v1",
+        "phase-2",
+        "effort-S",
+        "evidence-reproduced"
+      ],
+      "epic": "phase-2",
+      "status": "To Do",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-07.\n- **Severity:** Critical · **Evidence:** Reproduced · **Phase:** 2 · **Effort:** S\n- **Code at review:** verify/judge.js : 194\n\n## Problem\nThe prose fallback searches for words such as implemented and true. The response \"The criterion is not implemented.\" was parsed as true on all three controlled calls.\n\n## Implement\n1. Require a strict judgment schema with a boolean-or-null field and structured evidence references.\n2. Delete keyword-to-verdict fallbacks.\n3. Classify malformed output separately; allow at most a bounded format retry without turning it into evidence.\n\n## Done when (acceptance criteria)\nNegative prose, fenced garbage, arrays, null JSON, wrong types, and missing fields produce invalid_judgment or unresolved. None become a positive verdict through text guessing.\n\n## Where it stands (2026-10-02)\n- **Status:** To Do\n- **Done so far:** Failing reproduction seeded as a todo test (negative prose must not become a positive vote).\n- **Commits (branch phase-0-1-hardening):** d1fb03d\n- **Evidence / regression tests:** test/unit/phase2-seeds.test.js (QB-07 Recipe B, todo)\n- **Remaining:** All implementation work.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-7"
+    },
+    {
+      "id": "QB-08",
+      "summary": "[QB-08] An empty or clarification-only contract can pass",
+      "issuetype": "Task",
+      "priority": "Highest",
+      "labels": [
+        "eng-review-v1",
+        "phase-2",
+        "effort-S",
+        "evidence-reproduced"
+      ],
+      "epic": "phase-2",
+      "status": "To Do",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-08.\n- **Severity:** Critical · **Evidence:** Reproduced · **Phase:** 2 · **Effort:** S\n- **Code at review:** verify/verifier.js : 30; qb.js : 75; bench/run.js : 115\n\n## Problem\nverify() defaults missing criteria to an empty array. With a nonempty diff and no blocking tests, the empty array produces PASS. The benchmark does not handle a clarifying response; root handling also does not recheck a second clarification.\n\n## Implement\n1. Validate contract type and nonempty, unique requirements at every boundary.\n2. Use an explicit needs_clarification state.\n3. Prevent agent execution and verification until a finalized contract exists; expose that state cleanly in noninteractive mode.\n\n## Done when (acceptance criteria)\nEmpty ACs, missing goal, duplicate IDs, a first clarification, and a second clarification never execute the agent or return PASS. Tests cover CLI and benchmark entry points.\n\n## Where it stands (2026-10-02)\n- **Status:** To Do\n- **Done so far:** Failing reproduction seeded as a todo test (a clarification-only contract must never reach PASS).\n- **Commits (branch phase-0-1-hardening):** d1fb03d\n- **Evidence / regression tests:** test/unit/phase2-seeds.test.js (QB-08 Recipe A, todo)\n- **Remaining:** All implementation work.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-8"
+    },
+    {
+      "id": "QB-09",
+      "summary": "[QB-09] Scope and constraints are not enforced as policy",
+      "issuetype": "Task",
+      "priority": "High",
+      "labels": [
+        "eng-review-v1",
+        "phase-2",
+        "effort-M",
+        "evidence-reproduced"
+      ],
+      "epic": "phase-2",
+      "status": "To Do",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-09.\n- **Severity:** High · **Evidence:** Reproduced · **Phase:** 2 · **Effort:** M\n- **Code at review:** verify/checker.js : 105; verify/verifier.js : 47; agent/briefing.js : 52\n\n## Problem\nScope violations are included in the report but do not block PASS. Constraints only appear in the briefing unless also represented as ACs. Relevant files are treated as an apparent allowlist even though retrieval confidence is not authorization.\n\n## Implement\n1. Separate relevant_files from allowed_changes and protected_paths.\n2. Convert enforceable constraints into policy checks.\n3. Block forbidden edits and require an explicit policy update for legitimate scope expansion.\n\n## Done when (acceptance criteria)\nA forbidden file change blocks PASS even when every judge vote is positive. A newly relevant file is not silently authorized, and each declared constraint maps to evidence or an explicit unresolved item.\n\n## Where it stands (2026-10-02)\n- **Status:** To Do\n- **Remaining:** All implementation work. Starts after the Phase 1 gate.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-9"
+    },
+    {
+      "id": "QB-10",
+      "summary": "[QB-10] Failure routing loses test failures and repair actions",
+      "issuetype": "Task",
+      "priority": "High",
+      "labels": [
+        "eng-review-v1",
+        "phase-2",
+        "effort-M",
+        "evidence-reproduced"
+      ],
+      "epic": "phase-2",
+      "status": "To Do",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-10.\n- **Severity:** High · **Evidence:** Reproduced · **Phase:** 2 · **Effort:** M\n- **Code at review:** verify/verifier.js : 54; qb.js : 176; bench/run.js : 168\n\n## Problem\nFailed tests only override a pass verdict. Failed tests plus unknown ACs produce partial. With all ACs true, failed tests produce fail but no AC failures or repair hints, so the loop stops. No baseline test run proves that a failure is pre-existing.\n\n## Implement\n1. Aggregate policy, execution, test, and semantic outcomes independently.\n2. Create repair actions from concrete test failures.\n3. Compare base and candidate test evidence and route infrastructure errors to environment recovery, not code repair.\n\n## Done when (acceptance criteria)\nA newly failing regression enters a bounded repair with its test evidence. A known base failure stays visible. Unknown ACs cannot hide a definite failure, and unchanged patches do not restart endless repairs.\n\n## Where it stands (2026-10-02)\n- **Status:** To Do\n- **Remaining:** All implementation work. Starts after the Phase 1 gate.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-10"
+    },
+    {
+      "id": "QB-11",
+      "summary": "[QB-11] Judge evidence is incomplete and lacks provenance",
+      "issuetype": "Task",
+      "priority": "High",
+      "labels": [
+        "eng-review-v1",
+        "phase-2",
+        "effort-M",
+        "evidence-code-confirmed"
+      ],
+      "epic": "phase-2",
+      "status": "To Do",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-11.\n- **Severity:** High · **Evidence:** Code-confirmed · **Phase:** 2 · **Effort:** M\n- **Code at review:** verify/judge.js : 85; verify/verifier.js : 44\n\n## Problem\nThe judge sees one AC and the first 6,000 characters of diff, without the relevant unchanged implementation or runtime evidence. It can miss later integration files and cannot resolve vague ACs such as the correct string format.\n\n## Implement\n1. Retrieve criterion-specific source, callers, complete relevant hunks, and check results.\n2. Assign immutable evidence IDs with file hashes and ranges.\n3. Report truncation and missing evidence explicitly; never present partial input as complete.\n\n## Done when (acceptance criteria)\nA defect after character 6,000 and a defect inside an unchanged helper are visible through retrieval. Missing material evidence yields unresolved, with the missing artifact named.\n\n## Where it stands (2026-10-02)\n- **Status:** To Do\n- **Remaining:** All implementation work. Starts after the Phase 1 gate.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-11"
+    },
+    {
+      "id": "QB-12",
+      "summary": "[QB-12] Keyword signals claim facts that were not established",
+      "issuetype": "Task",
+      "priority": "Medium",
+      "labels": [
+        "eng-review-v1",
+        "phase-2",
+        "effort-M",
+        "evidence-reproduced"
+      ],
+      "epic": "phase-2",
+      "status": "To Do",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-12.\n- **Severity:** Medium · **Evidence:** Reproduced · **Phase:** 2 · **Effort:** M\n- **Code at review:** verify/checker.js : 136\n\n## Problem\nA comment mentioning the target, a commented export, and an unrelated return statement set defined/exported/returns to true. Keyword scanning also examines deleted and context lines. These are text hints presented as high-confidence facts.\n\n## Implement\n1. Parse supported-language syntax and resolve the actual symbol and binding.\n2. Keep heuristic matches labeled as search hints.\n3. Do not use absence from added lines as evidence that an unchanged implementation is absent.\n\n## Done when (acceptance criteria)\nComments, strings, deleted code, multiline exports, unrelated returns, and pre-existing functions receive correct classifications. Heuristic signals alone cannot satisfy behavioral ACs.\n\n## Where it stands (2026-10-02)\n- **Status:** To Do\n- **Remaining:** All implementation work. Starts after the Phase 1 gate.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-12"
+    },
+    {
+      "id": "QB-13",
+      "summary": "[QB-13] L1 generates mathematically incorrect specifications",
+      "issuetype": "Task",
+      "priority": "Highest",
+      "labels": [
+        "eng-review-v1",
+        "phase-2",
+        "effort-M",
+        "evidence-saved-artifact"
+      ],
+      "epic": "phase-2",
+      "status": "To Do",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-13.\n- **Severity:** Critical · **Evidence:** Saved artifact · **Phase:** 2 · **Effort:** M\n- **Code at review:** bench/results/T-002_1790654092867.json : 34; intent/compiler.js : 90\n\n## Problem\nThe saved contract expects 30,000 ms -> 5m, 120,000 ms -> 20m, and 25,000 ms -> 4m 10s. QB records unanimous PASS votes on these ACs. The missing patch prevents determining whether the agent obeyed the bad spec or the judge misgraded it.\n\n## Implement\n1. Preserve original requirements and mark generated examples as proposals.\n2. Validate computable examples independently.\n3. Review unsupported semantic additions and freeze the accepted contract before execution; never alter it to fit a result.\n\n## Done when (acceptance criteria)\nThe three arithmetic errors are rejected. A unit-conversion fixture is checked by trusted executable calculations. A human-approved test oracle is independent of the implementation-generating model.\n\n## Where it stands (2026-10-02)\n- **Status:** To Do\n- **Remaining:** All implementation work. Starts after the Phase 1 gate.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-13"
+    },
+    {
+      "id": "QB-14",
+      "summary": "[QB-14] The AC checklist omits the essential requested behavior",
+      "issuetype": "Task",
+      "priority": "High",
+      "labels": [
+        "eng-review-v1",
+        "phase-2",
+        "effort-M",
+        "evidence-saved-artifact"
+      ],
+      "epic": "phase-2",
+      "status": "To Do",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-14.\n- **Severity:** High · **Evidence:** Saved artifact · **Phase:** 2 · **Effort:** M\n- **Code at review:** bench/results/T-005_1790656354435.json : 19; agent/briefing.js : 38\n\n## Problem\nT-005 asks for cumulative speech events and duration, but its ACs only require object shape, nonnegative integers, and exports. A constant-zero implementation satisfies those stated conditions while missing the requested behavior.\n\n## Implement\n1. Give each explicit request clause a stable requirement ID.\n2. Map each requirement and constraint to one or more ACs and checks.\n3. Flag uncovered requirements, duplicate ACs, and unsupported additions before the task is executable.\n\n## Done when (acceptance criteria)\nA constant-zero VAD fixture fails after simulated events. Duration accumulates over multiple events, resets per instance, and remains independent across instances. Every request clause has a traceable disposition.\n\n## Where it stands (2026-10-02)\n- **Status:** To Do\n- **Remaining:** All implementation work. Starts after the Phase 1 gate.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-14"
+    },
+    {
+      "id": "QB-15",
+      "summary": "[QB-15] Voting and preservation rules are not calibrated",
+      "issuetype": "Task",
+      "priority": "High",
+      "labels": [
+        "eng-review-v1",
+        "phase-2",
+        "effort-M",
+        "evidence-design-risk"
+      ],
+      "epic": "phase-2",
+      "status": "To Do",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-15.\n- **Severity:** High · **Evidence:** Design risk · **Phase:** 2 · **Effort:** M\n- **Code at review:** verify/judge.js : 18; verify/judge.js : 142\n\n## Problem\nIdentical low-temperature calls share blind spots and missing evidence. Repeated attempts can change the vote without changing code. Changing preservation ACs to null avoids a false repair but leaves partial, not verified success.\n\n## Implement\n1. Make preservation claims bounded to named tests/interfaces.\n2. Calibrate verdicts against independently labeled patches and report abstention.\n3. Cache evidence by patch hash and measure whether extra votes outperform one judge at equal cost.\n\n## Done when (acceptance criteria)\nAn unchanged patch does not become approved by repeated resampling alone. False acceptance, false rejection, and abstention are measured separately. No rule treats null as proof of preservation.\n\n## Where it stands (2026-10-02)\n- **Status:** To Do\n- **Remaining:** All implementation work. Starts after the Phase 1 gate.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-15"
+    },
+    {
+      "id": "QB-16",
+      "summary": "[QB-16] Verification plans are prose rather than executable checks",
+      "issuetype": "Task",
+      "priority": "High",
+      "labels": [
+        "eng-review-v1",
+        "phase-2",
+        "effort-L",
+        "evidence-code-confirmed"
+      ],
+      "epic": "phase-2",
+      "status": "To Do",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-16.\n- **Severity:** High · **Evidence:** Code-confirmed · **Phase:** 2 · **Effort:** L\n- **Code at review:** agent/briefing.js : 148; verify/checker.js : 23; intent/schema.js : 18\n\n## Problem\nThe plan is added to the coding briefing, but L4 runs a generic suite and model judgment. A plan item saying measure performance or test integration does not produce that evidence. Existing tests may not exercise the new behavior.\n\n## Implement\n1. Define a versioned check registry with approved adapters and typed parameters.\n2. Map ACs to checks, expected results, and fixture IDs.\n3. Execute checks in the protected verifier; do not execute arbitrary shell text emitted by L1.\n\n## Done when (acceptance criteria)\nEvery required behavioral AC has an executed check or an explicit unresolved status. A plan item cannot be marked complete merely because it was printed or an agent claimed it ran.\n\n## Where it stands (2026-10-02)\n- **Status:** To Do\n- **Remaining:** All implementation work. Starts after the Phase 1 gate.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-16"
+    },
+    {
+      "id": "QB-17",
+      "summary": "[QB-17] Intent is finalized before repository grounding",
+      "issuetype": "Task",
+      "priority": "High",
+      "labels": [
+        "eng-review-v1",
+        "phase-2",
+        "effort-M",
+        "evidence-code-confirmed"
+      ],
+      "epic": "phase-2",
+      "status": "To Do",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-17.\n- **Severity:** High · **Evidence:** Code-confirmed · **Phase:** 2 · **Effort:** M\n- **Code at review:** qb.js : 72; intent/cli.js : 26; intent/dsa.js : 9\n\n## Problem\nThe root path compiles without repo context although the standalone intent CLI can supply it. Regex ambiguity rules can ask even when the request supplies the detail. Clarification is a single pass, and fallback fields can conceal incomplete output.\n\n## Implement\n1. Gather a lightweight repository survey before semantic compilation.\n2. Distinguish explicit requirements, inferred constraints, and proposed defaults.\n3. Support bounded clarification rounds and a machine-readable handoff state; reject incomplete final contracts.\n\n## Done when (acceptance criteria)\nRoot and standalone compilation receive equivalent grounding. A fully specified cleaner request does not trigger a redundant question, and a still-ambiguous answer remains blocked with its unresolved choice.\n\n## Where it stands (2026-10-02)\n- **Status:** To Do\n- **Remaining:** All implementation work. Starts after the Phase 1 gate.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-17"
+    },
+    {
+      "id": "QB-18",
+      "summary": "[QB-18] Context selection and graph depth do not match the claims",
+      "issuetype": "Task",
+      "priority": "Medium",
+      "labels": [
+        "eng-review-v1",
+        "phase-3",
+        "effort-M",
+        "evidence-code-confirmed"
+      ],
+      "epic": "phase-3",
+      "status": "To Do",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-18.\n- **Severity:** Medium · **Evidence:** Code-confirmed · **Phase:** 3 · **Effort:** M\n- **Code at review:** context/extractor.js : 168; context/builder.js : 43\n\n## Problem\nRanking primarily uses paths and filenames, then selects up to 25 files. Direct imports are recorded but the claimed two-level traversal is absent. Retries reuse the original context even after changed symbols or new files.\n\n## Implement\n1. Support one language family well and add content/symbol retrieval.\n2. Implement bounded graph traversal with a visited set, explicit depth, and caller edges.\n3. Refresh affected entries after each patch and expose omissions and retrieval budget.\n\n## Done when (acceptance criteria)\nA task whose relevant symbol lives in a generically named file is retrieved in a 200+ file fixture. A two-hop dependency and a new repair file are present; irrelevant files do not dominate the package.\n\n## Where it stands (2026-10-02)\n- **Status:** To Do\n- **Remaining:** All implementation work. Starts after the Phase 2 gate.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-18"
+    },
+    {
+      "id": "QB-19",
+      "summary": "[QB-19] Symbol extraction silently drops valid exports",
+      "issuetype": "Task",
+      "priority": "Medium",
+      "labels": [
+        "eng-review-v1",
+        "phase-3",
+        "effort-M",
+        "evidence-reproduced"
+      ],
+      "epic": "phase-3",
+      "status": "To Do",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-19.\n- **Severity:** Medium · **Evidence:** Reproduced · **Phase:** 3 · **Effort:** M\n- **Code at review:** context/extractor.js : 32; context/extractor.js : 214; context/builder.js : 71\n\n## Problem\nmodule.exports = { alpha, beta } returns only alpha. Symbol locations use first substring occurrence and names overwrite one another across files. Truncating reads at 8,000 characters can hide trailing definitions and exports.\n\n## Implement\n1. Use a syntax parser for the supported language.\n2. Store qualified symbol IDs and actual source spans.\n3. Index full supported files or record explicit limits; retrieve bounded snippets only when building prompts.\n\n## Done when (acceptance criteria)\nSingle and trailing CJS exports, aliases, methods, duplicate names, comments, and late-file exports are indexed correctly. Each symbol resolves to the actual declaration or export, not a comment.\n\n## Where it stands (2026-10-02)\n- **Status:** To Do\n- **Remaining:** All implementation work. Starts after the Phase 2 gate.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-19"
+    },
+    {
+      "id": "QB-20",
+      "summary": "[QB-20] Test discovery is mistaken for test coverage",
+      "issuetype": "Task",
+      "priority": "Medium",
+      "labels": [
+        "eng-review-v1",
+        "phase-3",
+        "effort-M",
+        "evidence-reproduced"
+      ],
+      "epic": "phase-3",
+      "status": "To Do",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-20.\n- **Severity:** Medium · **Evidence:** Reproduced · **Phase:** 3 · **Effort:** M\n- **Code at review:** context/extractor.js : 129; context/extractor.js : 153; context/detector.js : 61; agent/briefing.js : 111\n\n## Problem\nConventional test_auth.py and auth_test.go were not discovered. Matching filenames does not prove behavior is covered. Runner detection is heuristic, and some advertised languages/runners lack reliable execution and result parsing.\n\n## Implement\n1. Call the field test_associations, not coverage.\n2. Allow explicit project check configuration and support only validated adapters.\n3. Add standard naming conventions and consume actual coverage data only when available.\n\n## Done when (acceptance criteria)\nSupported-language fixtures discover the expected tests and run the configured command. Unsupported runners are clearly rejected. No UI or briefing claims code is covered merely because a test file exists.\n\n## Where it stands (2026-10-02)\n- **Status:** To Do\n- **Remaining:** All implementation work. Starts after the Phase 2 gate.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-20"
+    },
+    {
+      "id": "QB-21",
+      "summary": "[QB-21] Deadlines, cancellation, and cost budgets are incomplete",
+      "issuetype": "Task",
+      "priority": "High",
+      "labels": [
+        "eng-review-v1",
+        "phase-3",
+        "effort-M",
+        "evidence-code-confirmed"
+      ],
+      "epic": "phase-3",
+      "status": "To Do",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-21.\n- **Severity:** High · **Evidence:** Code-confirmed · **Phase:** 3 · **Effort:** M\n- **Code at review:** verify/judge.js : 121; context/builder.js : 188; intent/compiler.js : 19; qb.js : 291\n\n## Problem\nOllama and telemetry fetches have no explicit application deadline. Sequential three-vote judging dominates saved runtime. Synchronous child processes block orchestration, and there is no overall token/cost/time budget or process-tree cancellation.\n\n## Implement\n1. Add per-call and total-run deadlines with cancellation propagation.\n2. Use asynchronous execution with bounded local-model concurrency.\n3. Record stage time, tokens when available, and agent usage; make telemetry bounded and nonblocking.\n\n## Done when (acceptance criteria)\nA hung mock model, stalled telemetry endpoint, and child process tree all terminate within configured limits. Artifacts survive cancellation, locks are released, and the final state identifies the interrupted stage.\n\n## Where it stands (2026-10-02)\n- **Status:** To Do\n- **Remaining:** All implementation work. Starts after the Phase 2 gate.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-21"
+    },
+    {
+      "id": "QB-22",
+      "summary": "[QB-22] Execution errors are conflated with dry-run or no change",
+      "issuetype": "Task",
+      "priority": "High",
+      "labels": [
+        "eng-review-v1",
+        "phase-1",
+        "effort-M",
+        "evidence-code-confirmed"
+      ],
+      "epic": "phase-1",
+      "status": "In Review",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-22.\n- **Severity:** High · **Evidence:** Code-confirmed · **Phase:** 1 · **Effort:** M\n- **Code at review:** agent/runner.js : 65; verify/verifier.js : 33; qb.js : 176\n\n## Problem\nAgent failure returns a null diff even if partial edits exist. The root verifier then reports no-diff and may say dry-run. A valid already-satisfied task is also indistinguishable from an agent that did nothing.\n\n## Implement\n1. Preserve execution status and capture partial changes even after failure.\n2. Use separate dry_run, execution_error, cancelled, and no_change states.\n3. Permit no-change success only when the original requirement is independently verified.\n\n## Done when (acceptance criteria)\nTimeout, authentication failure, nonzero exit, and a genuine dry-run are distinct. Partial edits remain inspectable. An already-satisfied fixture passes checks without fabricated changes.\n\n## Where it stands (2026-10-02)\n- **Status:** In Review\n- **Done so far:** Distinct dry_run, execution_error, timeout, cancelled, no_change and completed states; partial edits are captured on every failure path; the verifier never judges a failed run.\n- **Commits (branch phase-0-1-hardening):** 5019dc4\n- **Evidence / regression tests:** test/unit/qb03-qb22-capture-and-states.test.js\n- **Remaining:** Partial: the third Implement item (\"permit no-change success only when the original requirement is independently verified\") and the done-when \"an already-satisfied fixture passes checks\" need the Phase 2 protected checks (QB-06/QB-16). The reviewer should decide whether to accept the Phase 1 scope now or keep this open until then.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-22"
+    },
+    {
+      "id": "QB-23",
+      "summary": "[QB-23] Successful repairs never reach normal memory persistence",
+      "issuetype": "Task",
+      "priority": "High",
+      "labels": [
+        "eng-review-v1",
+        "phase-3",
+        "effort-M",
+        "evidence-reproduced"
+      ],
+      "epic": "phase-3",
+      "status": "To Do",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-23.\n- **Severity:** High · **Evidence:** Reproduced · **Phase:** 3 · **Effort:** M\n- **Code at review:** memory/index.js : 62; qb.js : 200; qb.js : 211\n\n## Problem\nThe root passes only the final report to memory. A successful report has no failed-AC repair hints, while remember() expects hints in a non-failing report. A controlled fail-then-pass sequence saved zero repairs.\n\n## Implement\n1. Keep an append-only attempt history with patch and evidence hashes.\n2. Link each proposed repair to the subsequent patch and reevaluation.\n3. Store observed resolution separately from a model suggestion and from independently confirmed success.\n\n## Done when (acceptance criteria)\nA failed AC repaired on attempt two creates one traceable resolved repair. An unchanged patch, abandoned task, or unrelated later success does not label the hint as proven.\n\n## Where it stands (2026-10-02)\n- **Status:** To Do\n- **Remaining:** All implementation work. Starts after the Phase 2 gate.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-23"
+    },
+    {
+      "id": "QB-24",
+      "summary": "[QB-24] Memory can mix repositories and opposite instructions",
+      "issuetype": "Task",
+      "priority": "Medium",
+      "labels": [
+        "eng-review-v1",
+        "phase-3",
+        "effort-M",
+        "evidence-reproduced"
+      ],
+      "epic": "phase-3",
+      "status": "To Do",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-24.\n- **Severity:** Medium · **Evidence:** Reproduced · **Phase:** 3 · **Effort:** M\n- **Code at review:** memory/store.js : 20; memory/scorer.js : 8; memory/index.js : 95\n\n## Problem\nPaths /tmp/a/b and /tmp/a_b map to the same memory namespace. Removing not makes opposite deployment requests have similarity 1. Records lack revision compatibility checks, and file hints can come from failed runs.\n\n## Implement\n1. Use a collision-resistant repository identity plus schema version.\n2. Preserve negation and task intent; treat lexical overlap as a hint only.\n3. Validate referenced paths/revisions and rank trustworthy resolved outcomes separately from failures.\n\n## Done when (acceptance criteria)\nThe two repositories never share records. Opposite-intent requests do not reuse actionable repairs automatically. Stale paths, traversal hints, incompatible revisions, and failed-run suggestions are clearly handled.\n\n## Where it stands (2026-10-02)\n- **Status:** To Do\n- **Remaining:** All implementation work. Starts after the Phase 2 gate.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-24"
+    },
+    {
+      "id": "QB-25",
+      "summary": "[QB-25] Memory persistence lacks safe lifecycle and concurrency",
+      "issuetype": "Task",
+      "priority": "Medium",
+      "labels": [
+        "eng-review-v1",
+        "phase-3",
+        "effort-M",
+        "evidence-code-confirmed"
+      ],
+      "epic": "phase-3",
+      "status": "To Do",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-25.\n- **Severity:** Medium · **Evidence:** Code-confirmed · **Phase:** 3 · **Effort:** M\n- **Code at review:** memory/store.js : 36; memory/store.js : 75; memory/sandbox/run.js : 14\n\n## Problem\nEach recall reads all records; stats use an unlocked read-modify-write. Corrupt lines are silently discarded. The sandbox sets QB_MEMORY_DIR after importing the module that captures it, so its intended temporary store may not be used.\n\n## Implement\n1. Inject the store path at construction and lock per repository.\n2. Use atomic stats replacement and report corruption.\n3. Add retention/compaction and bounded recall; retain JSONL until measured concurrency or query needs justify a database.\n\n## Done when (acceptance criteria)\nConcurrent fixture writes preserve counts, a truncated record is reported without losing valid data, and demo/tests write only beneath their test directory. Recall latency is measured at the supported history size.\n\n## Where it stands (2026-10-02)\n- **Status:** To Do\n- **Remaining:** All implementation work. Starts after the Phase 2 gate.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-25"
+    },
+    {
+      "id": "QB-26",
+      "summary": "[QB-26] The project has no effective root regression gate",
+      "issuetype": "Task",
+      "priority": "High",
+      "labels": [
+        "eng-review-v1",
+        "phase-0",
+        "effort-M",
+        "evidence-code-confirmed"
+      ],
+      "epic": "phase-0",
+      "status": "In Review",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-26.\n- **Severity:** High · **Evidence:** Code-confirmed · **Phase:** 0 · **Effort:** M\n- **Code at review:** package.json : 10; verify/sandbox/run.js : 1\n\n## Problem\nRoot npm test prints usage and succeeds. Existing sandbox scripts largely demonstrate output, rather than asserting invariants. No checked-in CI workflow was found in the reviewed snapshot.\n\n## Implement\n1. Establish node:test or another selected runner and CI.\n2. Turn the review reproductions into assertions with isolated fixtures and mocked external services.\n3. Separate fast deterministic tests from explicitly requested real-agent integration jobs.\n\n## Done when (acceptance criteria)\nnpm test executes assertions and fails on each seeded defect. CI runs on a clean checkout without model credentials. Integration jobs record model versions, timeouts, and costs.\n\n## Where it stands (2026-10-02)\n- **Status:** In Review\n- **Done so far:** node:test harness with temporary-repo fixtures and mocked model/agent/API adapters; npm test runs real assertions; CI workflow checked in; seeded false-PASS reproductions are encoded.\n- **Commits (branch phase-0-1-hardening):** d1fb03d\n- **Evidence / regression tests:** npm test; .github/workflows/ci.yml\n- **Remaining:** Senior sign-off. Confirm the done-when item \"integration jobs record model versions, timeouts, and costs\" is met or split it out.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-26"
+    },
+    {
+      "id": "QB-27",
+      "summary": "[QB-27] The benchmark lets QB define its own scoring target",
+      "issuetype": "Task",
+      "priority": "Highest",
+      "labels": [
+        "eng-review-v1",
+        "phase-4",
+        "effort-L",
+        "evidence-artifact-code"
+      ],
+      "epic": "phase-4",
+      "status": "To Do",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-27.\n- **Severity:** Critical · **Evidence:** Artifact / code · **Phase:** 4 · **Effort:** L\n- **Code at review:** bench/run.js : 117; bench/run.js : 203; bench/results/T-002_1790654092867.json : 34\n\n## Problem\nQB generates a contract, exposes it to its own agent, and grades both arms against it. The baseline sees only the original prompt. Wrong or extra generated ACs can reward QB and penalize a correct baseline.\n\n## Implement\n1. Freeze human-reviewed task specifications and external check suites before running either arm.\n2. Keep grading independent of QB-generated ACs.\n3. Use blinded adjudication for ambiguous outcomes and preserve all disagreements.\n\n## Done when (acceptance criteria)\nBoth arms are evaluated against the same original semantic requirement. Correct 30,000 ms -> 30s behavior cannot fail because QB invented 5m. Holdout labels are not revised after viewing arm results.\n\n## Where it stands (2026-10-02)\n- **Status:** To Do\n- **Remaining:** All implementation work. Starts after the Phase 3 gate.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-27"
+    },
+    {
+      "id": "QB-28",
+      "summary": "[QB-28] Baseline resources and verification paths are unequal",
+      "issuetype": "Task",
+      "priority": "High",
+      "labels": [
+        "eng-review-v1",
+        "phase-4",
+        "effort-M",
+        "evidence-code-confirmed"
+      ],
+      "epic": "phase-4",
+      "status": "To Do",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-28.\n- **Severity:** High · **Evidence:** Code-confirmed · **Phase:** 4 · **Effort:** M\n- **Code at review:** agent/runner.js : 57; bench/baseline.js : 20; bench/run.js : 111; bench/run.js : 206\n\n## Problem\nQB can receive three ten-minute invocations; baseline gets one eight-minute invocation. Baseline verification receives null context and skips wrapper test execution. The benchmark never calls L5 despite describing a five-layer evaluation.\n\n## Implement\n1. Match or explicitly budget resources and give baseline native planning/testing.\n2. Use a shared external evaluator for both arms.\n3. Run production orchestration through one API and add an explicit memory-off/on experimental condition.\n\n## Done when (acceptance criteria)\nRun manifests show equal declared budgets and identical external grading. A test invocation spy confirms both arms are graded. The memory experiment proves actual recall calls and records its starting store.\n\n## Where it stands (2026-10-02)\n- **Status:** To Do\n- **Remaining:** All implementation work. Starts after the Phase 3 gate.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-28"
+    },
+    {
+      "id": "QB-29",
+      "summary": "[QB-29] Latest-per-task aggregation mixes experiments",
+      "issuetype": "Task",
+      "priority": "High",
+      "labels": [
+        "eng-review-v1",
+        "phase-4",
+        "effort-M",
+        "evidence-artifact-code"
+      ],
+      "epic": "phase-4",
+      "status": "To Do",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-29.\n- **Severity:** High · **Evidence:** Artifact / code · **Phase:** 4 · **Effort:** M\n- **Code at review:** bench/report.js : 32; bench/run.js : 156\n\n## Problem\nThe report replaces older rows by task ID and combines results with different contracts or code versions. Patches, judge evidence, exact model identifiers, and full test results are absent. The latest T-006 artifact has no baseline result.\n\n## Implement\n1. Assign immutable experiment/run/arm IDs and pin every relevant version.\n2. Store complete evidence bundles and do not overwrite earlier trials.\n3. Report missing runs explicitly and compare only matched experimental groups.\n\n## Done when (acceptance criteria)\nA report rejects mixed versions by default and reproduces exactly from a manifest. Missing baseline rows stay missing rather than becoming losses or successes. Each score links to the evaluated patch and checks.\n\n## Where it stands (2026-10-02)\n- **Status:** To Do\n- **Remaining:** All implementation work. Starts after the Phase 3 gate.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-29"
+    },
+    {
+      "id": "QB-30",
+      "summary": "[QB-30] Six tuned utility tasks do not establish effectiveness",
+      "issuetype": "Task",
+      "priority": "High",
+      "labels": [
+        "eng-review-v1",
+        "phase-4",
+        "effort-L",
+        "evidence-design-artifact"
+      ],
+      "epic": "phase-4",
+      "status": "To Do",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-30.\n- **Severity:** High · **Evidence:** Design / artifact · **Phase:** 4 · **Effort:** L\n- **Code at review:** bench/tasks.json : 1; docs/test-runs.md : 134\n\n## Problem\nThe suite is narrow, repeatedly used during development, and contains mostly single-file additions. There is no held-out evaluation, causal ablation, independent verifier calibration, or measurement of human review effort.\n\n## Implement\n1. Freeze a diverse development set and untouched holdout across repositories.\n2. Run repeated, paired trials and ablations.\n3. Report uncertainty, all failures, cost/time, human interventions, and independent correctness rather than internal PASS alone.\n\n## Done when (acceptance criteria)\nThe evaluation protocol is reviewed before execution. Results include repository/task strata and run failures. Improvement claims survive matched baselines and are bounded to the tested task distribution.\n\n## Where it stands (2026-10-02)\n- **Status:** To Do\n- **Remaining:** All implementation work. Starts after the Phase 3 gate.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-30"
+    },
+    {
+      "id": "QB-31",
+      "summary": "[QB-31] Supported adapters and onboarding are not productized",
+      "issuetype": "Task",
+      "priority": "Medium",
+      "labels": [
+        "eng-review-v1",
+        "phase-5",
+        "effort-M",
+        "evidence-code-confirmed"
+      ],
+      "epic": "phase-5",
+      "status": "To Do",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-31.\n- **Severity:** Medium · **Evidence:** Code-confirmed · **Phase:** 5 · **Effort:** M\n- **Code at review:** agent/schema.js : 9; qb.js : 28; README.md : 239\n\n## Problem\nOnly Claude Code, manual, and dry-run are implemented. Documentation examples can default to dry-run, while product framing names other agents. There is no explicit runtime compatibility contract or dependable preflight workflow.\n\n## Implement\n1. Publish a narrow support matrix and validate all CLI options.\n2. Add a doctor command for runtime, agent auth, model availability, Git, sandbox, and check adapters.\n3. Version the agent adapter interface and document release/license/support decisions.\n\n## Done when (acceptance criteria)\nA fresh supported machine completes install, doctor, demo, failure recovery, and artifact inspection from the docs. Unsupported agents/runners and invalid retry counts fail before model execution.\n\n## Where it stands (2026-10-02)\n- **Status:** To Do\n- **Remaining:** All implementation work. Starts after the Phase 4 gate.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-31"
+    },
+    {
+      "id": "QB-32",
+      "summary": "[QB-32] Telemetry and privacy descriptions overstate anonymity",
+      "issuetype": "Task",
+      "priority": "High",
+      "labels": [
+        "eng-review-v1",
+        "phase-5",
+        "effort-M",
+        "evidence-code-confirmed"
+      ],
+      "epic": "phase-5",
+      "status": "To Do",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-32.\n- **Severity:** High · **Evidence:** Code-confirmed · **Phase:** 5 · **Effort:** M\n- **Code at review:** qb.js : 235; qb.js : 278; landing_page/privacy.html : 135\n\n## Problem\nOpt-in telemetry contains the registration email and a deterministic 32-bit task hash; it is not anonymous. The privacy page claims source never leaves the machine despite the cloud coding-agent path. Local artifacts may also contain source and task text.\n\n## Implement\n1. Write a factual data-flow inventory and correct UI/docs/email wording.\n2. Minimize telemetry and use explicit consent, retention, deletion, and redaction.\n3. Prefer random run IDs; use keyed identifiers only when justified and keep model-provider flows explicit.\n\n## Done when (acceptance criteria)\nConsent previews the actual payload. Telemetry is off by default, contains no accidental source/secret data, and supports deletion. Privacy text matches observed agent, model, storage, and API flows.\n\n## Where it stands (2026-10-02)\n- **Status:** To Do\n- **Remaining:** All implementation work. Starts after the Phase 4 gate.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-32"
+    },
+    {
+      "id": "QB-33",
+      "summary": "[QB-33] Metrics can be forged with a known registration email",
+      "issuetype": "Task",
+      "priority": "High",
+      "labels": [
+        "eng-review-v1",
+        "phase-5",
+        "effort-M",
+        "evidence-reproduced-locally"
+      ],
+      "epic": "phase-5",
+      "status": "To Do",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-33.\n- **Severity:** High · **Evidence:** Reproduced locally · **Phase:** 5 · **Effort:** M\n- **Code at review:** landing_page/_worker.js : 88; landing_page/functions/api/metrics.js : 1\n\n## Problem\nA registered email is the only authorization check. A mocked request without credentials inserted metrics; the string false became passed=1 and negative attempts/duration were accepted. Such data cannot substantiate product effectiveness.\n\n## Implement\n1. Issue and validate revocable scoped credentials after registration verification.\n2. Require strict request schemas, bounds, run IDs, replay protection, and rate limits.\n3. Label client-reported outcomes separately from independently verified benchmark results.\n\n## Done when (acceptance criteria)\nA known email alone receives 401/403. String booleans, negative values, duplicate run IDs, and oversized payloads are rejected. Valid authenticated records preserve their exact declared types.\n\n## Where it stands (2026-10-02)\n- **Status:** To Do\n- **Remaining:** All implementation work. Starts after the Phase 4 gate.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-33"
+    },
+    {
+      "id": "QB-34",
+      "summary": "[QB-34] Admin exports expose avoidable credential and CSV risks",
+      "issuetype": "Task",
+      "priority": "High",
+      "labels": [
+        "eng-review-v1",
+        "phase-5",
+        "effort-M",
+        "evidence-code-risk"
+      ],
+      "epic": "phase-5",
+      "status": "To Do",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-34.\n- **Severity:** High · **Evidence:** Code / risk · **Phase:** 5 · **Effort:** M\n- **Code at review:** landing_page/_worker.js : 125; landing_page/_worker.js : 160; landing_page/_worker.js : 276\n\n## Problem\nAdmin credentials are accepted in URL query strings, which may enter history and logs. CSV cells are quoted but spreadsheet formula prefixes are not neutralized. Read endpoints return personal signup data without explicit no-store handling.\n\n## Implement\n1. Use protected admin authentication and authorization headers, not query secrets.\n2. Add no-store and safe export handling.\n3. Treat user-controlled CSV cells as text and paginate access; redact credentials from logs.\n\n## Done when (acceptance criteria)\nQuery-string secrets are rejected. Formula-like signup fields open as inert text in supported spreadsheet clients. Admin responses are not cached and unauthorized requests never return signup data.\n\n## Where it stands (2026-10-02)\n- **Status:** To Do\n- **Remaining:** All implementation work. Starts after the Phase 4 gate.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-34"
+    },
+    {
+      "id": "QB-35",
+      "summary": "[QB-35] Signup input, delivery, and abuse handling are fragile",
+      "issuetype": "Task",
+      "priority": "High",
+      "labels": [
+        "eng-review-v1",
+        "phase-5",
+        "effort-M",
+        "evidence-code-local-probe"
+      ],
+      "epic": "phase-5",
+      "status": "To Do",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-35.\n- **Severity:** High · **Evidence:** Code / local probe · **Phase:** 5 · **Effort:** M\n- **Code at review:** landing_page/_worker.js : 45; landing_page/_worker.js : 78; landing_page/_worker.js : 243\n\n## Problem\nNull or wrongly typed JSON can throw before validation. No application-level payload bounds or rate limits are present. Select-then-insert deduplication can race. Email failures are settled or returned without durable retry, yet the API reports success.\n\n## Implement\n1. Validate types, lengths, and allowed fields before use; add abuse controls.\n2. Use atomic insert-on-conflict behavior.\n3. Track registration separately from delivery and queue idempotent email retries with observable failures.\n\n## Done when (acceptance criteria)\nNull, numeric emails, oversized text, duplicate concurrent submissions, and a mocked email-service failure have defined responses. Failed delivery can recover without duplicate signups or repeated welcome messages.\n\n## Where it stands (2026-10-02)\n- **Status:** To Do\n- **Remaining:** All implementation work. Starts after the Phase 4 gate.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-35"
+    },
+    {
+      "id": "QB-36",
+      "summary": "[QB-36] Legacy proxy permits unauthenticated paid upstream calls",
+      "issuetype": "Task",
+      "priority": "Highest",
+      "labels": [
+        "eng-review-v1",
+        "phase-1",
+        "effort-S",
+        "evidence-reproduced-locally",
+        "critical-if-deployed"
+      ],
+      "epic": "phase-1",
+      "status": "In Review",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-36.\n- **Severity:** Critical if deployed · **Evidence:** Reproduced locally · **Phase:** 1 · **Effort:** S\n- **Code at review:** netlify/functions/compile.js : 18; netlify.toml : 6\n\n## Problem\nThe proxy checks authentication only when QB_PROXY_SECRET is set. With a configured upstream key and missing proxy secret, a mocked unauthenticated request reached the upstream service. Live deployment of this route was not inspected.\n\n## Implement\n1. Remove the unused proxy or fail closed when required auth configuration is absent.\n2. If retained, validate model, payload, token limits, credentials, and quotas.\n3. Add deployment checks that reject missing required secrets without printing them.\n\n## Done when (acceptance criteria)\nMissing or incorrect credentials never call upstream. A local test with a dummy upstream key and no proxy secret returns an explicit configuration/auth error. Confirm actual deployment before assigning exposure status.\n\n## Where it stands (2026-10-02)\n- **Status:** In Review\n- **Done so far:** The legacy Netlify compile proxy is removed from the repository, and a test asserts that it stays removed.\n- **Commits (branch phase-0-1-hardening):** 5fcd0b5\n- **Evidence / regression tests:** test/unit/qb36-legacy-proxy.test.js\n- **Remaining:** Operational check outstanding: confirm the live Netlify deployment no longer serves the route, and that the upstream key is cleared from Netlify environment variables. Exposure status stays unassigned until then.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-36"
+    },
+    {
+      "id": "QB-37",
+      "summary": "[QB-37] Deployment and public claims have drifted",
+      "issuetype": "Task",
+      "priority": "High",
+      "labels": [
+        "eng-review-v1",
+        "phase-5",
+        "effort-M",
+        "evidence-code-confirmed"
+      ],
+      "epic": "phase-5",
+      "status": "To Do",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-37.\n- **Severity:** High · **Evidence:** Code-confirmed · **Phase:** 5 · **Effort:** M\n- **Code at review:** wrangler.toml : 1; netlify.toml : 1; landing_page/src/north-star-metric.html : 46; README.md : 73\n\n## Problem\nWorkers, Pages functions, and Netlify routes coexist. Netlify API routing points to functions that do not include the signup backend. README and landing-page result claims differ, and the page combines 6/6 with +34pp from earlier experiments.\n\n## Implement\n1. Choose one canonical deployment path and remove or clearly archive alternatives.\n2. Add deployment smoke checks for static assets and every public API.\n3. Generate evidence-linked benchmark claims from approved experiment manifests; keep projections labeled.\n\n## Done when (acceptance criteria)\nA clean staging deploy passes signup/report/metrics routing tests with mocked mail. Every published metric resolves to a consistent experiment, and supported-agent, cost, and local-processing claims match implementation.\n\n## Where it stands (2026-10-02)\n- **Status:** To Do\n- **Remaining:** All implementation work. Starts after the Phase 4 gate.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-37"
+    },
+    {
+      "id": "QB-38",
+      "summary": "[QB-38] Runs lack a durable, versioned evidence record",
+      "issuetype": "Task",
+      "priority": "High",
+      "labels": [
+        "eng-review-v1",
+        "phase-0",
+        "effort-M",
+        "evidence-code-confirmed"
+      ],
+      "epic": "phase-0",
+      "status": "In Review",
+      "description": "- **Source:** Engineering Review v1.0 (reviewed snapshot 4ecc6a7, 1 Oct 2026), ticket QB-38.\n- **Severity:** High · **Evidence:** Code-confirmed · **Phase:** 0 · **Effort:** M\n- **Code at review:** qb.js : 99; qb.js : 156; qb.js : 209; bench/run.js : 175\n\n## Problem\nArtifacts are optional and spread across layer directories. There is no authoritative run manifest connecting the base snapshot, accepted requirements, attempts, check execution, model settings, and final decision. This prevents diagnosis, replay, and audit.\n\n## Implement\n1. Define versioned run, requirement, check, attempt, and evidence schemas.\n2. Persist a manifest and append-only events by default in a controlled run directory.\n3. Add checksums, redaction, explicit retention, and crash-safe writes; keep migrations documented.\n\n## Done when (acceptance criteria)\nOne run ID retrieves the complete decision trail without relying on console output. A crashed run resumes or terminates explicitly. Replaying verdict aggregation on the stored evidence reproduces the recorded outcome.\n\n## Where it stands (2026-10-02)\n- **Status:** In Review\n- **Done so far:** Versioned run manifest and append-only evidence record in one run directory; qb replay/runs/show; interrupted runs are closed as ABANDONED or ERROR on the next start.\n- **Commits (branch phase-0-1-hardening):** 9b4c9c0\n- **Evidence / regression tests:** test/unit/run-store.test.js; test/unit/qb-cli.test.js\n- **Remaining:** Technical-lead approval of the schemas.\n\n## Closure (review template, p.33)\nImplementation: owner, commit, affected files, migration notes. Evidence: failing pre-fix reproduction, passing regression, CI run, integration evidence where relevant, docs updated. Review: senior sign-off, remaining limitations, closure date.",
+      "jira_key": "KAN-38"
+    }
+  ],
+  "links": [
+    {
+      "from_": "QB-02",
+      "type": "blocks",
+      "to": "QB-03",
+      "jira": "KAN-2 blocks KAN-3"
+    },
+    {
+      "from_": "QB-06",
+      "type": "relates to",
+      "to": "QB-22",
+      "jira": "KAN-6 relates to KAN-22"
+    },
+    {
+      "from_": "QB-16",
+      "type": "relates to",
+      "to": "QB-22",
+      "jira": "KAN-16 relates to KAN-22"
+    },
+    {
+      "from_": "QB-13",
+      "type": "relates to",
+      "to": "QB-27",
+      "jira": "KAN-13 relates to KAN-27"
+    }
+  ],
+  "jira": {
+    "site": "https://arshadahmedsworkspace-40204141.atlassian.net",
+    "project_key": "KAN",
+    "project_name": "QB",
+    "migrated": "2026-10-02",
+    "pending": "Workflow lacks \"Sent Back\" and \"Accepted\": QB-03 (KAN-3) sits in To Do until Sent Back exists."
+  }
+}

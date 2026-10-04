@@ -56,6 +56,16 @@ function buildBriefing(contract, context, options = {}) {
     lines.push('');
   }
 
+  // ── Scope (QB-09): enforced — changes outside it cannot pass ─────────────────
+  const allowed = contract.scope?.allowed_changes || [];
+  const prot = contract.scope?.protected_paths || [];
+  if (allowed.length || prot.length) {
+    lines.push(`## Scope — enforced`);
+    if (allowed.length) lines.push(`You may change only: ${allowed.map(g => `\`${g}\``).join(', ')}. Any other change cannot be accepted.`);
+    if (prot.length) lines.push(`Never change: ${prot.map(g => `\`${g}\``).join(', ')}.`);
+    lines.push('');
+  }
+
   // ── Acceptance criteria ─────────────────────────────────────────────────────
   if (contract.acceptance_criteria?.length) {
     lines.push(`## Acceptance criteria`);

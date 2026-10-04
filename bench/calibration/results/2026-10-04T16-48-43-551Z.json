@@ -1,0 +1,166 @@
+{
+  "format": "qb-judge-calibration-result/1",
+  "model": "deepseek-r1:7b",
+  "items_file": "bench/calibration/labeled.json",
+  "duration_ms": 504403,
+  "items": 13,
+  "votes": 3,
+  "strategies": [
+    {
+      "name": "single",
+      "calls_per_item": 1,
+      "items": 13,
+      "false_accept": 2,
+      "false_reject": 0,
+      "abstain": 0,
+      "correct": 11,
+      "false_accept_rate": 0.3333333333333333,
+      "false_reject_rate": 0,
+      "abstention_rate": 0
+    },
+    {
+      "name": "majority-3",
+      "calls_per_item": 3,
+      "items": 13,
+      "false_accept": 1,
+      "false_reject": 0,
+      "abstain": 1,
+      "correct": 11,
+      "false_accept_rate": 0.16666666666666666,
+      "false_reject_rate": 0,
+      "abstention_rate": 0.07692307692307693
+    },
+    {
+      "name": "unanimous-3",
+      "calls_per_item": 3,
+      "items": 13,
+      "false_accept": 0,
+      "false_reject": 0,
+      "abstain": 3,
+      "correct": 10,
+      "false_accept_rate": 0,
+      "false_reject_rate": 0,
+      "abstention_rate": 0.23076923076923078
+    }
+  ],
+  "per_item": [
+    {
+      "id": "readme-verbose-ok",
+      "label": "met",
+      "votes": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "id": "readme-verbose-todo",
+      "label": "not_met",
+      "votes": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "id": "readme-after-6000",
+      "label": "met",
+      "votes": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "id": "jsdoc-complete",
+      "label": "met",
+      "votes": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "id": "jsdoc-incomplete",
+      "label": "not_met",
+      "votes": [
+        true,
+        null,
+        false
+      ]
+    },
+    {
+      "id": "changelog-added",
+      "label": "met",
+      "votes": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "id": "changelog-wrong-heading",
+      "label": "not_met",
+      "votes": [
+        true,
+        true,
+        false
+      ]
+    },
+    {
+      "id": "rename-ok",
+      "label": "met",
+      "votes": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "id": "rename-partial",
+      "label": "not_met",
+      "votes": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "id": "helper-format-wrong",
+      "label": "not_met",
+      "votes": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "id": "helper-format-ok",
+      "label": "met",
+      "votes": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "id": "error-message-ok",
+      "label": "met",
+      "votes": [
+        true,
+        false,
+        true
+      ]
+    },
+    {
+      "id": "error-message-vague",
+      "label": "not_met",
+      "votes": [
+        false,
+        false,
+        false
+      ]
+    }
+  ],
+  "equal_cost": "majority-3 spends 3× the calls of a single judge on the same items; on these samples it changes false accepts 2→1, false rejects 0→0, abstentions 0→1 (correct 11→11 of 13). Extra votes are worth their cost only if this reduces errors."
+}

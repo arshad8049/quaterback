@@ -1,0 +1,69 @@
+run_id: e4-20261002T215833Z-2397
+date_utc: 2026-10-02T21:58:34Z
+host: Linux x86_64, kernel 6.17.0-1022-azure
+os: Ubuntu 24.04.5 LTS
+docker_server: 28.0.4 (Docker Engine - Community)
+cgroup: v2 / systemd
+node: v22.23.3
+image: busybox@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662
+timing_ms: renew=1000 lease_timeout=5000 kill_grace=3000 docker_op=10000 harness_slack=1500
+evidence: yes
+21:58:35 == S0 baseline: payload completes
+21:58:39 RESULT s0.end_state PASS — recorded completed/supervisor/cli_proposal:exit=0 oom=false
+21:58:39 RESULT s0.cleanup PASS — 0 containers, volumes or networks left
+21:58:39 == S1 CLI SIGKILLed mid-stage (payload evasive, deadline far away)
+PID                 PPID                COMMAND
+3343                3319                /sbin/docker-init -- timeout -s KILL 4 sh -c echo start ( trap '' TERM; exec sleep 7001 ) & ( sh -c 'sleep 7002 &' & ) setsid sleep 7003 & nohup sleep 7004 >/dev/null 2>&1 & pkill -KILL -x timeout && echo "killed in-container timeout watcher" trap '' TERM INT HUP i=0; while :; do sleep 1; i=$((i+1)); echo "alive $i"; done
+3356                3343                sh -c echo start ( trap '' TERM; exec sleep 7001 ) & ( sh -c 'sleep 7002 &' & ) setsid sleep 7003 & nohup sleep 7004 >/dev/null 2>&1 & pkill -KILL -x timeout && echo "killed in-container timeout watcher" trap '' TERM INT HUP i=0; while :; do sleep 1; i=$((i+1)); echo "alive $i"; done
+3359                3356                sleep 7001
+3362                3356                sleep 7003
+3363                3356                sleep 7004
+3365                3343                sh -c sleep 7002 &
+21:58:45 S1 CLI killed
+21:58:53 RESULT s1.bounded_termination PASS — all containers stopped 7689 ms after CLI SIGKILL (bound 19500 ms = lease 5000 + grace 3000 + docker_op 10000 + slack 1500)
+21:58:53 RESULT s1.bounded_cleanup OBSERVED — all resources removed 7968 ms after CLI SIGKILL
+21:58:54 RESULT s1.in_container_timeout_defeated OBSERVED — payload killed its own 4 s timeout watcher and kept running; only the external lease ended it
+21:58:54 RESULT s1.children PASS — all 4 evasive children (bg, double-fork, setsid, nohup) seen running; 6 container processes snapshotted (pid+start time); 0 survive
+21:58:54 RESULT s1.end_state PASS — recorded ABANDONED/supervisor/lease_expired
+21:58:54 RESULT s1.cleanup PASS — 0 containers, volumes or networks left
+21:58:54 == S2 deadline: payload disables its timeout, CLI alive and renewing
+PID                 PPID                COMMAND
+5437                5411                /sbin/docker-init -- timeout -s KILL 4 sh -c echo start ( trap '' TERM; exec sleep 7001 ) & ( sh -c 'sleep 7002 &' & ) setsid sleep 7003 & nohup sleep 7004 >/dev/null 2>&1 & pkill -KILL -x timeout && echo "killed in-container timeout watcher" trap '' TERM INT HUP i=0; while :; do sleep 1; i=$((i+1)); echo "alive $i"; done
+5451                5437                sh -c echo start ( trap '' TERM; exec sleep 7001 ) & ( sh -c 'sleep 7002 &' & ) setsid sleep 7003 & nohup sleep 7004 >/dev/null 2>&1 & pkill -KILL -x timeout && echo "killed in-container timeout watcher" trap '' TERM INT HUP i=0; while :; do sleep 1; i=$((i+1)); echo "alive $i"; done
+5454                5451                sleep 7001
+5457                5451                sleep 7003
+5460                5451                sleep 7004
+5461                5437                sh -c sleep 7002 &
+21:59:06 RESULT s2.deadline_enforced PASS — stopped 11155 ms after stage ack (deadline 8000 + grace 3000; bound 22500) while the lease kept renewing
+21:59:06 RESULT s2.in_container_timeout_defeated OBSERVED — payload outlived its own 4 s timeout; only the external deadline stopped it
+21:59:06 RESULT s2.children PASS — all 4 evasive children (bg, double-fork, setsid, nohup) seen running; 6 container processes snapshotted (pid+start time); 0 survive
+21:59:06 RESULT s2.end_state PASS — recorded timeout/supervisor/stage_deadline
+21:59:06 RESULT s2.cleanup PASS — 0 containers, volumes or networks left
+21:59:06 == S4a supervisor SIGKILLed, CLI alive
+21:59:09 S4a supervisor killed
+21:59:10 RESULT s4a.cli_recovery PASS — CLI detected the dead supervisor and stopped everything in 543 ms (bound 12000)
+21:59:10 RESULT s4a.end_state PASS — recorded infra_error/cli/supervisor_lost
+21:59:10 RESULT s4a.cleanup PASS — 0 containers, volumes or networks left
+21:59:10 == S4b CLI and supervisor both SIGKILLed; reaper at next start
+21:59:12 S4b both killed
+21:59:22 RESULT s4b.unbounded_until_restart OBSERVED — 3 container(s) still running 10 s after both died: with no enforcer alive, termination waits for the next QB start (documented residual, G5b)
+{"runId":"e4-20261002T215833Z-2397-s4b","decision":"reaped","won":true,"kill_ms":134,"left":{"containers":0,"networks":0,"volumes":0}}
+21:59:23 RESULT s4b.reaper OBSERVED — reaper stopped everything 517 ms and removed it 517 ms after it started
+21:59:23 RESULT s4b.end_state PASS — recorded ABANDONED/reaper/owners_dead
+21:59:23 RESULT s4b.cleanup PASS — 0 containers, volumes or networks left
+21:59:23 == S4c supervisor never becomes ready
+21:59:33 RESULT s4c.no_resources PASS — CLI gave up after the readiness timeout, killed the supervisor, created no Docker resources
+21:59:33 RESULT s4c.end_state PASS — recorded infra_error/cli/supervisor_not_ready
+21:59:33 RESULT s4c.cleanup PASS — 0 containers, volumes or networks left
+21:59:33 == S8 first 'docker kill' hangs; enforcement must continue after docker_op timeout
+21:59:54 RESULT s8.hung_docker PASS — first docker kill hung and was killed after 10000 ms; retry stopped everything 19381 ms after ack (bound 30500)
+21:59:54 RESULT s8.end_state PASS — recorded timeout/supervisor/stage_deadline
+21:59:54 RESULT s8.cleanup PASS — 0 containers, volumes or networks left
+21:59:54 == S6 two writers commit different terminal states at the same instant (200 rounds)
+{"rounds":200,"exactly_one_winner":200,"violations":[]}
+22:00:25 RESULT s6.single_terminal_writer PASS — exactly one winner and a matching file in every round: {"rounds":200,"exactly_one_winner":200,"violations":[]}
+22:00:25 == S7 a live process with the recorded pid but a different start time is not the owner
+{"runId":"e4-20261002T215833Z-2397-s7a","decision":"reaped","won":true,"kill_ms":29,"left":{"containers":0,"networks":0,"volumes":0}}
+{"runId":"e4-20261002T215833Z-2397-s7b","decision":"owner_alive","cliAlive":true,"supAlive":true}
+22:00:25 RESULT s7.pid_reuse PASS — same pid + different start time → reaped; same pid + same start time → left alone
+22:00:25 results: /home/runner/work/_temp/e4-lifecycle/results.md

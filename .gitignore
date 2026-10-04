@@ -36,3 +36,10 @@ intent/node_modules/
 # OS
 Thumbs.db
 ehthumbs.db
+
+# CI test output and evidence (scripts/ci-evidence.js)
+*.tap
+ci-evidence*.json
+
+# Local agent worktrees (never part of the repository)
+.claude/worktrees/

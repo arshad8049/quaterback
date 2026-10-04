@@ -34,8 +34,30 @@ Good criterion: "A user who has never signed up, authenticating via Google for t
 **verification_plan**
 How a verification agent would mechanically check the acceptance criteria. Include: which tests to run, which files to inspect, which behaviors to exercise, which things to confirm did NOT change. Be specific — "run the existing auth test suite" and "confirm the /auth/google/callback route does not exist in the diff outside of the expected files" are useful. "Check the code" is not.
 
+**requirements** (traceability — validated by QB)
+Split the request into requirements: `{ "id": "R-1", "quote": "<an exact, verbatim fragment of the request>" }`. Together the quotes must cover the WHOLE request by position — every clause, including negations ("do not", "never", "without"), numbers, units, operators and code symbols (">= 90%", "!isAdmin", "!==", "()") — every symbol, including sentence punctuation, must be inside a quote, so quote whole clauses; only articles and "and"/"that"/"which" may fall between quotes. A prohibition ("Do not X") is its own requirement with its own criterion. If the same text occurs more than once in the request, add `"occurrence": n` (1-based) to say which one the quote is. A fragment that is only context (e.g. a file location) may be `{ "id": "R-2", "quote": "…", "disposition": "context", "reason": "…" }`. A requirement the request implies but does not state: `{ "id": "R-3", "implied": true, "text": "…", "reason": "…" }`. Every acceptance criterion lists the requirements it covers in `requirement_ids`; every requirement must be covered by at least one criterion (or be context). Criteria that trace to no requirement are rejected as unsupported additions. Cover the ESSENTIAL behaviour of each requirement, not only its shape: "cumulative ms tracked since created" needs a criterion (and a check) that the total grows across events, starts at zero for a new instance, and is independent between instances.
+
+**proposed_defaults** (QB-17 — shown to the human and approved, never silent)
+When the request is silent on a detail you must decide to write testable criteria (what happens when min > max, the error type, an empty input), do NOT bury the choice in a criterion. State it as `{ "id": "D-1", "text": "<your choice>", "reason": "<why a choice was needed>" }` and let the criterion cite it: `"requirement_ids": ["D-1"]`. Every default must be cited by at least one criterion. Explicit requirements are quoted (R-n with quote), inferred ones are `implied` (R-n with a reason), and your own choices are proposed defaults (D-n) — keep the three apart.
+
+**checks**
+Executable checks that prove the behavioural acceptance criteria. Each check is DATA for one approved adapter — never a shell command, never code to evaluate. Anything else is rejected and never run.
+- `module_exports` — params `{ "module": "src/x.js", "export": "name", "type": "function" | "object" | "string" | "number" | "boolean" }`
+- `call_returns` — params `{ "module": "src/x.js", "export": "name", "args": [JSON…], "expect": JSON }`: calling the export with args must return exactly `expect`
+- `call_throws` — params `{ "module": "src/x.js", "export": "name", "args": [JSON…], "message_includes": "optional text" }`
+- `call_sequence` — behaviour over time: `{ "module": "src/vad.js", "export": "AdaptiveVAD", "instances": { "a": { "construct": "new", "args": [] }, "b": { "construct": "new", "args": [] } }, "steps": [{ "on": "a", "method": "onSpeech", "args": [300] }, { "on": "a", "method": "getVADStats", "args": [], "expect": { "speechCount": 1, "totalSpeechMs": 300 } }, { "on": "b", "method": "getVADStats", "args": [], "expect": { "speechCount": 0, "totalSpeechMs": 0 } }] }`
+Every check has a unique `id`, the `ac_id` it proves, and optionally `plan_item` (the 0-based index of the verification_plan step it executes). `module` is a repository-relative .js/.cjs/.mjs path; `export` is an identifier or "default". Give every behavioural criterion at least one check with concrete inputs and expected outputs from the request. A criterion that cannot be checked this way stays unverified.
+Mark a criterion `"kind": "non_behavioral"` only when it is about documentation, naming or wording rather than behaviour.
+A criterion that claims something is NOT broken ("existing tests still pass", "no regressions", "backward compatible") must name the tests that prove it: `"preserves": { "tests": ["test/parser.test.js"] }` (repository-relative test files). Without it the contract is rejected — a preservation claim is decided only by those tests passing.
+
+**scope** (enforced policy, approved by a human)
+`{ "allowed_changes": ["path globs the task may change"], "protected_paths": ["path globs that must not change"] }`. Any change outside allowed_changes is unauthorized and the task cannot pass; any change to a protected path fails it. Being relevant is not permission: list only what the request authorizes. Globs: `**` any depth, `*` within a folder.
+
+**constraint_policy**
+One entry per constraint (0-based index into constraints) saying how it is enforced: `{ "constraint": 0, "enforced_by": [{ "kind": "protected_paths", "ref": "<a glob from scope.protected_paths>" }] }`, `{ "kind": "allowed_changes" }`, `{ "kind": "check", "ref": "<check id>" }`, or `{ "constraint": 1, "advisory": true }` when it cannot be machine-checked. A constraint without an entry stays unresolved.
+
 **relevant_context**
-File paths, API names, database tables, environment variables, or symbols that the coding agent will need. ONLY include these if repository context was provided. If no repo context was given, return an empty array. Never invent file paths.
+File paths, API names, database tables, environment variables, or symbols that the coding agent will need. ONLY include these if repository context was provided (the REPOSITORY SURVEY: the directory tree and the files most relevant to the request). Use the survey to ground names and paths; it never adds requirements — the request decides what to do. If no repo context was given, return an empty array. Never invent file paths.
 
 **ambiguity_flags**
 List any part of the request that has two or more substantially different valid interpretations that would produce meaningfully different implementations. Not every uncertainty is ambiguous — you can make reasonable assumptions for low-stakes details (button placement, error message wording). Flag it when the implementations would diverge in architecture, scope, or user behavior.
@@ -74,10 +96,18 @@ Return ONLY a valid JSON object. No markdown code fences, no explanation, no pre
   "goal": "string",
   "required_behavior": ["string"],
   "constraints": ["string"],
+  "scope": { "allowed_changes": ["src/utils.js"], "protected_paths": ["test/**"] },
+  "constraint_policy": [{ "constraint": 0, "enforced_by": [{ "kind": "protected_paths", "ref": "test/**" }] }],
   "acceptance_criteria": [
-    { "id": "AC-1", "criterion": "string", "met": null }
+    { "id": "AC-1", "criterion": "string", "met": null, "kind": "behavioral", "requirement_ids": ["R-1"] }
   ],
+  "requirements": [{ "id": "R-1", "quote": "verbatim fragment of the request" }],
+  "proposed_defaults": [],
   "verification_plan": ["string"],
+  "checks": [
+    { "id": "CHK-1", "ac_id": "AC-1", "adapter": "call_returns", "plan_item": 0,
+      "params": { "module": "src/utils.js", "export": "clamp", "args": [5, 0, 3], "expect": 3 } }
+  ],
   "relevant_context": ["string or empty array"],
   "ambiguity_flags": ["string or empty array"],
   "clarifying_question": null

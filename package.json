@@ -8,11 +8,20 @@
   },
   "scripts": {
     "start": "node qb.js",
-    "test": "echo 'Run: node qb.js \"<request>\" --repo <path>'"
+    "test": "node --test test/unit/*.test.js",
+    "test:integration": "QB_INTEGRATION=1 node --test test/integration/*.test.js",
+    "test:daemon": "node --test test/daemon/*.test.js",
+    "test:ci": "node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=tap --test-reporter-destination=unit.tap test/unit/*.test.js",
+    "test:integration:ci": "QB_INTEGRATION=1 node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=tap --test-reporter-destination=integration.tap test/integration/*.test.js",
+    "test:daemon:ci": "node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=tap --test-reporter-destination=daemon.tap test/daemon/*.test.js"
   },
   "dependencies": {
+    "acorn": "8.18.0",
     "commander": "^13.1.0",
     "dotenv": "^18.0.1",
     "zod": "^4.6.5"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

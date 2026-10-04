@@ -1,0 +1,59 @@
+# E3 networking results
+
+```
+run_id: e3-20261002T221147Z-2455
+date_utc: 2026-10-02T22:12:01Z
+host: Linux x86_64, kernel 6.17.0-1022-azure
+os: Ubuntu 24.04.5 LTS
+docker_server: 28.0.4 (Docker Engine - Community)
+proxy_base: 
+squid: Squid Cache: Version 6.13
+client_base: 
+evidence: yes
+```
+
+Resolver: **Squid alone** (no filtering-resolver contingency). Policy: [squid.conf](squid.conf).
+
+| Check | Result | Detail |
+|---|---|---|
+| net.interfaces | PASS | no route except loopback, and every non-lo device is down (no external network interface) |
+| net.gateway | PASS | direct TCP to the docker bridge gateway 172.17.0.1:18080 (host service) (rc=1) |
+| net.lan | PASS | direct TCP to the host's LAN IP 10.1.0.231:18080 (rc=1) |
+| net.host_internal | PASS | host.docker.internal is unreachable (rc=1) |
+| net.metadata | PASS | direct TCP to 169.254.169.254:80 (cloud metadata) (rc=1) |
+| net.ipv6 | PASS | direct IPv6 (2606:4700:4700::1111:443) (rc=1) |
+| net.internet | PASS | direct TCP to 1.1.1.1:443 (bypassing the proxy) (rc=1) |
+| net.dns | PASS | resolve example.com (any resolver) (rc=1) |
+| net.dns_explicit | PASS | resolve via 8.8.8.8 explicitly (rc=1) |
+| net.other_run_proxy | PASS | TCP to the other run's proxy 10.233.1.10:3128 (rc=1) |
+| net.other_run_sock | PASS | only this run's socket is visible (the other run's socket volume is not mounted) |
+| sock.unlink | PASS | cannot unlink the proxy socket (read-only mount) (rc=1) |
+| sock.replace | PASS | cannot create files in the socket directory (rc=1) |
+| sock.still_there | PASS | socket still present after the attempts |
+| policy.allowed | PASS | CONNECT to allowlisted api.anthropic.com:443 (CONNECT → 200) |
+| policy.not_listed | PASS | CONNECT to a non-allowlisted host (example.com) (CONNECT → 403) |
+| policy.subdomain | PASS | CONNECT to a subdomain of an allowlisted host (CONNECT → 403) |
+| policy.ip_literal | PASS | CONNECT to an IP literal (1.1.1.1) (CONNECT → 403) |
+| policy.metadata_lit | PASS | CONNECT to 169.254.169.254 (CONNECT → 403) |
+| policy.host_internal | PASS | CONNECT to host.docker.internal (CONNECT → 403) |
+| policy.port | PASS | CONNECT to an allowlisted host on port 80 (CONNECT → 403) |
+| policy.plain_http | PASS | plain (non-CONNECT) HTTP request through the proxy is refused (rc=22) |
+| policy.bypass_fwd | PASS | talking to the socket directly (bypassing the forwarder) is still policed: 403 |
+| policy.exfil_name | PASS | CONNECT to an attacker-chosen name (CONNECT → 403) |
+| policy.exfil_not_resolved | PASS | the resolver never saw exfil-2400721025.attacker.test |
+| dns.public_ok | PASS | allowlisted test name resolving to a public IP (CONNECT → 200) |
+| dns.flip_before | PASS | flip.qb.test before the flip (public IP) (CONNECT → 200) |
+| dns.flip_after | PASS | flip.qb.test after it rebinds to the internal canary 10.233.0.99 (TTL 0) (CONNECT → 403) |
+| dns.mixed | PASS | mixed.qb.test: one public and one denied answer → refused outright (CONNECT → 403) |
+| dns.fallback | PASS | fallback.qb.test: unreachable public answer + denied answer → no failover to the denied one (CONNECT → 403) |
+| dns.canary_untouched | PASS | the internal canary (10.233.0.99:443) received 0 connections across all cases |
+| dns.connected_ip | PASS | every allowed test-name tunnel connected to 172.66.147.243 (from Squid's access log) |
+| dns.no_internal_tunnel | PASS | no allowed tunnel in the access log went to a denied range |
+| flood.after | PASS | allowlisted CONNECT still works after the flood (CONNECT → 200) |
+| flood.proxy_healthy | PASS | 100 concurrent CONNECTs: 100 answered 200; proxy still running, not OOM-killed (mem 23.82MiB / 256MiB, limit 256 MiB) |
+| inspect.consumer | PASS | no published ports, no host network/PID namespace, not privileged, no Docker socket |
+| inspect.proxy | PASS | no published ports, no host network/PID namespace, not privileged, no Docker socket |
+| inspect.consumer_network | PASS | consumer network mode is none |
+| cleanup | PASS | 0 containers, networks or volumes left |
+
+Raw: raw.log (each command and its output), proxy-r0.log (Squid access log), resolver-r0.log, canary-r0.log

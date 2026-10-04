@@ -1,15 +1,22 @@
-const { execSync, spawnSync } = require('child_process');
 const { randomUUID } = require('crypto');
-const path = require('path');
+const { contractState, stateReason, approvalState } = require('../intent/contract-state');
 const { ExecutionResultSchema } = require('./schema');
+const { runSandboxed } = require('../lib/sandbox/pipeline');
 
 /**
  * Execute the briefing against a coding agent (or dry-run).
  *
+ * The coding agent runs only inside the QB sandbox (QB-02, docs/security/
+ * agent-sandbox.md): a disposable workspace seeded from a read-only copy of the
+ * checkout, no network except the inference proxy, changes captured by trusted
+ * code. There is no host-execution path and no environment variable or flag
+ * that selects one.
+ *
  * @param {string} briefing    - Markdown Agent Briefing from briefing.js
  * @param {object} contract    - TaskContract (for IDs)
  * @param {object|null} context - ContextPackage (for IDs + repo path)
- * @param {object} options     - { agent: 'dry-run'|'claude-code'|'manual', repoPath: string }
+ * @param {object} options     - { agent: 'dry-run'|'claude-code'|'manual', repoPath: string, timeoutMs?: number,
+ *                                runSandboxed?: Function (injected by tests only) }
  * @returns {object}           - Validated ExecutionResult
  */
 async function execute(briefing, contract, context, options = {}) {
@@ -17,89 +24,83 @@ async function execute(briefing, contract, context, options = {}) {
   const repo   = options.repoPath || (context?.repo_path) || process.cwd();
 
   const t0 = Date.now();
-  let diff    = null;
-  let status  = 'dry-run';
-  let error   = null;
+  let outcome = {
+    status: 'dry_run', diff: null, changes: [], unsupported_changes: [],
+    base_tree: null, candidate_tree: null,
+    exit_code: null, signal: null, stderr_tail: null, error: null,
+  };
 
-  if (agent === 'claude-code') {
-    ({ diff, status, error } = runClaudeCode(briefing, repo));
+  // Only a finalized (QB-08), human-approved and unchanged (QB-13) contract may reach an agent.
+  const gate = executionGate(contract, { agent, exploration: options.unapprovedExploration === true });
+  if (gate) {
+    outcome = { ...outcome, status: 'blocked', error: gate };
+  } else if (agent === 'claude-code') {
+    // The relevant files, exported from the tested tree if the agent changes nothing (QB-22).
+    const snapshotPaths = (context?.relevant_files || []).map(f => (typeof f === 'string' ? f : f?.path)).filter(p => typeof p === 'string' && p);
+    // QB-16: only registry-accepted checks reach the sandbox; they are not in the briefing.
+    outcome = await runAgentSandboxed(briefing, repo, { ...options, snapshotPaths, checks: Array.isArray(contract.checks) ? contract.checks : [] });
   } else if (agent === 'manual') {
     // Print briefing and wait for the dev to run their agent
     process.stdout.write('\n' + briefing + '\n');
-    status = 'dry-run';
   }
   // dry-run: no invocation, just return the briefing
 
-  const changes = diff ? parseDiff(diff) : [];
-
-  const result = {
+  const result = ExecutionResultSchema.parse({
     id:           randomUUID(),
     contract_id:  contract.id  || 'unknown',
     context_id:   context?.id  || null,
     agent_used:   agent,
-    status,
     duration_ms:  Date.now() - t0,
     generated_at: new Date().toISOString(),
     briefing,
-    changes,
-    diff:  diff  || null,
-    error: error || null,
-  };
-
-  return ExecutionResultSchema.parse(result);
-}
-
-// ─── Claude Code invocation ───────────────────────────────────────────────────
-
-function runClaudeCode(briefing, repoPath) {
-  // claude --print runs non-interactively: reads from stdin, prints output
-  // We pass the briefing as stdin input and capture stdout
-  const result = spawnSync('claude', ['--print', '--dangerously-skip-permissions'], {
-    input:  briefing,
-    cwd:    repoPath,
-    encoding: 'utf8',
-    maxBuffer: 10 * 1024 * 1024,
-    timeout: 10 * 60 * 1000, // 10 min max
+    ...outcome,
   });
-
-  if (result.error) {
-    return { diff: null, status: 'failed', error: result.error.message };
+  // Raw patch bytes and the base listing travel alongside the record, not in it
+  // (not JSON, and never redacted): qb.js stores them as binary artifacts for `qb patch`.
+  for (const k of ['patch_raw', 'base_listing']) {
+    if (outcome[k]) Object.defineProperty(result, k, { value: outcome[k], enumerable: false });
   }
-  if (result.status !== 0) {
-    const msg = result.stderr || `claude exited with code ${result.status}`;
-    return { diff: null, status: 'failed', error: msg };
-  }
-
-  // Capture git diff of unstaged changes after agent ran
-  let diff = null;
-  try {
-    diff = execSync('git diff', { cwd: repoPath, encoding: 'utf8' });
-    if (!diff.trim()) diff = null;
-  } catch (_) {}
-
-  return { diff, status: 'completed', error: null };
+  return result;
 }
 
-// ─── Diff parser ─────────────────────────────────────────────────────────────
-
-function parseDiff(rawDiff) {
-  const changes = {};
-  let currentFile = null;
-
-  for (const line of rawDiff.split('\n')) {
-    if (line.startsWith('diff --git')) {
-      const match = line.match(/b\/(.+)$/);
-      if (match) {
-        currentFile = match[1];
-        changes[currentFile] = { file: currentFile, additions: 0, deletions: 0 };
-      }
-    } else if (currentFile) {
-      if (line.startsWith('+') && !line.startsWith('+++')) changes[currentFile].additions++;
-      else if (line.startsWith('-') && !line.startsWith('---')) changes[currentFile].deletions++;
-    }
-  }
-
-  return Object.values(changes);
+/**
+ * Run the coding agent in the sandbox against `repoPath` (read-only) and return
+ * the ExecutionResult fields. `options.runSandboxed` is a test seam only.
+ */
+async function runAgentSandboxed(briefing, repoPath, options = {}) {
+  const run = options.runSandboxed || runSandboxed;
+  const r = await run({
+    repoPath, briefing,
+    deadlines: options.timeoutMs ? { agent: options.timeoutMs } : undefined,
+    snapshotPaths: options.snapshotPaths,
+    checks: options.checks,
+  });
+  const { status, diff = null, changes = [], unsupported_changes = [], base_tree = null, candidate_tree = null,
+    exit_code = null, signal = null, stderr_tail = null, sandbox = null, patch_raw = null, base_listing = null } = r;
+  return {
+    status, diff, changes, unsupported_changes, base_tree, candidate_tree, exit_code, signal, stderr_tail,
+    patch_raw, base_listing,
+    error: ['completed', 'no_change'].includes(status) ? null : (r.reason || r.error || status),
+    sandbox,
+  };
 }
 
-module.exports = { execute };
+/**
+ * The shared execution boundary (QB-08, QB-13): why a contract may NOT reach an
+ * agent, or null. Every path that can run an agent calls this — the root CLI,
+ * the standalone agent CLI, the benchmark's QB arm and its baseline arm.
+ *   - the contract must be finalized;
+ *   - unless this is a dry run, it must carry a current human approval (a change
+ *     after approval voids it);
+ *   - `exploration` is the only exception: an explicit, recorded mode whose runs
+ *     can never PASS (the verdict needs the same approval).
+ */
+function executionGate(contract, { agent = 'dry-run', exploration = false } = {}) {
+  const cs = contractState(contract);
+  if (cs.state !== 'finalized') return `contract ${stateReason(cs)}`;
+  if (agent === 'dry-run' || exploration) return null;
+  const ap = approvalState(contract);
+  return ap.approved ? null : `contract not approved: ${ap.reason}`;
+}
+
+module.exports = { execute, runAgentSandboxed, executionGate };

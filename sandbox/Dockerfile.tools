@@ -1,0 +1,17 @@
+# Quarterback sandbox: trusted tools image for the seed, capture and keeper
+# containers (agent-sandbox.md §3.1, §6). No repository code ever runs in it.
+#   docker build -f sandbox/Dockerfile.tools -t qb-sandbox-tools sandbox/
+FROM rust:1-slim-bookworm AS build
+WORKDIR /src
+COPY qb-scan/Cargo.toml qb-scan/Cargo.lock ./
+COPY qb-scan/src ./src
+RUN cargo build --release --locked
+
+# git ≥ 2.42 for GIT_ATTR_SOURCE (in-tree .gitattributes are never consulted).
+FROM debian:trixie-slim
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends git ca-certificates jq \
+ && rm -rf /var/lib/apt/lists/*
+COPY --from=build /src/target/release/qb-scan /usr/local/bin/qb-scan
+COPY scripts/ /usr/local/lib/qb/
+RUN chmod 0755 /usr/local/lib/qb/*.sh

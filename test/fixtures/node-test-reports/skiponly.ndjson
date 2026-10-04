@@ -1,0 +1,6 @@
+{"type":"qb:start","format":"qb-node-test-events/1"}
+{"type":"test:pass","name":"a","nesting":0,"file":"/w/skiponly/test/x.test.js","kind":"test","skip":true,"todo":false,"failureType":null}
+{"type":"test:pass","name":"b","nesting":0,"file":"/w/skiponly/test/x.test.js","kind":"test","skip":false,"todo":true,"failureType":null}
+{"type":"test:summary","file":"/w/skiponly/test/x.test.js","counts":{"tests":2,"failed":0,"passed":0,"cancelled":0,"skipped":1,"todo":1,"topLevel":2,"suites":0},"success":true}
+{"type":"test:summary","file":null,"counts":{"tests":2,"failed":0,"passed":0,"cancelled":0,"skipped":1,"todo":1,"topLevel":2,"suites":0},"success":true}
+{"type":"qb:end"}

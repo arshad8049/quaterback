@@ -4,6 +4,7 @@ require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const { Command } = require('commander');
 const fs   = require('fs');
 const path = require('path');
+const { artifactFile } = require('../lib/fsafe');
 const { buildContext } = require('./builder');
 
 const program = new Command();
@@ -51,7 +52,7 @@ program
     if (options.save) {
       const dir     = path.join(__dirname, 'packages');
       fs.mkdirSync(dir, { recursive: true });
-      const outPath = path.join(dir, `${pkg.id}.json`);
+      const outPath = artifactFile(dir, pkg.id);
       fs.writeFileSync(outPath, json, 'utf8');
       process.stderr.write(`  Saved → context/packages/${pkg.id}.json\n\n`);
     }
