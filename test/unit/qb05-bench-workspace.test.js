@@ -110,7 +110,7 @@ describe('bench/run.js', () => {
     const r = spawnSync(process.execPath, [
       '--require', PRELOAD, '--require', PRELOAD_AGENT, path.join(ROOT, 'bench', 'run.js'),
       '--tasks', tasksFile, '--results', path.join(tmp, 'results'),
-      '--no-llm-context', '--max-retries', '1',
+      '--no-llm-context', '--max-retries', '1', '--explore',   // no human oracle: explicit exploration mode (QB-13)
     ], {
       encoding: 'utf8',
       timeout: 60_000,

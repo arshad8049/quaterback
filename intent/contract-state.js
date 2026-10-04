@@ -47,13 +47,15 @@ function contractState(c) {
  * the goal, requirements, criteria (id, text, kind), verification plan and
  * checks; not trusted metadata or per-run results (met).
  */
-function contractHash(c) {
-  const pick = {
+function approvedContent(c) {
+  return {
     goal: c?.goal ?? null, required_behavior: c?.required_behavior ?? [], constraints: c?.constraints ?? [],
     acceptance_criteria: (c?.acceptance_criteria || []).map((a) => ({ id: a.id, criterion: a.criterion, kind: a.kind || 'behavioral' })),
     verification_plan: c?.verification_plan ?? [], checks: c?.checks ?? [],
   };
-  return crypto.createHash('sha256').update(canonical(pick)).digest('hex');
+}
+function contractHash(c) {
+  return crypto.createHash('sha256').update(canonical(approvedContent(c))).digest('hex');
 }
 const canonical = (v) => (Array.isArray(v) ? `[${v.map(canonical).join(',')}]`
   : v && typeof v === 'object' ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${canonical(v[k])}`).join(',')}}`
@@ -78,4 +80,4 @@ function stateReason(s) {
   return s.state === 'invalid' ? `invalid_contract: ${s.errors.join('; ')}` : s.state;
 }
 
-module.exports = { contractState, stateReason, contractHash, approve, approvalState };
+module.exports = { contractState, stateReason, contractHash, approvedContent, approve, approvalState };

@@ -39,6 +39,7 @@ program
   .description('Quarterback benchmark runner')
   .option('--task <id>',         'Run a single task by ID (e.g. T-003)')
   .option('--no-baseline',       'Skip baseline comparison run')
+  .option('--explore',           'Run tasks without a human-approved oracle (exploration: recorded, can never PASS; QB-13)')
   .option('--no-llm-context',    'Skip LLM enrichment in L2 (faster)')
   .option('--max-retries <n>',   'QB repair loop max retries', '3')
   .option('--runs <n>',          'Run the entire task list N times and aggregate', '1')
@@ -227,6 +228,7 @@ async function runQB(task, ws) {
     console.log(`     L1 using the task's human-written oracle (approved by ${task.oracle.approved_by || 'unknown'})`);
   }
   out.oracle = contract.approval ? { approved: true, via: contract.approval.via } : { approved: false, via: null };
+  out.mode = contract.approval ? 'graded' : opts.explore ? 'exploration' : 'blocked';
   out.timing.l1_ms = Date.now() - t;
   out.contract     = contract;
   out.ac_count     = contract.acceptance_criteria?.length || 0;
@@ -235,6 +237,14 @@ async function runQB(task, ws) {
 
   // Only a finalized contract may reach an agent (QB-08). The benchmark has no
   // one to answer a clarification, so the task is blocked in both arms.
+  // QB-13: no agent runs without a human-approved oracle, unless --explore says so explicitly.
+  if (out.mode === 'blocked' && contractState(contract).state === 'finalized') {
+    console.log("     ✗ no human-approved oracle for this task — blocked (add an `oracle` to the task, or run with --explore)");
+    run.event('contract.needs_oracle', {});
+    Object.assign(out, { blocked: 'needs_oracle', attempts: [], final_verdict: 'needs_oracle', first_verdict: 'n/a', total_attempts: 0, files_changed: [] });
+    out.timing.total_ms = out.timing.l1_ms;
+    return out;
+  }
   const cs = contractState(contract);
   if (cs.state !== 'finalized') {
     console.log(`     ✗ contract ${cs.state}${cs.question ? `: ${cs.question}` : cs.errors ? `: ${cs.errors.join('; ')}` : ''} — task blocked`);
@@ -276,6 +286,7 @@ async function runQB(task, ws) {
     t = Date.now();
     execution = await orchestrate(contract, context, {
       agent:       'claude-code',
+      unapprovedExploration: out.mode === 'exploration',
       repoPath,
       repairHints,
       attempt,
@@ -331,7 +342,7 @@ async function runBaselineTask(task, ws, contract) {
   run.setContract(contract);
   run.startAttempt({ attempt: 1, base_sha: ws.baseSha });
 
-  const execution = { id: 'baseline', ...(await runBaseline(task.description, repoPath)) };
+  const execution = { id: 'baseline', ...(await runBaseline(task.description, repoPath, { contract, exploration: Boolean(opts.explore) && !contract.approval })) };
   out.agent_ms      = execution.duration_ms;
   out.status        = execution.status;
   out.error         = execution.error || null;

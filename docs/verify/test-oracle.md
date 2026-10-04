@@ -32,6 +32,13 @@ QB recorded unanimous PASS votes on all three. An oracle written by the same kin
    - **Benchmark:** a task may carry `oracle` (criteria and checks written by a person, plus `approved_by`). It replaces the generated contract for grading. A task without one can't score PASS.
    - **Dry runs** verify nothing and need no oracle.
 
+## Where approval is enforced (review round 2)
+- **One shared execution boundary** (`executionGate` in `agent/runner.js`). Every path that can run an agent calls it: the root CLI, the standalone agent CLI, the benchmark's QB arm, and its baseline arm.
+  - Unless it's a dry run, a contract must be finalized **and** carry a current human approval, or nothing reaches the sandbox: `blocked: contract not approved: not_approved | changed_after_approval | …`.
+- **Standalone agent CLI** (`agent/cli.js`): an `approval` field in the contract file is ignored. Non-dry-run agents need `--approve-contract`, which first shows the full oracle.
+- **Benchmark:** a task without a human oracle is **blocked** (`needs_oracle`), and neither arm runs. `--explore` is an explicit, recorded *exploration* mode: agents run, the result is marked `mode: exploration`, and it can never PASS. The baseline arm is gated the same way and checked with the same approved checks.
+- **The approval view** (`intent/oracle-view.js`) shows exactly what the approval hash covers (`approvedContent`): goal, required behaviour, constraints, criteria with kind, verification plan and every check. It also shows the registry's rejections, QB's own arithmetic, and the hash being frozen.
+
 ## Limitations
 - The arithmetic covers durations only.
 - Approval is only as good as the human's review. QB shows its own arithmetic results to help.

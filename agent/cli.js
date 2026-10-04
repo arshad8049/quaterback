@@ -5,6 +5,9 @@ const path = require('path');
 const { artifactFile } = require('../lib/fsafe');
 const { program } = require('commander');
 const { orchestrate } = require('./orchestrator');
+const { executionGate } = require('./runner');
+const { approve } = require('../intent/contract-state');
+const { formatOracle } = require('../intent/oracle-view');
 
 program
   .name('qb-agent')
@@ -14,12 +17,26 @@ program
   .option('--repo <path>',     'Repo path (defaults to context.repo_path or cwd)')
   .option('--agent <type>',    'Agent to invoke: dry-run | claude-code | manual', 'dry-run')
   .option('--save',            'Save ExecutionResult to agent/executions/{id}.json')
+  .option('--approve-contract',  'I reviewed this contract and approve it as the test oracle (QB-13; required for non-dry-run agents)')
   .parse(process.argv);
 
 const options = program.opts();
 
 async function run() {
-  const contract = JSON.parse(fs.readFileSync(path.resolve(options.contract), 'utf8'));
+  let contract = JSON.parse(fs.readFileSync(path.resolve(options.contract), 'utf8'));
+  // QB-13: a non-dry-run agent needs a human-approved oracle. An approval field in
+  // the file is ignored (anyone can compute a hash); the user approves explicitly.
+  delete contract.approval;
+  if (options.agent !== 'dry-run' && options.approveContract) {
+    console.log(formatOracle(contract));
+    contract = approve(contract, { via: 'agent-cli' });
+  }
+  const gate = executionGate(contract, { agent: options.agent });
+  if (gate) {
+    console.error(`\n  ✗ ${gate}. Review the contract, then rerun with --approve-contract (or approve it in qb).\n`);
+    process.exitCode = 2;
+    return;
+  }
   const context  = options.context
     ? JSON.parse(fs.readFileSync(path.resolve(options.context), 'utf8'))
     : null;

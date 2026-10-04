@@ -27,7 +27,7 @@ const { artifactFile } = require('./lib/fsafe');
 const { inputFromReport } = require('./verify/verdict');
 const { contractState, stateReason, approve } = require('./intent/contract-state');
 const { loadContractFile, proposalForReview } = require('./intent/contract-file');
-const { validateExamples } = require('./intent/examples');
+const { formatOracle } = require('./intent/oracle-view');
 const { git: gitProc }  = require('./lib/proc');
 const { AGENT_VERSION } = require('./lib/sandbox/agent');
 
@@ -432,16 +432,8 @@ function saveArtifact(dir, data, name) {
   fs.writeFileSync(artifactFile(absDir, name || data.id), JSON.stringify(data, null, 2));
 }
 
-/** What a human approves as the test oracle (QB-13): criteria, checks, QB's own arithmetic. */
-function printOracle(contract) {
-  console.log('\n  ── Test oracle (proposed by the model; needs your approval) ──');
-  for (const ac of contract.acceptance_criteria || []) console.log(`     [${ac.id}] (${ac.kind || 'behavioral'}) ${ac.criterion}`);
-  for (const c of contract.checks || []) console.log(`     check ${c.id} → ${c.ac_id}: ${c.adapter} ${JSON.stringify(c.params)}`);
-  if ((contract.checks_rejected || []).length) console.log(`     ${contract.checks_rejected.length} proposed check(s) rejected by the registry`);
-  const ex = validateExamples(contract);
-  if (ex.checked.length) console.log(`     QB recomputed ${ex.checked.length} example(s): all correct`);
-  console.log('');
-}
+/** What a human approves as the test oracle (QB-13): everything the approval covers. */
+function printOracle(contract) { console.log(formatOracle(contract)); }
 
 function prompt(question) {
   return new Promise(resolve => {

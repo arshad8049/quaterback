@@ -10,6 +10,7 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
+const { approve } = require('../../intent/contract-state');   // a human-approved oracle (QB-13)
 const fs = require('fs');
 const path = require('path');
 
@@ -53,7 +54,7 @@ test('the verifier never runs repository tests on the host', () => {
 test('with the pipeline injected, claude-code goes through it (and only it)', async () => {
   const { execute } = require('../../agent/runner');
   let calls = 0;
-  const r = await execute('brief', { id: 'c', goal: 'g', acceptance_criteria: [{ id: 'AC-1', criterion: 'c' }] }, null, {
+  const r = await execute('brief', approve({ id: 'c', goal: 'g', acceptance_criteria: [{ id: 'AC-1', criterion: 'c' }] }, { via: 'test' }), null, {
     agent: 'claude-code', repoPath: '/nonexistent',
     runSandboxed: async (o) => { calls++; assert.equal(o.repoPath, '/nonexistent'); return { status: 'no_change', sandbox: { run_id: 'x' } }; },
   });

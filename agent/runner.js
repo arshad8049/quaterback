@@ -1,5 +1,5 @@
 const { randomUUID } = require('crypto');
-const { contractState, stateReason } = require('../intent/contract-state');
+const { contractState, stateReason, approvalState } = require('../intent/contract-state');
 const { ExecutionResultSchema } = require('./schema');
 const { runSandboxed } = require('../lib/sandbox/pipeline');
 
@@ -30,10 +30,10 @@ async function execute(briefing, contract, context, options = {}) {
     exit_code: null, signal: null, stderr_tail: null, error: null,
   };
 
-  // Only a finalized contract may reach an agent (QB-08).
-  const cs = contractState(contract);
-  if (cs.state !== 'finalized') {
-    outcome = { ...outcome, status: 'blocked', error: `contract ${stateReason(cs)}` };
+  // Only a finalized (QB-08), human-approved and unchanged (QB-13) contract may reach an agent.
+  const gate = executionGate(contract, { agent, exploration: options.unapprovedExploration === true });
+  if (gate) {
+    outcome = { ...outcome, status: 'blocked', error: gate };
   } else if (agent === 'claude-code') {
     // The relevant files, exported from the tested tree if the agent changes nothing (QB-22).
     const snapshotPaths = (context?.relevant_files || []).map(f => (typeof f === 'string' ? f : f?.path)).filter(p => typeof p === 'string' && p);
@@ -85,4 +85,22 @@ async function runAgentSandboxed(briefing, repoPath, options = {}) {
   };
 }
 
-module.exports = { execute, runAgentSandboxed };
+/**
+ * The shared execution boundary (QB-08, QB-13): why a contract may NOT reach an
+ * agent, or null. Every path that can run an agent calls this — the root CLI,
+ * the standalone agent CLI, the benchmark's QB arm and its baseline arm.
+ *   - the contract must be finalized;
+ *   - unless this is a dry run, it must carry a current human approval (a change
+ *     after approval voids it);
+ *   - `exploration` is the only exception: an explicit, recorded mode whose runs
+ *     can never PASS (the verdict needs the same approval).
+ */
+function executionGate(contract, { agent = 'dry-run', exploration = false } = {}) {
+  const cs = contractState(contract);
+  if (cs.state !== 'finalized') return `contract ${stateReason(cs)}`;
+  if (agent === 'dry-run' || exploration) return null;
+  const ap = approvalState(contract);
+  return ap.approved ? null : `contract not approved: ${ap.reason}`;
+}
+
+module.exports = { execute, runAgentSandboxed, executionGate };

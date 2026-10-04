@@ -1,0 +1,31 @@
+/**
+ * intent/oracle-view.js — what a human sees before approving a test oracle (QB-13).
+ *
+ * Shows exactly the content the approval hash covers (contract-state.approvedContent):
+ * goal, required behaviour, constraints, acceptance criteria (with kind), the
+ * verification plan and every check — plus QB's own arithmetic results and the
+ * registry's rejections. Nothing covered by the approval is hidden.
+ */
+
+const { approvedContent, contractHash } = require('./contract-state');
+const { validateExamples } = require('./examples');
+
+function formatOracle(contract) {
+  const c = approvedContent(contract);
+  const L = ['', '  ── Test oracle — review everything below before approving ──'];
+  L.push(`  Goal: ${c.goal}`);
+  const list = (title, items) => { L.push(`  ${title}:`); if (!items.length) L.push('     (none)'); else items.forEach((x) => L.push(`     - ${x}`)); };
+  list('Required behaviour', c.required_behavior.map(String));
+  list('Constraints', c.constraints.map(String));
+  list('Acceptance criteria', c.acceptance_criteria.map((a) => `[${a.id}] (${a.kind}) ${a.criterion}`));
+  list('Verification plan', c.verification_plan.map((p, i) => `${i}. ${p}`));
+  list('Executable checks', c.checks.map((k) => `${k.id} → ${k.ac_id}${k.plan_item !== undefined ? ` (plan ${k.plan_item})` : ''}: ${k.adapter} ${JSON.stringify(k.params)}`));
+  const rejected = contract?.checks_rejected || [];
+  if (rejected.length) list('Rejected by the registry (will not run)', rejected.map((r) => `${r.check && r.check.id ? r.check.id : '?'}: ${r.reason}`));
+  const ex = validateExamples(contract);
+  L.push(`  QB's own arithmetic: ${ex.checked.length} example(s) recomputed and correct${ex.errors.length ? `, ${ex.errors.length} WRONG` : ''}`);
+  L.push(`  Approval will freeze this exact content: ${contractHash(contract).slice(0, 16)}`, '');
+  return L.join('\n');
+}
+
+module.exports = { formatOracle };

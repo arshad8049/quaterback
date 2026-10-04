@@ -190,3 +190,115 @@ describe('entry points: the human approves before anything runs', () => {
     assert.notEqual(res('X-2').final_verdict, 'pass');
   });
 });
+
+// ── KAN-13 review (68122d8): approval is enforced at the shared execution boundary ──
+describe('shared execution boundary: no agent without a current human approval', () => {
+  const { execute } = require('../../agent/runner');
+  const { runBaseline } = require('../../bench/baseline');
+  const spy = () => { const s = { calls: 0, args: null }; s.fn = async (a) => { s.calls++; s.args = a; return { status: 'completed', changes: [] }; }; return s; };
+  const ex = (contract, agent = 'claude-code', extra = {}) => { const s = spy(); return execute('brief', contract, null, { agent, repoPath: '/r', runSandboxed: s.fn, ...extra }).then((r) => ({ r, s })); };
+
+  test('a finalized but unapproved contract never reaches the sandbox', async () => {
+    const { r, s } = await ex(BASE);
+    assert.equal(s.calls, 0);
+    assert.deepEqual([r.status, r.error], ['blocked', 'contract not approved: not_approved']);
+  });
+  test('approved, then the goal changed → blocked before the sandbox', async () => {
+    const { r, s } = await ex({ ...approve(BASE, { via: 'interactive' }), goal: 'something else' });
+    assert.equal(s.calls, 0);
+    assert.equal(r.error, 'contract not approved: changed_after_approval');
+  });
+  test('the manual agent is gated too; a dry run needs no oracle', async () => {
+    assert.equal((await ex(BASE, 'manual')).r.status, 'blocked');
+    assert.equal((await ex(BASE, 'dry-run')).r.status, 'dry_run');
+  });
+  test('approved → runs; the explicit exploration mode is the only unapproved path', async () => {
+    assert.equal((await ex(approve(BASE, { via: 'interactive' }))).s.calls, 1);
+    assert.equal((await ex(BASE, 'claude-code', { unapprovedExploration: true })).s.calls, 1);
+  });
+  test('benchmark baseline: same gate, and the same approved checks', async () => {
+    const s1 = spy();
+    const blocked = await runBaseline('task', '/r', { contract: BASE, runSandboxed: s1.fn });
+    assert.deepEqual([blocked.status, s1.calls], ['blocked', 0]);
+    const s2 = spy();
+    await runBaseline('task', '/r', { contract: approve(BASE, { via: 'benchmark-oracle' }), runSandboxed: s2.fn });
+    assert.equal(s2.calls, 1);
+    assert.deepEqual(s2.args.checks, BASE.checks);
+  });
+});
+
+describe('the approval view shows everything the approval covers', () => {
+  test('goal, required behaviour, constraints, criteria, plan and checks are all shown', () => {
+    const { formatOracle } = require('../../intent/oracle-view');
+    const c = { ...BASE, goal: 'GOAL-x', required_behavior: ['REQ-x'], constraints: ['CON-x'], verification_plan: ['PLAN-x'],
+      acceptance_criteria: [{ id: 'AC-1', criterion: 'CRIT-x', kind: 'behavioral' }] };
+    const text = formatOracle(c);
+    for (const needle of ['GOAL-x', 'REQ-x', 'CON-x', 'CRIT-x', 'PLAN-x', 'CHK-1', '"expect":3', contractHash(c).slice(0, 16)]) {
+      assert.ok(text.includes(needle), `missing ${needle}`);
+    }
+    const { approvedContent } = require('../../intent/contract-state');
+    assert.deepEqual(Object.keys(approvedContent(c)).sort(),
+      ['acceptance_criteria', 'checks', 'constraints', 'goal', 'required_behavior', 'verification_plan'], 'a new hashed field must be added to the view');
+  });
+});
+
+describe('standalone agent CLI and benchmark honour the boundary', () => {
+  const PRELOAD = path.join(__dirname, '..', 'helpers', 'preload-ollama.js');
+  const PRELOAD_AGENT = path.join(__dirname, '..', 'helpers', 'preload-fake-sandbox.js');
+  let tmp, repo, marker, script, file;
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'qb13b-'));
+    repo = makeRepo({ 'src/u.js': 'module.exports = {};\n' });
+    marker = path.join(tmp, 'AGENT-RAN');
+    script = path.join(tmp, 'agent.json');
+    fs.writeFileSync(script, JSON.stringify({ steps: [{ touch: marker }, { write: 'src/u.js', content: 'x\n' }] }));
+    file = path.join(tmp, 'contract.json');
+  });
+  afterEach(() => { repo.cleanup(); fs.rmSync(tmp, { recursive: true, force: true }); });
+  const env = () => ({ ...process.env, QB_FAKE_AGENT_SCRIPT: script, QB_RUNS_DIR: path.join(tmp, 'runs'), QB_MEMORY_DIR: path.join(tmp, 'mem'),
+    QB_TEST_OLLAMA_REPLY: JSON.stringify({ goal: 'Add clamp', required_behavior: ['clamp'], constraints: [], verification_plan: ['call clamp'],
+      relevant_context: [], ambiguity_flags: [], clarifying_question: null, acceptance_criteria: [{ id: 'AC-1', criterion: 'clamp bounds n' }], checks: BASE.checks }) });
+  const agentCli = (extra = []) => spawnSync(process.execPath, ['--require', PRELOAD_AGENT, path.join(ROOT, 'agent', 'cli.js'),
+    '--contract', file, '--agent', 'claude-code', '--repo', repo.dir, ...extra], { encoding: 'utf8', timeout: 30_000, env: env() });
+
+  test('agent/cli.js: unapproved → exit 2, the agent never runs', () => {
+    fs.writeFileSync(file, JSON.stringify(BASE));
+    const r = agentCli();
+    assert.equal(r.status, 2, r.stdout + r.stderr);
+    assert.match(r.stderr, /contract not approved/);
+    assert.equal(fs.existsSync(marker), false);
+  });
+  test('agent/cli.js: an approval written into the file is ignored', () => {
+    fs.writeFileSync(file, JSON.stringify(approve(BASE, { via: 'forged' })));
+    assert.equal(agentCli().status, 2);
+    assert.equal(fs.existsSync(marker), false);
+  });
+  test('agent/cli.js: --approve-contract (shown the full oracle first) → runs', () => {
+    fs.writeFileSync(file, JSON.stringify(BASE));
+    const r = agentCli(['--approve-contract']);
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.match(r.stdout, /Test oracle — review everything below/);
+    assert.ok(fs.existsSync(marker), 'the agent ran');
+  });
+
+  const bench = (extra = []) => {
+    const tasks = path.join(tmp, 'tasks.json');
+    fs.writeFileSync(tasks, JSON.stringify({ meta: { repo: repo.dir, base_rev: 'HEAD' }, tasks: [{ id: 'X-1', difficulty: 'easy', tags: [], description: 'Add clamp' }] }));
+    const r = spawnSync(process.execPath, ['--require', PRELOAD, '--require', PRELOAD_AGENT, path.join(ROOT, 'bench', 'run.js'),
+      '--tasks', tasks, '--results', path.join(tmp, 'results'), '--no-llm-context', '--max-retries', '1', ...extra], { encoding: 'utf8', timeout: 60_000, env: env() });
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    return JSON.parse(fs.readFileSync(path.join(tmp, 'results', fs.readdirSync(path.join(tmp, 'results'))[0]), 'utf8'));
+  };
+  test('benchmark without an oracle: blocked (needs_oracle), no agent in either arm', () => {
+    const res = bench();
+    assert.deepEqual([res.qb.mode, res.qb.blocked, res.baseline], ['blocked', 'needs_oracle', undefined]);
+    assert.equal(fs.existsSync(marker), false);
+  });
+  test('benchmark --explore: an explicit, recorded mode that runs but can never PASS', () => {
+    const res = bench(['--explore']);
+    assert.equal(res.qb.mode, 'exploration');
+    assert.ok(fs.existsSync(marker), 'exploration runs the agent');
+    assert.notEqual(res.qb.final_verdict, 'pass');
+    assert.notEqual(res.baseline.verdict, 'pass');
+  });
+});
