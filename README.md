@@ -240,6 +240,11 @@ An agent that changed nothing passes only if the requirement is independently ve
 - unsupported additions and duplicates block execution;
 - `call_sequence` checks prove behaviour over time.
 
+**Repairs that are actually proven** (QB-23, [docs/memory/repairs.md](docs/memory/repairs.md)):
+- every repair hint is linked to the next patch and to its criterion's re-evaluation;
+- only a criterion fixed on a changed patch in a run that ends in an approved PASS counts as a proven repair;
+- unconfirmed, unresolved and abandoned suggestions are kept, labeled, and never recalled as proven fixes.
+
 **Judge evidence with provenance** (QB-11, [docs/verify/evidence.md](docs/verify/evidence.md)):
 - the judge sees whole changed hunks, ranked within a budget (no silent 6,000-character cut);
 - it also sees the definitions of the helpers the change calls, from the tested tree, unchanged code included — resolved through the module's actual export binding, never the first declaration;

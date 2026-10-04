@@ -25,6 +25,7 @@ const { defaultJudgeCacheDir } = require('./verify/judge-cache');
 const budget = require('./lib/budget');            // QB-21: deadlines, cancellation, usage
 const { sendMetrics } = require('./lib/telemetry');
 const memory           = require('./memory');
+const { attemptEntry } = require('./memory/repairs');
 const runStore         = require('./run/store');
 const { artifactFile } = require('./lib/fsafe');
 const { inputFromReport } = require('./verify/verdict');
@@ -267,9 +268,11 @@ async function main() {
   let previousPatch;                 // QB-10: no-progress detection across attempts
   let repairHints = priorRepairs.map(r => ({
     criterion_id:  r.criterion_id,
-    diagnosis:     r.diagnosis,
+    // QB-23: say what memory knows — a proven fix vs an unconfirmed or legacy suggestion
+    diagnosis:     `[${r.proven ? 'proven fix from a past run' : 'past suggestion, not proven'}] ${r.diagnosis}`,
     suggested_fix: r.fix,
   }));
+  const attemptHistory = [];         // QB-23: append-only, one entry per verified attempt
 
   while (attempt < maxRetries) {
     attempt++;
@@ -333,6 +336,7 @@ async function main() {
       verifyInput: inputFromReport(report, execution),
       checks:      runStore.checksFor(attempt, execution),
     });
+    attemptHistory.push(attemptEntry(attempt, report, (run.manifest.attempts.find(a => a.attempt === attempt) || {}).patch_sha256));
     // Exact patch bytes and touched-path baseline for `qb patch` (QB-02 §9.3).
     if (execution.patch_raw) run.artifact(`a${attempt}-patch-raw`, execution.patch_raw, { ext: 'bin' });
     if (execution.base_listing) run.artifact(`a${attempt}-base-ls`, execution.base_listing, { ext: 'bin' });
@@ -387,7 +391,7 @@ async function main() {
 
   // ── Layer 5: Memory — persist this run ────────────────────────────────────
   budgetRun.stage('L5 memory');
-  await memory.remember(repoPath, contract, { ...report, attempts: attempt }, execution);
+  await memory.remember(repoPath, contract, { ...report, attempts: attempt }, execution, { history: attemptHistory, runId: run.manifest.run_id });
   const memStats = memory.stats(repoPath);
   log('L5', `Memory updated  (${memStats.total_runs} run(s), ${memStats.files_tracked} file(s) tracked)`);
 

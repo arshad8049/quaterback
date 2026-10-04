@@ -16,6 +16,7 @@ const { randomUUID }   = require('crypto');
 const store            = require('./store');
 const { tokenize, scoreOutcome, scoreRepair } = require('./scorer');
 const { OutcomeRecordSchema, RepairRecordSchema } = require('./schema');
+const { linkRepairs } = require('./repairs');
 
 const RECALL_THRESHOLD  = 0.08;  // minimum Jaccard to surface a result
 const MAX_RECALL        = 5;     // cap returned results
@@ -31,8 +32,10 @@ const MAX_FILE_HINTS    = 8;     // cap file hints passed to L2
  * @param {object} contract   - TaskContract from L1
  * @param {object} report     - VerificationReport from L4
  * @param {object} execution  - ExecutionResult from L3 (optional in dry-run)
+ * @param {object} [run]      - QB-23: { history, runId } — the append-only attempt history
+ *                              (memory/repairs.js attemptEntry per verified attempt)
  */
-async function remember(repoPath, contract, report, execution = null) {
+async function remember(repoPath, contract, report, execution = null, { history = null, runId = null } = {}) {
   if (!repoPath || !contract || !report) return;
 
   const keywords     = tokenize(contract.goal || contract.raw_request || '');
@@ -51,6 +54,9 @@ async function remember(repoPath, contract, report, execution = null) {
     ac_count:      contract.acceptance_criteria?.length || 0,
     duration_ms:   execution?.duration_ms || 0,
     contract_id:   contract.id,
+    ...(runId ? { run_id: runId } : {}),
+    ...(history ? { attempt_history: history.map(a => ({ attempt: a.attempt, patch_sha256: a.patch_sha256, evidence_sha256: a.evidence_sha256,
+      report_id: a.report_id, verdict: a.verdict, oracle_approved: a.oracle_approved })) } : {}),
   });
   store.appendOutcome(repoPath, outcome);
 
@@ -59,26 +65,50 @@ async function remember(repoPath, contract, report, execution = null) {
     store.updateFileStats(repoPath, changedFiles, keywords);
   }
 
-  // Repair records (only when repairs actually fired and were successful on retry)
-  const repairs = report.repair_hints || [];
-  if (repairs.length > 0 && report.verdict !== 'fail') {
-    for (const hint of repairs) {
-      const record = RepairRecordSchema.parse({
-        id:               randomUUID(),
-        ts:               new Date().toISOString(),
-        repo_path:        repoPath,
-        goal_keywords:    keywords,
-        failed_criterion: hint.criterion_id || '',
-        crit_keywords:    tokenize(hint.diagnosis || ''),
-        diagnosis:        hint.diagnosis || '',
-        fix:              hint.suggested_fix || '',
-        resolved:         true,
-        contract_id:      contract.id,
-      });
-      store.appendRepair(repoPath, record);
-    }
+  // Repair records (QB-23): every hint the run produced, linked to the patch that
+  // followed it and to the hinted criterion's re-evaluation. Only `resolved` (met on a
+  // changed patch AND the run ended in an approved PASS) is a proven repair; the rest
+  // are kept, append-only, with their outcome. Without the attempt history nothing can
+  // be linked, so nothing is recorded as a repair.
+  for (const link of history ? linkRepairs(history) : []) {
+    const record = RepairRecordSchema.parse({
+      id:               randomUUID(),
+      ts:               new Date().toISOString(),
+      repo_path:        repoPath,
+      goal_keywords:    keywords,
+      failed_criterion: link.criterion_id,
+      crit_keywords:    tokenize(`${criterionText(contract, link.criterion_id)} ${link.diagnosis}`),
+      diagnosis:        link.diagnosis,
+      fix:              link.fix,
+      resolved:         link.resolved,
+      contract_id:      contract.id,
+      schema:           2,
+      run_id:           runId,
+      source:           link.source,
+      outcome:          link.outcome,
+      reason:           link.reason,
+      from_attempt:     link.from_attempt,
+      to_attempt:       link.to_attempt,
+      patch_before_sha256: link.patch_before_sha256,
+      patch_after_sha256:  link.patch_after_sha256,
+      evidence_before_sha256: link.evidence_before_sha256,
+      evidence_after_sha256:  link.evidence_after_sha256,
+      before:           link.before,
+      after:            link.after,
+      final:            link.final,
+    });
+    store.appendRepair(repoPath, record);
   }
 }
+
+const criterionText = (contract, id) => ((contract.acceptance_criteria || []).find(a => a.id === id) || {}).criterion || '';
+
+/** QB-23: what a stored repair record establishes. */
+function repairStatus(rec) {
+  if (rec.schema !== 2) return 'legacy_unverified';     // pre-QB-23: `resolved` was never established
+  return rec.outcome;
+}
+const RECALLED = new Set(['resolved', 'observed_resolved_unconfirmed', 'legacy_unverified']);
 
 // ── Read ───────────────────────────────────────────────────────────────────────
 
@@ -140,7 +170,8 @@ function recallFiles(repoPath, goal) {
  *
  * @param {string} repoPath
  * @param {Array<{id, criterion}>} criteria  - current contract's ACs
- * @returns {Array<{criterion_id, diagnosis, fix, score}>}
+ * @returns {Array<{criterion_id, diagnosis, fix, score, status, proven}>}
+ *   status: resolved (proven) | observed_resolved_unconfirmed | legacy_unverified
  */
 function recallRepairs(repoPath, criteria = []) {
   if (!criteria.length) return [];
@@ -152,14 +183,21 @@ function recallRepairs(repoPath, criteria = []) {
     const queryKws = tokenize(ac.criterion || '');
     let best = null;
     for (const rec of repairs) {
+      const status = repairStatus(rec);
+      if (!RECALLED.has(status)) continue;               // failed / abandoned suggestions are not recalled as fixes
       const sim = scoreRepair(queryKws, rec);
       if (sim < RECALL_THRESHOLD) continue;
-      if (!best || sim > best.score) {
+      const proven = status === 'resolved';
+      // proven repairs rank above unconfirmed observations and legacy records
+      if (!best || (proven && !best.proven) || (proven === best.proven && sim > best.score)) {
         best = {
           criterion_id: ac.id,
           diagnosis:    rec.diagnosis,
           fix:          rec.fix,
           score:        sim,
+          status,
+          proven,
+          ...(rec.schema === 2 ? { from_run: rec.run_id ?? null, patch_after_sha256: rec.patch_after_sha256 ?? null } : {}),
         };
       }
     }
@@ -202,9 +240,10 @@ function stats(repoPath) {
     passes,
     fails,
     repairs_saved: repairs.length,
+    repairs_proven: repairs.filter(r => repairStatus(r) === 'resolved').length,
     files_tracked: Object.keys(fileStats).length,
     memory_dir:    store.repoMemoryPath(repoPath),
   };
 }
 
-module.exports = { remember, recallFiles, recallRepairs, recallPrior, stats };
+module.exports = { remember, recallFiles, recallRepairs, recallPrior, stats, repairStatus };

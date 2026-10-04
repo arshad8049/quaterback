@@ -14,6 +14,7 @@
  *       { "touch":  "/abs/path/outside" },
  *       { "exit":   3 }
  *   ] }
+ *   or { "attempts": [ { "steps": [...] }, … ] } with QB_FAKE_AGENT_COUNTER (one script per run)
  *
  * stdin (the briefing) is drained and ignored.
  */
@@ -23,6 +24,14 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 
 const script = JSON.parse(fs.readFileSync(process.env.QB_FAKE_AGENT_SCRIPT, 'utf8'));
+// { "attempts": [ { "steps": [...] }, { "steps": [...] } ] } — a different script per
+// invocation (repair attempts), counted in the file named by QB_FAKE_AGENT_COUNTER.
+if (Array.isArray(script.attempts)) {
+  const counter = process.env.QB_FAKE_AGENT_COUNTER;
+  const n = counter && fs.existsSync(counter) ? Number(fs.readFileSync(counter, 'utf8')) || 0 : 0;
+  if (counter) fs.writeFileSync(counter, String(n + 1));
+  script.steps = (script.attempts[Math.min(n, script.attempts.length - 1)] || {}).steps || [];
+}
 
 try { fs.readFileSync(0); } catch (_) {}
 
