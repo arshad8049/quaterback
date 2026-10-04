@@ -58,12 +58,19 @@ function testsFromSandbox(execution) {
  *     confirmed_added      a real binding in ADDED code (JS parsed with acorn)
  *     confirmed_unchanged  a real binding in unchanged code shown as diff context
  *                          (pre-existing)
- *     hint                 the hunk did not parse on its own; the name appears as an
- *                          identifier token in added code (comments/strings skipped
- *                          where tokenizable) — heuristic
+ *     hint                 heuristic: the hunk did not parse on its own (the name is an
+ *                          identifier token in added code; comments/strings skipped
+ *                          where tokenizable), or the hunk alone cannot establish the
+ *                          binding (an export inside a function, or an indented one in
+ *                          a hunk that may sit inside an unseen scope)
  *     not_in_diff          not seen in the changed hunks: UNKNOWN. Unchanged code may
  *                          already implement it; absence from the diff is never
  *                          evidence of absence.
+ *   symbols[name].exported is about the PUBLIC name; aliases are kept apart:
+ *     exported_as { publicName: status }  this LOCAL binding exported under another
+ *                          name ("module.exports" / "default" = the module itself)
+ *     local                the local binding behind this exported name, if different
+ *     from                 the source module of a re-export
  *   symbols[name].returns  yes | no — from that function's OWN parsed body (a
  *                          return in another function does not count) | unknown
  *   keywords.found / not_found  contract words in ADDED lines only (search hints)
@@ -86,7 +93,10 @@ function parseDiff(diff) {
     const g = /^diff --git a\/.+ b\/(.+)$/.exec(line);
     if (g) { file = { path: g[1], hunks: [] }; files.push(file); hunk = null; continue; }
     if (!file) continue;
-    if (line.startsWith('@@')) { hunk = { lines: [] }; file.hunks.push(hunk); continue; }
+    if (line.startsWith('@@')) {
+      const m = /^@@ -\d+(?:,\d+)? \+(\d+)/.exec(line);
+      hunk = { start: m ? Number(m[1]) : 0, lines: [] }; file.hunks.push(hunk); continue;
+    }
     if (!hunk || line.startsWith('+++') || line.startsWith('---')) continue;
     if (line.startsWith('+')) hunk.lines.push({ text: line.slice(1), added: true });
     else if (line.startsWith(' ')) hunk.lines.push({ text: line.slice(1), added: false });
@@ -102,22 +112,112 @@ function tryParse(code) {
   return null;
 }
 
-/** Depth-first walk over an acorn AST. visit(node, parent) */
-function walk(node, visit, parent = null) {
+/** Depth-first walk over an acorn AST. visit(node, ancestors) — ancestors outermost first. */
+function walk(node, visit, ancestors = []) {
   if (!node || typeof node.type !== 'string') return;
-  visit(node, parent);
+  visit(node, ancestors);
+  const inner = ancestors.concat(node);
   for (const key of Object.keys(node)) {
     if (key === 'loc') continue;
     const v = node[key];
-    if (Array.isArray(v)) v.forEach((c) => c && typeof c.type === 'string' && walk(c, visit, node));
-    else if (v && typeof v.type === 'string') walk(v, visit, node);
+    if (Array.isArray(v)) v.forEach((c) => c && typeof c.type === 'string' && walk(c, visit, inner));
+    else if (v && typeof v.type === 'string') walk(v, visit, inner);
   }
 }
 
 const isFn = (n) => n && /^(FunctionExpression|ArrowFunctionExpression|FunctionDeclaration|ClassExpression|ClassDeclaration)$/.test(n.type);
-const propName = (k) => (k ? (k.type === 'Identifier' ? k.name : k.type === 'Literal' ? String(k.value) : null) : null);
-const isModuleExports = (n) => n && n.type === 'MemberExpression' && n.object?.name === 'module' && propName(n.property) === 'exports';
-const isExportsTarget = (n) => n && n.type === 'MemberExpression' && (n.object?.name === 'exports' || isModuleExports(n.object));
+const isFunction = (n) => n && /^(FunctionExpression|ArrowFunctionExpression|FunctionDeclaration)$/.test(n.type);
+/**
+ * A property / member key as a literal name. A computed key is a name only when it
+ * is a string literal (`exports["clamp"]`); `exports[k]` / `{ [k]: … }` name
+ * whatever k holds at run time, which is not resolved here → null.
+ */
+function keyName(key, computed) {
+  if (!key) return null;
+  if (key.type === 'Literal' && typeof key.value === 'string') return key.value;
+  if (key.type === 'TemplateLiteral' && !key.expressions.length) return key.quasis[0].value.cooked;
+  if (computed) return null;
+  return key.type === 'Identifier' ? key.name : key.type === 'Literal' ? String(key.value) : null;
+}
+const memberName = (m) => keyName(m.property, m.computed);
+const exportName = (n) => (n ? (n.type === 'Identifier' ? n.name : n.type === 'Literal' ? String(n.value) : null) : null);
+
+// ─── Scope (QB-12 re-review): is `module` / `exports` the CommonJS one here? ──
+
+/** Names bound by a pattern (params, declarators, catch params). */
+function patternNames(p, out = []) {
+  if (!p) return out;
+  if (p.type === 'Identifier') out.push(p.name);
+  else if (p.type === 'ObjectPattern') p.properties.forEach((q) => patternNames(q.type === 'RestElement' ? q.argument : q.value, out));
+  else if (p.type === 'ArrayPattern') p.elements.forEach((e) => patternNames(e, out));
+  else if (p.type === 'AssignmentPattern') patternNames(p.left, out);
+  else if (p.type === 'RestElement') patternNames(p.argument, out);
+  return out;
+}
+
+/** `var` names and function declarations hoisted to `root`'s function scope (nested functions not entered). */
+function hoisted(root, out) {
+  const visit = (n) => {
+    if (!n || typeof n.type !== 'string') return;
+    if (n !== root && isFunction(n)) { if (n.type === 'FunctionDeclaration' && n.id) out.add(n.id.name); return; }
+    if (n.type === 'VariableDeclaration' && n.kind === 'var') n.declarations.forEach((d) => patternNames(d.id).forEach((x) => out.add(x)));
+    for (const key of Object.keys(n)) {
+      if (key === 'loc') continue;
+      const v = n[key];
+      if (Array.isArray(v)) v.forEach(visit); else if (v && typeof v.type === 'string') visit(v);
+    }
+  };
+  visit(root);
+}
+
+/** Lexical (let/const/class/function-in-block) names declared directly in a statement list. */
+function lexical(stmts, out) {
+  for (const s of stmts || []) {
+    const d = s && (s.type === 'ExportNamedDeclaration' ? s.declaration : s);
+    if (!d) continue;
+    if (d.type === 'VariableDeclaration' && d.kind !== 'var') d.declarations.forEach((v) => patternNames(v.id).forEach((x) => out.add(x)));
+    else if ((d.type === 'ClassDeclaration' || d.type === 'FunctionDeclaration') && d.id) out.add(d.id.name);
+    else if (d.type === 'ImportDeclaration') d.specifiers.forEach((sp) => out.add(sp.local.name));
+  }
+}
+
+const scopeCache = new WeakMap();
+/** The names a scope-creating node declares (memoized per node). */
+function declaredBy(node) {
+  if (scopeCache.has(node)) return scopeCache.get(node);
+  const out = new Set();
+  if (isFunction(node)) {
+    node.params.forEach((p) => patternNames(p).forEach((x) => out.add(x)));
+    if (node.type === 'FunctionExpression' && node.id) out.add(node.id.name);
+    hoisted(node, out);
+    if (node.body?.type === 'BlockStatement') lexical(node.body.body, out);
+  } else if (node.type === 'Program') {
+    hoisted(node, out);
+    lexical(node.body, out);
+  } else if (node.type === 'BlockStatement' || node.type === 'StaticBlock') lexical(node.body, out);
+  else if (node.type === 'SwitchStatement') node.cases.forEach((c) => lexical(c.consequent, out));
+  else if (node.type === 'CatchClause') patternNames(node.param).forEach((x) => out.add(x));
+  else if (/^For(In|Of)?Statement$/.test(node.type)) {
+    const d = node.init || node.left;
+    if (d?.type === 'VariableDeclaration' && d.kind !== 'var') d.declarations.forEach((v) => patternNames(v.id).forEach((x) => out.add(x)));
+  } else if (node.type === 'ClassExpression' && node.id) out.add(node.id.name);
+  scopeCache.set(node, out);
+  return out;
+}
+const shadowed = (name, ancestors) => ancestors.some((a) => declaredBy(a).has(name));
+
+/**
+ * Which CommonJS export object a member target writes to: the root identifier
+ * ('exports' for exports.x, 'module' for module.exports.x), or null.
+ */
+function cjsRoot(target) {
+  if (!target || target.type !== 'MemberExpression') return null;
+  const o = target.object;
+  if (o?.type === 'Identifier' && o.name === 'exports') return 'exports';
+  if (isModuleExports(o)) return 'module';
+  return null;
+}
+const isModuleExports = (n) => n && n.type === 'MemberExpression' && n.object?.type === 'Identifier' && n.object.name === 'module' && memberName(n) === 'exports';
 
 /** Whether a function's OWN body returns a value (nested functions don't count). */
 function ownReturn(fn) {
@@ -139,38 +239,104 @@ function ownReturn(fn) {
   return found ? 'yes' : 'no';
 }
 
-/** Bindings and exports for `names` in one parsed hunk. */
-function analyzeAst(ast, addedLine, names, out, filePath) {
+/**
+ * Bindings and exports for `names` in one parsed hunk.
+ *
+ * `exported` is about the PUBLIC name: symbols.clamp.exported means a consumer can
+ * reach `clamp` by that name. A local binding exported under another name is
+ * recorded on the local as `exported_as: { other: status }` and on the public
+ * name as `local: "clamp"`; `module.exports = clamp` / `export default clamp`
+ * export the module itself (`exported_as: { "module.exports" | "default": … }`).
+ * Re-exports carry `from`.
+ *
+ * CommonJS writes count only when `module` / `exports` is the module's own
+ * binding: shadowed by a parameter, local, catch parameter or hoisted var, or
+ * `exports` rebound to a fresh object → not a module export (a function written
+ * there is only a hint of a definition). A write inside a function in the hunk
+ * runs only if that function is called → hint. The hunk is a fragment: when it
+ * starts below the top of the file and the statement is indented, it may sit
+ * inside a function the diff does not show → hint, never confirmed.
+ */
+function analyzeAst(ast, addedLine, names, out, filePath, hunkStart) {
   const where = (node) => (addedLine(node.loc.start.line) ? 'confirmed_added' : 'confirmed_unchanged');
-  const define = (name, node, fn) => {
+  const define = (name, node, fn, status = where(node)) => {
     if (!names.has(name)) return;
     const s = out[name];
-    const w = where(node);
-    if (RANK[w] > RANK[s.defined]) { s.defined = w; s.returns = ownReturn(fn); s.file = filePath; }
+    if (RANK[status] > RANK[s.defined]) { s.defined = status; s.returns = ownReturn(fn); s.file = filePath; }
   };
-  const exportOf = (name, node) => { if (names.has(name)) out[name].exported = better(out[name].exported, where(node)); };
+  const exportOf = (pub, local, status, from = null) => {
+    if (pub !== null && names.has(pub)) {
+      const s = out[pub];
+      s.exported = better(s.exported, status);
+      if (local && local !== pub) s.local = local;
+      if (from) s.from = from;
+    }
+    if (!from && local && local !== pub && names.has(local)) {
+      const ex = (out[local].exported_as ||= {});
+      const key = pub === null ? '(computed name)' : pub;
+      ex[key] = better(ex[key] || 'not_in_diff', pub === null ? 'hint' : status);
+    }
+  };
 
-  walk(ast, (n) => {
+  // `exports = {…}` (not `exports = module.exports = …`) detaches exports from the module.
+  let exportsRebound = false;
+  walk(ast, (n, anc) => {
+    if (n.type === 'AssignmentExpression' && n.left.type === 'Identifier' && n.left.name === 'exports' && !shadowed('exports', anc)) {
+      const r = n.right;
+      if (!(isModuleExports(r) || (r.type === 'AssignmentExpression' && isModuleExports(r.left)))) exportsRebound = true;
+    }
+  });
+
+  const cjsStatus = (n, anc, root) => {
+    if (shadowed(root, anc) || (root === 'exports' && exportsRebound)) return null;   // not the module's binding
+    if (anc.some(isFunction)) return 'hint';                                           // runs only if called
+    const stmt = anc[1] || n;
+    if (hunkStart > 1 && stmt.loc.start.column > 0) return 'hint';                     // maybe in an unseen scope
+    return where(n);
+  };
+  const localOf = (v) => (v?.type === 'Identifier' ? v.name : isFn(v) && v.id ? v.id.name : null);
+
+  walk(ast, (n, anc) => {
     if (n.type === 'FunctionDeclaration' || n.type === 'ClassDeclaration') { if (n.id) define(n.id.name, n, n); }
     else if (n.type === 'VariableDeclarator' && n.id?.type === 'Identifier' && isFn(n.init)) define(n.id.name, n, n.init);
-    else if ((n.type === 'Property' || n.type === 'MethodDefinition') && isFn(n.value)) define(propName(n.key), n, n.value);
+    else if ((n.type === 'Property' || n.type === 'MethodDefinition') && isFn(n.value)) define(keyName(n.key, n.computed), n, n.value);
     else if (n.type === 'AssignmentExpression') {
-      if (isModuleExports(n.left)) {
-        if (n.right.type === 'ObjectExpression') {
-          for (const p of n.right.properties) if (p.type === 'Property') exportOf(propName(p.key), p);
-        } else if (n.right.type === 'Identifier') exportOf(n.right.name, n);
-        else if (isFn(n.right) && n.right.id) { define(n.right.id.name, n, n.right); exportOf(n.right.id.name, n); }
-      } else if (isExportsTarget(n.left)) {
-        const name = propName(n.left.property);
-        exportOf(name, n);
-        if (isFn(n.right)) define(name, n, n.right);
+      if (isModuleExports(n.left)) {                                       // module.exports = …
+        const status = cjsStatus(n, anc, 'module');
+        if (!status) return;
+        const r = n.right;
+        if (r.type === 'ObjectExpression') {
+          for (const p of r.properties) if (p.type === 'Property') exportOf(keyName(p.key, p.computed), localOf(p.value), status);
+        } else if (r.type === 'Identifier') exportOf('module.exports', r.name, status);
+        else if (isFn(r) && r.id) { define(r.id.name, n, r, status); exportOf('module.exports', r.id.name, status); }
+      } else {
+        const root = cjsRoot(n.left);                                      // exports.x = … / module.exports.x = …
+        if (!root) return;
+        const pub = memberName(n.left);
+        const status = cjsStatus(n, anc, root);
+        if (!status) { if (pub && isFn(n.right)) define(pub, n, n.right, 'hint'); return; }
+        exportOf(pub, localOf(n.right) || (pub && isFn(n.right) ? pub : null), status);
+        if (pub && isFn(n.right)) define(pub, n, n.right, status);
       }
-    } else if (n.type === 'ExportNamedDeclaration') {
-      const d = n.declaration;
-      if (d?.id) exportOf(d.id.name, n);
-      if (d?.type === 'VariableDeclaration') d.declarations.forEach((v) => v.id?.type === 'Identifier' && exportOf(v.id.name, n));
-      for (const s of n.specifiers || []) exportOf(s.local?.name, n);
-    } else if (n.type === 'ExportDefaultDeclaration' && n.declaration?.id) exportOf(n.declaration.id.name, n);
+    } else if (n.type === 'ExportNamedDeclaration' || n.type === 'ExportDefaultDeclaration' || n.type === 'ExportAllDeclaration') {
+      const status = anc.some(isFunction) ? 'hint' : where(n);             // ESM exports are top-level by syntax
+      const from = n.source ? String(n.source.value) : null;
+      if (n.type === 'ExportDefaultDeclaration') {
+        const d = n.declaration;
+        exportOf('default', d?.type === 'Identifier' ? d.name : d?.id?.name || null, status);
+      } else if (n.type === 'ExportAllDeclaration') {
+        if (n.exported) exportOf(exportName(n.exported), null, status, from);
+      } else {
+        const d = n.declaration;
+        if (d?.id) exportOf(d.id.name, d.id.name, status);
+        if (d?.type === 'VariableDeclaration') d.declarations.forEach((v) => patternNames(v.id).forEach((x) => exportOf(x, x, status)));
+        for (const s of n.specifiers || []) {
+          const pub = exportName(s.exported), local = exportName(s.local);
+          if (from) { exportOf(pub, null, status, from); if (pub !== null && names.has(pub) && local !== pub) out[pub].local = local; }
+          else exportOf(pub, local, status);
+        }
+      }
+    }
   });
 }
 
@@ -229,7 +395,7 @@ function scanDiff(diff, contract) {
       h.lines.filter((l) => l.added).forEach((l) => addedText.push(l.text));
       if (!names.size) continue;
       const ast = /\.(c|m)?jsx?$/.test(f.path) ? tryParse(code) : null;
-      if (ast) analyzeAst(ast, addedLine, names, symbols, f.path);
+      if (ast) analyzeAst(ast, addedLine, names, symbols, f.path, h.start);
       else hintFromTokens(code, addedLine, names, symbols);
     }
   }

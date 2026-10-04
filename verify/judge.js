@@ -124,14 +124,19 @@ async function judgeAll(criteria, diff, signals = {}) {
 const SYMBOL_TEXT = {
   confirmed_added:     'in added code (parsed)',
   confirmed_unchanged: 'in unchanged code shown as diff context (pre-existing, parsed)',
-  hint:                'name appears in added code, but the hunk could not be parsed — heuristic text match only',
+  hint:                'heuristic only — the hunk could not be parsed, or the binding/scope could not be established from the diff alone',
   not_in_diff:         'not in the changed hunks — UNKNOWN; it may already exist in unchanged code (NOT evidence that it is missing)',
 };
+const SHORT_TEXT = { confirmed_added: 'added code', confirmed_unchanged: 'unchanged code', hint: 'heuristic hint', not_in_diff: 'unknown' };
 function hintBlock(ac, signals) {
   if (!signals || signals.version !== 2) return '';
   const lines = [];
   for (const [name, s] of Object.entries(signals.symbols || {})) {
-    lines.push(`  ${name}: definition ${SYMBOL_TEXT[s.defined] || 'unknown'}; export ${SYMBOL_TEXT[s.exported] || 'unknown'}`
+    const as = Object.entries(s.exported_as || {}).map(([pub, st]) => `${pub === 'module.exports' || pub === 'default' ? `as the module's ${pub} export` : `under the name "${pub}"`} (${SHORT_TEXT[st] || st})`);
+    lines.push(`  ${name}: definition ${SYMBOL_TEXT[s.defined] || 'unknown'}; export by the name "${name}" ${SYMBOL_TEXT[s.exported] || 'unknown'}`
+      + (s.local ? `; that export is bound to the local "${s.local}"` : '')
+      + (s.from ? `; re-exported from ${JSON.stringify(s.from)}` : '')
+      + (as.length ? `; this local binding is exported ${as.join(', ')}` : '')
       + (s.returns === 'yes' ? '; its own body returns a value (parsed)' : s.returns === 'no' ? '; its own parsed body has no return of a value' : ''));
   }
   const crit = ac.criterion.toLowerCase();
