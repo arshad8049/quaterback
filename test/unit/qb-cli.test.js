@@ -20,7 +20,8 @@ const CONTRACT = JSON.stringify({
   goal: 'Add a clamp function',
   required_behavior: ['clamp(n, min, max) returns n bounded to [min, max]'],
   constraints: [],
-  acceptance_criteria: [{ id: 'AC-1', criterion: 'clamp is exported from src/utils.js' }],
+  acceptance_criteria: [{ id: 'AC-1', criterion: 'clamp is exported from src/utils.js', requirement_ids: ['R-1'] }],
+  requirements: [{ id: 'R-1', quote: 'Add a clamp function to src/utils.js' }],   // QB-14: traced to the request
   verification_plan: ['run tests'],
   relevant_context: [],
   ambiguity_flags: [],

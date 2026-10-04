@@ -27,6 +27,12 @@ async function run() {
   // QB-13: a non-dry-run agent needs a human-approved oracle. An approval field in
   // the file is ignored (anyone can compute a hash); the user approves explicitly.
   delete contract.approval;
+  // QB-14: traceability is checked against the user's request; a contract without it cannot run an agent.
+  if (options.agent !== 'dry-run' && !(typeof contract.raw_request === 'string' && contract.raw_request.trim())) {
+    console.error('\n  ✗ The contract has no raw_request, so its requirements cannot be traced to a request. Use `qb --contract-file`.\n');
+    process.exitCode = 2;
+    return;
+  }
   if (options.agent !== 'dry-run' && options.approveContract) {
     console.log(formatOracle(contract));
     contract = approve(contract, { via: 'agent-cli' });

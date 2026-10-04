@@ -121,8 +121,8 @@ describe('entry points: the human approves before anything runs', () => {
   const PRELOAD_AGENT = path.join(__dirname, '..', 'helpers', 'preload-fake-sandbox.js');
   let tmp, repo, marker, script;
   const MODEL = { goal: 'Add clamp', required_behavior: ['clamp'], constraints: [], verification_plan: ['call clamp'], relevant_context: [],
-    ambiguity_flags: [], clarifying_question: null, acceptance_criteria: [{ id: 'AC-1', criterion: 'clamp bounds n', kind: 'behavioral' }],
-    checks: BASE.checks };
+    ambiguity_flags: [], clarifying_question: null, acceptance_criteria: [{ id: 'AC-1', criterion: 'clamp bounds n', kind: 'behavioral', requirement_ids: ['R-1'] }],
+    checks: BASE.checks, requirements: [{ id: 'R-1', quote: 'Add clamp' }] };
   beforeEach(() => {
     tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'qb13-'));
     repo = makeRepo({ 'src/u.js': 'module.exports = {};\n' });
@@ -143,15 +143,16 @@ describe('entry points: the human approves before anything runs', () => {
     const [run] = runs();
     assert.deepEqual([run.manifest.outcome, run.manifest.outcome_reason, run.manifest.attempts.length], ['BLOCKED', 'needs_contract_approval', 0]);
     const proposal = JSON.parse(fs.readFileSync(path.join(run.dir, 'proposed-contract.json'), 'utf8'));
-    assert.deepEqual(proposal.acceptance_criteria, [{ id: 'AC-1', criterion: 'clamp bounds n', kind: 'behavioral' }]);
+    assert.deepEqual(proposal.acceptance_criteria, [{ id: 'AC-1', criterion: 'clamp bounds n', kind: 'behavioral', requirement_ids: ['R-1'] }]);
+    assert.deepEqual(proposal.requirements, [{ id: 'R-1', quote: 'Add clamp' }]);
     assert.equal(proposal.checks[0].id, 'CHK-1');
     assert.match(r.stdout, /--contract-file/);
     assert.equal(fs.existsSync(marker), false);
   });
   test('the reviewed file is the oracle: it runs, approved via contract-file and frozen; the model is not asked', () => {
     const file = path.join(tmp, 'contract.json');
-    fs.writeFileSync(file, JSON.stringify({ goal: 'Add clamp', acceptance_criteria: [{ id: 'AC-1', criterion: 'clamp bounds n' }],
-      verification_plan: ['call clamp'], checks: BASE.checks,
+    fs.writeFileSync(file, JSON.stringify({ goal: 'Add clamp', acceptance_criteria: [{ id: 'AC-1', criterion: 'clamp bounds n', requirement_ids: ['R-1'] }],
+      verification_plan: ['call clamp'], checks: BASE.checks, requirements: [{ id: 'R-1', quote: 'Add clamp' }],
       approval: { by: 'human', via: 'forged', contract_hash: 'x' } }));                     // an approval in the file is ignored
     const r = qb(['--contract-file', file], { not: 'a contract' });                         // the model reply is unusable: never used
     const [run] = runs();
@@ -178,7 +179,8 @@ describe('entry points: the human approves before anything runs', () => {
     const tasks = path.join(tmp, 'tasks.json');
     fs.writeFileSync(tasks, JSON.stringify({ meta: { repo: repo.dir, base_rev: 'HEAD' }, tasks: [
       { id: 'X-1', difficulty: 'easy', tags: [], description: 'Add clamp',
-        oracle: { approved_by: 'reviewer', acceptance_criteria: [{ id: 'AC-1', criterion: 'clamp bounds n' }], verification_plan: ['call clamp'], checks: BASE.checks } },
+        oracle: { approved_by: 'reviewer', acceptance_criteria: [{ id: 'AC-1', criterion: 'clamp bounds n', requirement_ids: ['R-1'] }], verification_plan: ['call clamp'], checks: BASE.checks,
+          requirements: [{ id: 'R-1', quote: 'Add clamp' }] } },
       { id: 'X-2', difficulty: 'easy', tags: [], description: 'Add clamp' }] }));
     const r = spawnSync(process.execPath, ['--require', PRELOAD, '--require', PRELOAD_AGENT, path.join(ROOT, 'bench', 'run.js'),
       '--tasks', tasks, '--results', path.join(tmp, 'results'), '--no-llm-context', '--max-retries', '1', '--no-baseline'],
@@ -239,7 +241,7 @@ describe('the approval view shows everything the approval covers', () => {
     }
     const { approvedContent } = require('../../intent/contract-state');
     assert.deepEqual(Object.keys(approvedContent(c)).sort(),
-      ['acceptance_criteria', 'checks', 'constraint_policy', 'constraints', 'goal', 'required_behavior', 'scope', 'verification_plan'], 'a new hashed field must be added to the view');
+      ['acceptance_criteria', 'checks', 'constraint_policy', 'constraints', 'goal', 'required_behavior', 'requirements', 'scope', 'verification_plan'], 'a new hashed field must be added to the view');
   });
 });
 
@@ -258,24 +260,27 @@ describe('standalone agent CLI and benchmark honour the boundary', () => {
   afterEach(() => { repo.cleanup(); fs.rmSync(tmp, { recursive: true, force: true }); });
   const env = () => ({ ...process.env, QB_FAKE_AGENT_SCRIPT: script, QB_RUNS_DIR: path.join(tmp, 'runs'), QB_MEMORY_DIR: path.join(tmp, 'mem'),
     QB_TEST_OLLAMA_REPLY: JSON.stringify({ goal: 'Add clamp', required_behavior: ['clamp'], constraints: [], verification_plan: ['call clamp'],
-      relevant_context: [], ambiguity_flags: [], clarifying_question: null, acceptance_criteria: [{ id: 'AC-1', criterion: 'clamp bounds n' }], checks: BASE.checks }) });
+      relevant_context: [], ambiguity_flags: [], clarifying_question: null, acceptance_criteria: [{ id: 'AC-1', criterion: 'clamp bounds n', requirement_ids: ['R-1'] }], checks: BASE.checks,
+      requirements: [{ id: 'R-1', quote: 'Add clamp' }] }) });
   const agentCli = (extra = []) => spawnSync(process.execPath, ['--require', PRELOAD_AGENT, path.join(ROOT, 'agent', 'cli.js'),
     '--contract', file, '--agent', 'claude-code', '--repo', repo.dir, ...extra], { encoding: 'utf8', timeout: 30_000, env: env() });
 
+  const TRACED = { ...BASE, raw_request: 'Add clamp', requirements: [{ id: 'R-1', quote: 'Add clamp' }],
+    acceptance_criteria: [{ ...BASE.acceptance_criteria[0], requirement_ids: ['R-1'] }] };
   test('agent/cli.js: unapproved → exit 2, the agent never runs', () => {
-    fs.writeFileSync(file, JSON.stringify(BASE));
+    fs.writeFileSync(file, JSON.stringify(TRACED));
     const r = agentCli();
     assert.equal(r.status, 2, r.stdout + r.stderr);
     assert.match(r.stderr, /contract not approved/);
     assert.equal(fs.existsSync(marker), false);
   });
   test('agent/cli.js: an approval written into the file is ignored', () => {
-    fs.writeFileSync(file, JSON.stringify(approve(BASE, { via: 'forged' })));
+    fs.writeFileSync(file, JSON.stringify(approve(TRACED, { via: 'forged' })));
     assert.equal(agentCli().status, 2);
     assert.equal(fs.existsSync(marker), false);
   });
   test('agent/cli.js: --approve-contract (shown the full oracle first) → runs', () => {
-    fs.writeFileSync(file, JSON.stringify(BASE));
+    fs.writeFileSync(file, JSON.stringify(TRACED));
     const r = agentCli(['--approve-contract']);
     assert.equal(r.status, 0, r.stdout + r.stderr);
     assert.match(r.stdout, /Test oracle — review everything below/);

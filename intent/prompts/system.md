@@ -34,11 +34,15 @@ Good criterion: "A user who has never signed up, authenticating via Google for t
 **verification_plan**
 How a verification agent would mechanically check the acceptance criteria. Include: which tests to run, which files to inspect, which behaviors to exercise, which things to confirm did NOT change. Be specific — "run the existing auth test suite" and "confirm the /auth/google/callback route does not exist in the diff outside of the expected files" are useful. "Check the code" is not.
 
+**requirements** (traceability — validated by QB)
+Split the request into requirements: `{ "id": "R-1", "quote": "<an exact, verbatim fragment of the request>" }`. Together the quotes must cover every meaningful word of the request — nothing may be dropped. A fragment that is only context (e.g. a file location) may be `{ "id": "R-2", "quote": "…", "disposition": "context", "reason": "…" }`. A requirement the request implies but does not state: `{ "id": "R-3", "implied": true, "text": "…", "reason": "…" }`. Every acceptance criterion lists the requirements it covers in `requirement_ids`; every requirement must be covered by at least one criterion (or be context). Criteria that trace to no requirement are rejected as unsupported additions. Cover the ESSENTIAL behaviour of each requirement, not only its shape: "cumulative ms tracked since created" needs a criterion (and a check) that the total grows across events, starts at zero for a new instance, and is independent between instances.
+
 **checks**
 Executable checks that prove the behavioural acceptance criteria. Each check is DATA for one approved adapter — never a shell command, never code to evaluate. Anything else is rejected and never run.
 - `module_exports` — params `{ "module": "src/x.js", "export": "name", "type": "function" | "object" | "string" | "number" | "boolean" }`
 - `call_returns` — params `{ "module": "src/x.js", "export": "name", "args": [JSON…], "expect": JSON }`: calling the export with args must return exactly `expect`
 - `call_throws` — params `{ "module": "src/x.js", "export": "name", "args": [JSON…], "message_includes": "optional text" }`
+- `call_sequence` — behaviour over time: `{ "module": "src/vad.js", "export": "AdaptiveVAD", "instances": { "a": { "construct": "new", "args": [] }, "b": { "construct": "new", "args": [] } }, "steps": [{ "on": "a", "method": "onSpeech", "args": [300] }, { "on": "a", "method": "getVADStats", "args": [], "expect": { "speechCount": 1, "totalSpeechMs": 300 } }, { "on": "b", "method": "getVADStats", "args": [], "expect": { "speechCount": 0, "totalSpeechMs": 0 } }] }`
 Every check has a unique `id`, the `ac_id` it proves, and optionally `plan_item` (the 0-based index of the verification_plan step it executes). `module` is a repository-relative .js/.cjs/.mjs path; `export` is an identifier or "default". Give every behavioural criterion at least one check with concrete inputs and expected outputs from the request. A criterion that cannot be checked this way stays unverified.
 Mark a criterion `"kind": "non_behavioral"` only when it is about documentation, naming or wording rather than behaviour.
 
@@ -91,8 +95,9 @@ Return ONLY a valid JSON object. No markdown code fences, no explanation, no pre
   "scope": { "allowed_changes": ["src/utils.js"], "protected_paths": ["test/**"] },
   "constraint_policy": [{ "constraint": 0, "enforced_by": [{ "kind": "protected_paths", "ref": "test/**" }] }],
   "acceptance_criteria": [
-    { "id": "AC-1", "criterion": "string", "met": null, "kind": "behavioral" }
+    { "id": "AC-1", "criterion": "string", "met": null, "kind": "behavioral", "requirement_ids": ["R-1"] }
   ],
+  "requirements": [{ "id": "R-1", "quote": "verbatim fragment of the request" }],
   "verification_plan": ["string"],
   "checks": [
     { "id": "CHK-1", "ac_id": "AC-1", "adapter": "call_returns", "plan_item": 0,

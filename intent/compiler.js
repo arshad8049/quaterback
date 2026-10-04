@@ -13,6 +13,7 @@ const SEMANTIC_FIELDS = [
   'goal', 'required_behavior', 'constraints', 'acceptance_criteria',
   'verification_plan', 'relevant_context', 'ambiguity_flags', 'clarifying_question',
   'scope', 'constraint_policy',   // QB-09: enforced policy, validated by contractState
+  'requirements',                 // QB-14: request clauses with verbatim quotes, validated by contractState
 ];
 const { validateChecks } = require('../verify/checks/registry');
 
@@ -120,6 +121,8 @@ function contractFromObject(raw, request) {
         met:       null,
         // Only an explicit "non_behavioral" opts a criterion out of executed checks (QB-16).
         kind:      obj && ac.kind === 'non_behavioral' ? 'non_behavioral' : 'behavioral',
+        // QB-14: which requirements this criterion covers (validated by contractState).
+        requirement_ids: obj && Array.isArray(ac.requirement_ids) ? ac.requirement_ids.filter((x) => typeof x === 'string') : [],
       };
     })
     : [];

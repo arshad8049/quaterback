@@ -7,6 +7,7 @@ const AcceptanceCriterion = z.object({
   // QB-16: behavioural criteria need an executed check; only non_behavioral ones
   // (documentation, naming, wording) may be decided by the judge.
   kind: z.enum(['behavioral', 'non_behavioral']).optional(),
+  requirement_ids: z.array(z.string()).optional(),   // QB-14
 });
 
 const TaskContractSchema = z.object({
@@ -31,6 +32,7 @@ const TaskContractSchema = z.object({
   // QB-09: enforced scope and per-constraint enforcement (verify/policy.js).
   scope: z.object({ allowed_changes: z.array(z.string()).optional(), protected_paths: z.array(z.string()).optional() }).optional(),
   constraint_policy: z.array(z.unknown()).optional(),
+  requirements: z.array(z.unknown()).optional(),     // QB-14: validated by intent/requirements.js
 });
 
 // Partial schema for when compiler returns a clarifying question instead of full contract

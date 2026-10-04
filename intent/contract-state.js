@@ -15,6 +15,7 @@
 const crypto = require('crypto');
 const { validateExamples } = require('./examples');
 const { policyErrors } = require('../verify/policy');
+const { validateTraceability } = require('./requirements');
 
 function contractState(c) {
   if (!c || typeof c !== 'object' || Array.isArray(c)) return { state: 'invalid', errors: ['contract is not an object'] };
@@ -42,6 +43,8 @@ function contractState(c) {
   if (!errors.length) {
     for (const e of validateExamples(c).errors) errors.push(`${e.where} example is wrong: ${e.claim} (correct: ${e.correct})`);
   }
+  // QB-14: every request clause traced; no uncovered requirement, unsupported addition or duplicate AC.
+  if (!errors.length) errors.push(...validateTraceability(c).errors);
   return errors.length ? { state: 'invalid', errors } : { state: 'finalized' };
 }
 
@@ -53,7 +56,9 @@ function contractState(c) {
 function approvedContent(c) {
   return {
     goal: c?.goal ?? null, required_behavior: c?.required_behavior ?? [], constraints: c?.constraints ?? [],
-    acceptance_criteria: (c?.acceptance_criteria || []).map((a) => ({ id: a.id, criterion: a.criterion, kind: a.kind || 'behavioral' })),
+    acceptance_criteria: (c?.acceptance_criteria || []).map((a) => ({ id: a.id, criterion: a.criterion, kind: a.kind || 'behavioral',
+      requirement_ids: a.requirement_ids ?? [] })),
+    requirements: c?.requirements ?? [],   // QB-14
     verification_plan: c?.verification_plan ?? [], checks: c?.checks ?? [],
     scope: { allowed_changes: c?.scope?.allowed_changes ?? [], protected_paths: c?.scope?.protected_paths ?? [] },   // QB-09
     constraint_policy: c?.constraint_policy ?? [],

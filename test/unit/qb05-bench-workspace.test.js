@@ -121,7 +121,8 @@ describe('bench/run.js', () => {
         QB_MEMORY_DIR:        path.join(tmp, 'mem'),
         QB_TEST_OLLAMA_REPLY: JSON.stringify({
           goal: 'Add clamp', required_behavior: ['clamp'], constraints: [],
-          acceptance_criteria: [{ id: 'AC-1', criterion: 'clamp is exported' }],
+          acceptance_criteria: [{ id: 'AC-1', criterion: 'clamp is exported', requirement_ids: ['R-1'] }],
+          requirements: [{ id: 'R-1', quote: 'Add clamp to src/utils.js' }],
           verification_plan: ['tests'], relevant_context: [], ambiguity_flags: [], clarifying_question: null,
           met: true, evidence: 'clamp added',
         }),

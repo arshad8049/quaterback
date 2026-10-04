@@ -333,6 +333,33 @@ describe('QB-02 done-when through the real pipeline', { skip: !ENABLED && 'set Q
     } finally { repo.cleanup(); }
   });
 
+  test('QB-14: a constant-zero VAD fails the call_sequence checks inside the real sandbox', async () => {
+    const vad = (body) => `class AdaptiveVAD {\n  constructor() { this.n = 0; this.ms = 0; }\n  onSpeech(ms) { ${body} }\n  getVADStats() { return { speechCount: this.n, totalSpeechMs: this.ms }; }\n}\nmodule.exports = { AdaptiveVAD };\n`;
+    const repo = fixtureRepo((files) => { NODE_TEST(files); files['src/vad.js'] = vad('this.n += 1; this.ms += ms;'); });
+    const NEW = { construct: 'new', args: [] };
+    const checks = [
+      { id: 'ACC', ac_id: 'AC-1', adapter: 'call_sequence', params: { module: 'src/vad.js', export: 'AdaptiveVAD', instances: { a: NEW },
+        steps: [{ on: 'a', method: 'onSpeech', args: [300] }, { on: 'a', method: 'onSpeech', args: [200] }, { on: 'a', method: 'getVADStats', args: [], expect: { speechCount: 2, totalSpeechMs: 500 } }] } },
+      { id: 'IND', ac_id: 'AC-1', adapter: 'call_sequence', params: { module: 'src/vad.js', export: 'AdaptiveVAD', instances: { a: NEW, b: NEW },
+        steps: [{ on: 'a', method: 'onSpeech', args: [300] }, { on: 'b', method: 'getVADStats', args: [], expect: { speechCount: 0, totalSpeechMs: 0 } }] } },
+    ];
+    try {
+      // The agent "implements" stats as constant zero by making onSpeech a no-op.
+      const r = await runSandboxed({ repoPath: repo.dir, briefing: 'x', stateDir, checks,
+        agentStage: hostileAgent("sed -i 's/this.n += 1; this.ms += ms;//' /work/src/vad.js") });
+      assert.equal(r.status, 'completed', JSON.stringify({ reason: r.reason }));
+      const contract = approve({ id: 'c', goal: 'VAD stats', clarifying_question: null, checks, scope: { allowed_changes: ['src/**'] },
+        acceptance_criteria: [{ id: 'AC-1', criterion: 'stats accumulate per instance', met: null, kind: 'behavioral' }] }, { via: 'test' });
+      const m = mockFetch(ollamaReply({ met: true, evidence: 'looks right' }));
+      let report;
+      try {
+        report = await verify(contract, null, { id: 'e', status: r.status, diff: r.diff, changes: r.changes, candidate_tree: r.candidate_tree, sandbox: r.sandbox }, { repoPath: repo.dir });
+      } finally { m.restore(); }
+      assert.deepEqual(report.checks.results.map((x) => [x.id, x.status]), [['ACC', 'fail'], ['IND', 'pass']], JSON.stringify(report.checks));
+      assert.equal(report.verdict, 'fail');
+    } finally { repo.cleanup(); }
+  });
+
   test('QB-22: the trusted export refuses oversized files, symlinks, directories and missing paths', async () => {
     const repo = fixtureRepo((files) => { NODE_TEST(files); files['big.txt'] = Buffer.alloc(70 * 1024, 97); });
     fs.symlinkSync('src/double.js', path.join(repo.dir, 'link.js'));

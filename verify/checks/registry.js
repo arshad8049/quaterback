@@ -12,6 +12,8 @@
  *   module_exports  { module, export, type }           the export exists with that typeof
  *   call_returns    { module, export, args, expect }    await export(...args) deep-equals expect
  *   call_throws     { module, export, args, message_includes? }  export(...args) throws / rejects
+ *   call_sequence   { module, export, instances, steps }  (qb-checks/2, QB-14) instances made with `new`
+ *                   or a factory call, then method calls in order; each step with `expect` must deep-equal
  *
  * `module` is a repository-relative .js/.cjs/.mjs path (no "..", not absolute);
  * `export` is an identifier or "default"; `args` and `expect` are plain JSON
@@ -21,7 +23,7 @@
 const { z } = require('zod');
 const { isDeepStrictEqual } = require('util');
 
-const REGISTRY_VERSION = 'qb-checks/1';
+const REGISTRY_VERSION = 'qb-checks/2';   // /2 adds call_sequence (QB-14); /1 checks remain valid
 const MAX_JSON_BYTES = 4096;
 const MAX_CHECKS = 32;
 
@@ -47,6 +49,21 @@ const ADAPTERS = {
     args: json('args').refine((a) => Array.isArray(a), 'args must be an array'),
     expect: json('expect'),
   }).strict(),
+  // QB-14: behaviour over time — create instances, call methods in order, compare
+  // results along the way (e.g. stats accumulate across events, start at zero for a
+  // new instance, stay independent between instances).
+  call_sequence: z.object({
+    module: ModulePath, export: ExportName,
+    instances: z.record(z.string().regex(/^[A-Za-z_][A-Za-z0-9_]{0,31}$/), z.object({
+      construct: z.enum(['new', 'call']), args: json('instance args').refine((a) => Array.isArray(a), 'args must be an array'),
+    }).strict()).refine((o) => Object.keys(o).length >= 1 && Object.keys(o).length <= 4, '1 to 4 instances'),
+    steps: z.array(z.object({
+      on: z.string(), method: z.string().regex(/^[A-Za-z_$][A-Za-z0-9_$]{0,99}$/, 'method must be an identifier'),
+      args: json('step args').refine((a) => Array.isArray(a), 'args must be an array'),
+      expect: json('expect').optional(),
+    }).strict()).min(1).max(50),
+  }).strict().refine((p) => p.steps.every((st) => Object.prototype.hasOwnProperty.call(p.instances, st.on)), 'every step must run on a declared instance')
+    .refine((p) => p.steps.some((st) => st.expect !== undefined), 'at least one step must expect a value'),
   call_throws: z.object({
     module: ModulePath, export: ExportName,
     args: json('args').refine((a) => Array.isArray(a), 'args must be an array'),

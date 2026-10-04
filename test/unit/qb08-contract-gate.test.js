@@ -196,7 +196,8 @@ describe('compiler → gate: malformed criteria and real questions are never fin
   test('only exact documented sentinels mean "no question"', async () => {
     const { NO_QUESTION_SENTINELS } = require('../../intent/compiler');
     for (const q of [null, '', '   ', 'None', 'none.', 'N/A', 'No clarification needed']) {
-      const c = await compiled({ ...BASE, acceptance_criteria: [{ id: 'AC-1', criterion: 'feature works' }], clarifying_question: q });
+      const c = await compiled({ ...BASE, acceptance_criteria: [{ id: 'AC-1', criterion: 'feature works', requirement_ids: ['R-1'] }], clarifying_question: q,
+        requirements: [{ id: 'R-1', quote: 'Add explicit feature to the app' }] });
       assert.equal(contractState(c).state, 'finalized', JSON.stringify(q));
     }
     assert.ok(NO_QUESTION_SENTINELS.has('none'));

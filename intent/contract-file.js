@@ -18,7 +18,7 @@ const MAX_BYTES = 256 * 1024;
 
 /** The semantic fields QB saves for review and reads back (no trusted metadata, no approval). */
 const REVIEW_FIELDS = ['goal', 'required_behavior', 'constraints', 'acceptance_criteria', 'verification_plan',
-  'relevant_context', 'ambiguity_flags', 'checks', 'scope', 'constraint_policy'];
+  'relevant_context', 'ambiguity_flags', 'checks', 'scope', 'constraint_policy', 'requirements'];
 
 function loadContractFile(file, request) {
   const st = fs.statSync(file);
@@ -35,7 +35,7 @@ function loadContractFile(file, request) {
 function proposalForReview(contract) {
   const out = {};
   for (const k of REVIEW_FIELDS) if (contract[k] !== undefined) out[k] = contract[k];
-  out.acceptance_criteria = (contract.acceptance_criteria || []).map((a) => ({ id: a.id, criterion: a.criterion, kind: a.kind || 'behavioral' }));
+  out.acceptance_criteria = (contract.acceptance_criteria || []).map((a) => ({ id: a.id, criterion: a.criterion, kind: a.kind || 'behavioral', requirement_ids: a.requirement_ids || [] }));
   return out;
 }
 

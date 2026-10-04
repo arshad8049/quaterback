@@ -50,6 +50,25 @@ async function child() {
         ? { status: 'pass', detail: `${name}(…) returned the expected value`, observed: show(value) }
         : { status: 'fail', detail: `${name}(…) returned ${show(value)}, expected ${show(check.params.expect)}`, observed: show(value) });
     }
+    if (check.adapter === 'call_sequence') {
+      // QB-14: instances, then method calls in order; every step with `expect` must match.
+      const inst = {};
+      for (const [k, spec] of Object.entries(check.params.instances)) {
+        try { inst[k] = spec.construct === 'new' ? new target(...spec.args) : await target(...spec.args); }
+        catch (e) { return report({ status: 'fail', detail: `creating instance ${k} threw: ${String(e && e.message || e).slice(0, 200)}` }); }
+      }
+      for (const [i, st] of check.params.steps.entries()) {
+        const o = inst[st.on];
+        if (!o || typeof o[st.method] !== 'function') return report({ status: 'fail', detail: `step ${i}: ${st.on}.${st.method} is not a function` });
+        let v;
+        try { v = await o[st.method](...st.args); }
+        catch (e) { return report({ status: 'fail', detail: `step ${i}: ${st.on}.${st.method}(…) threw: ${String(e && e.message || e).slice(0, 200)}` }); }
+        if (st.expect !== undefined && !isDeepStrictEqual(v, st.expect)) {
+          return report({ status: 'fail', detail: `step ${i}: ${st.on}.${st.method}(…) returned ${show(v)}, expected ${show(st.expect)}`, observed: show(v) });
+        }
+      }
+      return report({ status: 'pass', detail: `${check.params.steps.length} step(s) on ${Object.keys(inst).length} instance(s) matched` });
+    }
     if (check.adapter === 'call_throws') {
       try { const v = await target(...check.params.args); return report({ status: 'fail', detail: `${name}(…) returned ${show(v)} instead of throwing` }); }
       catch (e) {

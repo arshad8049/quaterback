@@ -234,6 +234,12 @@ An agent that changed nothing passes only if the requirement is independently ve
 - pre-existing failures stay listed;
 - infrastructure errors go to environment recovery, and an unchanged patch stops the loop.
 
+**Traceable requirements** (QB-14, [docs/verify/traceability.md](docs/verify/traceability.md)):
+- every request clause is a requirement with a verbatim quote;
+- each requirement must be covered by criteria;
+- unsupported additions and duplicates block execution;
+- `call_sequence` checks prove behaviour over time.
+
 **Run records** (`run/store.js`, QB-38). Every run keeps a versioned, append-only record: base commit, agent version, contract, patch, test outcome, checks and report. `qb replay <run_id>` recomputes each verdict and the final outcome from the stored evidence.
 
 ---
