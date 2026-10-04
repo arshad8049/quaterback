@@ -43,10 +43,10 @@ WHEN TO VOTE null (not false) — mandatory examples:
 - Any criterion about side effects, correctness of runtime values, or behavior that requires execution: vote null.
 
 WHEN TO VOTE false — requires direct contradictory evidence:
-- The function name is completely absent from all added (+) lines in the diff.
+- A removed (-) line you can quote deletes or renames the required thing, and no added line restores it.
 - The function explicitly returns a literal of the wrong type: e.g. \`return 42\` when a string is required.
 - The function unconditionally throws before any return.
-- The keyword signal hints explicitly say something is "NOT found in diff" AND the criterion requires that thing to exist.
+- Never vote false because something is absent from the diff or from the search hints: unchanged code may already contain it.
 
 CRITICAL: absence of proof is NOT proof of absence. If you cannot find a specific added line that DISPROVES the criterion, vote null — not false.
 CRITICAL: only vote false when you can quote a specific diff line that directly contradicts the criterion. No quote = no false vote.
@@ -116,40 +116,45 @@ async function judgeAll(criteria, diff, signals = {}) {
   return results;
 }
 
+/**
+ * QB-12: the checker's search hints (verify/checker.js scanDiff, version 2) as
+ * prompt text, each with its provenance. Nothing here is presented as a fact,
+ * and absence from the diff is never presented as evidence of absence.
+ */
+const SYMBOL_TEXT = {
+  confirmed_added:     'in added code (parsed)',
+  confirmed_unchanged: 'in unchanged code shown as diff context (pre-existing, parsed)',
+  hint:                'name appears in added code, but the hunk could not be parsed — heuristic text match only',
+  not_in_diff:         'not in the changed hunks — UNKNOWN; it may already exist in unchanged code (NOT evidence that it is missing)',
+};
+function hintBlock(ac, signals) {
+  if (!signals || signals.version !== 2) return '';
+  const lines = [];
+  for (const [name, s] of Object.entries(signals.symbols || {})) {
+    lines.push(`  ${name}: definition ${SYMBOL_TEXT[s.defined] || 'unknown'}; export ${SYMBOL_TEXT[s.exported] || 'unknown'}`
+      + (s.returns === 'yes' ? '; its own body returns a value (parsed)' : s.returns === 'no' ? '; its own parsed body has no return of a value' : ''));
+  }
+  const crit = ac.criterion.toLowerCase();
+  const found = (signals.keywords?.found || []).filter((k) => crit.includes(k));
+  const missing = (signals.keywords?.not_found || []).filter((k) => crit.includes(k));
+  if (found.length) lines.push(`  Words from this criterion found in added lines (search hint): ${found.join(', ')}`);
+  if (missing.length) lines.push(`  Words from this criterion not in added lines (NOT evidence of absence): ${missing.join(', ')}`);
+  return lines.join('\n');
+}
+
 // Single raw LLM call — returns { met, evidence, repair } or throws.
 async function callOnce(ac, material, signals) {
   const snapshot = material.kind === 'snapshot';
   const text = material.text;
   const chunk = text.length > 6000 ? text.slice(0, 6000) + `\n... [${snapshot ? 'files' : 'diff'} truncated]` : text;
 
-  // Deterministic function signals (high-confidence, computed from added lines only)
-  const fnSignals = Object.entries(signals)
-    .filter(([k]) => k.startsWith('__fn_'))
-    .map(([k, found]) => {
-      const parts = k.replace('__fn_', '').split('_');
-      const property = parts.pop(); // defined | exported | returns
-      const fname    = parts.join('_');
-      const verdict  = found ? 'YES (confirmed in added lines)' : 'NO (not found in added lines)';
-      return `  ${fname}() ${property}: ${verdict}`;
-    })
-    .join('\n');
-
-  // Keyword signals — only those relevant to this criterion
-  const kwSignals = Object.entries(signals)
-    .filter(([k]) => !k.startsWith('__fn_') && ac.criterion.toLowerCase().includes(k))
-    .map(([k, found]) => `  "${k}": ${found ? 'found in diff' : 'NOT found in diff'}`)
-    .join('\n');
-
-  const signalBlock = [
-    fnSignals ? `Deterministic checks (computed from added lines):\n${fnSignals}` : '',
-    kwSignals ? `Keyword signals:\n${kwSignals}` : '',
-  ].filter(Boolean).join('\n');
+  const signalBlock = hintBlock(ac, signals);
 
   const userContent = [
     `## Acceptance criterion`,
     `ID: ${ac.id}`,
     `Criterion: ${ac.criterion}`,
-    signalBlock ? `\n## Pre-computed signals\n${signalBlock}` : '',
+    signalBlock ? `\n## Search hints (computed by QB from the diff — hints, not facts)\n${signalBlock}` : '',
     ``,
     snapshot ? `## Current repository files (the agent changed nothing)` : `## Git diff`,
     chunk,

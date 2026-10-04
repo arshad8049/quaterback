@@ -16,6 +16,7 @@
     "test:daemon:ci": "node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=tap --test-reporter-destination=daemon.tap test/daemon/*.test.js"
   },
   "dependencies": {
+    "acorn": "8.18.0",
     "commander": "^13.1.0",
     "dotenv": "^18.0.1",
     "zod": "^4.6.5"
