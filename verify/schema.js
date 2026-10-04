@@ -26,13 +26,16 @@ const ChecksReportSchema = z.object({                                           
 const PlanItemStatusSchema = z.object({ item: z.string(), checks: z.array(z.string()), status: z.enum(['passed', 'failed', 'error', 'not_executed']) });
 
 const TestOutcomeSchema = z.object({                                                // QB-06
-  outcome:     z.enum(['passed', 'failed', 'error', 'not_run']),
+  outcome:     z.enum(['passed', 'failed', 'preexisting_failures', 'error', 'not_run']),
   reason:      z.string(),
   runner:      z.string().nullable(),
   exit_code:   z.number().int().nullable(),
   state:       z.string().nullable(),
   duration_ms: z.number().int().nullable(),
   tree:        z.string().nullable().optional(),      // QB-22: the source tree the tests ran on
+  regressions: z.array(z.object({ file: z.string().nullable(), name: z.string(), failureType: z.string().nullable(), error: z.string() })).optional(),   // QB-10
+  preexisting: z.array(z.object({ file: z.string().nullable(), name: z.string(), failureType: z.string().nullable(), error: z.string() })).optional(),
+  baseline:    z.string().optional(),
 });
 
 const JudgmentMaterialSchema = z.object({            // QB-22: what a no-change judgment was based on
@@ -66,6 +69,7 @@ const VerificationReportSchema = z.object({
   test_results:     TestResultsSchema.nullable(),
   test_outcome:     TestOutcomeSchema.optional(),
   judgment_material: JudgmentMaterialSchema.optional(),
+  outcomes:         z.object({ execution: z.string(), policy: z.string(), tests: z.string(), criteria: z.string() }).optional(),   // QB-10
   oracle:           z.object({ approved: z.boolean(), reason: z.string(), contract_hash: z.string(), via: z.string().nullable() }).optional(),   // QB-13
   checks:           ChecksReportSchema.optional(),
   policy:           z.object({                                                       // QB-09

@@ -88,8 +88,22 @@ function validateNodeReport(text) {
     .filter((e) => e.nesting === 0 && typeof e.file === 'string' && /\.(c|m)?[jt]s$/.test(e.name) && e.file.endsWith(`/${e.name}`))
     .map((e) => e.name);
 
-  return { ok: true, counts: Object.fromEntries(COUNT_KEYS.map((k) => [k, counts[k]])), collectionFailures };
+  // QB-10: the failing tests themselves (bounded), as evidence for repair and for
+  // the base/candidate comparison. Identity = file (relative to the run root) + name.
+  const failingTests = fails.filter((e) => !e.todo).slice(0, 50).map((e) => ({
+    file: relFile(e.file), name: String(e.name), failureType: e.failureType ?? null,
+    error: typeof e.error === 'string' ? e.error.slice(0, 500) : '',
+  }));
+  return { ok: true, counts: Object.fromEntries(COUNT_KEYS.map((k) => [k, counts[k]])), collectionFailures, failingTests };
 }
+
+/** A reporter path made relative to the run root (/verify, /scratch, or the host temp dir in tests). */
+function relFile(f) {
+  if (typeof f !== 'string') return null;
+  const m = /^\/(?:verify|scratch)\/(.*)$/.exec(f);
+  return m ? m[1] : f.replace(/^.*?\/(test|tests|__tests__|spec)\//, '$1/');
+}
+const testId = (t) => `${t.file}\u0000${t.name}`;
 
 /**
  * @param {object|null} v - execution.sandbox.verification
@@ -114,10 +128,34 @@ function classifyTestRun(v) {
   const known = { runner: 'node-test', counts: c };
   if (r.collectionFailures.length) return res('error', 'collection_failure', known);
   if (c.cancelled > 0) return res('error', 'cancelled_tests', known);
-  if (c.failed > 0) return exit_code !== 0 ? res('failed', 'tests_failed', known) : res('error', 'inconsistent_exit', known);
+  if (c.failed > 0) {
+    if (exit_code === 0) return res('error', 'inconsistent_exit', known);
+    // QB-10: which failures are new? Compare with the same suite on the base tree.
+    const base = baseFailures(v.base);
+    const failures = r.failingTests;
+    if (!base.ok) return res('failed', 'tests_failed', { ...known, failures, regressions: failures, preexisting: [], baseline: base.reason });
+    const regressions = failures.filter((t) => !base.ids.has(testId(t)));
+    const preexisting = failures.filter((t) => base.ids.has(testId(t)));
+    return regressions.length
+      ? res('failed', 'tests_failed', { ...known, failures, regressions, preexisting, baseline: 'compared' })
+      : res('preexisting_failures', 'only_preexisting_failures', { ...known, failures, regressions: [], preexisting, baseline: 'compared' });
+  }
   if (exit_code !== 0) return res('error', `exit_${exit_code}_without_test_failures`, known);
   if (c.passed === 0) return res('error', 'zero_tests', known);
   return res('passed', 'tests_passed', known);
+}
+
+/**
+ * The base run's failing tests (QB-10). Usable only if the base run itself produced a
+ * complete, consistent report with no cancellation or collection failure.
+ */
+function baseFailures(b) {
+  if (!b) return { ok: false, reason: 'baseline_not_run' };
+  if (typeof b.report !== 'string') return { ok: false, reason: `baseline_${b.report_error || 'no_report'}` };
+  const r = validateNodeReport(b.report);
+  if (!r.ok) return { ok: false, reason: `baseline_${r.reason}` };
+  if (r.collectionFailures.length || r.counts.cancelled > 0) return { ok: false, reason: 'baseline_unreliable' };
+  return { ok: true, ids: new Set(r.failingTests.map(testId)) };
 }
 
 module.exports = { classifyTestRun, validateNodeReport, FORMAT };

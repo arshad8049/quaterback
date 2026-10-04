@@ -28,6 +28,7 @@ const { inputFromReport } = require('./verify/verdict');
 const { contractState, stateReason, approve } = require('./intent/contract-state');
 const { loadContractFile, proposalForReview } = require('./intent/contract-file');
 const { formatOracle } = require('./intent/oracle-view');
+const { routeRepair } = require('./verify/routing');
 const { git: gitProc }  = require('./lib/proc');
 const { AGENT_VERSION } = require('./lib/sandbox/agent');
 
@@ -242,6 +243,7 @@ async function main() {
   let report      = null;
   let attempt     = 0;
   // Seed repair loop with any prior repairs memory recalled
+  let previousPatch;                 // QB-10: no-progress detection across attempts
   let repairHints = priorRepairs.map(r => ({
     criterion_id:  r.criterion_id,
     diagnosis:     r.diagnosis,
@@ -322,32 +324,21 @@ async function main() {
       if (execution.status === 'no_change') console.log('\n  ✓ Already satisfied: the agent changed nothing, and the tests and independent judge confirm the requirement.');
       break;
     }
-    if (report.verdict === 'error') {
-      console.log(`\n  ✗ Agent execution ${execution.status}: ${execution.error || 'no detail'}`);
+    // QB-10: one routing decision (shared with the benchmark): repair only with
+    // concrete actions, never code-repair an environment problem, stop on no progress.
+    const route = routeRepair(report, { patch: execution.diff, previousPatch: attempt > 1 ? previousPatch : undefined });
+    previousPatch = execution.diff;
+    run.event('attempt.routed', { attempt, action: route.action, reason: route.reason });
+    if (route.action === 'environment') {
+      console.log(`\n  ✗ ${route.reason}`);
       if (execution.changes.length) console.log('    Partial changes were captured in the run record for inspection.');
       break;
     }
-    if (report.verdict === 'unresolved') {
-      console.log(execution.status === 'no_change'
-        ? '\n  ~ Agent changed nothing — requirement not independently verified.'
-        : '\n  ~ Change could not be fully captured — cannot approve.');
-      break;
-    }
-    if (report.verdict === 'no-diff') {
-      console.log('\n  ○ No diff to verify — running in dry-run mode.');
-      break;
-    }
-    // No AC failures → nothing concrete to repair, regardless of verdict.
-    // partial = all criteria ambiguous (--no-llm-verify or no diff to read)
-    // fail    = test runner fired but all ACs passed (pre-existing test failure)
-    if (report.failures.length === 0) {
-      if (report.verdict === 'partial') {
-        console.log('\n  ~ Criteria ambiguous — no explicit failures to repair.');
-        console.log('    Run without --no-llm-verify for a definitive LLM verdict.');
-      } else if (report.verdict === 'fail') {
-        console.log('\n  ✗ Test suite failure detected — all ACs passed but tests failed.');
-        console.log('    This may be a pre-existing failure unrelated to this change.');
-      }
+    if (route.action === 'stop') {
+      if (report.verdict === 'no-diff') console.log('\n  ○ No diff to verify — running in dry-run mode.');
+      else if (report.verdict === 'unresolved' && execution.status === 'no_change') console.log('\n  ~ Agent changed nothing — requirement not independently verified.');
+      else console.log(`\n  ~ Stopping: ${route.reason}.`);
+      if (report.test_outcome?.preexisting?.length) console.log(`    ${report.test_outcome.preexisting.length} test(s) were already failing before this change (still listed in the report).`);
       break;
     }
 
@@ -357,8 +348,8 @@ async function main() {
     }
 
     // Prepare repair hints for next attempt
-    repairHints = report.repair_hints;
-    console.log(`\n  ${report.failures.length} criterion/criteria failed — retrying with repair hints...\n`);
+    repairHints = route.hints;
+    console.log(`\n  ${route.reason} — retrying with repair hints...\n`);
     report.repair_hints.forEach(h => {
       console.log(`  [${h.criterion_id}] ${h.diagnosis}`);
       console.log(`    → ${h.suggested_fix}\n`);

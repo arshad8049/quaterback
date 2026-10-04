@@ -90,7 +90,7 @@ async function verify(contract, context, execution, options = {}) {
   const oracle = { ...approvalState(contract), contract_hash: contractHash(contract), via: contract.approval?.via ?? null };
   const policy = evaluatePolicy(contract, execution, checkEval.results);       // QB-09
   const { verdict, failures } = aggregate({
-    rules: 4,
+    rules: 5,
     oracleApproved: oracle.approved,
     policyEffect: policy.effect,
     hasDiff: Boolean(diff),
@@ -121,13 +121,14 @@ async function verify(contract, context, execution, options = {}) {
     failures,
     test_results:     testResults || null,
     test_outcome:     testOutcome(execution),
+    outcomes:         outcomesOf(execution, policy, testOutcome(execution), criteriaResults, execFailed),
     oracle,
     checks:           checksReport(contract, checkEval),
     verification_plan_status: planStatus(contract, checkEval),
     ...(material && material.ok ? { judgment_material: { source: 'sandbox_snapshot', tree: material.tree, files: material.files } } : {}),
     scope_violations: [...policy.protected_touched, ...policy.out_of_scope],
     policy,
-    repair_hints:     [...repairHints, ...policyRepairs(policy)],
+    repair_hints:     [...repairHints, ...policyRepairs(policy), ...testRepairs(execution)],
   };
 
   return VerificationReportSchema.parse(report);
@@ -235,6 +236,28 @@ function planStatus(contract, ev) {
   });
 }
 
+/** QB-10: one concrete repair action per newly failing test, with its evidence. */
+function testRepairs(execution) {
+  const c = classifyTestRun(execution?.sandbox?.verification || null);
+  if (c.outcome !== 'failed' || !c.regressions) return [];
+  return c.regressions.slice(0, 10).map(t => ({
+    criterion_id: `TEST:${t.file}:${t.name}`.slice(0, 200),
+    diagnosis: `Test "${t.name}" (${t.file}) fails after this change${t.error ? `: ${t.error}` : ''}`.slice(0, 700),
+    suggested_fix: `Make "${t.name}" in ${t.file} pass again without editing the test.`,
+  }));
+}
+
+/** The four outcomes, reported independently (QB-10). */
+function outcomesOf(execution, policy, testOutcome, criteriaResults, execFailed) {
+  return {
+    execution: execFailed ? 'failed' : (execution?.status || 'unknown'),
+    policy: policy.effect,
+    tests: testOutcome.outcome,
+    criteria: !criteriaResults.length ? 'none' : criteriaResults.some(r => r.met === false) ? 'failed'
+      : criteriaResults.every(r => r.met === true) ? 'met' : 'unknown',
+  };
+}
+
 /** QB-09: what the agent must undo for a policy failure (a protected or unauthorized change, a violated constraint). */
 function policyRepairs(policy) {
   const hints = [];
@@ -250,7 +273,9 @@ function testOutcome(execution) {
   const c = classifyTestRun(v);
   return { outcome: c.outcome, reason: c.reason, runner: c.runner, exit_code: c.exit_code,
     state: v?.state ?? null, duration_ms: Number.isInteger(v?.duration_ms) ? v.duration_ms : null,
-    tree: v?.tree ?? null };
+    tree: v?.tree ?? null,
+    // QB-10: which failures are new, which already happened on the base tree.
+    ...(c.failures ? { regressions: c.regressions, preexisting: c.preexisting, baseline: c.baseline } : {}) };
 }
 
 /** The report for a contract that is not finalized: unresolved, nothing judged. */

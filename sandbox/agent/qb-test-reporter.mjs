@@ -4,7 +4,7 @@
 // "qb-node-test-events/1" — keeping only the events QB validates:
 //
 //   {"type":"qb:start","format":"qb-node-test-events/1"}
-//   {"type":"test:pass"|"test:fail","name","nesting","file","kind","skip","todo","failureType"}
+//   {"type":"test:pass"|"test:fail","name","nesting","file","kind","skip","todo","failureType","error"?}
 //   {"type":"test:summary","file"?,"counts":{tests,passed,failed,cancelled,skipped,todo,...},"success"}
 //   {"type":"qb:end"}                       written only when the stream completes
 //
@@ -20,6 +20,8 @@ export default async function* qbReporter(source) {
         type: ev.type, name: String(d.name), nesting: d.nesting, file: d.file ?? null,
         kind: d.details?.type ?? null, skip: Boolean(d.skip), todo: Boolean(d.todo),
         failureType: ev.type === 'test:fail' ? (d.details?.error?.failureType ?? null) : null,
+        // QB-10: bounded failure evidence for repair (the assertion's own message).
+        ...(ev.type === 'test:fail' ? { error: String(d.details?.error?.cause?.message || d.details?.error?.message || '').slice(0, 500) } : {}),
       }) + '\n';
     } else if (ev.type === 'test:summary') {
       yield JSON.stringify({ type: 'test:summary', file: d.file ?? null, counts: d.counts, success: d.success }) + '\n';

@@ -33,6 +33,7 @@ const { AGENT_VERSION } = require('../lib/sandbox/agent');
 const { contractState, stateReason, approve } = require('../intent/contract-state');
 const { contractFromObject } = require('../intent/compiler');
 const { inputFromReport } = require('../verify/verdict');
+const { routeRepair } = require('../verify/routing');
 
 program
   .name('bench')
@@ -272,6 +273,7 @@ async function runQB(task, ws) {
   let repairHints = [];
   const attempts  = [];
 
+  let previousPatch;
   while (attempt < maxRetries) {
     attempt++;
 
@@ -316,10 +318,12 @@ async function runQB(task, ws) {
 
     console.log(`     L3+L4 attempt ${attempt}: ${verdictIcon(report.verdict)} ${report.verdict.toUpperCase()} (${l3_ms + l4_ms}ms)`);
 
-    if (['pass', 'no-diff', 'error', 'unresolved'].includes(report.verdict)) break;
-    if (report.failures.length === 0) break;
-    if (attempt >= maxRetries) break;
-    repairHints = report.repair_hints;
+    // QB-10: the same routing as qb.js.
+    const route = routeRepair(report, { patch: execution.diff, previousPatch: attempt > 1 ? previousPatch : undefined });
+    previousPatch = execution.diff;
+    attempts[attempts.length - 1].route = { action: route.action, reason: route.reason };
+    if (route.action !== 'repair' || attempt >= maxRetries) break;
+    repairHints = route.hints;
   }
 
   out.attempts        = attempts;

@@ -131,7 +131,7 @@ describe('agent briefing, replay', () => {
     const e = exec(['src/legacy/old.js']);
     const r = await run(contract(), e);
     const input = inputFromReport(r, e);
-    assert.deepEqual([input.rules, input.policyEffect, aggregate(input).verdict], [4, 'fail', 'fail']);
+    assert.deepEqual([input.rules, input.policyEffect, aggregate(input).verdict], [5, 'fail', 'fail']);
     assert.equal(aggregate({ ...input, rules: 3 }).verdict, 'pass', 'the same evidence under rules 3 (pre-QB-09)');
   });
 });

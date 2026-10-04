@@ -228,6 +228,12 @@ An agent that changed nothing passes only if the requirement is independently ve
 - a protected change fails the task;
 - an unauthorized change, or an unenforced constraint, can't pass.
 
+**Failure routing** (QB-10, [docs/verify/failure-routing.md](docs/verify/failure-routing.md)):
+- when the candidate's tests fail, the same suite runs on the base tree;
+- only new failures are regressions, and each gets a repair action with its evidence;
+- pre-existing failures stay listed;
+- infrastructure errors go to environment recovery, and an unchanged patch stops the loop.
+
 **Run records** (`run/store.js`, QB-38). Every run keeps a versioned, append-only record: base commit, agent version, contract, patch, test outcome, checks and report. `qb replay <run_id>` recomputes each verdict and the final outcome from the stored evidence.
 
 ---

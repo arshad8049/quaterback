@@ -301,6 +301,38 @@ describe('QB-02 done-when through the real pipeline', { skip: !ENABLED && 'set Q
     } finally { repo.cleanup(); }
   });
 
+  test('QB-10: base vs candidate — a pre-existing failure stays visible, only the new failure is a regression', async () => {
+    const repo = fixtureRepo((files) => {
+      NODE_TEST(files);
+      files['test/legacy.test.js'] = "require('node:test')('legacy is already broken', () => { throw new Error('known base failure'); });\n";
+    });
+    try {
+      const contract = approve({ id: 'c', goal: 'g', clarifying_question: null, scope: { allowed_changes: ['src/**'] },
+        acceptance_criteria: [{ id: 'AC-1', criterion: 'style', met: null, kind: 'non_behavioral' }] }, { via: 'test' });
+      const verifyWith = async (r) => {
+        const m = mockFetch(ollamaReply({ met: true, evidence: 'ok' }));
+        try { return await verify(contract, null, { id: 'e', status: r.status, diff: r.diff, changes: r.changes, candidate_tree: r.candidate_tree, sandbox: r.sandbox }, { repoPath: repo.dir }); }
+        finally { m.restore(); }
+      };
+      // 1. The agent breaks double(): one regression, one pre-existing failure.
+      const broken = await runSandboxed({ repoPath: repo.dir, briefing: 'x', stateDir,
+        agentStage: hostileAgent("printf 'module.exports = () => 0;\\n' > /work/src/double.js") });
+      assert.ok(broken.sandbox.verification.base, 'the base suite ran because the candidate failed');
+      const r1 = await verifyWith(broken);
+      assert.deepEqual(r1.test_outcome.regressions.map((t) => t.name), ['doubles'], JSON.stringify(r1.test_outcome));
+      assert.deepEqual(r1.test_outcome.preexisting.map((t) => t.name), ['legacy is already broken']);
+      assert.equal(r1.verdict, 'fail');
+      assert.ok(r1.repair_hints.some((h) => /Test "doubles"/.test(h.diagnosis)));
+      // 2. A harmless in-scope change: only the pre-existing failure remains — visible, not blamed.
+      const harmless = await runSandboxed({ repoPath: repo.dir, briefing: 'x', stateDir,
+        agentStage: hostileAgent("printf '// note\\n' >> /work/src/double.js") });
+      const r2 = await verifyWith(harmless);
+      assert.equal(r2.test_outcome.outcome, 'preexisting_failures', JSON.stringify(r2.test_outcome));
+      assert.deepEqual(r2.test_outcome.preexisting.map((t) => t.name), ['legacy is already broken']);
+      assert.equal(r2.verdict, 'pass');
+    } finally { repo.cleanup(); }
+  });
+
   test('QB-22: the trusted export refuses oversized files, symlinks, directories and missing paths', async () => {
     const repo = fixtureRepo((files) => { NODE_TEST(files); files['big.txt'] = Buffer.alloc(70 * 1024, 97); });
     fs.symlinkSync('src/double.js', path.join(repo.dir, 'link.js'));

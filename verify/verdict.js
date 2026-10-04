@@ -17,7 +17,8 @@
  * @param {boolean} [evidence.unsupportedChanges] - capture could not represent part of the change
  * @param {object}  [evidence.verification] - sandbox verification { status, reason, state } (QB-02),
  *                    plus { outcome, outcome_reason } from verify/tests.js under rules 2
- * @param {number}  [evidence.rules] - 2 since QB-06, 3 since QB-13 (oracle approval); absent =
+ * @param {number}  [evidence.rules] - 2 since QB-06, 3 since QB-13 (oracle approval), 4 since QB-09
+ *                    (policy), 5 since QB-10 (classified outcome replaces the raw failed count); absent =
  *                    the earlier rules, so stored runs replay exactly as they were decided
  * @param {boolean} [evidence.oracleApproved] - rules 3: the contract was approved by a human, unchanged
  * @returns {{ verdict: string, failures: string[] }}
@@ -25,6 +26,8 @@
 const FAILED_EXECUTION = new Set(['execution_error', 'timeout', 'cancelled', 'failed', 'oom', 'infra_error', 'setup_failed']);
 const NEVER_APPROVED   = new Set(['blocked', 'unresolved']);
 const { classifyTestRun } = require('./tests');
+// QB-10: only failures that also happen on the base tree remain → not caused by this change (still reported).
+const TESTS_OK = new Set(['passed', 'preexisting_failures']);
 
 function aggregate(input) {
   const r = aggregateCore(input);
@@ -53,7 +56,7 @@ function aggregateCore({ hasDiff, criteriaResults, testResults, executionStatus 
     const outcome = verification ? verification.outcome : 'not_run';
     if (failures.length || outcome === 'failed') return { verdict: 'fail', failures };
     const allMet = criteriaResults.length > 0 && criteriaResults.every(r => r.met === true);
-    return { verdict: allMet && outcome === 'passed' ? 'pass' : 'unresolved', failures };
+    return { verdict: allMet && TESTS_OK.has(outcome) ? 'pass' : 'unresolved', failures };
   }
   if (executionStatus === 'no_change') return { verdict: 'unresolved', failures };
 
@@ -67,7 +70,9 @@ function aggregateCore({ hasDiff, criteriaResults, testResults, executionStatus 
   else                             verdict = 'pass';
 
   // If tests failed, force verdict to fail
-  if (testResults && testResults.failed > 0 && verdict === 'pass') {
+  // Before rules 5 any failed count forced FAIL; since QB-10 the classified outcome decides
+  // (failures that also happen on the base tree are pre-existing, not this change's).
+  if (rules < 5 && testResults && testResults.failed > 0 && verdict === 'pass') {
     verdict = 'fail';
   }
 
@@ -78,9 +83,10 @@ function aggregateCore({ hasDiff, criteriaResults, testResults, executionStatus 
   // failing test fails the task; a broken run (error) or no run cannot approve it.
   if (rules >= 2) {
     const outcome = verification ? verification.outcome : 'not_run';
+    // A definite test regression fails the task even when criteria are unknown (partial).
     if (verdict === 'pass' || verdict === 'partial') {
       if (outcome === 'failed') verdict = 'fail';
-      else if (outcome !== 'passed' && verdict === 'pass') verdict = 'unresolved';
+      else if (!TESTS_OK.has(outcome) && verdict === 'pass') verdict = 'unresolved';
     }
     return { verdict, failures };
   }
@@ -110,7 +116,7 @@ function verificationInput(execution) {
 /** The aggregate() input that produced a stored report, for the run record. */
 function inputFromReport(report, execution) {
   return {
-    rules:           4,
+    rules:           5,
     oracleApproved:  report.oracle ? report.oracle.approved === true : false,
     policyEffect:    report.policy ? report.policy.effect : 'ok',
     hasDiff:         Boolean(execution?.diff),
