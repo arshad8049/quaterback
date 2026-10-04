@@ -17,7 +17,7 @@ const { validateExamples } = require('./examples');
 const { policyErrors } = require('../verify/policy');
 const { testPolicyErrors } = require('../verify/tests');
 const { preservationErrors } = require('../verify/preservation');
-const { validateTraceability } = require('./requirements');
+const { validateTraceability, validateDefaults } = require('./requirements');
 
 function contractState(c) {
   if (!c || typeof c !== 'object' || Array.isArray(c)) return { state: 'invalid', errors: ['contract is not an object'] };
@@ -25,6 +25,12 @@ function contractState(c) {
   if (q) return { state: 'needs_clarification', question: q };
 
   const errors = [];
+  // QB-17: the compiler records what its output lacked instead of filling it in.
+  if (Array.isArray(c.incomplete) && c.incomplete.length) {
+    const missing = c.incomplete.filter((x) => x.startsWith('missing ')).map((x) => x.slice(8));
+    const other = c.incomplete.filter((x) => !x.startsWith('missing '));
+    errors.push(`incomplete compiler output: ${[...other, ...(missing.length ? [`missing ${missing.join(', ')}`] : [])].join('; ')}`);
+  }
   if (typeof c.goal !== 'string' || !c.goal.trim()) errors.push('missing goal');
   const acs = c.acceptance_criteria;
   if (!Array.isArray(acs) || acs.length === 0) errors.push('no acceptance criteria');
@@ -46,7 +52,7 @@ function contractState(c) {
     for (const e of validateExamples(c).errors) errors.push(`${e.where} example is wrong: ${e.claim} (correct: ${e.correct})`);
   }
   // QB-14: every request clause traced; no uncovered requirement, unsupported addition or duplicate AC.
-  if (!errors.length) errors.push(...validateTraceability(c).errors);
+  if (!errors.length) errors.push(...validateDefaults(c).errors, ...validateTraceability(c).errors);
   return errors.length ? { state: 'invalid', errors } : { state: 'finalized' };
 }
 
@@ -66,6 +72,8 @@ function approvedContent(c) {
     constraint_policy: c?.constraint_policy ?? [],
     // QB-10: waiving pre-existing test failures is part of the approved oracle (absent → not hashed, so older approvals stay valid)
     ...(c?.test_policy !== undefined ? { test_policy: c.test_policy } : {}),
+    // QB-17: QB's proposed defaults are approved with the oracle (absent → not hashed)
+    ...(c?.proposed_defaults !== undefined ? { proposed_defaults: c.proposed_defaults } : {}),
   };
 }
 function contractHash(c) {

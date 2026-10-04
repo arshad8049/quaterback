@@ -15,17 +15,23 @@ const SEMANTIC_FIELDS = [
   'scope', 'constraint_policy',   // QB-09: enforced policy, validated by contractState
   'requirements',                 // QB-14: request clauses with verbatim quotes, validated by contractState
   'test_policy',                  // QB-10: explicit, approved waiver of pre-existing test failures
+  'proposed_defaults',            // QB-17: QB's own choices where the request is silent — shown and approved, never silent
 ];
 const { validateChecks } = require('../verify/checks/registry');
 
 const SYSTEM_PROMPT = fs.readFileSync(path.join(__dirname, 'prompts/system.md'), 'utf8');
 
+/**
+ * @param {string} request
+ * @param {string|null} repoContext   the repository survey text (intent/survey.js, QB-17)
+ * @param {string|Array<{question, answer}>|null} clarification  answers so far, round by round
+ */
 async function compile(request, repoContext = null, clarification = null) {
-  // DSA pre-pass: catch deterministic ambiguity patterns before touching the LLM
-  if (!clarification) {
-    const ambiguity = detectAmbiguity(request);
-    if (ambiguity) return ambiguity;
-  }
+  const history = Array.isArray(clarification) ? clarification
+    : clarification ? [{ question: null, answer: String(clarification) }] : [];
+  // DSA pre-pass (QB-17): a vague term blocks until the request or an answer defines it.
+  const ambiguity = detectAmbiguity(request, history.map((h) => h.answer));
+  if (ambiguity) return ambiguity;
 
   const res = await fetch(`${OLLAMA_URL}/api/chat`, {
     method: 'POST',
@@ -34,7 +40,7 @@ async function compile(request, repoContext = null, clarification = null) {
       model: MODEL,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user',   content: buildUserContent(request, repoContext, clarification) },
+        { role: 'user',   content: buildUserContent(request, repoContext, history) },
       ],
       stream: false,
       options: { temperature: 0.1, num_ctx: 16384 },
@@ -53,10 +59,12 @@ async function compile(request, repoContext = null, clarification = null) {
   return parseAndValidate(raw, request);
 }
 
-function buildUserContent(request, repoContext, clarification) {
+function buildUserContent(request, repoContext, history) {
   let content = `REQUEST:\n${request}`;
-  if (clarification) content += `\n\nCLARIFICATION:\n${clarification}`;
-  if (repoContext)   content += `\n\nREPO CONTEXT:\n${repoContext}`;
+  history.forEach((h, i) => {
+    content += h.question ? `\n\nCLARIFICATION ${i + 1}:\nQ: ${h.question}\nA: ${h.answer}` : `\n\nCLARIFICATION:\n${h.answer}`;
+  });
+  if (repoContext) content += `\n\nREPOSITORY SURVEY (read-only, for grounding — the request decides what to do):\n${repoContext}`;
   return content;
 }
 
@@ -87,20 +95,28 @@ function contractFromObject(raw, request) {
 
   raw.clarifying_question = null;
 
-  // required_behavior — generate from goal if model returned empty
-  if (!Array.isArray(raw.required_behavior) || raw.required_behavior.length === 0) {
-    raw.required_behavior = raw.goal ? [raw.goal] : ['Implement the requested feature as described.'];
+  // QB-17: incomplete output is recorded, never filled with fallback text. A
+  // contract with `incomplete` entries is invalid (intent/contract-state.js).
+  const incomplete = [];
+  for (const key of ['required_behavior', 'verification_plan']) {
+    if (!Array.isArray(raw[key]) || raw[key].length === 0) incomplete.push(`missing ${key}`);
   }
 
-  // Normalize string arrays — model sometimes returns objects instead of strings
+  // Normalize string arrays — the model sometimes returns objects with a text field.
+  // An entry with no recognizable text is reported, not stringified.
   for (const key of ['required_behavior', 'constraints', 'verification_plan', 'ambiguity_flags']) {
     if (Array.isArray(raw[key])) {
-      raw[key] = raw[key].map(item =>
-        typeof item === 'string' ? item : extractString(item)
-      ).filter(Boolean);
+      raw[key] = raw[key].map((item, i) => {
+        const t = typeof item === 'string' ? item : extractString(item);
+        if (t === null) incomplete.push(`unreadable ${key}[${i}]`);
+        return t;
+      }).filter(Boolean);
     } else {
       raw[key] = raw[key] ? [String(raw[key])] : [];
     }
+  }
+  for (const key of ['required_behavior', 'verification_plan']) {
+    if (!raw[key].length && !incomplete.includes(`missing ${key}`)) incomplete.push(`missing ${key}`);
   }
 
   // Default missing fields so schema validation doesn't fail on incomplete model output
@@ -129,11 +145,6 @@ function contractFromObject(raw, request) {
     })
     : [];
 
-  // verification_plan — fall back to a minimal plan if missing
-  if (!Array.isArray(raw.verification_plan) || raw.verification_plan.length === 0) {
-    raw.verification_plan = ['Run the existing test suite and verify acceptance criteria are met.'];
-  }
-
   // Only semantic fields come from the model. Trusted metadata is assigned
   // afterwards by the application and can never be overridden (QB-04).
   const semantic = {};
@@ -152,6 +163,7 @@ function contractFromObject(raw, request) {
     created_at: new Date().toISOString(),
     raw_request: request,
     repo_path: null,
+    ...(incomplete.length ? { incomplete } : {}),   // QB-17: set by QB, never by the model
   };
 
   // A contract the gate will reject (no ACs, missing goal, …) is returned as is,
@@ -174,16 +186,15 @@ function isNoQuestionSentinel(q) {
   return NO_QUESTION_SENTINELS.has(q.trim().toLowerCase().replace(/\.$/, ''));
 }
 
+/** The text of a list entry the model wrote as an object, or null (QB-17: never guessed). */
 function extractString(obj) {
   if (typeof obj === 'string') return obj;
-  if (typeof obj !== 'object' || obj === null) return String(obj);
-  // Try common keys the model uses when it returns objects instead of strings
+  if (typeof obj === 'number' || typeof obj === 'boolean') return String(obj);
+  if (typeof obj !== 'object' || obj === null) return null;
   for (const key of ['text', 'description', 'behavior', 'criterion', 'constraint', 'step', 'item', 'value', 'content']) {
-    if (typeof obj[key] === 'string') return obj[key];
+    if (typeof obj[key] === 'string' && obj[key].trim()) return obj[key];
   }
-  // Last resort: join all string values
-  const strings = Object.values(obj).filter(v => typeof v === 'string');
-  return strings.join(' ') || JSON.stringify(obj);
+  return null;
 }
 
 function parseJSON(text, request) {

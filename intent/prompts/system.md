@@ -37,6 +37,9 @@ How a verification agent would mechanically check the acceptance criteria. Inclu
 **requirements** (traceability — validated by QB)
 Split the request into requirements: `{ "id": "R-1", "quote": "<an exact, verbatim fragment of the request>" }`. Together the quotes must cover the WHOLE request by position — every clause, including negations ("do not", "never", "without"), numbers, units, operators and code symbols (">= 90%", "!isAdmin", "!==", "()") — only sentence punctuation at the end of a word may fall outside a quote; only articles and "and"/"that"/"which" may fall between quotes. A prohibition ("Do not X") is its own requirement with its own criterion. If the same text occurs more than once in the request, add `"occurrence": n` (1-based) to say which one the quote is. A fragment that is only context (e.g. a file location) may be `{ "id": "R-2", "quote": "…", "disposition": "context", "reason": "…" }`. A requirement the request implies but does not state: `{ "id": "R-3", "implied": true, "text": "…", "reason": "…" }`. Every acceptance criterion lists the requirements it covers in `requirement_ids`; every requirement must be covered by at least one criterion (or be context). Criteria that trace to no requirement are rejected as unsupported additions. Cover the ESSENTIAL behaviour of each requirement, not only its shape: "cumulative ms tracked since created" needs a criterion (and a check) that the total grows across events, starts at zero for a new instance, and is independent between instances.
 
+**proposed_defaults** (QB-17 — shown to the human and approved, never silent)
+When the request is silent on a detail you must decide to write testable criteria (what happens when min > max, the error type, an empty input), do NOT bury the choice in a criterion. State it as `{ "id": "D-1", "text": "<your choice>", "reason": "<why a choice was needed>" }` and let the criterion cite it: `"requirement_ids": ["D-1"]`. Every default must be cited by at least one criterion. Explicit requirements are quoted (R-n with quote), inferred ones are `implied` (R-n with a reason), and your own choices are proposed defaults (D-n) — keep the three apart.
+
 **checks**
 Executable checks that prove the behavioural acceptance criteria. Each check is DATA for one approved adapter — never a shell command, never code to evaluate. Anything else is rejected and never run.
 - `module_exports` — params `{ "module": "src/x.js", "export": "name", "type": "function" | "object" | "string" | "number" | "boolean" }`
@@ -54,7 +57,7 @@ A criterion that claims something is NOT broken ("existing tests still pass", "n
 One entry per constraint (0-based index into constraints) saying how it is enforced: `{ "constraint": 0, "enforced_by": [{ "kind": "protected_paths", "ref": "<a glob from scope.protected_paths>" }] }`, `{ "kind": "allowed_changes" }`, `{ "kind": "check", "ref": "<check id>" }`, or `{ "constraint": 1, "advisory": true }` when it cannot be machine-checked. A constraint without an entry stays unresolved.
 
 **relevant_context**
-File paths, API names, database tables, environment variables, or symbols that the coding agent will need. ONLY include these if repository context was provided. If no repo context was given, return an empty array. Never invent file paths.
+File paths, API names, database tables, environment variables, or symbols that the coding agent will need. ONLY include these if repository context was provided (the REPOSITORY SURVEY: the directory tree and the files most relevant to the request). Use the survey to ground names and paths; it never adds requirements — the request decides what to do. If no repo context was given, return an empty array. Never invent file paths.
 
 **ambiguity_flags**
 List any part of the request that has two or more substantially different valid interpretations that would produce meaningfully different implementations. Not every uncertainty is ambiguous — you can make reasonable assumptions for low-stakes details (button placement, error message wording). Flag it when the implementations would diverge in architecture, scope, or user behavior.
@@ -99,6 +102,7 @@ Return ONLY a valid JSON object. No markdown code fences, no explanation, no pre
     { "id": "AC-1", "criterion": "string", "met": null, "kind": "behavioral", "requirement_ids": ["R-1"] }
   ],
   "requirements": [{ "id": "R-1", "quote": "verbatim fragment of the request" }],
+  "proposed_defaults": [],
   "verification_plan": ["string"],
   "checks": [
     { "id": "CHK-1", "ac_id": "AC-1", "adapter": "call_returns", "plan_item": 0,

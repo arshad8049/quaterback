@@ -35,6 +35,8 @@ const TaskContractSchema = z.object({
   constraint_policy: z.array(z.unknown()).optional(),
   requirements: z.array(z.unknown()).optional(),     // QB-14: validated by intent/requirements.js
   test_policy: z.unknown().optional(),               // QB-10: validated by verify/tests.js testPolicyErrors
+  proposed_defaults: z.array(z.unknown()).optional(), // QB-17: validated by intent/requirements.js
+  incomplete: z.array(z.string()).optional(),        // QB-17: what the compiler output lacked (set by QB) → invalid
 });
 
 // Partial schema for when compiler returns a clarifying question instead of full contract

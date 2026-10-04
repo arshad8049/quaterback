@@ -17,7 +17,7 @@ const path = require('path');
 const readline = require('readline');
 const { program } = require('commander');
 
-const { compile }      = require('./intent/compiler');
+const { compileIntent, MAX_ROUNDS } = require('./intent/session');
 const { buildContext } = require('./context/builder');
 const { orchestrate }  = require('./agent/orchestrator');
 const { verify }       = require('./verify/verifier');
@@ -62,7 +62,7 @@ program
   .option('--repo <path>',         'Path to the target repository', process.cwd())
   .option('--agent <type>',        'Coding agent: dry-run | claude-code | manual', 'dry-run')
   .option('--max-retries <n>',     'Max repair loop attempts', '3')
-  .option('--clarify <answer>',    'Answer to the intent compiler\'s clarifying question (noninteractive runs)')
+  .option('--clarify <answer>',    'Answer to the intent compiler\'s clarifying question; repeat for later rounds (noninteractive runs)', (v, prev) => [...prev, v], [])
   .option('--contract-file <path>', 'Use a human-reviewed contract as the test oracle instead of generating one (QB-13)')
   .option('--no-llm-context',      'Skip LLM enrichment in Layer 2 (faster)')
   .option('--no-llm-verify',       'Skip LLM judgment in Layer 4 (DSA only)')
@@ -137,42 +137,50 @@ async function main() {
     }
     log('L1', `Using the reviewed contract file ${opts.contractFile} (sha256 ${fileContract.sha.slice(0, 12)})`);
   }
-  let contract = fileContract ? fileContract.contract : await compile(request);
-
-  // Clarification (QB-08): one round. The answer comes from --clarify, or an
-  // interactive prompt; noninteractive runs stop with the question instead.
-  if (contractState(contract).state === 'needs_clarification') {
-    console.log(`\n  ⚠  Ambiguity detected:\n`);
-    if (contract.ambiguity_flags?.length) {
-      contract.ambiguity_flags.forEach(f => console.log(`     • ${f}`));
-    }
-    console.log(`\n  ❓ ${contract.clarifying_question}\n`);
-
-    let answer = (opts.clarify || '').trim();
-    if (!answer && process.stdin.isTTY) answer = (await prompt('  Your answer → ')).trim();
-    if (!answer) {
-      console.log(`  Not answered. Re-run with --clarify "<answer>" to continue.\n`);
-      run.event('contract.needs_clarification', { question: contract.clarifying_question, round: 1 });
-      run.finish('BLOCKED', { reason: 'needs_clarification' });
+  // QB-17: grounded in a repository survey, with bounded clarification rounds.
+  // Answers come from --clarify (one per round, in order) or an interactive prompt.
+  let contract;
+  if (fileContract) contract = fileContract.contract;
+  else {
+    const showQuestion = (h) => {
+      console.log(`\n  ⚠  Ambiguity detected (round ${h.round} of ${h.max_rounds}):\n`);
+      (h.ambiguity_flags || []).forEach(f => console.log(`     • ${f}`));
+      for (const u of h.unresolved) {
+        console.log(`\n  ❓ ${u.question}`);
+        if (u.choices.length) console.log(`     Choices: ${u.choices.join(' · ')}`);
+      }
+      console.log('');
+    };
+    const s = await compileIntent(request, {
+      repoPath, answers: opts.clarify || [],
+      ask: process.stdin.isTTY ? async (h) => { showQuestion(h); return (await prompt('  Your answer → ')).trim() || null; } : null,
+    });
+    if (s.survey) run.event('contract.grounding', s.survey);
+    if (s.state === 'needs_clarification' || s.state === 'blocked') {
+      // Machine-readable handoff: what is still open, the rounds so far, the grounding.
+      const file = path.join(run.dir, 'clarification.json');
+      fs.writeFileSync(file, JSON.stringify(s, null, 2) + '\n', { mode: 0o600 });
+      run.event(`contract.${s.state}`, { round: s.round, unresolved: s.unresolved.map(u => u.id), file });
+      if (!process.stdin.isTTY || s.state === 'blocked') showQuestion(s);
+      if (s.state === 'blocked') {
+        console.log(`  Still ambiguous after ${s.max_rounds} clarification rounds. Rephrase the request with that detail.\n`);
+        run.finish('BLOCKED', { reason: 'clarification_rounds_exhausted' });
+      } else {
+        console.log(`  Not answered. Re-run with --clarify "<answer>" for each round so far (${s.round} of at most ${MAX_ROUNDS}).`);
+        console.log(`  Handoff state: ${file}\n`);
+        run.finish('BLOCKED', { reason: 'needs_clarification' });
+      }
       process.exitCode = 2;
       return;
     }
-
-    log('L1', 'Re-compiling with clarification...');
-    contract = await compile(request, null, answer);
+    contract = s.contract;
   }
 
   // Only a finalized contract may reach the agent or verification.
   const cs = contractState(contract);
   if (cs.state !== 'finalized') {
-    if (cs.state === 'needs_clarification') {
-      console.log(`\n  ❓ Still ambiguous after one clarification: ${cs.question}`);
-      console.log('     Rephrase the request with that detail and run again.\n');
-      run.event('contract.needs_clarification', { question: cs.question, round: 2 });
-    } else {
-      console.log(`\n  ✗ The intent compiler produced an unusable contract: ${cs.errors.join('; ')}\n`);
-      run.event('contract.invalid', { errors: cs.errors });
-    }
+    console.log(`\n  ✗ The intent compiler produced an unusable contract: ${(cs.errors || [cs.question]).join('; ')}\n`);
+    run.event('contract.invalid', { errors: cs.errors || [] });
     run.finish('BLOCKED', { reason: stateReason(cs) });
     process.exitCode = 2;
     return;

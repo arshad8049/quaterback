@@ -18,7 +18,7 @@ const MAX_BYTES = 256 * 1024;
 
 /** The semantic fields QB saves for review and reads back (no trusted metadata, no approval). */
 const REVIEW_FIELDS = ['goal', 'required_behavior', 'constraints', 'acceptance_criteria', 'verification_plan',
-  'relevant_context', 'ambiguity_flags', 'checks', 'scope', 'constraint_policy', 'requirements', 'test_policy'];
+  'relevant_context', 'ambiguity_flags', 'checks', 'scope', 'constraint_policy', 'requirements', 'test_policy', 'proposed_defaults'];
 
 function loadContractFile(file, request) {
   const st = fs.statSync(file);

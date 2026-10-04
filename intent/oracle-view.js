@@ -9,7 +9,7 @@
 
 const { approvedContent, contractHash } = require('./contract-state');
 const { validateExamples } = require('./examples');
-const { validateTraceability } = require('./requirements');
+const { validateTraceability, validateDefaults } = require('./requirements');
 
 function formatOracle(contract) {
   const c = approvedContent(contract);
@@ -21,6 +21,10 @@ function formatOracle(contract) {
   list('Requirements from your request (QB-14)', validateTraceability(contract).trace.map((t) =>
     `${t.id} ${t.implied ? '(implied) ' : ''}${JSON.stringify(t.quote ?? (c.requirements.find((r) => r.id === t.id) || {}).text)} → ${t.disposition === 'covered' ? t.covered_by.join(', ') : t.disposition.toUpperCase()}`
       + (t.disposition === 'context' || t.implied ? `  (reason: ${t.reason})` : '')));
+  // QB-17: explicit (quoted) and implied requirements above; QB's own choices here, separately.
+  const defaults = validateDefaults(contract).defaults;
+  if (defaults.length) list('Proposed defaults (not in your request — QB\'s choice; approving the contract approves them)',
+    defaults.map((d) => `${d.id} ${d.text} → ${d.covered_by.join(', ') || 'UNCOVERED'}  (reason: ${d.reason})`));
   list('Acceptance criteria', c.acceptance_criteria.map((a) => `[${a.id}] (${a.kind}) ${a.criterion}${a.requirement_ids.length ? `  ← ${a.requirement_ids.join(', ')}` : ''}${a.preserves ? `  [preserved = these tests pass: ${a.preserves.tests.join(', ')}]` : ''}`));
   list('Verification plan', c.verification_plan.map((p, i) => `${i}. ${p}`));
   list('May change (scope.allowed_changes; anything else is unauthorized)', c.scope.allowed_changes);

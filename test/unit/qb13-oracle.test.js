@@ -151,7 +151,7 @@ describe('entry points: the human approves before anything runs', () => {
   });
   test('the reviewed file is the oracle: it runs, approved via contract-file and frozen; the model is not asked', () => {
     const file = path.join(tmp, 'contract.json');
-    fs.writeFileSync(file, JSON.stringify({ goal: 'Add clamp', acceptance_criteria: [{ id: 'AC-1', criterion: 'clamp bounds n', requirement_ids: ['R-1'] }],
+    fs.writeFileSync(file, JSON.stringify({ goal: 'Add clamp', required_behavior: ['clamp bounds n'], acceptance_criteria: [{ id: 'AC-1', criterion: 'clamp bounds n', requirement_ids: ['R-1'] }],
       verification_plan: ['call clamp'], checks: BASE.checks, requirements: [{ id: 'R-1', quote: 'Add clamp' }],
       approval: { by: 'human', via: 'forged', contract_hash: 'x' } }));                     // an approval in the file is ignored
     const r = qb(['--contract-file', file], { not: 'a contract' });                         // the model reply is unusable: never used
@@ -165,7 +165,7 @@ describe('entry points: the human approves before anything runs', () => {
   });
   test('a contract file with an arithmetic error is rejected; the agent never runs', () => {
     const file = path.join(tmp, 'bad.json');
-    fs.writeFileSync(file, JSON.stringify({ goal: 'formatDuration(ms)', acceptance_criteria: [{ id: 'AC-1', criterion: "formats 30000 ms as '5m'" }],
+    fs.writeFileSync(file, JSON.stringify({ goal: 'formatDuration(ms)', required_behavior: ['format durations'], acceptance_criteria: [{ id: 'AC-1', criterion: "formats 30000 ms as '5m'" }],
       verification_plan: ['x'] }));
     const r = qb(['--contract-file', file]);
     assert.equal(r.status, 2, r.stdout + r.stderr);

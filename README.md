@@ -251,6 +251,13 @@ An agent that changed nothing passes only if the requirement is independently ve
 - preservation criteria must name the tests they preserve (`preserves.tests`) and are decided by the test report;
 - `bench/judge-calibration.js` measures false accepts, false rejects and abstentions separately, on labeled patches.
 
+**Grounded intent, bounded clarification** (QB-17, [docs/intent/grounding.md](docs/intent/grounding.md)):
+- `qb` and the standalone intent CLI compile with the same repository survey;
+- a vague word ("cleaner") blocks only until the request or an answer defines it;
+- up to 3 clarification rounds (`--clarify` is repeatable), with a machine-readable handoff state;
+- QB's own choices are separate "proposed defaults" that the human approves;
+- incomplete compiler output is rejected, not filled in.
+
 **Run records** (`run/store.js`, QB-38). Every run keeps a versioned, append-only record: base commit, agent version, contract, patch, test outcome, checks and report. `qb replay <run_id>` recomputes each verdict and the final outcome from the stored evidence.
 
 ---

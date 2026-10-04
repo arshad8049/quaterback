@@ -6,8 +6,7 @@ const readline = require('readline');
 const fs = require('fs');
 const path = require('path');
 const { artifactFile } = require('../lib/fsafe');
-const { compile } = require('./compiler');
-const { buildContext } = require('./context');
+const { compileIntent } = require('./session');
 const { buildContext: buildContextPackage } = require('../context/builder');
 
 const program = new Command();
@@ -19,45 +18,44 @@ program
 
 program
   .argument('<request>', 'The developer task in plain English')
-  .option('-r, --repo <path>', 'Path to the repository for context')
+  .option('-r, --repo <path>', 'Repository to ground the request in (default: the current directory, like qb)')
   .option('-s, --save',    'Save the contract to contracts/{id}.json')
   .option('--context',     'Chain into Layer 2 — build a ContextPackage after the contract')
   .option('--no-color',    'Disable colored output')
   .action(async (request, options) => {
-    // Build repo context if --repo provided
-    let repoContext = null;
-    if (options.repo) {
-      process.stderr.write('  Reading repo context...\n');
-      try {
-        repoContext = buildContext(options.repo, request);
-      } catch (err) {
-        console.error(`  Context error: ${err.message}`);
-        process.exit(1);
-      }
+    // QB-17: the same grounded compilation as qb.js — a repository survey first
+    // (default: the current directory, as qb.js defaults --repo), then bounded
+    // clarification rounds.
+    const repoPath = options.repo || process.cwd();
+    if (!fs.existsSync(repoPath)) {
+      console.error(`  Context error: Repo path does not exist: ${path.resolve(repoPath)}`);
+      process.exit(1);
     }
-
-    process.stderr.write('  Compiling intent...\n');
+    process.stderr.write('  Surveying the repository and compiling intent...\n');
 
     try {
-      let result = await compile(request, repoContext);
-
-      // If compiler returned a clarifying question, ask it and re-compile
-      if (result.clarifying_question) {
-        console.log('\n  ─────────────────────────────────────────────');
-        console.log('  Ambiguity detected:\n');
-        result.ambiguity_flags.forEach(f => console.log(`    • ${f}`));
-        console.log(`\n  Question: ${result.clarifying_question}\n`);
-        console.log('  ─────────────────────────────────────────────\n');
-
-        const answer = await prompt('  Your answer: ');
-        process.stderr.write('\n  Re-compiling with clarification...\n');
-        result = await compile(request, repoContext, answer);
+      const s = await compileIntent(request, {
+        repoPath,
+        ask: !process.stdin.isTTY ? null : async (h) => {   // noninteractive: return the handoff state
+          console.log('\n  ─────────────────────────────────────────────');
+          console.log(`  Ambiguity detected (round ${h.round} of ${h.max_rounds}):\n`);
+          h.ambiguity_flags.forEach(f => console.log(`    • ${f}`));
+          for (const u of h.unresolved) {
+            console.log(`\n  Question: ${u.question}`);
+            if (u.choices.length) console.log(`  Choices:  ${u.choices.join(' · ')}`);
+          }
+          console.log('  ─────────────────────────────────────────────\n');
+          return (await prompt('  Your answer: ')) || null;
+        },
+      });
+      if (s.state !== 'finalized') {
+        // Machine-readable handoff state (still open, blocked or invalid) on stdout.
+        console.log('\n' + JSON.stringify({ ...s, contract: undefined }, null, 2) + '\n');
+        process.exit(2);
       }
+      const result = s.contract;
 
-      // Attach repo path if used
-      if (options.repo) {
-        result.repo_path = path.resolve(options.repo);
-      }
+      result.repo_path = path.resolve(repoPath);
 
       // Print the contract
       const json = JSON.stringify(result, null, 2);

@@ -102,6 +102,7 @@ function validateTraceability(c) {
     const rid = Array.isArray(ac?.requirement_ids) ? ac.requirement_ids : [];
     if (!rid.length) errors.push(`${ac?.id} traces to no requirement (unsupported addition)`);
     for (const r of rid) {
+      if (/^D-/.test(r)) continue;            // a proposed default (QB-17): checked by validateDefaults
       if (!coveredBy.has(r)) errors.push(`${ac?.id} names unknown requirement ${JSON.stringify(r)}`);
       else coveredBy.get(r).push(ac.id);
     }
@@ -121,4 +122,35 @@ function validateTraceability(c) {
   return { errors, trace };
 }
 
-module.exports = { validateTraceability };
+/**
+ * QB-17: proposed defaults — what QB chose where the request is silent (e.g. the
+ * error when min > max). Each has an id D-n, the choice, and why it was needed.
+ * They are never applied silently: each must be covered by an acceptance criterion
+ * (which names it in requirement_ids), is part of the approved oracle (hash), and
+ * is shown to the human in its own section of the approval view.
+ * @returns {{ errors: string[], defaults: Array<{ id, text, reason, covered_by }> }}
+ */
+function validateDefaults(c) {
+  const list = c?.proposed_defaults;
+  const acs = Array.isArray(c?.acceptance_criteria) ? c.acceptance_criteria : [];
+  const errors = [];
+  if (list !== undefined && !Array.isArray(list)) return { errors: ['proposed_defaults must be an array'], defaults: [] };
+  const ids = new Map();
+  for (const d of list || []) {
+    const id = d && typeof d.id === 'string' ? d.id : '';
+    if (!/^D-\d{1,3}$/.test(id) || ids.has(id)) { errors.push(`proposed default id ${JSON.stringify(d && d.id)} is missing, malformed or duplicated`); continue; }
+    if (typeof d.text !== 'string' || !d.text.trim() || typeof d.reason !== 'string' || !d.reason.trim()) { errors.push(`${id} has no text or reason`); continue; }
+    ids.set(id, { id, text: d.text, reason: d.reason, covered_by: [] });
+  }
+  for (const ac of acs) {
+    for (const r of Array.isArray(ac?.requirement_ids) ? ac.requirement_ids : []) {
+      if (!/^D-/.test(r)) continue;
+      if (ids.has(r)) ids.get(r).covered_by.push(ac.id);
+      else errors.push(`${ac?.id} names unknown requirement ${JSON.stringify(r)}`);
+    }
+  }
+  for (const d of ids.values()) if (!d.covered_by.length) errors.push(`proposed default ${d.id} ${JSON.stringify(d.text)} is not covered by any acceptance criterion`);
+  return { errors, defaults: [...ids.values()] };
+}
+
+module.exports = { validateTraceability, validateDefaults };
