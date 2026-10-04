@@ -309,9 +309,10 @@ describe('QB-02 done-when through the real pipeline', { skip: !ENABLED && 'set Q
     try {
       const contract = approve({ id: 'c', goal: 'g', clarifying_question: null, scope: { allowed_changes: ['src/**'] },
         acceptance_criteria: [{ id: 'AC-1', criterion: 'style', met: null, kind: 'non_behavioral' }] }, { via: 'test' });
-      const verifyWith = async (r) => {
+      const waived = approve({ ...contract, test_policy: { preexisting_failures: 'waive' } }, { via: 'test' });
+      const verifyWith = async (r, c = contract) => {
         const m = mockFetch(ollamaReply({ met: true, evidence: 'ok' }));
-        try { return await verify(contract, null, { id: 'e', status: r.status, diff: r.diff, changes: r.changes, candidate_tree: r.candidate_tree, sandbox: r.sandbox }, { repoPath: repo.dir }); }
+        try { return await verify(c, null, { id: 'e', status: r.status, diff: r.diff, changes: r.changes, candidate_tree: r.candidate_tree, sandbox: r.sandbox }, { repoPath: repo.dir }); }
         finally { m.restore(); }
       };
       // 1. The agent breaks double(): one regression, one pre-existing failure.
@@ -324,11 +325,15 @@ describe('QB-02 done-when through the real pipeline', { skip: !ENABLED && 'set Q
       assert.equal(r1.verdict, 'fail');
       assert.ok(r1.repair_hints.some((h) => /Test "doubles"/.test(h.diagnosis)));
       // 2. A harmless in-scope change: only the pre-existing failure remains — visible, not blamed.
+      //    It still blocks PASS unless the approved contract explicitly waives pre-existing failures.
       const harmless = await runSandboxed({ repoPath: repo.dir, briefing: 'x', stateDir,
         agentStage: hostileAgent("printf '// note\\n' >> /work/src/double.js") });
-      const r2 = await verifyWith(harmless);
+      const blocked = await verifyWith(harmless);
+      assert.deepEqual([blocked.verdict, blocked.test_outcome.reason, blocked.test_outcome.regressions], ['fail', 'preexisting_failures_not_waived', []], JSON.stringify(blocked.test_outcome));
+      assert.ok(!blocked.repair_hints.some((h) => h.criterion_id.startsWith('TEST:')));
+      const r2 = await verifyWith(harmless, waived);
       assert.equal(r2.test_outcome.outcome, 'preexisting_failures', JSON.stringify(r2.test_outcome));
-      assert.deepEqual(r2.test_outcome.preexisting.map((t) => t.name), ['legacy is already broken']);
+      assert.deepEqual(r2.test_outcome.preexisting.map((t) => [t.name, t.path]), [['legacy is already broken', []]]);
       assert.equal(r2.verdict, 'pass');
     } finally { repo.cleanup(); }
   });

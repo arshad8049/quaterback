@@ -104,9 +104,9 @@ function aggregateCore({ hasDiff, criteriaResults, testResults, executionStatus 
 }
 
 /** The aggregate() verification input for an execution (rules 2: with the classified outcome). */
-function verificationInput(execution) {
+function verificationInput(execution, testOpts = {}) {
   const v = execution?.sandbox?.verification || null;
-  const c = classifyTestRun(v);
+  const c = classifyTestRun(v, testOpts);
   return {
     status: v ? v.status : 'not_run', reason: v ? v.reason ?? null : 'no_test_evidence', state: v ? v.state ?? null : null,
     exit_code: c.exit_code, outcome: c.outcome, outcome_reason: c.reason,
@@ -126,7 +126,7 @@ function inputFromReport(report, execution) {
       : null,
     executionStatus:    execution?.status ?? null,
     unsupportedChanges: Boolean(execution?.unsupported_changes?.length),
-    verification:       verificationInput(execution),
+    verification:       verificationInput(execution, { preexisting: report.test_outcome?.preexisting_policy === 'waive' ? 'waive' : 'block' }),
   };
 }
 

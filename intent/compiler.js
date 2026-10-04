@@ -14,6 +14,7 @@ const SEMANTIC_FIELDS = [
   'verification_plan', 'relevant_context', 'ambiguity_flags', 'clarifying_question',
   'scope', 'constraint_policy',   // QB-09: enforced policy, validated by contractState
   'requirements',                 // QB-14: request clauses with verbatim quotes, validated by contractState
+  'test_policy',                  // QB-10: explicit, approved waiver of pre-existing test failures
 ];
 const { validateChecks } = require('../verify/checks/registry');
 

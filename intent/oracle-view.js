@@ -28,6 +28,9 @@ function formatOracle(contract) {
     const e = c.constraint_policy.find((p) => p && p.constraint === i);
     return `${i}. ${t} → ${!e ? 'UNENFORCED (will be unresolved)' : e.advisory ? 'advisory (not machine-checked)' : e.enforced_by.map((b) => `${b.kind}${b.ref ? ` ${b.ref}` : ''}`).join(', ')}`;
   }));
+  L.push(`  Pre-existing test failures: ${c.test_policy?.preexisting_failures === 'waive'
+    ? 'WAIVED — failures that provably also fail the same way on the base tree will not block PASS'
+    : 'block PASS (default; set test_policy.preexisting_failures = "waive" to allow)'}`);
   list('Executable checks', c.checks.map((k) => `${k.id} → ${k.ac_id}${k.plan_item !== undefined ? ` (plan ${k.plan_item})` : ''}: ${k.adapter} ${JSON.stringify(k.params)}`));
   const rejected = contract?.checks_rejected || [];
   if (rejected.length) list('Rejected by the registry (will not run)', rejected.map((r) => `${r.check && r.check.id ? r.check.id : '?'}: ${r.reason}`));

@@ -86,7 +86,8 @@ async function verify(contract, context, execution, options = {}) {
   }
 
   // ── Verdict ──────────────────────────────────────────────────────────────
-  const verification = verificationInput(execution);
+  const testOpts = testOptions(contract);
+  const verification = verificationInput(execution, testOpts);
   const oracle = { ...approvalState(contract), contract_hash: contractHash(contract), via: contract.approval?.via ?? null };
   const policy = evaluatePolicy(contract, execution, checkEval.results);       // QB-09
   const { verdict, failures } = aggregate({
@@ -120,15 +121,15 @@ async function verify(contract, context, execution, options = {}) {
     criteria_results: criteriaResults,
     failures,
     test_results:     testResults || null,
-    test_outcome:     testOutcome(execution),
-    outcomes:         outcomesOf(execution, policy, testOutcome(execution), criteriaResults, execFailed),
+    test_outcome:     testOutcome(execution, testOpts),
+    outcomes:         outcomesOf(execution, policy, testOutcome(execution, testOpts), criteriaResults, execFailed),
     oracle,
     checks:           checksReport(contract, checkEval),
     verification_plan_status: planStatus(contract, checkEval),
     ...(material && material.ok ? { judgment_material: { source: 'sandbox_snapshot', tree: material.tree, files: material.files } } : {}),
     scope_violations: [...policy.protected_touched, ...policy.out_of_scope],
     policy,
-    repair_hints:     [...repairHints, ...policyRepairs(policy), ...testRepairs(execution)],
+    repair_hints:     [...repairHints, ...policyRepairs(policy), ...testRepairs(execution, testOpts)],
   };
 
   return VerificationReportSchema.parse(report);
@@ -236,9 +237,13 @@ function planStatus(contract, ev) {
   });
 }
 
+/** QB-10: how the approved contract treats failures that provably pre-exist (default: they block). */
+const testOptions = (contract) => ({ preexisting: contract?.test_policy?.preexisting_failures === 'waive' ? 'waive' : 'block' });
+const SHOWN_TESTS = 50;   // display bound only — the decision compares every failure (verify/tests.js)
+
 /** QB-10: one concrete repair action per newly failing test, with its evidence. */
-function testRepairs(execution) {
-  const c = classifyTestRun(execution?.sandbox?.verification || null);
+function testRepairs(execution, testOpts) {
+  const c = classifyTestRun(execution?.sandbox?.verification || null, testOpts);
   if (c.outcome !== 'failed' || !c.regressions) return [];
   return c.regressions.slice(0, 10).map(t => ({
     criterion_id: `TEST:${t.file}:${t.name}`.slice(0, 200),
@@ -268,14 +273,16 @@ function policyRepairs(policy) {
 }
 
 /** The classified sandbox test run (QB-06), as recorded in the report. */
-function testOutcome(execution) {
+function testOutcome(execution, testOpts = {}) {
   const v = execution?.sandbox?.verification || null;
-  const c = classifyTestRun(v);
+  const c = classifyTestRun(v, testOpts);
   return { outcome: c.outcome, reason: c.reason, runner: c.runner, exit_code: c.exit_code,
     state: v?.state ?? null, duration_ms: Number.isInteger(v?.duration_ms) ? v.duration_ms : null,
     tree: v?.tree ?? null,
     // QB-10: which failures are new, which already happened on the base tree.
-    ...(c.failures ? { regressions: c.regressions, preexisting: c.preexisting, baseline: c.baseline } : {}) };
+    ...(c.failures ? { regressions: c.regressions.slice(0, SHOWN_TESTS), regressions_total: c.regressions.length,
+      preexisting: c.preexisting.slice(0, SHOWN_TESTS), preexisting_total: c.preexisting.length, baseline: c.baseline,
+      preexisting_policy: testOpts.preexisting === 'waive' ? 'waive' : 'block' } : {}) };
 }
 
 /** The report for a contract that is not finalized: unresolved, nothing judged. */

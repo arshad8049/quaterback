@@ -15,6 +15,7 @@
 const crypto = require('crypto');
 const { validateExamples } = require('./examples');
 const { policyErrors } = require('../verify/policy');
+const { testPolicyErrors } = require('../verify/tests');
 const { validateTraceability } = require('./requirements');
 
 function contractState(c) {
@@ -37,7 +38,7 @@ function contractState(c) {
     }
   }
   // QB-09: the scope and constraint policy must be well-formed (they are enforced, not advisory text).
-  if (!errors.length) errors.push(...policyErrors(c));
+  if (!errors.length) errors.push(...policyErrors(c), ...testPolicyErrors(c));
   // QB-13: every computable example is recomputed with trusted arithmetic; a wrong
   // one makes the contract invalid (it is never corrected to fit).
   if (!errors.length) {
@@ -62,6 +63,8 @@ function approvedContent(c) {
     verification_plan: c?.verification_plan ?? [], checks: c?.checks ?? [],
     scope: { allowed_changes: c?.scope?.allowed_changes ?? [], protected_paths: c?.scope?.protected_paths ?? [] },   // QB-09
     constraint_policy: c?.constraint_policy ?? [],
+    // QB-10: waiving pre-existing test failures is part of the approved oracle (absent → not hashed, so older approvals stay valid)
+    ...(c?.test_policy !== undefined ? { test_policy: c.test_policy } : {}),
   };
 }
 function contractHash(c) {

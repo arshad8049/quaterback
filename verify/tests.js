@@ -88,10 +88,12 @@ function validateNodeReport(text) {
     .filter((e) => e.nesting === 0 && typeof e.file === 'string' && /\.(c|m)?[jt]s$/.test(e.name) && e.file.endsWith(`/${e.name}`))
     .map((e) => e.name);
 
-  // QB-10: the failing tests themselves (bounded), as evidence for repair and for
-  // the base/candidate comparison. Identity = file (relative to the run root) + name.
-  const failingTests = fails.filter((e) => !e.todo).slice(0, 50).map((e) => ({
-    file: relFile(e.file), name: String(e.name), failureType: e.failureType ?? null,
+  // QB-10: every failing test (no truncation: the decision compares the full set;
+  // only what is displayed is bounded, in the verifier). Identity = file relative
+  // to the run root + suite path + name; `path` is null when the reporter could not
+  // establish it, and such a test can never be matched as pre-existing.
+  const failingTests = fails.filter((e) => !e.todo).map((e) => ({
+    file: relFile(e.file), path: validPath(e.path, e.nesting), name: String(e.name), failureType: e.failureType ?? null,
     error: typeof e.error === 'string' ? e.error.slice(0, 500) : '',
   }));
   return { ok: true, counts: Object.fromEntries(COUNT_KEYS.map((k) => [k, counts[k]])), collectionFailures, failingTests };
@@ -103,15 +105,22 @@ function relFile(f) {
   const m = /^\/(?:verify|scratch)\/(.*)$/.exec(f);
   return m ? m[1] : f.replace(/^.*?\/(test|tests|__tests__|spec)\//, '$1/');
 }
-const testId = (t) => `${t.file}\u0000${t.name}`;
+const validPath = (p, nesting) => (Array.isArray(p) && p.length === nesting && p.every((x) => typeof x === 'string') ? p.map(String) : null);
+/** Full test identity, or null when it cannot be established (never matched). */
+const testId = (t) => (typeof t.file === 'string' && t.path ? JSON.stringify([t.file, ...t.path, t.name]) : null);
+/** The same failure: same identity, same failure type, same assertion message. */
+const sameFailure = (a, b) => a.failureType === b.failureType && a.error === b.error;
 
 /**
  * @param {object|null} v - execution.sandbox.verification
- *   { status, reason, state, exit_code, output, report: string|null, report_error: string|null }
+ *   { status, reason, state, exit_code, output, report: string|null, report_error: string|null, base? }
+ * @param {{ preexisting?: 'block'|'waive' }} opts - QB-10: failures that are provably
+ *   pre-existing only stop blocking PASS when the approved contract says
+ *   `test_policy.preexisting_failures: "waive"`; by default they still fail the task.
  * @returns {{ outcome: 'passed'|'failed'|'error'|'not_run', reason: string, runner: string|null,
  *             counts: object|null, exit_code: number|null }}
  */
-function classifyTestRun(v) {
+function classifyTestRun(v, { preexisting: preexistingPolicy = 'block' } = {}) {
   const exit_code = v && Number.isInteger(v.exit_code) ? v.exit_code : null;
   const res = (outcome, reason, extra = {}) => ({ outcome, reason, runner: null, counts: null, exit_code, ...extra });
 
@@ -131,14 +140,14 @@ function classifyTestRun(v) {
   if (c.failed > 0) {
     if (exit_code === 0) return res('error', 'inconsistent_exit', known);
     // QB-10: which failures are new? Compare with the same suite on the base tree.
-    const base = baseFailures(v.base);
     const failures = r.failingTests;
+    const base = baseFailures(v.base);
     if (!base.ok) return res('failed', 'tests_failed', { ...known, failures, regressions: failures, preexisting: [], baseline: base.reason });
-    const regressions = failures.filter((t) => !base.ids.has(testId(t)));
-    const preexisting = failures.filter((t) => base.ids.has(testId(t)));
-    return regressions.length
-      ? res('failed', 'tests_failed', { ...known, failures, regressions, preexisting, baseline: 'compared' })
-      : res('preexisting_failures', 'only_preexisting_failures', { ...known, failures, regressions: [], preexisting, baseline: 'compared' });
+    const { regressions, preexisting } = compareFailures(failures, base.failures);
+    if (regressions.length) return res('failed', 'tests_failed', { ...known, failures, regressions, preexisting, baseline: 'compared' });
+    return preexistingPolicy === 'waive'
+      ? res('preexisting_failures', 'only_preexisting_failures', { ...known, failures, regressions: [], preexisting, baseline: 'compared' })
+      : res('failed', 'preexisting_failures_not_waived', { ...known, failures, regressions: [], preexisting, baseline: 'compared' });
   }
   if (exit_code !== 0) return res('error', `exit_${exit_code}_without_test_failures`, known);
   if (c.passed === 0) return res('error', 'zero_tests', known);
@@ -146,16 +155,63 @@ function classifyTestRun(v) {
 }
 
 /**
- * The base run's failing tests (QB-10). Usable only if the base run itself produced a
- * complete, consistent report with no cancellation or collection failure.
+ * Split candidate failures into regressions and pre-existing (QB-10). Conservative:
+ * a failure is pre-existing only if exactly one base failure has the same full
+ * identity AND fails the same way; a missing or duplicated identity (on either
+ * side) or a changed failure is a regression.
  */
-function baseFailures(b) {
-  if (!b) return { ok: false, reason: 'baseline_not_run' };
-  if (typeof b.report !== 'string') return { ok: false, reason: `baseline_${b.report_error || 'no_report'}` };
-  const r = validateNodeReport(b.report);
-  if (!r.ok) return { ok: false, reason: `baseline_${r.reason}` };
-  if (r.collectionFailures.length || r.counts.cancelled > 0) return { ok: false, reason: 'baseline_unreliable' };
-  return { ok: true, ids: new Set(r.failingTests.map(testId)) };
+function compareFailures(failures, baseList) {
+  const count = (list) => { const m = new Map(); for (const t of list) { const id = testId(t); if (id) m.set(id, (m.get(id) || 0) + 1); } return m; };
+  const cand = count(failures);
+  const baseCount = count(baseList);
+  const baseById = new Map(baseList.filter((t) => testId(t)).map((t) => [testId(t), t]));
+  const regressions = [];
+  const preexisting = [];
+  for (const t of failures) {
+    const id = testId(t);
+    const b = id && cand.get(id) === 1 && baseCount.get(id) === 1 ? baseById.get(id) : null;
+    if (b && sameFailure(t, b)) preexisting.push(t);
+    else regressions.push(b ? { ...t, changed_failure: true } : t);
+  }
+  return { regressions, preexisting };
 }
 
-module.exports = { classifyTestRun, validateNodeReport, FORMAT };
+/**
+ * The base run's failing tests (QB-10). Held to the same rigor as the candidate's
+ * evidence: the base run must have finished normally (not timeout / OOM / infra /
+ * cancelled), with a real exit code that agrees with a complete, consistent report,
+ * no cancellation and no collection failure. Otherwise nothing is pre-existing.
+ */
+function baseFailures(b) {
+  const no = (reason) => ({ ok: false, reason });
+  if (!b) return no('baseline_not_run');
+  if (b.error) return no('baseline_error');
+  if (['timeout', 'oom', 'cancelled'].includes(b.state)) return no(`baseline_${b.state}`);
+  if (b.state === 'infra_error') return no('baseline_infra');
+  if (b.state !== 'completed' && b.state !== 'execution_error') return no(`baseline_state_${String(b.state).slice(0, 40)}`);
+  if (!Number.isInteger(b.exit_code)) return no('baseline_no_exit_code');
+  if (b.exit_code === 126 || b.exit_code === 127) return no('baseline_missing_executable');
+  if (typeof b.report !== 'string') return no(`baseline_${b.report_error || 'no_report'}`);
+  const r = validateNodeReport(b.report);
+  if (!r.ok) return no(`baseline_${r.reason}`);
+  if (r.collectionFailures.length || r.counts.cancelled > 0) return no('baseline_unreliable');
+  // exit code and report must agree: failures ⇔ exit 1 (node --test), success ⇔ exit 0
+  if (r.counts.failed > 0 && b.exit_code === 0) return no('baseline_inconsistent_exit');
+  if (r.counts.failed > 0 && b.exit_code !== 1) return no(`baseline_exit_${b.exit_code}`);
+  if (r.counts.failed === 0 && b.exit_code !== 0) return no(`baseline_exit_${b.exit_code}_without_test_failures`);
+  if ((b.state === 'completed') !== (b.exit_code === 0)) return no('baseline_inconsistent_state');
+  return { ok: true, failures: r.failingTests };
+}
+
+/** QB-10: validate an approved contract's test_policy. */
+function testPolicyErrors(c) {
+  const p = c?.test_policy;
+  if (p === undefined) return [];
+  if (!p || typeof p !== 'object' || Array.isArray(p) || Object.keys(p).some((k) => k !== 'preexisting_failures')
+    || !['block', 'waive'].includes(p.preexisting_failures)) {
+    return ['test_policy must be { "preexisting_failures": "block" | "waive" }'];
+  }
+  return [];
+}
+
+module.exports = { classifyTestRun, validateNodeReport, compareFailures, testPolicyErrors, FORMAT };

@@ -33,6 +33,7 @@ const TaskContractSchema = z.object({
   scope: z.object({ allowed_changes: z.array(z.string()).optional(), protected_paths: z.array(z.string()).optional() }).optional(),
   constraint_policy: z.array(z.unknown()).optional(),
   requirements: z.array(z.unknown()).optional(),     // QB-14: validated by intent/requirements.js
+  test_policy: z.unknown().optional(),               // QB-10: validated by verify/tests.js testPolicyErrors
 });
 
 // Partial schema for when compiler returns a clarifying question instead of full contract

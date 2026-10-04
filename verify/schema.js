@@ -25,6 +25,8 @@ const ChecksReportSchema = z.object({                                           
 });
 const PlanItemStatusSchema = z.object({ item: z.string(), checks: z.array(z.string()), status: z.enum(['passed', 'failed', 'error', 'not_executed']) });
 
+const FailingTestSchema = z.object({ file: z.string().nullable(), path: z.array(z.string()).nullable().optional(), name: z.string(),
+  failureType: z.string().nullable(), error: z.string(), changed_failure: z.boolean().optional() });
 const TestOutcomeSchema = z.object({                                                // QB-06
   outcome:     z.enum(['passed', 'failed', 'preexisting_failures', 'error', 'not_run']),
   reason:      z.string(),
@@ -33,9 +35,12 @@ const TestOutcomeSchema = z.object({                                            
   state:       z.string().nullable(),
   duration_ms: z.number().int().nullable(),
   tree:        z.string().nullable().optional(),      // QB-22: the source tree the tests ran on
-  regressions: z.array(z.object({ file: z.string().nullable(), name: z.string(), failureType: z.string().nullable(), error: z.string() })).optional(),   // QB-10
-  preexisting: z.array(z.object({ file: z.string().nullable(), name: z.string(), failureType: z.string().nullable(), error: z.string() })).optional(),
+  regressions: z.array(FailingTestSchema).optional(),   // QB-10 (display-bounded; totals below)
+  regressions_total: z.number().int().nonnegative().optional(),
+  preexisting: z.array(FailingTestSchema).optional(),
+  preexisting_total: z.number().int().nonnegative().optional(),
   baseline:    z.string().optional(),
+  preexisting_policy: z.enum(['block', 'waive']).optional(),
 });
 
 const JudgmentMaterialSchema = z.object({            // QB-22: what a no-change judgment was based on
