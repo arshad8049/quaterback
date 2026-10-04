@@ -45,6 +45,11 @@ For each criterion the judge decides (`kind: "non_behavioral"`, plus the no-chan
   - A `local` binding must have exactly one **module-scope** definition.
   - Anything else is named as missing material evidence (`src/fmt.js: export binding not resolved (…)`). This covers a call result, `require(...)`, an object where a function is called, a re-export, an ambiguous or absent definition, or a name that isn't exported.
   - Pre-fix, `module.exports = actual` with a `decoy` declared first showed the **decoy**, and nothing was missing.
+- **CommonJS is replayed in statement order (re-review 2)**, as Node runs it:
+  - `module.exports = …` starts a **new** export object, so earlier named exports are gone, and detaches the `exports` alias. A later `exports.x = …` therefore exports nothing (`exports.x was assigned after module.exports was replaced`).
+  - `module.exports.x = …` adds to the current object, and the last assignment wins.
+  - Any export change QB cannot follow statically makes every binding unresolved. That includes a change inside a function or block, one through a call (`Object.assign(module.exports, …)`), and reassigning `exports` or `module`.
+  - Pre-fix: `module.exports = {fmt}; module.exports = {};` still showed `fmt`, which is undefined at runtime.
 - **Same-file helpers** resolve in the candidate file's module scope. Calls to names defined in the hunk itself, or to language/runtime globals, need no source.
 - **When the changed file's own source is unavailable, the calls are named as missing:** `source of src/greet.js (to resolve calls to fmt) — too_large` (or `not_requested`, `unparsable`, `no candidate snapshot`, `snapshot failed`).
   - Pre-fix, an oversized changed file silently erased the same-file helper evidence.

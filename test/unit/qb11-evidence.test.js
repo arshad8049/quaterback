@@ -294,3 +294,54 @@ test('QB-11 re-review: the judge is told, every time, what retrieval does not co
     assert.match(j.prompts[0], /## Not retrieved by QB \(by design\)\n- callers of the changed code, dynamic dispatch, package \(non-relative\) imports/);
   } finally { j.restore(); }
 });
+
+describe('QB-11 re-review 2: CommonJS export order — a replaced export object drops earlier named exports', () => {
+  const GREET = "const {fmt}=require('./fmt');\nmodule.exports.greet=n=>fmt(n);\n";
+  const DIFF = hunk('src/greet.js', 2, ['module.exports.greet=n=>fmt(n);']);
+  const build = (fmt) => buildEvidence({ criterion: 'x', diff: DIFF, files: [file('src/greet.js', GREET), file('src/fmt.js', fmt)], tree: TREE });
+  const missingText = (b) => b.missing.map((m) => `${m.what} — ${m.reason}`).join(' | ');
+
+  test('senior repro: module.exports = {fmt}; then module.exports = {} → fmt is NOT exported: missing, never shown (pre-fix: shown, missing [])', async () => {
+    const FMT = "function fmt(n) { return 'Hello '+n; }\nmodule.exports = {fmt};\nmodule.exports = {};\n";
+    const b = build(FMT);
+    assert.deepEqual(b.shown.filter((x) => x.kind === 'definition'), []);
+    assert.match(missingText(b), /definition of fmt \(imported from \.\/fmt\) — src\/fmt\.js: export binding not resolved \(fmt is not exported: module\.exports was replaced at line 3\)/);
+    const m = mockFetch(ollamaReply({ met: true, evidence: 'looks fine' }));
+    try {
+      const r = await verify(contract("greet() greets with 'Hello'"), null, exec(DIFF, { files: [file('src/greet.js', GREET), file('src/fmt.js', FMT)] }));
+      assert.equal(r.verdict, 'unresolved');
+      assert.equal(r.criteria_results[0].met, null);
+    } finally { m.restore(); }
+  });
+  test('exports alias detachment: module.exports replaced, then exports.fmt = … does not export fmt', () => {
+    const b = build("module.exports = {};\nexports.fmt = function (n) { return n; };\n");
+    assert.deepEqual(b.shown.filter((x) => x.kind === 'definition'), []);
+    assert.match(missingText(b), /exports\.fmt was assigned after module\.exports was replaced \(the exports alias is detached\)/);
+  });
+  test('export changes QB cannot follow (inside a function, Object.assign, reassigning exports) → unresolved, never guessed', () => {
+    for (const fmt of [
+      "function fmt(n) { return n; }\nmodule.exports = { fmt };\nif (process.env.X) { module.exports = {}; }\n",
+      "function fmt(n) { return n; }\nmodule.exports = { fmt };\nObject.assign(module.exports, { fmt: () => 0 });\n",
+      "function fmt(n) { return n; }\nexports = { fmt };\n",
+    ]) {
+      const b = build(fmt);
+      assert.deepEqual(b.shown.filter((x) => x.kind === 'definition'), [], fmt);
+      assert.match(missingText(b), /export binding not resolved/, fmt);
+    }
+  });
+  test('positive guards: the final export object wins; named exports added after a replacement count; exports.x before replacement-free code counts', () => {
+    const cases = [
+      ["function old(n) { return 0; }\nfunction fmt(n) { return 'Hello '+n; }\nmodule.exports = { fmt: old };\nmodule.exports = { fmt };\n", "function fmt"],
+      ["function fmt(n) { return 'Hello '+n; }\nmodule.exports = {};\nmodule.exports.fmt = fmt;\n", 'function fmt'],
+      ["function fmt(n) { return 'Hello '+n; }\nexports.fmt = fmt;\n", 'function fmt'],
+      ["function fmt(n) { return 'Hello '+n; }\nmodule.exports = { fmt };\n", 'function fmt'],
+    ];
+    for (const [fmt, expect] of cases) {
+      const b = build(fmt);
+      const d = b.shown.filter((x) => x.kind === 'definition');
+      assert.equal(d.length, 1, fmt);
+      assert.ok(d[0].text.startsWith(expect), fmt);
+      assert.deepEqual(b.missing, [], fmt);
+    }
+  });
+});
