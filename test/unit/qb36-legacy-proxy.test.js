@@ -10,19 +10,18 @@ const { test } = require('node:test');
 const assert   = require('node:assert/strict');
 const fs       = require('fs');
 const path     = require('path');
+const { execFileSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..', '..');
 const SKIP = new Set(['node_modules', '.git', 'test', 'devudu_docs', 'docs', 'bench']);
 
-function sourceFiles(dir) {
-  const out = [];
-  for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (SKIP.has(ent.name)) continue;
-    const abs = path.join(dir, ent.name);
-    if (ent.isDirectory()) out.push(...sourceFiles(abs));
-    else if (/\.(js|mjs|cjs|ts)$/.test(ent.name)) out.push(abs);
-  }
-  return out;
+// What deploys is what the repository tracks: scan git-tracked source files only,
+// so local worktrees (e.g. .claude/worktrees/…), caches and untracked scratch
+// never count. Same skips as before.
+function sourceFiles() {
+  return execFileSync('git', ['ls-files', '-z'], { cwd: ROOT, encoding: 'utf8' }).split('\0').filter(Boolean)
+    .filter((f) => !f.split('/').some((seg) => SKIP.has(seg)) && /\.(js|mjs|cjs|ts)$/.test(f))
+    .map((f) => path.join(ROOT, f));
 }
 
 test('the legacy compile proxy and its routing are gone', () => {
@@ -37,7 +36,7 @@ test('the legacy compile proxy and its routing are gone', () => {
 const POLICY_ONLY = new Set([path.join('lib', 'sandbox', 'egress.js')]);
 
 test('no deployed code forwards requests to the Anthropic API', () => {
-  const hits = sourceFiles(ROOT).filter(f => fs.readFileSync(f, 'utf8').includes('api.anthropic.com'));
+  const hits = sourceFiles().filter(f => fs.readFileSync(f, 'utf8').includes('api.anthropic.com'));
   const rel = hits.map(f => path.relative(ROOT, f));
   assert.deepEqual(rel.filter(f => !POLICY_ONLY.has(f)), []);
   for (const f of rel.filter(f => POLICY_ONLY.has(f))) {
