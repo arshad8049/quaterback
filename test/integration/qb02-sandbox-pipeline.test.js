@@ -250,6 +250,35 @@ describe('QB-02 done-when through the real pipeline', { skip: !ENABLED && 'set Q
     } finally { repo.cleanup(); }
   });
 
+  test('KAN-16 review: a test script that rewrites the source cannot make the checks approve the broken candidate', async () => {
+    // The visible suite runs a generator that rewrites src/double.js correctly, then passes.
+    const repo = fixtureRepo((files) => {
+      NODE_TEST(files);
+      const pkg = JSON.parse(files['package.json'].toString());
+      pkg.scripts.test = 'node scripts/build.js && node --test test/*.test.js';
+      files['package.json'] = JSON.stringify(pkg, null, 2) + '\n';
+      files['scripts/build.js'] = "require('fs').writeFileSync(require('path').join(__dirname, '..', 'src', 'double.js'),\n"
+        + "  \"const isNumber = require('is-number');\\nmodule.exports = (x) => (isNumber(x) ? Number(x) * 2 : null);\\n\");\n";
+    });
+    try {
+      const r = await runSandboxed({ repoPath: repo.dir, briefing: 'x', stateDir, checks: DOUBLE_CHECKS,
+        agentStage: hostileAgent("printf 'module.exports = () => 0;\\n' > /work/src/double.js") });
+      assert.equal(r.status, 'completed', JSON.stringify({ reason: r.reason }));
+      assert.equal(r.sandbox.checks.tree, r.candidate_tree, 'checks ran on the fresh candidate checkout');
+      const contract = approve({ id: 'c', goal: 'double numbers', clarifying_question: null, checks: DOUBLE_CHECKS,
+        acceptance_criteria: [{ id: 'AC-1', criterion: 'src/double.js doubles numbers', met: null, kind: 'behavioral' }] }, { via: 'test' });
+      const m = mockFetch(ollamaReply({ met: true, evidence: 'looks right' }));
+      let report;
+      try {
+        report = await verify(contract, null, { id: 'e', status: r.status, diff: r.diff, changes: r.changes,
+          candidate_tree: r.candidate_tree, sandbox: r.sandbox }, { repoPath: repo.dir });
+      } finally { m.restore(); }
+      assert.equal(report.test_outcome.outcome, 'passed', 'the visible suite passed (it rebuilt the file)');
+      assert.deepEqual(report.checks.results.map((x) => [x.id, x.status]), [['DBL-1', 'fail'], ['DBL-2', 'fail']], JSON.stringify(report.checks));
+      assert.equal(report.verdict, 'fail');
+    } finally { repo.cleanup(); }
+  });
+
   test('QB-22: the trusted export refuses oversized files, symlinks, directories and missing paths', async () => {
     const repo = fixtureRepo((files) => { NODE_TEST(files); files['big.txt'] = Buffer.alloc(70 * 1024, 97); });
     fs.symlinkSync('src/double.js', path.join(repo.dir, 'link.js'));

@@ -18,6 +18,7 @@ const { spawnSync } = require('child_process');
 const { validateExamples, parseDuration, formatDuration } = require('../../intent/examples');
 const { contractState, approve, approvalState, contractHash } = require('../../intent/contract-state');
 const { aggregate } = require('../../verify/verdict');
+const { checkSetHash } = require('../../verify/checks/registry');
 const { verify } = require('../../verify/verifier');
 const { mockFetch, ollamaReply } = require('../helpers/mocks');
 const { makeRepo } = require('../helpers/tmprepo');
@@ -75,7 +76,7 @@ const BASE = { id: 'c', goal: 'Add clamp', clarifying_question: null, verificati
   checks: [{ id: 'CHK-1', ac_id: 'AC-1', adapter: 'call_returns', params: { module: 'src/u.js', export: 'clamp', args: [5, 0, 3], expect: 3 } }] };
 const PASSING = { id: 'e', status: 'completed', diff: 'diff --git a/src/u.js b/src/u.js\n+x', candidate_tree: TREE,
   sandbox: { verification: { status: 'ran', state: 'completed', exit_code: 0, output: '', report: REPORT, tree: TREE },
-    checks: { tree: TREE, requested: BASE.checks, results_text: JSON.stringify({ format: 'qb-check-results/1', complete: true,
+    checks: { tree: TREE, requested: BASE.checks, check_set_hash: checkSetHash(BASE.checks), results_text: JSON.stringify({ format: 'qb-check-results/1', complete: true, check_set_hash: checkSetHash(BASE.checks),
       results: [{ id: 'CHK-1', ac_id: 'AC-1', adapter: 'call_returns', status: 'pass', detail: 'ok', duration_ms: 1 }] }) } } };
 
 describe('a PASS needs a human-approved, frozen oracle', () => {

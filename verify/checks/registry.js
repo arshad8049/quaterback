@@ -87,4 +87,17 @@ function validateChecks(proposed, criteria = []) {
   return { version: REGISTRY_VERSION, accepted, rejected };
 }
 
-module.exports = { validateChecks, REGISTRY_VERSION, ADAPTERS: Object.keys(ADAPTERS), MAX_CHECKS, MAX_JSON_BYTES };
+/**
+ * The identity of a check set: SHA-256 over canonical JSON (object keys sorted,
+ * array order kept). The runner (sandbox/agent/qb-check-runner.mjs) computes the
+ * same hash over what it received, so results are bound to the exact definitions
+ * (ids, criteria, adapters, params, plan items) — not just to reused ids.
+ */
+function checkSetHash(checks) {
+  const canon = (v) => (Array.isArray(v) ? `[${v.map(canon).join(',')}]`
+    : v && typeof v === 'object' ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${canon(v[k])}`).join(',')}}`
+      : JSON.stringify(v === undefined ? null : v));
+  return require('crypto').createHash('sha256').update(canon(Array.isArray(checks) ? checks : [])).digest('hex');
+}
+
+module.exports = { checkSetHash, validateChecks, REGISTRY_VERSION, ADAPTERS: Object.keys(ADAPTERS), MAX_CHECKS, MAX_JSON_BYTES };

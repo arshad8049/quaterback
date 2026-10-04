@@ -26,13 +26,14 @@ The verification plan was prose. It was printed into the agent's briefing, but L
   - `checks_registry`: the registry version.
 
   Each criterion has `kind`: `behavioral` (the default) or `non_behavioral`. Only an explicit `non_behavioral` opts out.
-- **Execution: sandbox stage ⑥.** Checks run on the verification checkout (`/verify`, the captured candidate), after stage ⑤:
-  - QB's runner (`sandbox/agent/qb-check-runner.mjs`, baked into the agent image) runs with no network and a read-only checkout;
-  - each check runs in its own child process with a 10 s timeout;
-  - a child reports on a nonce-prefixed line, so output from the code under test can't be mistaken for a result;
-  - results go to `/out/qb-checks.json` (`qb-check-results/1`).
-
-  The host accepts them only if they are complete, one per requested check, in order, and from the same tree the tests ran on (`sandbox.checks.tree` = `verification.tree` = `candidate_tree`).
+- **Execution: sandbox stage ⑥** (revised after review):
+  - **⑥a** `checks-prep.sh` (trusted tools image, git read-only): makes a **fresh checkout of the pinned candidate** (`refs/qb/candidate`) in the scratch volume. It confirms the copy equals that tree, with `git diff <tree>` empty and no file outside the tree, and records the tree. It **never** uses the `/verify` copy the repository's own tests ran on, because a setup, build or test script may rewrite files there.
+  - **⑥b** QB's runner (`sandbox/agent/qb-check-runner.mjs`, in the agent image) runs the checks on that checkout **mounted read-only**, plus the read-only dependency volume, with no network. Nothing during the checks can change the code under test.
+  - Each check runs in its own child process with a 10 s timeout. The child reports on a nonce-prefixed line, which stops *ordinary* output from the code under test being mistaken for a result. It does **not** stop deliberate tampering: the code under test shares the child and container (see Limitations).
+  - **Results are bound to two identities**, and anything else is unusable (`checks_tree_mismatch` / `check_set_mismatch`):
+    - the code: `sandbox.checks.tree` (the verified fresh checkout) must equal `candidate_tree`, and the tests' tree;
+    - the definitions: `check_set_hash` is a SHA-256 over the canonical JSON of the exact checks sent. The host records it, the runner recomputes it over what it received and writes it into the results, and the verifier compares both with the contract's checks. A result for different arguments or expectations under a reused id never counts.
+  - No build output is used: checks run on the candidate's source as captured. A project that needs a build step before its modules can be imported isn't supported yet; its checks error, so the criterion is unresolved.
 - **The checks are not in the agent's briefing,** so expected values can't simply be hard-coded.
 
 ## Verdict
@@ -49,5 +50,5 @@ The verification plan was prose. It was printed into the agent's briefing, but L
 ## Limitations
 - Adapters cover callable JavaScript modules (no TypeScript build step). Other behaviour stays unresolved until an adapter exists: HTTP, CLI output, performance, side effects.
 - Checks come from L1, so they are only as good as the contract. Whether ACs capture the essential behaviour is QB-14.
-- The code under test runs in the same container as the runner and could tamper with the results file (grader tampering, out of scope here, as for QB-06).
+- **Grader isolation (deferred):** the code under test runs in the same child process and container as the runner, so it could deliberately forge results. The nonce only prevents accidental collisions. Isolating the grader from the code under test is a separate item, as for QB-06.
 - `kind: non_behavioral` is L1's call. It's shown in the report so reviewers can see which criteria rest on judgment.

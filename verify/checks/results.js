@@ -11,14 +11,17 @@ const STATUSES = new Set(['pass', 'fail', 'error']);
 /**
  * @param {string|null} text - /out/qb-checks.json from sandbox stage ⑥
  * @param {Array} requested  - the accepted checks that were sent to the runner
+ * @param {string} [expectedHash] - checkSetHash of the contract's checks; the runner's must match
  * @returns {{ ok: true, results: Array } | { ok: false, reason: string }}
  */
-function validateCheckResults(text, requested) {
+function validateCheckResults(text, requested, expectedHash) {
   const bad = (reason) => ({ ok: false, reason });
   if (typeof text !== 'string') return bad('no_check_results');
   let doc;
   try { doc = JSON.parse(text); } catch { return bad('malformed_check_results'); }
   if (!doc || doc.format !== 'qb-check-results/1' || doc.complete !== true || !Array.isArray(doc.results)) return bad('incomplete_check_results');
+  // Bound to the exact definitions: the runner's hash of what it received (QB-16 review).
+  if (expectedHash !== undefined && doc.check_set_hash !== expectedHash) return bad('check_set_mismatch');
   if (doc.results.length !== requested.length) return bad('check_results_mismatch');
   for (const [i, r] of doc.results.entries()) {
     const c = requested[i];

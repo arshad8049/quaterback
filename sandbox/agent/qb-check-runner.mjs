@@ -8,11 +8,13 @@
 //
 // Each check runs in its own child process (`node qb-check-runner.mjs --child`)
 // with a timeout; the child reports on a stdout line prefixed with a random
-// nonce it received on stdin, so output from the code under test cannot be
-// mistaken for a result.
+// nonce it received on stdin, so ordinary output from the code under test is
+// never mistaken for a result. This prevents accidental collisions only: code
+// under test shares the child and the container and could tamper deliberately
+// (grader isolation is a separate, deferred item — docs/verify/executable-checks.md).
 
 import { spawn } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, createHash } from 'node:crypto';
 import { readFileSync, writeFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
@@ -89,15 +91,21 @@ function runOne(root, check) {
   });
 }
 
+// Same canonical JSON as verify/checks/registry.js checkSetHash (keys sorted, arrays in order).
+const canon = (v) => (Array.isArray(v) ? `[${v.map(canon).join(',')}]`
+  : v && typeof v === 'object' ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${canon(v[k])}`).join(',')}}`
+    : JSON.stringify(v === undefined ? null : v));
+
 async function main() {
   const { root, checks } = JSON.parse(readFileSync(0, 'utf8'));
+  const check_set_hash = createHash('sha256').update(canon(checks)).digest('hex');
   const results = [];
   for (const check of checks) {
     const r = await runOne(root, check);
     results.push(r);
     process.stdout.write(`${r.status.toUpperCase().padEnd(5)} ${r.id} (${r.adapter}, ${r.ac_id}) ${r.detail}\n`);
   }
-  writeFileSync(OUT, JSON.stringify({ format: 'qb-check-results/1', results, complete: true }) + '\n');
+  writeFileSync(OUT, JSON.stringify({ format: 'qb-check-results/1', check_set_hash, results, complete: true }) + '\n');
 }
 
 if (process.argv.includes('--child')) child(); else main();

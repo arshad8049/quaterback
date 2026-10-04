@@ -16,7 +16,7 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
-const { validateChecks, REGISTRY_VERSION } = require('../../verify/checks/registry');
+const { validateChecks, checkSetHash, REGISTRY_VERSION } = require('../../verify/checks/registry');
 const { validateCheckResults } = require('../../verify/checks/results');
 const { verify } = require('../../verify/verifier');
 const { buildBriefing } = require('../../agent/briefing');
@@ -114,11 +114,11 @@ const REPORT = fs.readFileSync(path.join(__dirname, '..', 'fixtures', 'node-test
 const CONTRACT = (checks = [OK.call_returns]) => approve({ id: 'c', goal: 'Add clamp', clarifying_question: null,
   acceptance_criteria: [{ id: 'AC-1', criterion: 'clamp bounds n to [min, max]', met: null, kind: 'behavioral' }],
   verification_plan: ['call clamp(5, 0, 3) and expect 3', 'measure clamp performance'], checks }, { via: 'test' });
-const results = (statuses, checks = [OK.call_returns]) => JSON.stringify({ format: 'qb-check-results/1', complete: true,
+const results = (statuses, checks = [OK.call_returns]) => JSON.stringify({ format: 'qb-check-results/1', complete: true, check_set_hash: checkSetHash(checks),
   results: checks.map((c, i) => ({ id: c.id, ac_id: c.ac_id, adapter: c.adapter, status: statuses[i], detail: `${c.id} ${statuses[i]}`, duration_ms: 5 })) });
 const EXEC = (sandboxChecks, extra = {}) => ({ id: 'e', status: 'completed', diff: 'diff --git a/src/utils.js b/src/utils.js\n+function clamp() {}',
   candidate_tree: TREE, sandbox: { verification: { status: 'ran', state: 'completed', exit_code: 0, output: '', report: REPORT, tree: TREE },
-    ...(sandboxChecks ? { checks: { tree: TREE, requested: [OK.call_returns], ...sandboxChecks } } : {}) }, ...extra });
+    ...(sandboxChecks ? { checks: { tree: TREE, requested: [OK.call_returns], check_set_hash: checkSetHash([OK.call_returns]), ...sandboxChecks } } : {}) }, ...extra });
 
 async function run(contract, execution) {
   const m = mockFetch(ollamaReply({ met: true, evidence: 'looks implemented' }));   // an affirmative judge
@@ -215,6 +215,42 @@ describe('the real check runner (sandbox/agent/qb-check-runner.mjs)', () => {
       assert.deepEqual(v.results.map((x) => [x.id, x.status]), [['CHK-1', 'pass'], ['WRONG', 'fail'], ['CHK-2', 'pass'], ['TYPE', 'fail'],
         ['ESC', 'error'], ['HANG', 'error'], ['MISS', 'error']]);
       assert.match(v.results[5].detail, /timed out/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
+// ── KAN-16 review (68122d8): results are bound to the exact check definitions ──
+describe('check results are bound to the executed definitions, not just reused ids', () => {
+  test('a result produced for different params under the same id cannot satisfy this contract', async () => {
+    const changed = { ...OK.call_returns, params: { ...OK.call_returns.params, expect: 4 } };     // same id, new expectation
+    const { report } = await run(CONTRACT([changed]), EXEC({ results_text: results(['pass']) }));   // old run: expect 3
+    assert.notEqual(report.verdict, 'pass');
+    assert.equal(report.checks.error, 'check_set_mismatch');
+    assert.equal(report.criteria_results[0].check_status, 'error');
+  });
+  test('the runner\'s own hash of what it received must match', async () => {
+    const forged = JSON.stringify({ ...JSON.parse(results(['pass'])), check_set_hash: 'f'.repeat(64) });
+    const { report } = await run(CONTRACT(), EXEC({ results_text: forged }));
+    assert.notEqual(report.verdict, 'pass');
+    assert.equal(report.checks.error, 'check_set_mismatch');
+  });
+  test('checks that ran on any tree other than the captured candidate are not used', async () => {
+    const r1 = await run(CONTRACT(), EXEC({ results_text: results(['pass']), tree: 'f'.repeat(40) }));
+    assert.equal(r1.report.checks.error, 'checks_tree_mismatch');
+    const r2 = await run(CONTRACT(), EXEC({ results_text: results(['pass']) }, { candidate_tree: 'b'.repeat(40) }));
+    assert.equal(r2.report.checks.error, 'checks_tree_mismatch');
+  });
+  test('the real runner reports the same hash QB computes', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'qb16h-'));
+    try {
+      fs.mkdirSync(path.join(dir, 'src'));
+      fs.writeFileSync(path.join(dir, 'src', 'utils.js'), 'module.exports = { clamp: (n, a, b) => Math.min(Math.max(n, a), b) };\n');
+      const out = path.join(dir, 'out.json');
+      const checks = [OK.call_returns];
+      const r = spawnSync(process.execPath, [path.join(__dirname, '..', '..', 'sandbox', 'agent', 'qb-check-runner.mjs')],
+        { input: JSON.stringify({ root: dir, checks }), encoding: 'utf8', env: { ...process.env, QB_CHECK_RESULTS: out } });
+      assert.equal(r.status, 0, r.stderr);
+      assert.equal(JSON.parse(fs.readFileSync(out, 'utf8')).check_set_hash, checkSetHash(checks));
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });

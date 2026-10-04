@@ -4,6 +4,7 @@ const { judgeAll, judgeSnapshot } = require('./judge');
 const { aggregate, verificationInput, FAILED_EXECUTION } = require('./verdict');
 const { classifyTestRun } = require('./tests');
 const { validateCheckResults } = require('./checks/results');
+const { checkSetHash } = require('./checks/registry');
 const { VerificationReportSchema } = require('./schema');
 const { contractState, stateReason, contractHash, approvalState } = require('../intent/contract-state');
 
@@ -164,9 +165,16 @@ function evaluateChecks(contract, execution) {
   const sb = execution?.sandbox?.checks;
   if (!sb) { out.error = 'checks_not_run'; return out; }
   if (sb.error) { out.error = sb.error; return out; }
+  // The checks ran on a fresh, verified checkout of the candidate (⑥a): its tree must
+  // be the captured candidate tree; the tests' tree must be the same candidate.
   const tested = execution?.sandbox?.verification?.tree;
-  if (!sb.tree || sb.tree !== tested || (execution?.candidate_tree && sb.tree !== execution.candidate_tree)) { out.error = 'checks_tree_mismatch'; return out; }
-  const v = validateCheckResults(sb.results_text, requested);
+  if (!sb.tree || !execution?.candidate_tree || sb.tree !== execution.candidate_tree || (tested && tested !== sb.tree)) {
+    out.error = 'checks_tree_mismatch'; return out;
+  }
+  // …and to the exact check definitions of THIS contract (ids, params, expectations).
+  const expected = checkSetHash(requested);
+  if (sb.check_set_hash !== expected) { out.error = 'check_set_mismatch'; return out; }
+  const v = validateCheckResults(sb.results_text, requested, expected);
   if (!v.ok) { out.error = v.reason; return out; }
   out.results = v.results;
   for (const r of v.results) out.byAc.set(r.ac_id, [...(out.byAc.get(r.ac_id) || []), r]);
