@@ -12,9 +12,8 @@ T-005 asked for cumulative speech events and duration "tracked since the Adaptiv
 - **Coverage of the request is by source span (re-review 1).** Each quote claims one span of the (case- and whitespace-normalized) request.
   - A quote that occurs more than once must say which occurrence it is (`occurrence`, 1-based).
   - Every token of the request must lie inside a claimed span. Tokens are words, numbers, and runs of symbols.
-  - **Symbols fail closed (re-review 2).** Every symbol counts: `!`, `!=`, `!==`, `&&`, `||`, `??`, `?.`, `-`, `%`, `()`, `[]`, `{}`, `/` …
-  - The **only** exemption is prose punctuation (`. , ; : ? !` and closing quotes) glued to the end of a word and followed by whitespace or the end of the text. Examples: the final `.` of "Return !isAdmin.", or the `,` in "Do it, then". That suffix is trimmed.
-  - So `!isAdmin` keeps its `!`, `90%.` keeps its `%`, and a free-standing ` ?? ` or ` ! ` always counts. Brackets are never exempt.
+  - **Symbols fail closed, with no exemption (re-review 3).** Every symbol run must lie inside a quote: operators (`!`, `!=`, `!==`, `&&`, `||`, `??`, `?.`, `-`, `%`, `()`, `[]`, `{}`, `/` …) **and** sentence punctuation (`. , ; : ? !`).
+  - Re-review 2 exempted punctuation glued to the end of a word. That stripped `??` from `"value?? fallback."`, so the exemption is removed: quoting whole clauses covers ordinary prose, and nothing has to guess whether a symbol is code.
   - The only exceptions are a tiny filler list: `a`, `an`, `the`, `and`, `that`, `which`, `please`.
   - **Negation, numbers, units, comparison words and operators always count,** and there is no length cutoff.
   - Each uncovered stretch is reported as the human would read it: `request text not traced to any requirement: "do not enable caching for"`.

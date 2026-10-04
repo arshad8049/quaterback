@@ -92,7 +92,7 @@ describe('QB-14 re-review: coverage is by source span — negation, repeats, num
     [['AC-1', 'Enable caching for admins', ['R-1']]]);
 
   test('senior repro: "Do not enable caching for" is untraced → invalid (pre-fix: finalized)', () => {
-    assert.deepEqual(untraced(CACHING), ['do not enable caching for']);
+    assert.deepEqual(untraced(CACHING), ['do not enable caching for', '.']);   // re-review 3: the final "." outside "guests" counts too
     assert.equal(contractState(CACHING).state, 'invalid');
   });
   test('senior repro through the execution entry point: an approved contract is blocked, the agent never runs', async () => {
@@ -108,19 +108,19 @@ describe('QB-14 re-review: coverage is by source span — negation, repeats, num
     assert.equal(contractState(ok).state, 'finalized');
   });
   test('negation is never a stop word', () => {
-    for (const [req, quote, missing] of [['Do not log passwords.', 'log passwords', 'do not'], ['Never retry uploads.', 'retry uploads', 'never'],
-      ['Export without headers.', 'Export', 'without headers'], ['Return no results for guests.', 'Return', 'no results for guests']]) {
+    for (const [req, quote, missing] of [['Do not log passwords', 'log passwords', 'do not'], ['Never retry uploads', 'retry uploads', 'never'],
+      ['Export without headers', 'Export', 'without headers'], ['Return no results for guests', 'Return', 'no results for guests']]) {
       assert.deepEqual(untraced(C(req, [{ id: 'R-1', quote }], [['AC-1', 'x', ['R-1']]])), [missing], req);
     }
   });
   test('numeric thresholds, units, short tokens and operators are never dropped', () => {
-    for (const [req, quote, missing] of [['Reject uploads larger than 10 MB.', 'Reject uploads larger than', '10 mb'],
-      ['Set ttl to 5.', 'Set ttl', 'to 5'], ['Alert when cpu >= 90%.', 'Alert when cpu', '>= 90%'], ['Retry at most 3 times.', 'Retry', 'at most 3 times']]) {
+    for (const [req, quote, missing] of [['Reject uploads larger than 10 MB', 'Reject uploads larger than', '10 mb'],
+      ['Set ttl to 5', 'Set ttl', 'to 5'], ['Alert when cpu >= 90%', 'Alert when cpu', '>= 90%'], ['Retry at most 3 times', 'Retry', 'at most 3 times']]) {
       assert.deepEqual(untraced(C(req, [{ id: 'R-1', quote }], [['AC-1', 'x', ['R-1']]])), [missing], req);
     }
   });
   test('a repeated clause: one quote covers one occurrence only; repeats must say which occurrence', () => {
-    const req = 'Cache results. Cache results for 5 minutes.';
+    const req = 'Cache results and cache results for 5 minutes';
     // ambiguous quote → error; quoting occurrence 1 leaves the second clause untraced
     assert.match(validateTraceability(C(req, [{ id: 'R-1', quote: 'Cache results' }], [['AC-1', 'x', ['R-1']]])).errors.join(' | '), /occurs 2 times in the request; say which/);
     assert.deepEqual(untraced(C(req, [{ id: 'R-1', quote: 'Cache results', occurrence: 1 }], [['AC-1', 'x', ['R-1']]])), ['cache results for 5 minutes']);
@@ -158,16 +158,39 @@ describe('QB-14 re-review: coverage is by source span — negation, repeats, num
       ['Return {} for guests.', ['Return', 'for guests.'], ['{}']],
       ['Use items[0].', ['Use items', '0].'], ['[']],
       ['Call reset() first.', ['Call reset', 'first.'], ['()']],
-      ['Match /^ab+/.', ['Match', 'ab'], ['/^', '+/']],
+      ['Match /^ab+/.', ['Match', 'ab'], ['/^', '+/.']],
     ]) {
       const reqs = quotes.map((quote, i) => ({ id: `R-${i + 1}`, quote }));
       assert.deepEqual(untraced(C(req, reqs, [['AC-1', 'x', reqs.map((r) => r.id)]])), missing, req);
     }
   });
-  test('prose punctuation that ends a word is the only exemption (explicit rule)', () => {
-    const c = C('Do it, then stop; really: done! Why? "Yes."', [{ id: 'R-1', quote: 'Do it' }, { id: 'R-2', quote: 'stop' }, { id: 'R-3', quote: 'really' },
-      { id: 'R-4', quote: 'done' }, { id: 'R-5', quote: 'Why' }, { id: 'R-6', quote: '"Yes' }], [['AC-1', 'x', ['R-1', 'R-2', 'R-3', 'R-4', 'R-5', 'R-6']]]);
-    assert.deepEqual(untraced(c), ['then']);
+  test('senior repro 3: "value?? fallback." — an operator glued to a word is never trimmed; blocked before the agent runs', async () => {
+    const c = { id: 'c', goal: 'Return fallback when nullish', raw_request: 'Return value?? fallback.', clarifying_question: null,
+      requirements: [{ id: 'R-1', quote: 'Return value' }, { id: 'R-2', quote: 'fallback.' }],
+      acceptance_criteria: [{ id: 'AC-1', criterion: 'Return value', kind: 'behavioral', requirement_ids: ['R-1', 'R-2'] }] };
+    assert.deepEqual(untraced(c), ['??']);
+    assert.equal(contractState(c).state, 'invalid');
+    const out = await execute('briefing', approve(c, { via: 'test' }), null, { agent: 'claude-code', repoPath: '/nonexistent-qb14' });
+    assert.equal(out.status, 'blocked');
+    assert.match(out.error, /not traced to any requirement: "\?\?"/);
+  });
+  test('whitespace matrix: every operator, spaces before / after / neither / both — omitted blocks, quoted-complete is valid', () => {
+    for (const op of ['??', '?.', '!', '!=', '!==', '&&', '||']) {
+      for (const [sb, sa] of [[true, false], [false, true], [false, false], [true, true]]) {
+        const req = `Return a${sb ? ' ' : ''}${op}${sa ? ' ' : ''}b.`;
+        const omitted = C(req, [{ id: 'R-1', quote: 'Return a' }, { id: 'R-2', quote: 'b.' }], [['AC-1', 'x', ['R-1', 'R-2']]]);
+        assert.deepEqual(untraced(omitted), [op], JSON.stringify(req));
+        assert.equal(contractState(omitted).state, 'invalid', JSON.stringify(req));
+        const complete = C(req, [{ id: 'R-1', quote: req }], [['AC-1', 'x', ['R-1']]]);
+        assert.deepEqual(validateTraceability(complete).errors, [], JSON.stringify(req));
+      }
+    }
+  });
+  test('no punctuation exemption at all: sentence punctuation outside quotes is reported too (quote whole clauses)', () => {
+    const c = C('Do it, then stop.', [{ id: 'R-1', quote: 'Do it' }, { id: 'R-2', quote: 'then stop' }], [['AC-1', 'x', ['R-1', 'R-2']]]);
+    assert.deepEqual(untraced(c), [',', '.']);
+    const whole = C('Do it, then stop.', [{ id: 'R-1', quote: 'Do it, then stop.' }], [['AC-1', 'x', ['R-1']]]);
+    assert.deepEqual(validateTraceability(whole).errors, []);
   });
   test('context exclusions refer to the full excluded span and show their reason to the human', () => {
     const c = C('Add clamp() to src/math.js. Ignore the legacy folder.',

@@ -28,24 +28,11 @@
 const FILLER = new Set(['a', 'an', 'the', 'and', 'that', 'which', 'please']);
 const norm = (s) => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
 // Tokens with their positions in the normalized request: words/numbers, and runs of
-// symbols. Fail closed: EVERY symbol counts (!, !=, &&, ?., -, (), [], {}, %, …),
-// except prose punctuation glued to the end of a word and followed by whitespace or
-// the end of the text (the sentence-final "." in "Return !isAdmin.", the "," in
-// "Do it, then"): that suffix is trimmed. "!isAdmin" keeps its "!", "%." its "%",
-// and a free-standing " ?? " or " ! " always counts.
+// symbols. No exemption (QB-14 re-review 3): every symbol — operators and sentence
+// punctuation alike — must lie inside a quoted span. Quoting whole clauses covers
+// ordinary prose, and nothing has to guess whether "?", "!" or "." is code.
 const TOKEN = /[\p{L}\p{N}_$]+(?:[.'][\p{L}\p{N}_$]+)*|[^\s\p{L}\p{N}_$]+/gu;
-const PROSE_END = /[.,;:?!"'\u2019\u201d\u00bb\u2026]+$/u;   // brackets are never prose-exempt: "()" / "[0]" count
-function tokens(text) {
-  const out = [];
-  for (const m of text.matchAll(TOKEN)) {
-    let t = m[0];
-    const end = m.index + t.length;
-    const glued = m.index > 0 && !/\s/.test(text[m.index - 1]);           // attached to the end of a word: "isAdmin."
-    if (!/^[\p{L}\p{N}_$]/u.test(t) && glued && (end === text.length || /\s/.test(text[end]))) t = t.replace(PROSE_END, '');
-    if (t) out.push({ t, start: m.index, end: m.index + t.length });
-  }
-  return out;
-}
+const tokens = (text) => [...text.matchAll(TOKEN)].map((m) => ({ t: m[0], start: m.index, end: m.index + m[0].length }));
 const occurrences = (hay, needle) => { const at = []; for (let i = hay.indexOf(needle); i !== -1; i = hay.indexOf(needle, i + 1)) at.push(i); return at; };
 
 /** @returns {{ errors: string[], trace: Array<{ id, quote, span, implied, disposition, reason, covered_by }> }} */
