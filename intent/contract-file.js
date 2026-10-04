@@ -35,7 +35,7 @@ function loadContractFile(file, request) {
 function proposalForReview(contract) {
   const out = {};
   for (const k of REVIEW_FIELDS) if (contract[k] !== undefined) out[k] = contract[k];
-  out.acceptance_criteria = (contract.acceptance_criteria || []).map((a) => ({ id: a.id, criterion: a.criterion, kind: a.kind || 'behavioral', requirement_ids: a.requirement_ids || [] }));
+  out.acceptance_criteria = (contract.acceptance_criteria || []).map((a) => ({ id: a.id, criterion: a.criterion, kind: a.kind || 'behavioral', requirement_ids: a.requirement_ids || [], ...(a.preserves !== undefined ? { preserves: a.preserves } : {}) }));
   return out;
 }
 

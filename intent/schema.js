@@ -8,6 +8,7 @@ const AcceptanceCriterion = z.object({
   // (documentation, naming, wording) may be decided by the judge.
   kind: z.enum(['behavioral', 'non_behavioral']).optional(),
   requirement_ids: z.array(z.string()).optional(),   // QB-14
+  preserves: z.unknown().optional(),                 // QB-15: validated by verify/preservation.js
 });
 
 const TaskContractSchema = z.object({

@@ -7,6 +7,8 @@ const { validateCheckResults } = require('./checks/results');
 const { checkSetHash } = require('./checks/registry');
 const { evaluatePolicy } = require('./policy');
 const { buildEvidence, candidateFiles, manifestEntry } = require('./evidence');
+const { decidePreservation } = require('./preservation');
+const { openCache } = require('./judge-cache');
 const { VerificationReportSchema } = require('./schema');
 const { contractState, stateReason, contractHash, approvalState } = require('../intent/contract-state');
 
@@ -44,7 +46,9 @@ async function verify(contract, context, execution, options = {}) {
   const allCriteria = contract.acceptance_criteria || [];
   const checkEval   = evaluateChecks(contract, execution);
   const execFailed  = FAILED_EXECUTION.has(execution?.status ?? null);
-  const criteria    = execFailed ? allCriteria : allCriteria.filter(ac => ac.kind === 'non_behavioral');
+  // QB-15: a preservation criterion is decided by the named tests it preserves, never by the judge.
+  const criteria    = execFailed ? allCriteria : allCriteria.filter(ac => ac.kind === 'non_behavioral' && !ac.preserves);
+  const judgeCache  = options.judgeCache ? openCache(options.judgeCache) : null;
   let criteriaResults;
 
   const execStatus = execution?.status ?? null;
@@ -67,7 +71,7 @@ async function verify(contract, context, execution, options = {}) {
     // QB-22: the agent changed nothing. Judge the CURRENT files; the verdict also
     // needs the sandbox tests (run on the unchanged tree) to have passed.
     evidenceFor(true);
-    criteriaResults = await judgeSnapshot(criteria, bundles);
+    criteriaResults = await judgeSnapshot(criteria, bundles, { cache: judgeCache });
   } else if (notRun || execStatus === 'no_change') {
     // Nothing trustworthy to judge: the agent failed, or changed nothing.
     criteriaResults = criteria.map(ac => ({
@@ -91,13 +95,15 @@ async function verify(contract, context, execution, options = {}) {
     }));
   } else {
     evidenceFor(false);
-    criteriaResults = await judgeAll(criteria, diff, diffSignals, bundles);
+    criteriaResults = await judgeAll(criteria, diff, diffSignals, bundles, { cache: judgeCache });
   }
   const evidenceManifest = [...new Map([...bundles.values()].flatMap(b => b.shown).map(it => [it.id, manifestEntry(it)])).values()];
 
   if (!execFailed) {
     const judged = new Map(criteriaResults.map(r => [r.id, r]));
-    criteriaResults = allCriteria.map(ac => judged.get(ac.id) || criterionFromChecks(ac, checkEval));
+    const classified = classifyTestRun(execution?.sandbox?.verification || null, testOptions(contract));
+    criteriaResults = allCriteria.map(ac => judged.get(ac.id)
+      || (ac.preserves ? preservationResult(ac, classified, checkEval) : criterionFromChecks(ac, checkEval)));
   }
 
   // ── Verdict ──────────────────────────────────────────────────────────────
@@ -227,6 +233,16 @@ function criterionFromChecks(ac, ev) {
       evidence: results.filter(r => r.status !== 'pass').map(r => `${r.id}: ${r.detail}`).join(' | ') };
   }
   return { ...base, met: true, check_status: 'passed', checks, evidence: results.map(r => `${r.id}: ${r.detail}`).join(' | ') };
+}
+
+/** QB-15: the named tests decide; checks bound to the criterion (interfaces) must also pass. */
+function preservationResult(ac, classified, ev) {
+  const t = decidePreservation(ac, classified);
+  if (!ev.requested.some(c => c.ac_id === ac.id)) return t;
+  const k = criterionFromChecks(ac, ev);
+  const met = t.met === false || k.met === false ? false : t.met === true && k.met === true ? true : null;
+  return { ...t, met, checks: k.checks, check_status: k.check_status, evidence: `${t.evidence} | checks: ${k.evidence}`,
+    repair: met === false ? [t.repair, k.repair].filter(Boolean).join(' ') : null };
 }
 
 function checksReport(contract, ev) {

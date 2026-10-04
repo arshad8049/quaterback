@@ -246,6 +246,11 @@ An agent that changed nothing passes only if the requirement is independently ve
 - every item has an immutable `EV-…` ID with file, range, blob and hash;
 - missing material evidence makes the criterion unresolved, naming the missing artifact.
 
+**Calibrated judging** (QB-15, [docs/verify/calibration.md](docs/verify/calibration.md)):
+- a judgment is cached per evidence, so an unchanged patch is never resampled into a pass;
+- preservation criteria must name the tests they preserve (`preserves.tests`) and are decided by the test report;
+- `bench/judge-calibration.js` measures false accepts, false rejects and abstentions separately, on labeled patches.
+
 **Run records** (`run/store.js`, QB-38). Every run keeps a versioned, append-only record: base commit, agent version, contract, patch, test outcome, checks and report. `qb replay <run_id>` recomputes each verdict and the final outcome from the stored evidence.
 
 ---

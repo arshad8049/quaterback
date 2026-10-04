@@ -96,7 +96,15 @@ function validateNodeReport(text) {
     file: relFile(e.file), path: validPath(e.path, e.nesting), name: String(e.name), failureType: e.failureType ?? null,
     error: typeof e.error === 'string' ? e.error.slice(0, 500) : '',
   }));
-  return { ok: true, counts: Object.fromEntries(COUNT_KEYS.map((k) => [k, counts[k]])), collectionFailures, failingTests };
+  // QB-15: per test file (relative to the run root), for preservation claims bound to named tests.
+  const byFile = {};
+  for (const e of tests) {
+    const f = relFile(e.file);
+    if (!f || e.todo) continue;
+    const s = byFile[f] || (byFile[f] = { passed: 0, failed: 0, skipped: 0 });
+    if (e.type === 'test:fail') s.failed++; else if (e.skip) s.skipped++; else s.passed++;
+  }
+  return { ok: true, counts: Object.fromEntries(COUNT_KEYS.map((k) => [k, counts[k]])), collectionFailures, failingTests, byFile };
 }
 
 /** A reporter path made relative to the run root (/verify, /scratch, or the host temp dir in tests). */
@@ -134,7 +142,7 @@ function classifyTestRun(v, { preexisting: preexistingPolicy = 'block' } = {}) {
   const r = validateNodeReport(v.report);
   if (!r.ok) return res('error', r.reason);
   const c = r.counts;
-  const known = { runner: 'node-test', counts: c };
+  const known = { runner: 'node-test', counts: c, byFile: r.byFile };
   if (r.collectionFailures.length) return res('error', 'collection_failure', known);
   if (c.cancelled > 0) return res('error', 'cancelled_tests', known);
   if (c.failed > 0) {

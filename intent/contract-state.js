@@ -16,6 +16,7 @@ const crypto = require('crypto');
 const { validateExamples } = require('./examples');
 const { policyErrors } = require('../verify/policy');
 const { testPolicyErrors } = require('../verify/tests');
+const { preservationErrors } = require('../verify/preservation');
 const { validateTraceability } = require('./requirements');
 
 function contractState(c) {
@@ -38,7 +39,7 @@ function contractState(c) {
     }
   }
   // QB-09: the scope and constraint policy must be well-formed (they are enforced, not advisory text).
-  if (!errors.length) errors.push(...policyErrors(c), ...testPolicyErrors(c));
+  if (!errors.length) errors.push(...policyErrors(c), ...testPolicyErrors(c), ...preservationErrors(c));
   // QB-13: every computable example is recomputed with trusted arithmetic; a wrong
   // one makes the contract invalid (it is never corrected to fit).
   if (!errors.length) {
@@ -58,7 +59,7 @@ function approvedContent(c) {
   return {
     goal: c?.goal ?? null, required_behavior: c?.required_behavior ?? [], constraints: c?.constraints ?? [],
     acceptance_criteria: (c?.acceptance_criteria || []).map((a) => ({ id: a.id, criterion: a.criterion, kind: a.kind || 'behavioral',
-      requirement_ids: a.requirement_ids ?? [] })),
+      requirement_ids: a.requirement_ids ?? [], ...(a.preserves !== undefined ? { preserves: a.preserves } : {}) })),   // QB-15
     requirements: c?.requirements ?? [],   // QB-14
     verification_plan: c?.verification_plan ?? [], checks: c?.checks ?? [],
     scope: { allowed_changes: c?.scope?.allowed_changes ?? [], protected_paths: c?.scope?.protected_paths ?? [] },   // QB-09

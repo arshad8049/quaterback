@@ -90,9 +90,9 @@ Rules:
  * @param {Array} criteria
  * @param {string} snapshot - the relevant files, as "### path" + fenced content blocks
  */
-async function judgeSnapshot(criteria, bundles) {
+async function judgeSnapshot(criteria, bundles, { cache = null } = {}) {
   const results = [];
-  for (const ac of criteria) results.push(await judgeOne(ac, { kind: 'snapshot', bundle: bundles.get(ac.id) }, {}));
+  for (const ac of criteria) results.push(await judgeOne(ac, { kind: 'snapshot', bundle: bundles.get(ac.id) }, {}, cache));
   return results;
 }
 
@@ -104,7 +104,7 @@ async function judgeSnapshot(criteria, bundles) {
  * @param {string} diff     - raw git diff
  * @param {object} signals  - keyword signal map from checker.js
  */
-async function judgeAll(criteria, diff, signals = {}, bundles = new Map()) {
+async function judgeAll(criteria, diff, signals = {}, bundles = new Map(), { cache = null } = {}) {
   if (!diff || !diff.trim()) {
     return criteria.map(ac => ({
       id:        ac.id,
@@ -118,7 +118,7 @@ async function judgeAll(criteria, diff, signals = {}, bundles = new Map()) {
 
   const results = [];
   for (const ac of criteria) {
-    const result = await judgeOne(ac, { kind: 'diff', bundle: bundles.get(ac.id) || null, text: diff }, signals);
+    const result = await judgeOne(ac, { kind: 'diff', bundle: bundles.get(ac.id) || null, text: diff }, signals, cache);
     results.push(result);
   }
   return results;
@@ -220,26 +220,16 @@ const MAX_FORMAT_RETRIES = 1;
 const FORMAT_REMINDER = 'Your previous reply did not match the required format. Reply with ONLY the JSON object '
   + '{"met": true|false|null, "evidence": "...", "repair": "..." (only when false), "refs": [...] (optional)}.';
 
-// Criteria that assert the ABSENCE of breakage — can only be verified by
-// running the test suite, never from static diff analysis. Always null.
-const PRESERVATION_PATTERNS = [
-  /existing\s+\w*\s*(functionality|behavior|code|tests?)\s+(remains?\s+)?unchanged/i,
-  /remains?\s+unchanged/i,
-  /no\s+other\s+parts?\s+(of\s+the\s+code\s+)?(are\s+)?affected/i,
-  /without\s+(affecting|breaking|changing|modifying)\s+(existing|other|the\s+rest)/i,
-  /existing\s+(code|behavior|tests?|interface)\s+(is\s+)?(not\s+)?(modified|changed|broken|affected)/i,
-  /no\s+regressions?/i,
-  /backward[\s-]?compat/i,
-];
-
-function isPreservationCriterion(criterion) {
-  return PRESERVATION_PATTERNS.some(p => p.test(criterion));
-}
+// Criteria that assert the ABSENCE of breakage are decided by the named tests they
+// preserve (verify/preservation.js, QB-15), never by the judge. One that reaches the
+// judge anyway (a stored or unbound contract) stays null — and null is never proof.
+const { isPreservationCriterion } = require('./preservation');
+const { judgmentKey } = require('./judge-cache');
 
 // Majority-vote judge: runs VOTE_COUNT independent calls, picks the verdict
 // that wins a strict majority (> VOTE_COUNT/2). Ties default to null — never
 // force a false repair on a split vote.
-async function judgeOne(ac, material, signals) {
+async function judgeOne(ac, material, signals, cache = null) {
   // Short-circuit: preservation ACs require test execution, not diff analysis.
   if (isPreservationCriterion(ac.criterion)) {
     return {
@@ -254,6 +244,18 @@ async function judgeOne(ac, material, signals) {
     };
   }
 
+  // QB-15: one judgment per piece of evidence — re-verifying an unchanged patch
+  // reuses it instead of resampling until the vote flips.
+  const key = cache ? judgmentKey({ model: MODEL, prompt: material.kind === 'snapshot' ? SNAPSHOT_PROMPT : SYSTEM_PROMPT,
+    criterion: ac.criterion, kind: material.kind, bundle: material.bundle, text: material.text }) : null;
+  const hit = key && cache.get(key);
+  if (hit) return { ...hit, id: ac.id, criterion: ac.criterion, judgment_cache: 'hit' };
+  const result = await judgeFresh(ac, material, signals);
+  if (key) cache.set(key, result);
+  return key ? { ...result, judgment_cache: 'miss' } : result;
+}
+
+async function judgeFresh(ac, material, signals) {
   const votes = [];
 
   for (let i = 0; i < VOTE_COUNT; i++) {
@@ -340,4 +342,16 @@ function parseJudgment(text) {
   return { met: j.met, evidence: j.evidence.trim(), repair: j.repair ?? null, refs: j.refs || [] };
 }
 
-module.exports = { judgeAll, judgeSnapshot, parseJudgment, MAX_FORMAT_RETRIES };
+/**
+ * QB-15 calibration: n independent raw votes for one criterion on one evidence
+ * bundle (no majority, no cache) — a failed or invalid call is a null vote.
+ */
+async function sampleVotes(ac, bundle, n = VOTE_COUNT, signals = {}) {
+  const votes = [];
+  for (let i = 0; i < n; i++) {
+    try { votes.push((await callOnce(ac, { kind: 'diff', bundle }, signals)).met); } catch { votes.push(null); }
+  }
+  return votes;
+}
+
+module.exports = { judgeAll, judgeSnapshot, parseJudgment, sampleVotes, MAX_FORMAT_RETRIES, VOTE_COUNT, MODEL };

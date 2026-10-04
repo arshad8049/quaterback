@@ -124,6 +124,7 @@ function contractFromObject(raw, request) {
         kind:      obj && ac.kind === 'non_behavioral' ? 'non_behavioral' : 'behavioral',
         // QB-14: which requirements this criterion covers (validated by contractState).
         requirement_ids: obj && Array.isArray(ac.requirement_ids) ? ac.requirement_ids.filter((x) => typeof x === 'string') : [],
+        ...(obj && ac.preserves !== undefined ? { preserves: ac.preserves } : {}),   // QB-15: validated by contractState
       };
     })
     : [];

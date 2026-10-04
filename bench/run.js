@@ -26,6 +26,7 @@ const { compile }      = require('../intent/compiler');
 const { buildContext } = require('../context/builder');
 const { orchestrate }  = require('../agent/orchestrator');
 const { verify }       = require('../verify/verifier');
+const { defaultJudgeCacheDir } = require('../verify/judge-cache');
 const { runBaseline }  = require('./baseline');
 const { createWorkspace } = require('../lib/workspace');
 const runStore         = require('../run/store');
@@ -297,7 +298,7 @@ async function runQB(task, ws) {
 
     // L4
     t = Date.now();
-    report = await verify(contract, context, execution, { repoPath });
+    report = await verify(contract, context, execution, { repoPath, judgeCache: defaultJudgeCacheDir() });
     const l4_ms = Date.now() - t;
     run.finishAttempt(attempt, {
       execution, report, patch: execution.diff,
@@ -354,7 +355,7 @@ async function runBaselineTask(task, ws, contract) {
 
   // Run L4 on baseline's change set using the same contract QB used
   const t4 = Date.now();
-  const report = await verify(contract, null, execution, { repoPath });
+  const report = await verify(contract, null, execution, { repoPath, judgeCache: defaultJudgeCacheDir() });
   out.l4_ms = Date.now() - t4;
   run.finishAttempt(1, { execution, report, patch: execution.diff, verifyInput: inputFromReport(report, execution),
     checks: runStore.checksFor(1, execution) });

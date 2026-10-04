@@ -21,6 +21,7 @@ const { compile }      = require('./intent/compiler');
 const { buildContext } = require('./context/builder');
 const { orchestrate }  = require('./agent/orchestrator');
 const { verify }       = require('./verify/verifier');
+const { defaultJudgeCacheDir } = require('./verify/judge-cache');
 const memory           = require('./memory');
 const runStore         = require('./run/store');
 const { artifactFile } = require('./lib/fsafe');
@@ -298,6 +299,7 @@ async function main() {
     report = await verify(contract, context, execution, {
       noLlm:    !opts.llmVerify,
       repoPath,
+      judgeCache: defaultJudgeCacheDir(),   // QB-15: an unchanged patch is never re-sampled into a pass
     });
     run.finishAttempt(attempt, {
       execution,
