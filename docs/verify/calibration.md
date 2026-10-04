@@ -23,6 +23,11 @@
   - `verify()` uses a cache only when given `judgeCache`.
 - This adds to QB-10: the repair loop already stops on an identical patch.
 
+### The key pins the exact patch (follow-up, 2026-10-04)
+- The key also includes a SHA-256 of the full material (the diff text), with key version 2.
+- Before this, a diff with no text hunks (binary or mode-only) produced an empty QB-11 evidence bundle. Two **different** such patches therefore shared a key, and the second was served the first verdict.
+- Regression: two different binary-only patches are each judged (miss, miss), and the same patch again is a hit.
+
 ### Concurrent runs (re-review 1)
 - **Reading the cache, judging, then writing was not enough.** Two overlapping runs could both judge the same evidence, one null and one true, and the later writer replaced the decision. Pre-fix (`dd2b306`): 6 model calls and two different verdicts.
 - **The evidence is now claimed before sampling, across processes:**

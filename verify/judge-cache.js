@@ -29,7 +29,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const VERSION = 1;
+const VERSION = 2;   // 2: the full material (diff / files) hash is always part of the key
 const sha256 = (s) => crypto.createHash('sha256').update(s).digest('hex');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const envMs = (name, dflt) => { const n = Number(process.env[name]); return Number.isFinite(n) && n > 0 ? n : dflt; };
@@ -40,9 +40,13 @@ function defaultJudgeCacheDir() {
 
 /** The cache key for one criterion's judgment. */
 function judgmentKey({ model, prompt, criterion, kind, bundle, text }) {
-  const evidence = bundle
-    ? { shown: bundle.shown.map((it) => it.id), missing: bundle.missing.map((m) => `${m.what}|${m.reason}`) }
-    : { text: sha256(String(text || '')) };
+  // The evidence IDs say what the judge saw; the material hash pins WHICH patch it was
+  // (QB-15 follow-up): a diff with no text hunks (binary / mode-only) yields an empty
+  // bundle, so two different patches would otherwise share a key.
+  const evidence = {
+    material: sha256(String(text || '')),
+    ...(bundle ? { shown: bundle.shown.map((it) => it.id), missing: bundle.missing.map((m) => `${m.what}|${m.reason}`) } : {}),
+  };
   return sha256(JSON.stringify({ v: VERSION, model, prompt: sha256(prompt), criterion, kind, evidence }));
 }
 

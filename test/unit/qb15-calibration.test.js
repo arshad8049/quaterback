@@ -252,3 +252,23 @@ describe('QB-15 re-review: one authoritative judgment per evidence, across concu
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
+
+test('QB-15 follow-up: two DIFFERENT patches with no text hunks (binary / mode-only) never share a cached judgment', async () => {
+  const dir = tmp();
+  const C = contract([{ id: 'AC-1', criterion: 'the logo is updated', met: null, kind: 'non_behavioral' }]);
+  const bin = (a, b) => `diff --git a/logo.png b/logo.png\nindex ${a}..${b} 100644\nBinary files a/logo.png and b/logo.png differ\n`;
+  const e = (diff) => ({ id: 'e', status: 'completed', diff, changes: [{ file: 'logo.png', status: 'M' }],
+    sandbox: { verification: { status: 'ran', state: 'completed', exit_code: 0, output: '', report: PASS_REPORT } } });
+  let n = 0;
+  const m = mockFetch(() => (++n <= 3 ? ollamaReply({ met: false, evidence: 'old logo' }) : ollamaReply({ met: true, evidence: 'new logo' })));
+  try {
+    const r1 = await verify(C, null, e(bin('1111111', '2222222')), { judgeCache: dir });
+    const r2 = await verify(C, null, e(bin('1111111', '3333333')), { judgeCache: dir });
+    assert.equal(r1.criteria_results[0].judgment_cache, 'miss');
+    assert.equal(r2.criteria_results[0].judgment_cache, 'miss', 'a different patch must be judged afresh, not served the first verdict');
+    assert.equal(m.calls.length, 6);
+    // the same patch again is still a hit
+    const r3 = await verify(C, null, e(bin('1111111', '3333333')), { judgeCache: dir });
+    assert.equal(r3.criteria_results[0].judgment_cache, 'hit');
+  } finally { m.restore(); fs.rmSync(dir, { recursive: true, force: true }); }
+});
