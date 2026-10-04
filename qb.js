@@ -62,7 +62,7 @@ program
   .option('--repo <path>',         'Path to the target repository', process.cwd())
   .option('--agent <type>',        'Coding agent: dry-run | claude-code | manual', 'dry-run')
   .option('--max-retries <n>',     'Max repair loop attempts', '3')
-  .option('--clarify <answer>',    'Answer to the intent compiler\'s clarifying question; repeat for later rounds (noninteractive runs)', (v, prev) => [...prev, v], [])
+  .option('--clarify <answer>',    'Answer to the intent compiler\'s clarifying question; repeat for later rounds (noninteractive runs). Select a choice with <question>=<choice>', (v, prev) => [...prev, v], [])
   .option('--contract-file <path>', 'Use a human-reviewed contract as the test oracle instead of generating one (QB-13)')
   .option('--no-llm-context',      'Skip LLM enrichment in Layer 2 (faster)')
   .option('--no-llm-verify',       'Skip LLM judgment in Layer 4 (DSA only)')
@@ -147,7 +147,7 @@ async function main() {
       (h.ambiguity_flags || []).forEach(f => console.log(`     • ${f}`));
       for (const u of h.unresolved) {
         console.log(`\n  ❓ ${u.question}`);
-        if (u.choices.length) console.log(`     Choices: ${u.choices.join(' · ')}`);
+        if (u.choices.length) console.log(`     Choices: ${(u.options || []).map(o => `${o.label} [--clarify ${u.id}=${o.id}]`).join(' · ') || u.choices.join(' · ')}`);
       }
       console.log('');
     };

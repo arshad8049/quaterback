@@ -30,7 +30,8 @@ async function compile(request, repoContext = null, clarification = null) {
   const history = Array.isArray(clarification) ? clarification
     : clarification ? [{ question: null, answer: String(clarification) }] : [];
   // DSA pre-pass (QB-17): a vague term blocks until the request or an answer defines it.
-  const ambiguity = detectAmbiguity(request, history.map((h) => h.answer));
+  // Each answer is bound to the question it answered (QB-17 re-review 1).
+  const ambiguity = detectAmbiguity(request, history.map((h) => ({ question_id: h.question_id ?? null, answer: h.answer })));
   if (ambiguity) return ambiguity;
 
   const res = await fetch(`${OLLAMA_URL}/api/chat`, {

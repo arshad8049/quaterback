@@ -104,7 +104,7 @@ describe('bounded clarification with a machine-readable handoff state', () => {
       assert.equal(s.max_rounds, 3);
       assert.equal(s.unresolved[0].id, 'cleaner');
       assert.ok(s.unresolved[0].choices.includes('extract helper functions'));
-      assert.deepEqual(s.history, [{ round: 1, question: s.unresolved[0].question, answer: 'just make it nicer' }]);
+      assert.deepEqual(s.history, [{ round: 1, question_id: 'cleaner', question: s.unresolved[0].question, answer: 'just make it nicer' }]);
       assert.equal(m.calls.length, 0, 'never compiled past the open choice');
     } finally { m.restore(); }
   });
@@ -206,6 +206,78 @@ describe('incomplete compiler output is rejected, never filled', () => {
     try {
       const c = await compile(REQUEST);
       assert.match(contractState(c).errors.join(' | '), /incomplete compiler output: unreadable required_behavior\[0\]/);
+    } finally { m.restore(); }
+  });
+});
+
+describe('QB-17 re-review: an answer resolves only on an affirmative selection, bound to its question', () => {
+  const REQ = 'Make src/dates.js cleaner';
+  const UNDECIDED = 'I cannot decide between naming and duplication; please ask me again.';
+  const finalReply = (req) => ({ ...CONTRACT, requirements: [{ id: 'R-1', quote: req }] });
+  const { detectAmbiguity } = require('../../intent/dsa');
+
+  test('senior repro: "cannot decide between naming and duplication" leaves the choice open (pre-fix: resolved → finalized)', async () => {
+    assert.notEqual(detectAmbiguity(REQ, [UNDECIDED]), null);
+    const { compileIntent } = require('../../intent/session');
+    const m = mockFetch(ollamaReply(finalReply(REQ)));
+    try {
+      const s = await compileIntent(REQ, { repoPath: repo.dir, answers: [UNDECIDED] });
+      assert.equal(s.state, 'needs_clarification', JSON.stringify(s));
+      assert.equal(s.unresolved[0].id, 'cleaner');
+      assert.equal(m.calls.length, 0, 'never compiled past the open choice');
+    } finally { m.restore(); }
+  });
+  test('senior repro through the CLI handoffs: qb.js --clarify → BLOCKED (agent never runs); intent/cli.js --clarify → exit 2, needs_clarification', () => {
+    const { r } = spawnWithLog(path.join(ROOT, 'qb.js'), [REQ, '--repo', repo.dir, '--agent', 'dry-run', '--no-llm-context', '--no-llm-verify', '--clarify', UNDECIDED], { reply: finalReply(REQ) });
+    assert.equal(r.status, 2, r.stdout + r.stderr);
+    const run = store.loadRun(fs.readdirSync(path.join(tmp, 'runs'))[0], path.join(tmp, 'runs'));
+    assert.deepEqual([run.manifest.outcome, run.manifest.outcome_reason], ['BLOCKED', 'needs_clarification']);
+    assert.deepEqual(run.manifest.attempts, [], 'no attempt started: the agent was never invoked');
+    const cli = spawnWithLog(path.join(ROOT, 'intent', 'cli.js'), [REQ, '--repo', repo.dir, '--clarify', UNDECIDED], { reply: finalReply(REQ) });
+    assert.equal(cli.r.status, 2, cli.r.stdout + cli.r.stderr);
+    const h = JSON.parse(cli.r.stdout.slice(cli.r.stdout.indexOf('{'), cli.r.stdout.lastIndexOf('}') + 1));
+    assert.deepEqual([h.state, h.unresolved[0].id], ['needs_clarification', 'cleaner']);
+    assert.equal(cli.prompts.length, 0);
+  });
+  test('negated choices, several unselected alternatives and deferrals stay open', () => {
+    for (const a of ['not naming', 'no duplication removal', 'naming or duplication', 'either naming or extracting helpers',
+      'extract helpers, rename things and shorten functions', 'you choose: naming?', 'maybe naming', 'not sure, perhaps duplication']) {
+      assert.notEqual(detectAmbiguity(REQ, [a]), null, a);
+    }
+  });
+  test('positive guards: a structured selection and a single affirmative free-text choice resolve it', async () => {
+    assert.equal(detectAmbiguity(REQ, ['cleaner=improve_naming']), null);
+    assert.equal(detectAmbiguity(REQ, [{ question: 'cleaner', choice: 'remove_duplication' }]), null);
+    assert.equal(detectAmbiguity(REQ, ['remove the duplicated parsing']), null);
+    assert.notEqual(detectAmbiguity(REQ, ['cleaner=not_a_choice']), null, 'unknown choice id');
+    const { compileIntent } = require('../../intent/session');
+    const m = mockFetch(ollamaReply(finalReply(REQ)));
+    try {
+      const s = await compileIntent(REQ, { repoPath: repo.dir, answers: ['cleaner=extract_helpers'] });
+      assert.equal(s.state, 'finalized', JSON.stringify(s));
+    } finally { m.restore(); }
+    const ok = spawnWithLog(path.join(ROOT, 'qb.js'), [REQ, '--repo', repo.dir, '--agent', 'dry-run', '--no-llm-context', '--no-llm-verify', '--clarify', 'cleaner=improve_naming'], { reply: finalReply(REQ) });
+    assert.ok(ok.prompts.length >= 1, ok.r.stdout + ok.r.stderr);
+  });
+  test('the handoff lists stable choice ids for structured selection', async () => {
+    const { compileIntent } = require('../../intent/session');
+    const s = await compileIntent(REQ, { repoPath: repo.dir, answers: [] });
+    assert.deepEqual(s.unresolved[0].options.map((o) => o.id), ['reduce_function_length', 'improve_naming', 'extract_helpers', 'remove_duplication']);
+  });
+  test('each answer is bound to its question: answering one vague term never resolves another', async () => {
+    const two = 'Make src/dates.js cleaner and more readable';
+    const { compileIntent } = require('../../intent/session');
+    const m = mockFetch(ollamaReply(finalReply(two)));
+    try {
+      const s = await compileIntent(two, { repoPath: repo.dir, answers: ['remove duplication'] });
+      assert.equal(s.state, 'needs_clarification', JSON.stringify(s));
+      assert.deepEqual(s.unresolved.map((u) => u.id), ['more_quality']);
+      assert.deepEqual(s.history.map((h) => h.question_id), ['cleaner']);
+      const both = await compileIntent(two, { repoPath: repo.dir, answers: ['remove duplication', 'more_quality=split_long_functions'] });
+      assert.equal(both.state, 'finalized', JSON.stringify(both));
+      // a structured selection names its own question, whatever was asked first
+      const named = await compileIntent(two, { repoPath: repo.dir, answers: ['more_quality=remove_duplication'] });
+      assert.deepEqual([named.state, named.unresolved.map((u) => u.id)], ['needs_clarification', ['cleaner']]);
     } finally { m.restore(); }
   });
 });

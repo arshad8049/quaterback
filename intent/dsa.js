@@ -5,11 +5,21 @@
  * blocks only while the term is UNRESOLVED (QB-17):
  *   - the request itself defines it ("cleaner by extracting …", "cleaner: …",
  *     "more readable, meaning …"), or
- *   - an answer to an earlier round picks a concrete choice or defines it.
- * An answer that is itself vague ("just make it nicer", "you decide") leaves the
- * choice open. The LLM still handles novel or complex ambiguity.
+ *   - an answer TO THAT QUESTION affirmatively selects one choice or defines it.
  *
- * Each open rule is returned machine-readably: { id, question, choices, flag }.
+ * Selection (QB-17 re-review 1) — deterministic first:
+ *   - structured: "<question id>=<choice id>" (e.g. `qb --clarify cleaner=improve_naming`)
+ *     or { question, choice }; an unknown id selects nothing;
+ *   - free text resolves only if it mentions exactly ONE choice, does not negate it,
+ *     and carries no uncertainty or alternatives ("cannot decide", "not sure",
+ *     "either", "or", "maybe", "you choose", "ask me again", a question mark …).
+ *     Anything else — including an answer that lists every option — leaves it open.
+ * Binding: each answer belongs to the question it answered (the question asked in its
+ * round, or the one a structured selection names); it never resolves another rule.
+ * The LLM still handles novel or complex ambiguity.
+ *
+ * Each open rule is returned machine-readably:
+ *   { id, question, choices: [label], options: [{ id, label }], flag }.
  */
 
 // A definition follows the vague term in the same sentence: "cleaner by …", "cleaner: …",
@@ -23,10 +33,10 @@ const AMBIGUITY_RULES = [
     flag: '"cleaner" has no testable definition — it could mean shorter functions, better naming, fewer files, extracted helpers, removed duplication, or all of these',
     question: 'What does "cleaner" mean here? For example: reduce function length, improve naming conventions, extract helper functions, remove duplication, or something else?',
     choices: [
-      ['reduce function length', /\b(shorter|length|smaller functions?|split)\b/i],
-      ['improve naming', /\b(nam(e|es|ing)|renam\w*)\b/i],
-      ['extract helper functions', /\b(extract\w*|helpers?)\b/i],
-      ['remove duplication', /\b(duplicat\w*|dedup\w*|dry)\b/i],
+      ['reduce_function_length', 'reduce function length', /\b(shorter|length|smaller functions?|split)\b/i],
+      ['improve_naming', 'improve naming', /\b(nam(e|es|ing)|renam\w*)\b/i],
+      ['extract_helpers', 'extract helper functions', /\b(extract\w*|helpers?)\b/i],
+      ['remove_duplication', 'remove duplication', /\b(duplicat\w*|dedup\w*|dry)\b/i],
     ],
   },
   {
@@ -36,10 +46,10 @@ const AMBIGUITY_RULES = [
     flag: '"better" with a refactor request has no testable definition — it could mean performance, readability, maintainability, or test coverage',
     question: 'What does "better" mean for this refactor? For example: improve performance, increase readability, add test coverage, reduce coupling, or something else?',
     choices: [
-      ['improve performance', /\b(perform\w*|faster|latency|speed|throughput)\b/i],
-      ['increase readability', /\b(readab\w*|naming|comments?)\b/i],
-      ['add test coverage', /\b(tests?|coverage)\b/i],
-      ['reduce coupling', /\b(coupl\w*|dependenc\w*|modular\w*)\b/i],
+      ['improve_performance', 'improve performance', /\b(perform\w*|faster|latency|speed|throughput)\b/i],
+      ['increase_readability', 'increase readability', /\b(readab\w*|naming|comments?)\b/i],
+      ['add_test_coverage', 'add test coverage', /\b(tests?|coverage)\b/i],
+      ['reduce_coupling', 'reduce coupling', /\b(coupl\w*|dependenc\w*|modular\w*)\b/i],
     ],
   },
   {
@@ -51,10 +61,10 @@ const AMBIGUITY_RULES = [
       return `What specifically makes the code "${adj}" — what would a verifier observe as evidence it was done?`;
     },
     choices: [
-      ['split long functions', /\b(split\w*|shorter|length)\b/i],
-      ['rename unclear identifiers', /\b(nam(e|es|ing)|renam\w*)\b/i],
-      ['extract modules or helpers', /\b(extract\w*|modules?|helpers?)\b/i],
-      ['remove duplication', /\b(duplicat\w*|dedup\w*)\b/i],
+      ['split_long_functions', 'split long functions', /\b(split\w*|shorter|length)\b/i],
+      ['rename_identifiers', 'rename unclear identifiers', /\b(nam(e|es|ing)|renam\w*)\b/i],
+      ['extract_modules', 'extract modules or helpers', /\b(extract\w*|modules?|helpers?)\b/i],
+      ['remove_duplication', 'remove duplication', /\b(duplicat\w*|dedup\w*)\b/i],
     ],
   },
   {
@@ -63,10 +73,10 @@ const AMBIGUITY_RULES = [
     flag: '"like [existing thing]" could mean same data model, same onboarding flow, same validation, same error handling, or all of these — each leads to a different implementation',
     question: 'When you say "like [existing flow]", which specific aspects must match — the data model, the onboarding steps, the email validation, the error handling, or something else?',
     choices: [
-      ['the data model', /\b(data model|schema|fields?|columns?)\b/i],
-      ['the onboarding steps', /\b(onboard\w*|steps?|flow)\b/i],
-      ['the validation', /\bvalidat\w*/i],
-      ['the error handling', /\berrors?\b/i],
+      ['data_model', 'the data model', /\b(data model|schema|fields?|columns?)\b/i],
+      ['onboarding_steps', 'the onboarding steps', /\b(onboard\w*|steps?|flow)\b/i],
+      ['validation', 'the validation', /\bvalidat\w*/i],
+      ['error_handling', 'the error handling', /\berrors?\b/i],
     ],
   },
   {
@@ -75,7 +85,7 @@ const AMBIGUITY_RULES = [
     applies: (r) => !/\d/.test(r),
     flag: 'Improvement without a measurable target — cannot write acceptance criteria without knowing the success threshold',
     question: 'What is the success threshold? For example: specific latency target, user satisfaction score, error rate reduction, or another measurable outcome?',
-    choices: [['a numeric target (e.g. p95 latency < 200 ms)', /\d/]],
+    choices: [['numeric_target', 'a numeric target (e.g. p95 latency < 200 ms)', /\d/]],
     definedBy: (t) => /\d/.test(t),            // only a number defines a threshold
   },
 ];
@@ -88,33 +98,69 @@ function definesTerm(text, rule) {
   return false;
 }
 
-/** An answer resolves a rule if it picks a concrete choice or defines the term. */
-function answerResolves(answer, rule) {
-  const a = String(answer || '');
-  return rule.choices.some(([, re]) => re.test(a)) || (rule.term.test(a) && definesTerm(a, rule)) || (rule.definedBy ? rule.definedBy(a) : false);
+// Free text that does not commit to one choice: uncertainty, deferral, alternatives.
+const UNCERTAIN = /\b(can'?t|cannot|can not|unsure|not sure|don'?t know|do not know|undecided|unclear|either|neither|whichever|any of|or|maybe|perhaps|possibly|probably|might|later|again|you (choose|decide|pick)|up to you|your call|between)\b|\?/i;
+// A choice mention preceded by a negation within a few words.
+const NEGATED = (a, re) => {
+  const g = new RegExp(re.source, re.flags.includes('g') ? re.flags : `${re.flags}g`);
+  for (const m of a.matchAll(g)) if (/\b(not|no|never|without|don'?t|do not|avoid|skip|except)\b(\W+\w+){0,2}\W*$/i.test(a.slice(0, m.index))) return true;
+  return false;
+};
+
+/** A structured selection: "<question>=<choice>" or { question, choice }. */
+function parseSelection(answer) {
+  if (answer && typeof answer === 'object') return typeof answer.question === 'string' && typeof answer.choice === 'string' ? { question: answer.question, choice: answer.choice } : null;
+  const m = /^\s*([a-z][a-z0-9_-]*)\s*=\s*([a-z][a-z0-9_-]*)\s*$/i.exec(String(answer || ''));
+  return m ? { question: m[1], choice: m[2] } : null;
 }
+
+/** Does this answer (already bound to `rule`) affirmatively resolve it? */
+function answerResolves(answer, rule) {
+  const sel = parseSelection(answer);
+  if (sel) return sel.question === rule.id && rule.choices.some(([id]) => id === sel.choice);
+  const a = String(answer || '');
+  if (!a.trim() || UNCERTAIN.test(a)) return false;
+  if (rule.definedBy) return rule.definedBy(a);
+  if (rule.term.test(a) && definesTerm(a, rule)) return true;
+  const picked = rule.choices.filter(([, , re]) => re.test(a));
+  return picked.length === 1 && !NEGATED(a, picked[0][2]);
+}
+
+/** The text of an answer, for history and prompts. */
+const answerText = (a) => (a && typeof a === 'object' ? (parseSelection(a) ? `${a.question}=${a.choice}` : String(a.answer ?? '')) : String(a ?? ''));
 
 /**
  * Run deterministic ambiguity checks on a request and the answers given so far.
- * Returns null when every vague term is defined (by the request or an answer),
- * otherwise the clarifying response with the open choices.
+ * Returns null when every vague term is defined (by the request or an answer bound
+ * to it), otherwise the clarifying response with the open choices.
+ *
+ * Each answer is bound to one question: a structured selection to the question it
+ * names; an entry { question_id, answer } to that question; any other answer to the
+ * question asked when it was given — the first one still open at that point.
  *
  * @param {string} request
- * @param {string[]} [answers]
- * @returns {{ ambiguity_flags: string[], clarifying_question: string, unresolved: Array<{ id, question, choices, flag }> } | null}
+ * @param {Array<string|{question, choice}|{question_id, answer}>} [answers]
  */
 function detectAmbiguity(request, answers = []) {
-  const open = AMBIGUITY_RULES.filter((rule) => rule.term.test(request) && (!rule.applies || rule.applies(request))
-    && !definesTerm(request, rule) && !answers.some((a) => answerResolves(a, rule)));
+  let open = AMBIGUITY_RULES.filter((rule) => rule.term.test(request) && (!rule.applies || rule.applies(request)) && !definesTerm(request, rule));
+  for (const entry of answers) {
+    if (!open.length) break;
+    const bound = entry && typeof entry === 'object' && 'answer' in entry ? entry : { question_id: null, answer: entry };
+    const sel = parseSelection(bound.answer);
+    const target = sel ? open.find((r) => r.id === sel.question)
+      : bound.question_id ? open.find((r) => r.id === bound.question_id) : open[0];
+    if (target && answerResolves(bound.answer, target)) open = open.filter((r) => r !== target);
+  }
   if (!open.length) return null;
   const unresolved = open.map((rule) => ({
     id: rule.id,
     question: typeof rule.question === 'function' ? rule.question(request) : rule.question,
-    choices: rule.choices.map(([label]) => label),
+    choices: rule.choices.map(([, label]) => label),
+    options: rule.choices.map(([id, label]) => ({ id, label })),
     flag: rule.flag,
   }));
   // The first open rule's question is asked (most specific ambiguity wins).
   return { ambiguity_flags: unresolved.map((u) => u.flag), clarifying_question: unresolved[0].question, unresolved };
 }
 
-module.exports = { detectAmbiguity, AMBIGUITY_RULES };
+module.exports = { detectAmbiguity, answerResolves, parseSelection, answerText, AMBIGUITY_RULES };

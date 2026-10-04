@@ -20,6 +20,7 @@ program
   .argument('<request>', 'The developer task in plain English')
   .option('-r, --repo <path>', 'Repository to ground the request in (default: the current directory, like qb)')
   .option('-s, --save',    'Save the contract to contracts/{id}.json')
+  .option('--clarify <answer>', 'Answer to a clarifying question, one per round; a choice can be selected as <question>=<choice>', (v, prev) => [...prev, v], [])
   .option('--context',     'Chain into Layer 2 — build a ContextPackage after the contract')
   .option('--no-color',    'Disable colored output')
   .action(async (request, options) => {
@@ -35,14 +36,14 @@ program
 
     try {
       const s = await compileIntent(request, {
-        repoPath,
+        repoPath, answers: options.clarify || [],
         ask: !process.stdin.isTTY ? null : async (h) => {   // noninteractive: return the handoff state
           console.log('\n  ─────────────────────────────────────────────');
           console.log(`  Ambiguity detected (round ${h.round} of ${h.max_rounds}):\n`);
           h.ambiguity_flags.forEach(f => console.log(`    • ${f}`));
           for (const u of h.unresolved) {
             console.log(`\n  Question: ${u.question}`);
-            if (u.choices.length) console.log(`  Choices:  ${u.choices.join(' · ')}`);
+            if (u.choices.length) console.log(`  Choices:  ${(u.options || []).map((o) => `${o.label} [${u.id}=${o.id}]`).join(' · ') || u.choices.join(' · ')}`);
           }
           console.log('  ─────────────────────────────────────────────\n');
           return (await prompt('  Your answer: ')) || null;

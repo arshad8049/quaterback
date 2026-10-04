@@ -87,8 +87,27 @@ It returns a handoff state (`format: "qb-intent-handoff/1"`):
   - Through `qb.js --clarify "just make it nicer"` the run ends BLOCKED `needs_clarification`, with `clarification.json` naming the open choice.
   - With three `--clarify` answers the run ends BLOCKED `clarification_rounds_exhausted`.
 
+## Re-review 1: selection, not mention (`intent/dsa.js`)
+- **The send-back.** For "Make src/dates.js cleaner", the answer "I cannot decide between naming and duplication; please ask me again." resolved the rule, and the contract finalized. The old rule accepted ANY choice keyword, so mentioning the options counted as selecting one. Every answer was also checked against every rule.
+- **Stable ids and structured selection (deterministic).**
+  - Each open question has a stable id (the rule id: `cleaner`, `better_refactor`, `more_quality`, `like_existing`, `improve_unmeasured`).
+  - Each choice has a stable id, e.g. `cleaner`: `reduce_function_length`, `improve_naming`, `extract_helpers`, `remove_duplication`. The handoff lists them as `unresolved[].options: [{ id, label }]`, and both CLIs print them.
+  - An answer `cleaner=improve_naming` resolves the question. That is `qb --clarify cleaner=improve_naming`, `intent/cli.js --clarify …`, or `{ question, choice }` in `compileIntent` answers.
+  - An unknown question or choice id selects nothing.
+- **Free text resolves only on an affirmative choice.** It must:
+  - mention exactly **one** choice;
+  - **not negate** it ("not naming", "no duplication removal", "without …");
+  - carry **no uncertainty or alternatives**: "cannot decide", "not sure", "either", "or", "maybe", "perhaps", "you choose", "up to you", "ask me again", "between", a question mark …
+
+  A concrete definition of the term (and, for the measurable-improvement rule, a number) also resolves it. Everything else stays open: an answer listing several or all options, a deferral, a negation. There is no growing list of exceptions: unclear free text never resolves.
+- **Each answer is bound to its question.**
+  - A free-text answer belongs to the question asked in its round (the first open one). A structured selection belongs to the question it names.
+  - `history` records it as `{ round, question_id, question, answer }`, and an answer never resolves another question.
+  - Example: "Make src/dates.js cleaner and more readable" answered with "remove duplication" resolves `cleaner` only, and `more_quality` stays open.
+
 ## Limitations
 - **The survey is lexical.** Relevance is keyword overlap with file names and paths. It reads the live checkout (read-only) and does not parse code.
-- **Definition detection is a heuristic.** The DSA "definition marker" and choice keywords are fixed lists. A request can define a term in a way the markers miss, in which case it is asked once more. A vague answer that happens to contain a choice keyword resolves the rule. The model and the human approval (QB-13) remain the backstop.
-- **One question per round.** If several rules are open, all are listed in `unresolved`, but one answer is attributed to the first question; the others are rechecked against that answer.
+- **Free-text selection is deliberately strict.** A real decision phrased with an uncertainty word ("go with naming, not sure about the rest") stays open; the user can select by id instead. The model and the human approval (QB-13) remain the backstop for meaning.
+- **Definition detection is a heuristic.** The DSA "definition marker" is a fixed list. A request can define a term in a way the markers miss, in which case it is asked once more.
+- **One question per round.** If several rules are open, all are listed in `unresolved`. A free-text answer goes to the first one; a structured selection can answer any.
 - **The benchmark is not grounded.** `bench/run.js` and the demo harnesses (`intent/sandbox/run.js`, `agent/sandbox/run.js`) still call `compile()` without a survey. They are not the user-facing entry points.
