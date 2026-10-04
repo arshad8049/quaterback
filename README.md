@@ -218,6 +218,11 @@ Independent verification. It never sees the original request or the briefing, an
 
 An agent that changed nothing passes only if the requirement is independently verified on the unchanged tree.
 
+**A human approves the test oracle** (QB-13, [docs/verify/test-oracle.md](docs/verify/test-oracle.md)):
+- the model's contract is only a proposal, and QB recomputes its examples with trusted arithmetic;
+- a PASS needs a human-approved contract, approved in the terminal or by passing a reviewed `--contract-file`;
+- the approval is frozen by hash, so any later change voids it.
+
 **Run records** (`run/store.js`, QB-38). Every run keeps a versioned, append-only record: base commit, agent version, contract, patch, test outcome, checks and report. `qb replay <run_id>` recomputes each verdict and the final outcome from the stored evidence.
 
 ---

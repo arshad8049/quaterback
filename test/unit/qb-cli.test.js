@@ -92,11 +92,14 @@ test('an interrupted invocation still leaves a terminal run record', async () =>
 test('a sandboxed (claude-code) run records base commit, pinned agent version and structured checks', () => {
   const script = path.join(runsDir, '..', `qb-fake-${process.pid}.json`);
   fs.writeFileSync(script, JSON.stringify({ steps: [{ write: 'src/utils.js', content: 'module.exports = { clamp: () => 0 };\n' }] }));
+  // A noninteractive sandboxed run needs a human-reviewed contract (QB-13).
+  const contractFile = path.join(runsDir, '..', `qb-contract-${process.pid}.json`);
+  fs.writeFileSync(contractFile, CONTRACT);
   try {
     const r = spawnSync(process.execPath, [
       '--require', PRELOAD, '--require', path.join(__dirname, '..', 'helpers', 'preload-fake-sandbox.js'), QB,
       'Add a clamp function to src/utils.js', '--repo', repo.dir, '--agent', 'claude-code',
-      '--no-llm-context', '--no-llm-verify', '--max-retries', '1',
+      '--no-llm-context', '--no-llm-verify', '--max-retries', '1', '--contract-file', contractFile,
     ], { env: env({ QB_FAKE_AGENT_SCRIPT: script }), encoding: 'utf8', timeout: 30_000 });
     const m = onlyRun().manifest;
     assert.equal(m.repo.base_sha, repo.head(), r.stdout + r.stderr);
@@ -106,5 +109,5 @@ test('a sandboxed (claude-code) run records base commit, pinned agent version an
     assert.deepEqual(m.attempts[0].checks.map(c => [c.check_id, c.status]), [['test-suite', 'not_run']]);
     const replay = spawnSync(process.execPath, [QB, 'replay', m.run_id], { env: env(), encoding: 'utf8' });
     assert.equal(replay.status, 0, replay.stdout + replay.stderr);
-  } finally { fs.rmSync(script, { force: true }); }
+  } finally { fs.rmSync(script, { force: true }); fs.rmSync(contractFile, { force: true }); }
 });

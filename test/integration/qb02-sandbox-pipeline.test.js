@@ -23,6 +23,7 @@ const { hardened, createWorkspace } = require('../../lib/sandbox/workspace');
 const { AGENT_IMAGE } = require('../../lib/sandbox/agent');
 const { aggregate } = require('../../verify/verdict');
 const { verify } = require('../../verify/verifier');
+const { approve } = require('../../intent/contract-state');
 const { mockFetch, ollamaReply } = require('../helpers/mocks');
 const { makeRepo, fingerprint } = require('../helpers/tmprepo');
 
@@ -176,8 +177,9 @@ describe('QB-02 done-when through the real pipeline', { skip: !ENABLED && 'set Q
       assert.deepEqual(r.changes, []);
       const v = r.sandbox.verification;
       assert.equal(v.status, 'ran', 'tests must run even when the agent changed nothing');
-      const contract = { id: 'c', goal: 'double numbers', clarifying_question: null, checks: DOUBLE_CHECKS,
-        acceptance_criteria: [{ id: 'AC-1', criterion: 'src/double.js exports a function that doubles numbers', met: null, kind: 'behavioral' }] };
+      // A human-approved oracle (QB-13): only then can the run PASS.
+      const contract = approve({ id: 'c', goal: 'double numbers', clarifying_question: null, checks: DOUBLE_CHECKS,
+        acceptance_criteria: [{ id: 'AC-1', criterion: 'src/double.js exports a function that doubles numbers', met: null, kind: 'behavioral' }] }, { via: 'test' });
       const m = mockFetch(ollamaReply({ met: true, evidence: 'src/double.js exports (x) => Number(x) * 2' }));
       let report;
       try {

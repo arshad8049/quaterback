@@ -5,7 +5,7 @@ const { aggregate, verificationInput, FAILED_EXECUTION } = require('./verdict');
 const { classifyTestRun } = require('./tests');
 const { validateCheckResults } = require('./checks/results');
 const { VerificationReportSchema } = require('./schema');
-const { contractState, stateReason } = require('../intent/contract-state');
+const { contractState, stateReason, contractHash, approvalState } = require('../intent/contract-state');
 
 /**
  * Full Layer 4 verification:
@@ -85,8 +85,10 @@ async function verify(contract, context, execution, options = {}) {
 
   // ── Verdict ──────────────────────────────────────────────────────────────
   const verification = verificationInput(execution);
+  const oracle = { ...approvalState(contract), contract_hash: contractHash(contract), via: contract.approval?.via ?? null };
   const { verdict, failures } = aggregate({
-    rules: 2,
+    rules: 3,
+    oracleApproved: oracle.approved,
     hasDiff: Boolean(diff),
     criteriaResults,
     testResults,
@@ -115,6 +117,7 @@ async function verify(contract, context, execution, options = {}) {
     failures,
     test_results:     testResults || null,
     test_outcome:     testOutcome(execution),
+    oracle,
     checks:           checksReport(contract, checkEval),
     verification_plan_status: planStatus(contract, checkEval),
     ...(material && material.ok ? { judgment_material: { source: 'sandbox_snapshot', tree: material.tree, files: material.files } } : {}),

@@ -10,6 +10,7 @@
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
+const { approve } = require('../../intent/contract-state');   // a human-approved oracle (QB-13)
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -110,9 +111,9 @@ describe('results: complete, one per requested check, in order', () => {
 // ── verify(): behavioural criteria are decided by executed checks ─────────────
 const TREE = 'e'.repeat(40);
 const REPORT = fs.readFileSync(path.join(__dirname, '..', 'fixtures', 'node-test-reports', 'pass.ndjson'), 'utf8');
-const CONTRACT = (checks = [OK.call_returns]) => ({ id: 'c', goal: 'Add clamp', clarifying_question: null,
+const CONTRACT = (checks = [OK.call_returns]) => approve({ id: 'c', goal: 'Add clamp', clarifying_question: null,
   acceptance_criteria: [{ id: 'AC-1', criterion: 'clamp bounds n to [min, max]', met: null, kind: 'behavioral' }],
-  verification_plan: ['call clamp(5, 0, 3) and expect 3', 'measure clamp performance'], checks });
+  verification_plan: ['call clamp(5, 0, 3) and expect 3', 'measure clamp performance'], checks }, { via: 'test' });
 const results = (statuses, checks = [OK.call_returns]) => JSON.stringify({ format: 'qb-check-results/1', complete: true,
   results: checks.map((c, i) => ({ id: c.id, ac_id: c.ac_id, adapter: c.adapter, status: statuses[i], detail: `${c.id} ${statuses[i]}`, duration_ms: 5 })) });
 const EXEC = (sandboxChecks, extra = {}) => ({ id: 'e', status: 'completed', diff: 'diff --git a/src/utils.js b/src/utils.js\n+function clamp() {}',
@@ -162,7 +163,7 @@ describe('verify(): every behavioural criterion has an executed check or an expl
     });
   }
   test('a non_behavioral criterion is still judged', async () => {
-    const c = { ...CONTRACT([]), acceptance_criteria: [{ id: 'AC-1', criterion: 'README mentions clamp', met: null, kind: 'non_behavioral' }] };
+    const c = approve({ ...CONTRACT([]), acceptance_criteria: [{ id: 'AC-1', criterion: 'README mentions clamp', met: null, kind: 'non_behavioral' }] }, { via: 'test' });
     const { report, judgeCalls } = await run(c, EXEC(null));
     assert.equal(judgeCalls, 3);
     assert.equal(report.criteria_results[0].met, true);

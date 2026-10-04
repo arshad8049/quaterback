@@ -30,7 +30,8 @@ const { runBaseline }  = require('./baseline');
 const { createWorkspace } = require('../lib/workspace');
 const runStore         = require('../run/store');
 const { AGENT_VERSION } = require('../lib/sandbox/agent');
-const { contractState, stateReason } = require('../intent/contract-state');
+const { contractState, stateReason, approve } = require('../intent/contract-state');
+const { contractFromObject } = require('../intent/compiler');
 const { inputFromReport } = require('../verify/verdict');
 
 program
@@ -216,7 +217,16 @@ async function runQB(task, ws) {
 
   // L1
   let t = Date.now();
-  const contract = await compile(task.description);
+  let contract = await compile(task.description);
+  // QB-13: a PASS needs a human-approved test oracle, independent of the model.
+  // A task's `oracle` (criteria + checks written by a person, `approved_by`)
+  // replaces the generated contract; without one, the task can't score PASS.
+  if (task.oracle) {
+    contract = approve(contractFromObject({ goal: task.description, ...task.oracle, clarifying_question: null }, task.description),
+      { via: 'benchmark-oracle', note: `approved_by: ${task.oracle.approved_by || 'unknown'}` });
+    console.log(`     L1 using the task's human-written oracle (approved by ${task.oracle.approved_by || 'unknown'})`);
+  }
+  out.oracle = contract.approval ? { approved: true, via: contract.approval.via } : { approved: false, via: null };
   out.timing.l1_ms = Date.now() - t;
   out.contract     = contract;
   out.ac_count     = contract.acceptance_criteria?.length || 0;

@@ -9,6 +9,7 @@
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
+const { approve } = require('../../intent/contract-state');   // a human-approved oracle (QB-13)
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -155,17 +156,17 @@ describe('aggregate (rules 2) and verify()', () => {
   test('legacy inputs (no rules field) replay with the old rules', () => {
     assert.equal(aggregate({ hasDiff: true, criteriaResults: met, testResults: null, verification: null }).verdict, 'pass');
   });
-  test('run records store rules 2 and the classified outcome', () => {
+  test('run records store the current rules (3) and the classified outcome', () => {
     const input = inputFromReport({ criteria_results: [{ id: 'AC-1', met: true }], test_results: null },
       { status: 'completed', diff: 'd', sandbox: { verification: ran(2, real('pass')) } });
-    assert.equal(input.rules, 2);
+    assert.equal(input.rules, 3);
     assert.deepEqual([input.verification.outcome, input.verification.outcome_reason], ['error', 'exit_2_without_test_failures']);
   });
   test('verify(): passing report → pass; judge fields survive the report schema', async () => {
     const { verify } = require('../../verify/verifier');
     const m = mockFetch(ollamaReply({ met: true, evidence: 'a.js defines add' }));
     try {
-      const r = await verify({ id: 'c', goal: 'g', acceptance_criteria: [{ id: 'AC-1', criterion: 'add() is defined', met: null, kind: 'non_behavioral' }], clarifying_question: null },
+      const r = await verify(approve({ id: 'c', goal: 'g', acceptance_criteria: [{ id: 'AC-1', criterion: 'add() is defined', met: null, kind: 'non_behavioral' }], clarifying_question: null }, { via: 'test' }),
         null, { id: 'e', status: 'completed', diff: 'diff --git a/a.js b/a.js\n+function add() {}', sandbox: { verification: ran(0, real('pass')) } }, {});
       assert.equal(r.verdict, 'pass');
       assert.deepEqual([r.test_outcome.outcome, r.test_outcome.runner], ['passed', 'node-test']);

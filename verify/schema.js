@@ -66,6 +66,7 @@ const VerificationReportSchema = z.object({
   test_results:     TestResultsSchema.nullable(),
   test_outcome:     TestOutcomeSchema.optional(),
   judgment_material: JudgmentMaterialSchema.optional(),
+  oracle:           z.object({ approved: z.boolean(), reason: z.string(), contract_hash: z.string(), via: z.string().nullable() }).optional(),   // QB-13
   checks:           ChecksReportSchema.optional(),
   verification_plan_status: z.array(PlanItemStatusSchema).optional(),
   scope_violations: z.array(z.string()),

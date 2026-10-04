@@ -10,6 +10,7 @@
 
 const { test, describe, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
+const { approve } = require('../../intent/contract-state');   // a human-approved oracle (QB-13)
 const fs = require('fs');
 const path = require('path');
 
@@ -22,10 +23,10 @@ const { makeRepo } = require('../helpers/tmprepo');
 
 const REPORT = (n) => fs.readFileSync(path.join(__dirname, '..', 'fixtures', 'node-test-reports', `${n}.ndjson`), 'utf8');
 const ran = (exit_code, report) => ({ status: 'ran', state: exit_code === 0 ? 'completed' : 'execution_error', exit_code, output: '', report });
-const CONTRACT = { id: 'c', goal: 'Add clamp', clarifying_question: null,
+const CONTRACT = approve({ id: 'c', goal: 'Add clamp', clarifying_question: null,
   // non_behavioral: these tests are about the judge's snapshot material (QB-22). Behavioural
   // criteria are decided by executed checks on the same tree (QB-16, qb16 tests).
-  acceptance_criteria: [{ id: 'AC-1', criterion: 'clamp(n, min, max) is exported from src/utils.js', met: null, kind: 'non_behavioral' }] };
+  acceptance_criteria: [{ id: 'AC-1', criterion: 'clamp(n, min, max) is exported from src/utils.js', met: null, kind: 'non_behavioral' }] }, { via: 'test' });
 const SATISFIED = 'function clamp(n, a, b) { return Math.min(Math.max(n, a), b); }\nmodule.exports = { clamp };\n';
 
 let repo;

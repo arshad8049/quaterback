@@ -58,7 +58,16 @@ function buildUserContent(request, repoContext, clarification) {
 }
 
 function parseAndValidate(text, request) {
-  const raw = parseJSON(text, request);
+  return contractFromObject(parseJSON(text, request), request);
+}
+
+/**
+ * Normalize a contract object (model output, or a human-reviewed contract file,
+ * QB-13) with the same rules: explicit criterion text only, registry-validated
+ * checks, trusted metadata assigned by QB. The result is NOT approved.
+ */
+function contractFromObject(raw, request) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('contract must be a JSON object');
 
   // clarifying_question (QB-08): every nonempty question is preserved. The model
   // sometimes writes a placeholder instead of null; only an EXACT match of a
@@ -198,4 +207,4 @@ function fixUnquotedKeys(str) {
   return str.replace(/([{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/g, '$1"$2":');
 }
 
-module.exports = { compile, NO_QUESTION_SENTINELS };
+module.exports = { compile, contractFromObject, NO_QUESTION_SENTINELS };

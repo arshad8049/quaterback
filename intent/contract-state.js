@@ -12,6 +12,9 @@
  * agent or be verified.
  */
 
+const crypto = require('crypto');
+const { validateExamples } = require('./examples');
+
 function contractState(c) {
   if (!c || typeof c !== 'object' || Array.isArray(c)) return { state: 'invalid', errors: ['contract is not an object'] };
   const q = typeof c.clarifying_question === 'string' ? c.clarifying_question.trim() : '';
@@ -31,7 +34,43 @@ function contractState(c) {
       if (!ac || typeof ac.criterion !== 'string' || !ac.criterion.trim()) errors.push(`criterion ${id || i + 1} has no text`);
     }
   }
+  // QB-13: every computable example is recomputed with trusted arithmetic; a wrong
+  // one makes the contract invalid (it is never corrected to fit).
+  if (!errors.length) {
+    for (const e of validateExamples(c).errors) errors.push(`${e.where} example is wrong: ${e.claim} (correct: ${e.correct})`);
+  }
   return errors.length ? { state: 'invalid', errors } : { state: 'finalized' };
+}
+
+/**
+ * QB-13: the contract's identity as a test oracle — what was approved. Covers
+ * the goal, requirements, criteria (id, text, kind), verification plan and
+ * checks; not trusted metadata or per-run results (met).
+ */
+function contractHash(c) {
+  const pick = {
+    goal: c?.goal ?? null, required_behavior: c?.required_behavior ?? [], constraints: c?.constraints ?? [],
+    acceptance_criteria: (c?.acceptance_criteria || []).map((a) => ({ id: a.id, criterion: a.criterion, kind: a.kind || 'behavioral' })),
+    verification_plan: c?.verification_plan ?? [], checks: c?.checks ?? [],
+  };
+  return crypto.createHash('sha256').update(canonical(pick)).digest('hex');
+}
+const canonical = (v) => (Array.isArray(v) ? `[${v.map(canonical).join(',')}]`
+  : v && typeof v === 'object' ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${canonical(v[k])}`).join(',')}}`
+    : JSON.stringify(v === undefined ? null : v));
+
+/** Record a human's approval of this exact contract (freezes it: any later change voids it). */
+function approve(c, { via, by = 'human', note = null } = {}) {
+  return { ...c, approval: { by, via, note, at: new Date().toISOString(), contract_hash: contractHash(c) } };
+}
+
+/** { approved, reason } — approved only by a human, for this exact (unchanged) contract. */
+function approvalState(c) {
+  const a = c?.approval;
+  if (!a) return { approved: false, reason: 'not_approved' };
+  if (a.by !== 'human') return { approved: false, reason: 'not_approved_by_a_human' };
+  if (a.contract_hash !== contractHash(c)) return { approved: false, reason: 'changed_after_approval' };
+  return { approved: true, reason: `approved via ${a.via}` };
 }
 
 /** One-line reason for a non-finalized state, as recorded in runs and errors. */
@@ -39,4 +78,4 @@ function stateReason(s) {
   return s.state === 'invalid' ? `invalid_contract: ${s.errors.join('; ')}` : s.state;
 }
 
-module.exports = { contractState, stateReason };
+module.exports = { contractState, stateReason, contractHash, approve, approvalState };

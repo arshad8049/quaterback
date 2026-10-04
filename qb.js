@@ -25,7 +25,9 @@ const memory           = require('./memory');
 const runStore         = require('./run/store');
 const { artifactFile } = require('./lib/fsafe');
 const { inputFromReport } = require('./verify/verdict');
-const { contractState, stateReason } = require('./intent/contract-state');
+const { contractState, stateReason, approve } = require('./intent/contract-state');
+const { loadContractFile, proposalForReview } = require('./intent/contract-file');
+const { validateExamples } = require('./intent/examples');
 const { git: gitProc }  = require('./lib/proc');
 const { AGENT_VERSION } = require('./lib/sandbox/agent');
 
@@ -59,6 +61,7 @@ program
   .option('--agent <type>',        'Coding agent: dry-run | claude-code | manual', 'dry-run')
   .option('--max-retries <n>',     'Max repair loop attempts', '3')
   .option('--clarify <answer>',    'Answer to the intent compiler\'s clarifying question (noninteractive runs)')
+  .option('--contract-file <path>', 'Use a human-reviewed contract as the test oracle instead of generating one (QB-13)')
   .option('--no-llm-context',      'Skip LLM enrichment in Layer 2 (faster)')
   .option('--no-llm-verify',       'Skip LLM judgment in Layer 4 (DSA only)')
   .option('--save',                'Save all artifacts to disk')
@@ -120,7 +123,19 @@ async function main() {
   // ── Layer 1: Intent ────────────────────────────────────────────────────────
   log('L1', 'Intent compiler...');
   const t1 = Date.now();
-  let contract = await compile(request);
+  // QB-13: a human-reviewed contract file replaces the generated contract entirely.
+  let fileContract = null;
+  if (opts.contractFile) {
+    try { fileContract = loadContractFile(path.resolve(opts.contractFile), request); }
+    catch (e) {
+      console.log(`\n  ✗ Contract file rejected: ${e.message}\n`);
+      run.finish('BLOCKED', { reason: `invalid_contract_file: ${e.message}` });
+      process.exitCode = 2;
+      return;
+    }
+    log('L1', `Using the reviewed contract file ${opts.contractFile} (sha256 ${fileContract.sha.slice(0, 12)})`);
+  }
+  let contract = fileContract ? fileContract.contract : await compile(request);
 
   // Clarification (QB-08): one round. The answer comes from --clarify, or an
   // interactive prompt; noninteractive runs stop with the question instead.
@@ -164,6 +179,38 @@ async function main() {
   log('L1', `Contract ready  (${Date.now() - t1}ms)`);
   console.log(`     Goal: ${contract.goal}`);
   console.log(`     ACs:  ${contract.acceptance_criteria?.length || 0}`);
+
+  // ── QB-13: the test oracle must be approved by a human, then it is frozen ──
+  // (approval records the contract hash; any later change voids it). A dry run
+  // verifies nothing and needs no oracle.
+  if (opts.agent !== 'dry-run') {
+    if (fileContract) {
+      contract = fileContract.approved();
+    } else {
+      printOracle(contract);
+      if (process.stdin.isTTY) {
+        const ok = (await prompt('  Approve this contract as the test oracle? [y/N] ')).trim().toLowerCase();
+        if (ok !== 'y' && ok !== 'yes') {
+          run.finish('BLOCKED', { reason: 'contract_not_approved' });
+          console.log('\n  Not approved. Nothing was run.\n');
+          process.exitCode = 2;
+          return;
+        }
+        contract = approve(contract, { via: 'interactive' });
+      } else {
+        const file = path.join(run.dir, 'proposed-contract.json');
+        fs.writeFileSync(file, JSON.stringify(proposalForReview(contract), null, 2) + '\n', { mode: 0o600 });
+        run.event('contract.needs_approval', { file });
+        run.finish('BLOCKED', { reason: 'needs_contract_approval' });
+        console.log(`\n  The test oracle needs a human's approval before anything runs.`);
+        console.log(`  Review (and edit if needed): ${file}`);
+        console.log(`  Then run again with: --contract-file "${file}"\n`);
+        process.exitCode = 2;
+        return;
+      }
+    }
+    log('L1', `Oracle approved (${contract.approval.via}); frozen as ${contract.approval.contract_hash.slice(0, 12)}`);
+  }
 
   run.setContract(contract);
   if (opts.save) saveArtifact('intent/contracts', contract);
@@ -383,6 +430,17 @@ function saveArtifact(dir, data, name) {
   const absDir = path.join(__dirname, dir);
   if (!fs.existsSync(absDir)) fs.mkdirSync(absDir, { recursive: true });
   fs.writeFileSync(artifactFile(absDir, name || data.id), JSON.stringify(data, null, 2));
+}
+
+/** What a human approves as the test oracle (QB-13): criteria, checks, QB's own arithmetic. */
+function printOracle(contract) {
+  console.log('\n  ── Test oracle (proposed by the model; needs your approval) ──');
+  for (const ac of contract.acceptance_criteria || []) console.log(`     [${ac.id}] (${ac.kind || 'behavioral'}) ${ac.criterion}`);
+  for (const c of contract.checks || []) console.log(`     check ${c.id} → ${c.ac_id}: ${c.adapter} ${JSON.stringify(c.params)}`);
+  if ((contract.checks_rejected || []).length) console.log(`     ${contract.checks_rejected.length} proposed check(s) rejected by the registry`);
+  const ex = validateExamples(contract);
+  if (ex.checked.length) console.log(`     QB recomputed ${ex.checked.length} example(s): all correct`);
+  console.log('');
 }
 
 function prompt(question) {

@@ -17,15 +17,23 @@
  * @param {boolean} [evidence.unsupportedChanges] - capture could not represent part of the change
  * @param {object}  [evidence.verification] - sandbox verification { status, reason, state } (QB-02),
  *                    plus { outcome, outcome_reason } from verify/tests.js under rules 2
- * @param {number}  [evidence.rules] - 2 for records made since QB-06; absent = the earlier
- *                    rules, so stored runs replay exactly as they were decided
+ * @param {number}  [evidence.rules] - 2 since QB-06, 3 since QB-13 (oracle approval); absent =
+ *                    the earlier rules, so stored runs replay exactly as they were decided
+ * @param {boolean} [evidence.oracleApproved] - rules 3: the contract was approved by a human, unchanged
  * @returns {{ verdict: string, failures: string[] }}
  */
 const FAILED_EXECUTION = new Set(['execution_error', 'timeout', 'cancelled', 'failed', 'oom', 'infra_error', 'setup_failed']);
 const NEVER_APPROVED   = new Set(['blocked', 'unresolved']);
 const { classifyTestRun } = require('./tests');
 
-function aggregate({ hasDiff, criteriaResults, testResults, executionStatus = null, unsupportedChanges = false, verification = null, rules = 1 }) {
+function aggregate(input) {
+  const r = aggregateCore(input);
+  // Rules 3 (QB-13): a PASS needs a human-approved, unchanged test oracle (the contract).
+  if ((input.rules || 1) >= 3 && input.oracleApproved !== true && r.verdict === 'pass') return { ...r, verdict: 'unresolved' };
+  return r;
+}
+
+function aggregateCore({ hasDiff, criteriaResults, testResults, executionStatus = null, unsupportedChanges = false, verification = null, rules = 1 }) {
   const failures = criteriaResults.filter(r => r.met === false).map(r => r.id);
   const unknowns = criteriaResults.filter(r => r.met === null);
 
@@ -96,7 +104,8 @@ function verificationInput(execution) {
 /** The aggregate() input that produced a stored report, for the run record. */
 function inputFromReport(report, execution) {
   return {
-    rules:           2,
+    rules:           3,
+    oracleApproved:  report.oracle ? report.oracle.approved === true : false,
     hasDiff:         Boolean(execution?.diff),
     criteriaResults: report.criteria_results.map(r => ({ id: r.id, met: r.met })),
     testResults:     report.test_results

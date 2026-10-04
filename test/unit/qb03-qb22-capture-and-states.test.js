@@ -14,6 +14,7 @@
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
+const { approve } = require('../../intent/contract-state');   // a human-approved oracle (QB-13)
 
 const { mockFetch, ollamaReply } = require('../helpers/mocks');
 const { execute } = require('../../agent/runner');
@@ -26,7 +27,7 @@ const DIFF = 'diff --git a/src/a.js b/src/a.js\n--- a/src/a.js\n+++ b/src/a.js\n
 // A finalized contract: only these reach the agent and verification (QB-08).
 // The criterion is non_behavioral so the judge decides it: these tests are about capture and
 // test-run gating. Behavioural criteria are decided by executed checks (QB-16, qb16 tests).
-const contract = { id: 'c', goal: 'Set a to 2', acceptance_criteria: [{ id: 'AC-1', criterion: 'a is 2', met: null, kind: 'non_behavioral' }], clarifying_question: null };
+const contract = approve({ id: 'c', goal: 'Set a to 2', acceptance_criteria: [{ id: 'AC-1', criterion: 'a is 2', met: null, kind: 'non_behavioral' }], clarifying_question: null }, { via: 'test' });
 
 function run(result) {
   return execute('task', contract, null, { agent: 'claude-code', repoPath: '/repo', runSandboxed: async () => result });
