@@ -260,6 +260,14 @@ An agent that changed nothing passes only if the requirement is independently ve
 - QB's own choices are separate "proposed defaults" that the human approves;
 - incomplete compiler output is rejected, not filled in.
 
+**Deadlines and cancellation** (QB-21, [docs/verify/deadlines.md](docs/verify/deadlines.md)):
+- every model call has a deadline (`QB_MODEL_CALL_TIMEOUT_MS`);
+- `qb --deadline <minutes>` cancels the run, including its sandbox containers, and ends it CANCELLED, naming the interrupted stage;
+- timed-out commands are killed with their whole process tree;
+- telemetry is bounded to 3 s;
+- model calls run concurrently, bounded (`QB_MODEL_CONCURRENCY`);
+- stage time and tokens are recorded.
+
 **Run records** (`run/store.js`, QB-38). Every run keeps a versioned, append-only record: base commit, agent version, contract, patch, test outcome, checks and report. `qb replay <run_id>` recomputes each verdict and the final outcome from the stored evidence.
 
 ---

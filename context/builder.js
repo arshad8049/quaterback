@@ -4,6 +4,7 @@ const path = require('path');
 const { randomUUID } = require('crypto');
 
 const { ContextPackageSchema } = require('./schema');
+const { modelCall } = require('../lib/budget');
 const { detectPatterns }       = require('./detector');
 const { buildGitContext }      = require('./git');
 const {
@@ -185,28 +186,22 @@ async function callLlm(contract, extractedData) {
   ].join('\n');
 
   try {
-    const res = await fetch(`${OLLAMA_URL}/api/chat`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user',   content: userContent },
-        ],
-        stream: false,
-        options: { temperature: 0.1, num_ctx: 16384 },
-      }),
+    // QB-21: deadline-bound, cancellable, concurrency-bounded (lib/budget.js)
+    const data = await modelCall(`${OLLAMA_URL}/api/chat`, {
+      model: MODEL,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user',   content: userContent },
+      ],
+      stream: false,
+      options: { temperature: 0.1, num_ctx: 16384 },
     });
-
-    if (!res.ok) return null;
-
-    const data = await res.json();
     const raw  = data.message?.content;
     if (!raw) return null;
 
     return parseJSON(raw);
-  } catch (_) {
+  } catch (e) {
+    if (e && e.code === 'DEADLINE' && e.kind === 'run') throw e;   // QB-21: a run deadline stops the run (enrichment is optional otherwise)
     return null;
   }
 }

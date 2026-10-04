@@ -22,6 +22,8 @@ const { buildContext } = require('./context/builder');
 const { orchestrate }  = require('./agent/orchestrator');
 const { verify }       = require('./verify/verifier');
 const { defaultJudgeCacheDir } = require('./verify/judge-cache');
+const budget = require('./lib/budget');            // QB-21: deadlines, cancellation, usage
+const { sendMetrics } = require('./lib/telemetry');
 const memory           = require('./memory');
 const runStore         = require('./run/store');
 const { artifactFile } = require('./lib/fsafe');
@@ -67,6 +69,7 @@ program
   .option('--no-llm-context',      'Skip LLM enrichment in Layer 2 (faster)')
   .option('--no-llm-verify',       'Skip LLM judgment in Layer 4 (DSA only)')
   .option('--save',                'Save all artifacts to disk')
+  .option('--deadline <minutes>',  'Total-run deadline; in-flight work is cancelled and the run ends CANCELLED naming the stage (QB-21; env QB_RUN_DEADLINE_MS)')
   .option('--telemetry',           'Send anonymous run metrics to Quarterback (opt-in)')
   .option('--beta-email <email>',  'Your beta registration email (required for --telemetry)')
   .parse(process.argv);
@@ -110,6 +113,10 @@ async function main() {
   });
   runStore.installSignalHandlers(run);
   log('RUN', `${run.id}  (${run.dir})`);
+  // QB-21: the run's deadline and usage. Model calls each have their own deadline too.
+  const deadlineMs = opts.deadline ? Math.round(Number(opts.deadline) * 60_000) : (Number(process.env.QB_RUN_DEADLINE_MS) || 0);
+  const budgetRun = budget.startRun({ deadlineMs: Number.isFinite(deadlineMs) && deadlineMs > 0 ? deadlineMs : 0 });
+  budgetRun.stage('L5 memory recall');
 
   // ── Layer 5: Memory — prior run recall ────────────────────────────────────
   const priors = memory.recallPrior(repoPath, request);
@@ -123,6 +130,7 @@ async function main() {
   }
 
   // ── Layer 1: Intent ────────────────────────────────────────────────────────
+  budgetRun.stage('L1 intent');
   log('L1', 'Intent compiler...');
   const t1 = Date.now();
   // QB-13: a human-reviewed contract file replaces the generated contract entirely.
@@ -156,6 +164,7 @@ async function main() {
       repoPath, answers: opts.clarify || [],
       ask: process.stdin.isTTY ? async (h) => { showQuestion(h); return (await prompt('  Your answer → ')).trim() || null; } : null,
     });
+    budget.checkpoint();   // QB-21: a run deadline during L1 ends the run here, naming the stage
     if (s.survey) run.event('contract.grounding', s.survey);
     if (s.state === 'needs_clarification' || s.state === 'blocked') {
       // Machine-readable handoff: what is still open, the rounds so far, the grounding.
@@ -237,12 +246,14 @@ async function main() {
     log('L5', `Memory: ${priorRepairs.length} prior repair hint(s) loaded`);
   }
 
+  budgetRun.stage('L2 context');
   log('L2', 'Context engine...');
   const t2 = Date.now();
   const context = await buildContext(contract, repoPath, {
     noLlm:     !opts.llmContext,
     fileHints,
   });
+  budget.checkpoint();
   log('L2', `Context ready  (${Date.now() - t2}ms)`);
   console.log(`     ${context.relevant_files.length} files, ${Object.keys(context.symbol_map).length} symbols`);
 
@@ -264,6 +275,7 @@ async function main() {
     attempt++;
 
     const isRetry = attempt > 1;
+    budgetRun.stage(`L3 agent (attempt ${attempt})`);
     const label   = isRetry ? `L3 Agent (repair attempt ${attempt})` : 'L3 Agent';
     log(isRetry ? 'L3↩' : 'L3', `${label}...`);
 
@@ -280,7 +292,9 @@ async function main() {
       repoPath,
       repairHints,
       attempt,
+      signal:       budgetRun.signal,   // QB-21: a run deadline cancels the sandbox (its containers are removed)
     });
+    budget.checkpoint();
     log(isRetry ? 'L3↩' : 'L3', `Execution done  (${Date.now() - t3}ms)  status=${execution.status}`);
 
     if (execution.changes.length) {
@@ -303,6 +317,7 @@ async function main() {
     if (execution.sandbox?.run_id) run.event('sandbox.run', { sandbox: execution.sandbox });
 
     // ── Layer 4: Verify ──────────────────────────────────────────────────────
+    budgetRun.stage(`L4 verification (attempt ${attempt})`);
     log('L4', 'Verification...');
     const t4 = Date.now();
     report = await verify(contract, context, execution, {
@@ -310,6 +325,7 @@ async function main() {
       repoPath,
       judgeCache: defaultJudgeCacheDir(),   // QB-15: an unchanged patch is never re-sampled into a pass
     });
+    budget.checkpoint();
     run.finishAttempt(attempt, {
       execution,
       report,
@@ -370,10 +386,13 @@ async function main() {
   if (opts.save && report) saveArtifact('verify/reports', report);
 
   // ── Layer 5: Memory — persist this run ────────────────────────────────────
+  budgetRun.stage('L5 memory');
   await memory.remember(repoPath, contract, { ...report, attempts: attempt }, execution);
   const memStats = memory.stats(repoPath);
   log('L5', `Memory updated  (${memStats.total_runs} run(s), ${memStats.files_tracked} file(s) tracked)`);
 
+  run.event('run.usage', budgetRun.usage());   // QB-21: stage times, model calls, tokens, timeouts
+  budget.endRun();
   run.finish(
     runStore.outcomeFor(report?.verdict, { dryRun: opts.agent === 'dry-run' }),
     { legacy_verdict: report?.verdict || null },
@@ -402,7 +421,7 @@ async function main() {
   // ── Telemetry (opt-in) ─────────────────────────────────────────────────────
   const betaEmail = opts.betaEmail || process.env.QB_BETA_EMAIL;
   if (opts.telemetry && betaEmail) {
-    await phonehome({
+    await sendMetrics({   // QB-21: bounded (3 s) — a stalled endpoint never holds the run
       email:        betaEmail,
       task_hash:    hashTask(request),
       passed:       report?.verdict === 'pass',
@@ -457,19 +476,15 @@ function buildLayersUsed(opts) {
   return layers.join(',');
 }
 
-async function phonehome(data) {
-  try {
-    await fetch('https://quaterback.velorallc.workers.dev/api/metrics', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(data),
-    });
-  } catch (_) {
-    // Silent — never block or crash the user's run
-  }
-}
-
 main().catch(e => {
+  // QB-21: a run deadline (or cancellation) ends the run CANCELLED, naming the interrupted stage.
+  if (e && e.code === 'DEADLINE' && e.kind !== 'call') {
+    const r = budget.currentRun();
+    if (currentRun) { if (r) currentRun.event('run.usage', r.usage()); currentRun.abort('CANCELLED', e.message); }
+    budget.endRun();
+    console.error(`\n  ⏹  ${e.message}`);
+    process.exit(3);
+  }
   if (currentRun) currentRun.abort('ERROR', e.message);
   console.error(`\n  FATAL: ${e.message}`);
   if (e.errors) e.errors.forEach(x => console.error('  ', JSON.stringify(x)));

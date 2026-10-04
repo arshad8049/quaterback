@@ -74,6 +74,7 @@ async function runAgentSandboxed(briefing, repoPath, options = {}) {
     deadlines: options.timeoutMs ? { agent: options.timeoutMs } : undefined,
     snapshotPaths: options.snapshotPaths,
     checks: options.checks,
+    signal: options.signal,          // QB-21: the run's cancellation (total-run deadline)
   });
   const { status, diff = null, changes = [], unsupported_changes = [], base_tree = null, candidate_tree = null,
     exit_code = null, signal = null, stderr_tail = null, sandbox = null, patch_raw = null, base_listing = null } = r;
