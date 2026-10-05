@@ -66,7 +66,7 @@ Platform claims are limited to **Linux x86_64 + Docker Engine** until §11 valid
 
 ### 0.2 Implementation status (2026-10-03)
 
-The sandbox is implemented in `lib/sandbox/` and `sandbox/`, in seven reviewable commits on `phase-0-1-hardening`:
+The sandbox is implemented in `lib/sandbox/` and `sandbox/`, in seven reviewable commits on the hardening branch, now merged into `main` (tag `phase-0-2-accepted`):
 
 | Step | Commit | What |
 |---|---|---|

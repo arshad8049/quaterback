@@ -1,6 +1,6 @@
 # Executable checks (QB-16)
 
-**Status:** implemented on `phase-0-1-hardening`, in review.
+**Status:** shipped in Phases 0–2, accepted in internal review, merged into `main` (tag `phase-0-2-accepted`).
 
 ## Why
 The verification plan was prose. It was printed into the agent's briefing, but L4 ran only the repository's own test suite plus model judgment. A plan step such as "call clamp(5, 0, 3) and expect 3" never produced evidence, and existing tests often don't exercise new behaviour.

@@ -1,6 +1,6 @@
 # Intent grounding and bounded clarification (QB-17)
 
-**Status:** implemented on `phase-0-1-hardening`, in review.
+**Status:** shipped in Phases 0–2, accepted in internal review, merged into `main` (tag `phase-0-2-accepted`).
 
 ## Why
 - **The root path compiled with no repository context.** `qb.js` called `compile(request)` with no context, while `intent/cli.js` could supply some, but only with `--repo`.

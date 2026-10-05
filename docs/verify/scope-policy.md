@@ -1,6 +1,6 @@
 # Scope and constraints as enforced policy (QB-09)
 
-**Status:** implemented on `phase-0-1-hardening`, in review.
+**Status:** shipped in Phases 0–2, accepted in internal review, merged into `main` (tag `phase-0-2-accepted`).
 
 ## Why
 Scope violations were listed in the report but didn't block PASS. Constraints were only text in the briefing. L2's `relevant_files` acted like an allowlist, but retrieval relevance isn't authorization.

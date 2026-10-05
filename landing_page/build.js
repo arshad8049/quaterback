@@ -12,6 +12,7 @@ const sections = [
   'the-loop',
   'task-contract',
   'verification',
+  'proof',
   'repair',
   'report',
   'positioning',
@@ -48,7 +49,7 @@ const html = `<!DOCTYPE html>
   <meta property="og:site_name"   content="Quarterback">
   <meta property="og:url"         content="https://quaterback.velorallc.workers.dev/">
   <meta property="og:title"       content="Quarterback — AI Coding Runtime: Intent to Verified Result">
-  <meta property="og:description" content="Local-first AI coding runtime. Turns natural-language requests into verified code changes — DSA pipeline, majority-vote LLM judgment, zero API keys. 6/6 tasks correct vs 2/6 baseline.">
+  <meta property="og:description" content="Local-first AI coding runtime. Turns natural-language requests into verified code changes — DSA pipeline, majority-vote LLM judgment, zero API keys. Agent runs in a tested sandbox.">
   <meta property="og:image"       content="https://quaterback.velorallc.workers.dev/og-image.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -57,7 +58,7 @@ const html = `<!DOCTYPE html>
   <!-- Twitter Card -->
   <meta name="twitter:card"        content="summary_large_image">
   <meta name="twitter:title"       content="Quarterback — AI Coding Runtime: Intent to Verified Result">
-  <meta name="twitter:description" content="Local-first AI coding runtime. DSA pipeline + majority-vote LLM judgment. 6/6 tasks correct vs 2/6 baseline. Zero API keys.">
+  <meta name="twitter:description" content="Local-first AI coding runtime. DSA pipeline + majority-vote LLM judgment. Hostile-agent sandbox: 0 escapes in testing. Zero API keys.">
   <meta name="twitter:image"       content="https://quaterback.velorallc.workers.dev/og-image.png">
 
   <!-- Security -->

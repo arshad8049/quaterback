@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /website_audit/
 
-Sitemap: https://quarterback.netlify.app/sitemap.xml
+Sitemap: https://quaterback.velorallc.workers.dev/sitemap.xml

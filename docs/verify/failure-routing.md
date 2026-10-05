@@ -1,6 +1,6 @@
 # Failure routing (QB-10)
 
-**Status:** implemented on `phase-0-1-hardening`, in review.
+**Status:** shipped in Phases 0–2, accepted in internal review, merged into `main` (tag `phase-0-2-accepted`).
 
 ## Why
 - Failed tests only overrode a pass verdict.

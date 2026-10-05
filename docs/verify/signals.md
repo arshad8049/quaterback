@@ -1,6 +1,6 @@
 # Search hints for the judge (QB-12)
 
-**Status:** implemented on `phase-0-1-hardening`, in review.
+**Status:** shipped in Phases 0–2, accepted in internal review, merged into `main` (tag `phase-0-2-accepted`).
 
 ## Why
 The checker gave the judge "deterministic checks (computed from added lines)" built from text matches, and they were wrong as facts:

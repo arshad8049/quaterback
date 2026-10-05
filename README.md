@@ -6,6 +6,21 @@ Quarterback is a 5-layer AI reliability runtime for software teams. It sits betw
 
 ---
 
+## Status
+
+- 21 of the original 38 engineering findings are fixed and accepted in internal review (Phases 0–2, merged into `main`, tag `phase-0-2-accepted`).
+- Coding-agent runs require an approved contract. Changing the contract requires approval again ([test oracle](docs/verify/test-oracle.md)).
+- Requirement tracing catches omitted instructions, including missing negation, before execution ([traceability](docs/verify/traceability.md)).
+- Behavioral requirements are checked through executable tests in the sandbox. Protected-file edits fail scope checks ([executable checks](docs/verify/executable-checks.md), [scope policy](docs/verify/scope-policy.md)).
+- The judge receives traceable evidence, including supported unchanged helpers. Known missing material evidence prevents a positive judgment from passing ([evidence](docs/verify/evidence.md)).
+- Repeated and concurrent verification of identical evidence reuses one cached judgment instead of resampling until it passes ([calibration](docs/verify/calibration.md)).
+- Requests are grounded in repository context. Unresolved choices and incomplete numeric targets stay blocked ([grounding](docs/intent/grounding.md)).
+- Accepted work has regression coverage and CI across Node 20, 22 and 24, plus Docker integration tests.
+- Initial judge calibration covers 13 human-labeled patches. It measures false approvals, false rejections and abstentions separately; it does not establish production accuracy.
+- Phase 3 work on deadlines, cancellation and repair memory is underway (branch `phase-3-context-memory`). Quarterback is still in development, with an independent-oracle benchmark rerun and supervised beta ahead.
+
+---
+
 ## The Problem
 
 Current AI coding tools produce output that **compiles, passes tests, and looks correct in the diff — and is still wrong.**
@@ -72,6 +87,8 @@ Developer Request
 
 ## Benchmark Results
 
+> These are early, pre-review results. They will be re-run with an independent oracle in Phase 4 of the hardening plan (QB-27 to QB-30).
+
 Evaluated on 6 curated tasks against the `cue` repo (Electron JS, 27 tests, real production codebase). Compared QB full pipeline vs raw `claude --print` baseline with no pipeline. Same L4 contract applied to both.
 
 | | QB Pipeline | Raw Baseline | Lift |
@@ -109,11 +126,13 @@ Evaluated on 6 curated tasks against the `cue` repo (Electron JS, 27 tests, real
 
 | | Standard AI coding | Quarterback |
 |---|---|---|
-| Ambiguity detection | None — agent guesses | DSA regex rule engine, 0ms, before any LLM call |
-| Context for agent | Raw request | Symbol map, import graph, test coverage, git activity |
-| Verification | Developer reviews diff | Independent LLM judges each AC against the diff |
+| Ambiguity detection | None — agent guesses | Repository-grounded intent; unresolved choices and incomplete numeric targets stay blocked |
+| Test oracle | The agent's own judgment | A human-approved contract; changing it requires approval again |
+| Context for agent | Raw request | Symbol map, import graph, associated tests, git activity |
+| Verification | Developer reviews diff | Executable tests in the sandbox for behaviour; an independent judge with traceable evidence for the rest |
 | Cost | Per-call API fees | Fully local — DeepSeek-R1:7b via Ollama, no API key |
-| Scope drift | Common | Diff scope check flags unexpected file changes |
+| Scope drift | Common | Enforced policy: protected-file edits fail scope checks |
+| Agent isolation | Runs on your machine | Sandboxed: disposable workspace, no network except the Claude API, your files never written |
 | Repair loop | Manual re-run | Auto: L4 failures → structured hints → L3 re-execution |
 | Memory | None | Per-repo JSONL, Jaccard recall, seeds context on next run |
 
@@ -132,7 +151,7 @@ quaterback/
 ├── memory/            ← Layer 5: Memory Store
 ├── bench/             ← Benchmark harness (run.js, report.js, tasks.json)
 ├── docs/              ← test-runs.md, architecture notes
-└── landing_page/      ← Marketing site (live on Netlify)
+└── landing_page/      ← Marketing site (live on Cloudflare: quaterback.velorallc.workers.dev)
 ```
 
 ---
@@ -339,7 +358,7 @@ node report.js --format markdown
 
 ## Landing Page
 
-Static HTML site assembled by `build.js` from 14 section files in `src/`. Deployed on Netlify.
+Static HTML site assembled by `build.js` from 15 section files in `src/`. Deployed on Cloudflare (Workers static assets, `wrangler.toml`) from `main`.
 
 ```bash
 cd landing_page
@@ -357,7 +376,7 @@ node build.js  # regenerates index.html
 - **Local LLM:** DeepSeek-R1:7b via Ollama (`http://127.0.0.1:11434`)
 - **Coding agent:** Claude Code CLI (`claude --print`)
 - **CLI:** Commander.js
-- **Deployment:** Netlify (landing page, free tier)
+- **Deployment:** Cloudflare (landing page), auto-deployed from `main`
 
 ---
 
