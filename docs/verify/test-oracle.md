@@ -1,6 +1,6 @@
 # The test oracle (QB-13)
 
-**Status:** implemented on `phase-0-1-hardening`, in review.
+**Status:** shipped in Phases 0–2, accepted in internal review, merged into `main` (tag `phase-0-2-accepted`).
 
 ## Why
 The model that writes the contract can get its own examples wrong. In the saved T-002 contract:

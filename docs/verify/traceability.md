@@ -1,6 +1,6 @@
 # Requirement traceability and behaviour over time (QB-14)
 
-**Status:** implemented on `phase-0-1-hardening`, in review.
+**Status:** shipped in Phases 0–2, accepted in internal review, merged into `main` (tag `phase-0-2-accepted`).
 
 ## Why
 T-005 asked for cumulative speech events and duration "tracked since the AdaptiveVAD was created". Its criteria only checked shape (two properties, non-negative integers, exported), so a constant-zero implementation satisfied all of them. Pre-fix (`2686f90`): `contractState(T-005)` = finalized.

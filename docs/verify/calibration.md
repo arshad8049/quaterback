@@ -1,6 +1,6 @@
 # Judge calibration, resampling and preservation (QB-15)
 
-**Status:** implemented on `phase-0-1-hardening`, in review.
+**Status:** shipped in Phases 0–2, accepted in internal review, merged into `main` (tag `phase-0-2-accepted`).
 
 ## Why
 - **Repeated votes are cheap to game.** Identical low-temperature calls share blind spots, and re-asking can flip a vote without any change to the code.

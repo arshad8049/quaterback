@@ -1,6 +1,6 @@
 # Judge evidence with provenance (QB-11)
 
-**Status:** implemented on `phase-0-1-hardening`, in review.
+**Status:** shipped in Phases 0–2, accepted in internal review, merged into `main` (tag `phase-0-2-accepted`).
 
 ## Why
 The judge saw one acceptance criterion and the **first 6,000 characters of the diff**. It got none of the unchanged code the change relies on, and no runtime evidence. As a result:
