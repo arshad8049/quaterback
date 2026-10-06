@@ -164,25 +164,37 @@ function retrieve(contract, absRepo, o = {}) {
       dropped: s.score < cut ? 'below_relevance_cut' : 'seed_limit' });
   }
 
-  // Bounded BFS over import and caller edges, with a visited set and explicit depth.
-  const picked = new Map();   // rel → { rel, priority, reason, retrieval }
-  const queue = seeds.map((s) => ({ rel: s.rel, depth: 0, priority: s.priority, reason: s.reason, edge: s.reason.startsWith('seed') ? 'seed' : 'changed', via: null }));
-  const visited = new Set(queue.map((q) => q.rel));
-  const beyond = new Map();
-  while (queue.length) {
-    queue.sort((a, b) => b.priority - a.priority);
-    const cur = queue.shift();
-    picked.set(cur.rel, cur);
-    const n = nodes.get(cur.rel);
-    const next = [...(n ? n.imports.map((t) => [t, 'import']) : []), ...(callers.get(cur.rel) || []).map((t) => [t, 'caller'])];
-    for (const [t, edge] of next) {
-      if (visited.has(t)) continue;
-      if (cur.depth + 1 > cfg.depth) { if (!beyond.has(t)) beyond.set(t, `${edge} of ${cur.rel} (would be depth ${cur.depth + 1})`); continue; }
-      visited.add(t);
-      queue.push({ rel: t, depth: cur.depth + 1, priority: cur.priority * cfg.decay, edge, via: cur.rel, reason: `${edge} of ${cur.rel} (depth ${cur.depth + 1})` });
-    }
+  // Reachability first (re-review 1): a level-by-level multi-source BFS over import and
+  // caller edges gives every file its SHORTEST depth from ANY seed, whatever the seeds'
+  // priorities. Among equally short paths, the one from the higher-priority parent wins.
+  // Ranking (priority, budget) is applied afterwards, never to decide reachability.
+  const neighbours = (rel) => {
+    const n = nodes.get(rel);
+    return [...(n ? n.imports.map((t) => [t, 'import']) : []), ...(callers.get(rel) || []).map((t) => [t, 'caller'])];
+  };
+  const picked = new Map();   // rel → { rel, depth, priority, reason, edge, via }
+  for (const s of seeds) {
+    if (!picked.has(s.rel)) picked.set(s.rel, { rel: s.rel, depth: 0, priority: s.priority, reason: s.reason, edge: s.reason.startsWith('seed') ? 'seed' : 'changed', via: null });
   }
-  for (const [rel, why] of beyond) if (!picked.has(rel)) omitted.push({ path: rel, reason: why, dropped: 'depth_limit' });
+  let frontier = [...picked.keys()];
+  for (let d = 0; d < cfg.depth && frontier.length; d++) {
+    const next = [];
+    frontier.sort((a, b) => picked.get(b).priority - picked.get(a).priority || a.localeCompare(b));
+    for (const u of frontier) {
+      const pu = picked.get(u);
+      for (const [t, edge] of neighbours(u)) {
+        const cand = { rel: t, depth: d + 1, priority: pu.priority * cfg.decay, edge, via: u, reason: `${edge} of ${u} (depth ${d + 1})` };
+        const cur = picked.get(t);
+        if (!cur) { picked.set(t, cand); next.push(t); } else if (cur.depth === d + 1 && cand.priority > cur.priority) picked.set(t, cand);
+      }
+    }
+    frontier = next;
+  }
+  const beyond = new Map();
+  for (const u of frontier) {
+    for (const [t, edge] of neighbours(u)) if (!picked.has(t) && !beyond.has(t)) beyond.set(t, `${edge} of ${u} (would be depth ${cfg.depth + 1})`);
+  }
+  for (const [rel, why] of beyond) omitted.push({ path: rel, reason: why, dropped: 'depth_limit' });
 
   // Budget, in priority order.
   const ordered = [...picked.values()].sort((a, b) => b.priority - a.priority || a.depth - b.depth || a.rel.localeCompare(b.rel));

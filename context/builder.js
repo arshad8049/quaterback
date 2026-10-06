@@ -209,8 +209,26 @@ function refreshContext(context, contract, repoPath, execution, { attempt } = {}
   const assembled = assembleFiles(contract, absRepo, {
     depth: context.retrieval?.depth, maxFiles: context.retrieval?.max_files, maxBytes: context.retrieval?.max_bytes,
     overlay, deleted,
-    forcedSeeds: changed.filter(f => overlay.has(f)).map(f => ({ path: f, reason: `changed by attempt ${attempt} (${overlay.get(f).source})` })),
+    forcedSeeds: [
+      ...changed.filter(f => overlay.has(f)).map(f => ({ path: f, reason: `changed by attempt ${attempt} (${overlay.get(f).source})` })),
+      ...stale.map(f => ({ path: f, reason: `changed by attempt ${attempt} (current content unavailable)` })),
+    ],
   });
+  // Re-review 1: a changed file whose candidate bytes could not be read must not be briefed
+  // from its OLD checkout content. Its symbols leave the symbol map and index, and its entry
+  // keeps the path but no content or symbols, marked stale (the briefing renders a warning).
+  for (const f of stale) {
+    for (const k of Object.keys(assembled.symbolMap)) if (k.startsWith(`${f}#`)) delete assembled.symbolMap[k];
+    assembled.symbolsIndex = assembled.symbolsIndex.filter(s => s.file !== f);
+    let entry = assembled.relevantFiles.find(e => e.path === f);
+    if (!entry) { entry = { path: f, reason: `changed by attempt ${attempt} (current content unavailable)`, imports: [], test_file: null }; assembled.relevantFiles.unshift(entry); }
+    entry.symbols = [];
+    entry.imports = [];
+    delete entry.content;
+    delete entry.content_truncated;
+    entry.index_status = 'stale';
+    entry.stale = { attempt: attempt ?? null, reason: 'changed by the attempt; the candidate content was not captured (no sandbox file export, no whole-file patch)' };
+  }
   const before = new Set((context.relevant_files || []).map(f => f.path));
   const after = new Set(assembled.relevantFiles.map(f => f.path));
   const refresh = {

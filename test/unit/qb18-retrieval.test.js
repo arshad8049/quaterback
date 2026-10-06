@@ -132,3 +132,79 @@ describe('refresh after each patch (through qb.js)', () => {
     assert.equal(refreshed.data.attempt, 1);
   });
 });
+
+describe('QB-18 re-review: shortest depth across seeds; stale refreshed files never briefed as current', () => {
+  const { refreshContext } = require('../../context/builder');
+  const { buildBriefing } = require('../../agent/briefing');
+
+  test('converging graph with unequal seed priorities: leaf.js is reached at depth 2 through the weaker seed (pre-fix: omitted as depth 3)', async () => {
+    // a.js (strong seed) → mid.js → shared.js ; b.js (weak seed) → shared.js ; shared.js → leaf.js
+    const files = {
+      'src/a.js': "const mid = require('./mid');\nfunction parseAlpha() {}\nfunction parseBeta() {}\nfunction parseGamma() {}\nfunction parseDelta() {}\nmodule.exports = { parseAlpha, parseBeta, parseGamma, parseDelta };\n",
+      'src/b.js': "const shared = require('./shared');\nfunction parseEpsilon() {}\nmodule.exports = { parseEpsilon };\n",
+      'src/mid.js': "const shared = require('./shared');\nmodule.exports = { mid: 1 };\n",
+      'src/shared.js': "const leaf = require('./leaf');\nmodule.exports = { shared: 1 };\n",
+      'src/leaf.js': 'module.exports = { leaf: 1 };\n',
+    };
+    for (let i = 0; i < 30; i++) files[`src/noise/n${i}.js`] = `module.exports = { n${i}: ${i} };\n`;
+    const r = makeRepo(files);
+    try {
+      const contract = { id: 'c', goal: 'parseAlpha parseBeta parseGamma parseDelta parseEpsilon',
+        required_behavior: [], acceptance_criteria: [{ id: 'AC-1', criterion: 'parseAlpha parseBeta parseGamma parseDelta and parseEpsilon work' }] };
+      const ctx = await buildContext(contract, r.dir, { noLlm: true, retrieval: { maxSeeds: 2 } });
+      const by = Object.fromEntries(ctx.relevant_files.map((f) => [f.path, f]));
+      assert.deepEqual(ctx.retrieval.seeds.map((s) => s.path).sort(), ['src/a.js', 'src/b.js']);
+      assert.deepEqual([by['src/shared.js']?.retrieval.depth, by['src/shared.js']?.retrieval.via], [1, 'src/b.js'], 'shared.js is one hop from b.js');
+      assert.ok(by['src/leaf.js'], 'leaf.js is within depth 2 via b.js → shared.js → leaf.js');
+      assert.deepEqual([by['src/leaf.js'].retrieval.edge, by['src/leaf.js'].retrieval.depth, by['src/leaf.js'].retrieval.via], ['import', 2, 'src/shared.js']);
+      assert.ok(!ctx.retrieval.omitted.some((o) => o.path === 'src/leaf.js'));
+    } finally { r.cleanup(); }
+  });
+
+  test('refresh without the candidate bytes: the file\'s old symbols leave the context, it is marked stale, and the BRIEFING says so (pre-fix: briefed as current)', async () => {
+    const r = makeRepo({ 'a.js': 'exports.oldName = () => 1;\n', 'README.md': '# x\n' });
+    try {
+      const contract = { id: 'c', goal: 'rename oldName', required_behavior: [], acceptance_criteria: [{ id: 'AC-1', criterion: 'oldName is renamed' }] };
+      const ctx = await buildContext(contract, r.dir, { noLlm: true });
+      assert.ok(Object.keys(ctx.symbol_map).includes('a.js#oldName'));
+      const { context: next, refresh } = refreshContext(ctx, contract, r.dir, { changes: [{ file: 'a.js', status: 'M' }], diff: '' }, { attempt: 1 });
+      assert.deepEqual(refresh.stale, ['a.js']);
+      assert.ok(!Object.keys(next.symbol_map).some((k) => k.startsWith('a.js#')), JSON.stringify(next.symbol_map));
+      assert.ok(!next.symbols_index.some((s) => s.file === 'a.js'));
+      const a = next.relevant_files.find((f) => f.path === 'a.js');
+      assert.ok(a, 'the stale file stays visible as a file to work in');
+      assert.deepEqual([a.symbols, a.content, a.index_status, a.stale && a.stale.attempt], [[], undefined, 'stale', 1]);
+      const briefing = buildBriefing(contract, next);
+      assert.match(briefing, /⚠ `a\.js` changed in attempt 1; its current content could not be read — do not rely on earlier context for it\./);
+      assert.doesNotMatch(briefing, /oldName`/);
+    } finally { r.cleanup(); }
+  });
+
+  test('through qb.js: attempt 2\'s briefing flags a file attempt 1 changed but whose bytes were not captured', () => {
+    const ROOT = path.join(__dirname, '..', '..');
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'qb18-stale-'));
+    const r = makeRepo({ 'src/utils/helpers.js': "function parseDuration(s) {\n  return NaN;\n}\n\nmodule.exports = { parseDuration };\n", 'README.md': '# demo\n' });
+    try {
+      const file = path.join(tmp, 'contract.json');
+      fs.writeFileSync(file, JSON.stringify({ goal: 'Fix parseDuration', required_behavior: ['parseDuration handles minutes'],
+        acceptance_criteria: [{ id: 'AC-1', criterion: 'parseDuration handles minutes', kind: 'non_behavioral', requirement_ids: ['R-1'] }],
+        verification_plan: ['read helpers'], requirements: [{ id: 'R-1', quote: 'Fix parseDuration' }], scope: { allowed_changes: ['**'] } }));
+      const script = path.join(tmp, 'agent.json');
+      fs.writeFileSync(script, JSON.stringify({ attempts: [
+        { steps: [{ write: 'src/utils/helpers.js', content: "function parseMinutes(s) {\n  return 0;\n}\n\nmodule.exports = { parseMinutes };\n" }] },
+        { steps: [{ write: 'README.md', content: '# demo 2\n' }] },
+      ] }));
+      const no = JSON.stringify({ met: false, evidence: 'parseDuration ignores minutes', repair: 'Handle the m unit in parseDuration' });
+      const log = path.join(tmp, 'briefings.jsonl');
+      const res = spawnSync(process.execPath, ['--require', path.join(ROOT, 'test', 'helpers', 'preload-ollama.js'), '--require', path.join(ROOT, 'test', 'helpers', 'preload-fake-sandbox.js'),
+        path.join(ROOT, 'qb.js'), 'Fix parseDuration', '--repo', r.dir, '--agent', 'claude-code', '--no-llm-context', '--max-retries', '2', '--contract-file', file],
+      { encoding: 'utf8', timeout: 60_000, env: { ...process.env, NODE_TEST_CONTEXT: '', QB_FAKE_AGENT_SCRIPT: script, QB_FAKE_AGENT_COUNTER: path.join(tmp, 'counter'),
+        QB_FAKE_AGENT_BRIEFING_LOG: log, QB_FAKE_SANDBOX_HEADER_ONLY: 'src/utils/helpers.js', QB_RUNS_DIR: path.join(tmp, 'runs'), QB_MEMORY_DIR: path.join(tmp, 'mem'),
+        QB_JUDGE_CACHE_DIR: path.join(tmp, 'jc'), QB_TEST_OLLAMA_SEQUENCE: JSON.stringify([no, no, no, no, no, no]) } });
+      const briefings = fs.readFileSync(log, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+      assert.equal(briefings.length, 2, res.stdout + res.stderr);
+      assert.match(briefings[1], /⚠ `src\/utils\/helpers\.js` changed in attempt 1; its current content could not be read — do not rely on earlier context for it\./);
+      assert.doesNotMatch(briefings[1], /src\/utils\/helpers\.js#parseDuration/, 'the old symbol is not briefed as current');
+    } finally { r.cleanup(); fs.rmSync(tmp, { recursive: true, force: true }); }
+  });
+});

@@ -39,6 +39,23 @@ After attempt N is verified and a repair follows, `qb.js` calls `refreshContext(
 - **Re-retrieval:** retrieval runs again on that overlay, with the changed files as **forced seeds** (`changed by attempt N (candidate_tree|patch)`). Their imports and callers follow to the same depth.
 - **The record:** `{ attempt, changed, stale, added, removed, deleted }` is appended to `retrieval.refreshes`. The LLM brief and git context are kept.
 
+## Re-review 1
+### Shortest depth across seeds, with ranking kept separate from reachability
+- **Before:** the traversal was a priority queue with a visited set. A file reached first through a high-priority seed at depth 2 refused a later, shallower path from a weaker seed. Its own imports then fell outside the depth bound.
+  - Repro: `a.js` (score 88) → `mid.js` → `shared.js`; `b.js` (score 24) → `shared.js`; `shared.js` → `leaf.js`. `leaf.js` was omitted as depth 3, although `b.js → shared.js → leaf.js` is depth 2.
+- **Now:**
+  - **Reachability:** a level-by-level **multi-source BFS** gives every file its **shortest** depth from any seed. Among equally short paths, the one from the higher-priority parent wins: that path sets `via` and the priority.
+  - **Ranking:** priority (seed score × 0.7 per hop) and the file/byte budget are applied **afterwards** and never decide reachability.
+  - Files one hop past the bound are recorded as `depth_limit`.
+
+### Stale refreshed files are dropped and flagged in the briefing
+- **Before:** a changed file whose candidate bytes could not be read (no sandbox file export, no whole-file patch) was listed in `refresh.stale`. But its **old** symbols stayed in `symbol_map`, `symbols_index` and `relevant_files`, and the agent was briefed with them as current.
+- **Now:**
+  - The stale file is a forced seed, so it stays in the package as a file to work in.
+  - Its symbols are **removed** from `symbol_map` and `symbols_index`. Its entry has **no content, symbols or imports**, `index_status: "stale"`, and `stale: { attempt, reason }`.
+  - **The agent briefing renders the limitation:** "⚠ \`a.js\` changed in attempt 1; its current content could not be read — do not rely on earlier context for it."
+  - This is tested through `buildBriefing` and through the real `qb.js` loop: attempt 2's briefing carries the warning and not the old symbol.
+
 ## Done-when
 - **A generically named file is retrieved in a 200+ file repository:** `src/utils/helpers.js` ranks **first** among 224 files, as `seed: symbol parseDuration …`.
 - **A two-hop dependency and a new repair file are present:**
@@ -55,4 +72,5 @@ After attempt N is verified and a repair follows, `qb.js` calls `refreshContext(
 - **Relevance is lexical** (identifiers, words and paths), not semantic. A request that names nothing from the code relies on keywords and the optional LLM ranking.
 - **The import graph covers relative imports only** (`require`/`import`, resolved within the repository). Package imports and dynamic requires are not edges.
 - **Only JavaScript symbols are parsed.** Other languages contribute content and path matches only.
-- **Candidate content for a *modified* file needs the sandbox's snapshot export.** Without it the file is listed as `stale` rather than guessed.
+- **Candidate content for a *modified* file needs the sandbox's snapshot export.** Without it the file is listed as `stale` rather than guessed: its facts are dropped from the context and the briefing warns.
+- **A stale file's old content may still affect other files' scores,** and its old imports are not followed. Only facts presented about that file itself are removed.

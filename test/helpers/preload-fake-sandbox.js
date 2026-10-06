@@ -37,6 +37,8 @@ function snapshot(dir) {
 function diffFor(c, dir) {
   const head = `diff --git a/${c.file} b/${c.file}\n`;
   if (c.status === 'D') return `${head}--- a/${c.file}\n+++ /dev/null\n`;
+  // QB-18 tests: simulate a change whose bytes were not captured (header-only diff).
+  if ((process.env.QB_FAKE_SANDBOX_HEADER_ONLY || '').split(',').includes(c.file)) return head;
   let text;
   try { text = fs.readFileSync(path.join(dir, c.file), 'utf8'); } catch { return head; }
   if (text.includes('\u0000')) return head;

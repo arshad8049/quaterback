@@ -98,6 +98,8 @@ function buildBriefing(contract, context, options = {}) {
       context.relevant_files.forEach(f => {
         const syms = f.symbols?.length ? ` — exports: \`${f.symbols.slice(0, 5).join('`, `')}\`` : '';
         lines.push(`### \`${f.path}\`${syms}`);
+        // QB-18: a changed file whose current content could not be read is never briefed from stale facts.
+        if (f.stale) lines.push(`⚠ \`${f.path}\` changed in attempt ${f.stale.attempt ?? '?'}; its current content could not be read — do not rely on earlier context for it.`);
         lines.push(`${f.reason}`);
         if (f.test_file) lines.push(`Test file: \`${f.test_file}\``);
         if (f.imports?.length) lines.push(`Imports: ${f.imports.map(i => `\`${i}\``).join(', ')}`);

@@ -8,7 +8,8 @@ const RelevantFileSchema = z.object({
   test_file: z.string().nullable(),
   content:  z.string().optional(),
   content_truncated: z.boolean().optional(),   // QB-19: the prompt snippet was cut (the index was not)
-  index_status: z.enum(['parsed', 'partial', 'regex', 'unparsable', 'too_large', 'unreadable', 'not_indexed']).optional(),
+  index_status: z.enum(['parsed', 'partial', 'regex', 'unparsable', 'too_large', 'unreadable', 'not_indexed', 'stale']).optional(),
+  stale: z.object({ attempt: z.number().int().nullable(), reason: z.string() }).optional(),   // QB-18 re-review: changed, content unknown
   retrieval: z.object({                                              // QB-18: why this file is here
     edge:     z.enum(['seed', 'changed', 'import', 'caller', 'fill']),
     depth:    z.number().int().nullable(),
