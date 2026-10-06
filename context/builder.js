@@ -8,15 +8,16 @@ const { modelCall } = require('../lib/budget');
 const { detectPatterns }       = require('./detector');
 const { buildGitContext }      = require('./git');
 const {
-  extractSymbols,
   extractImports,
   resolveImport,
   findTestFile,
   findAllTestFiles,
   scoreFiles,
   contractKeywords,
-  readFileSafe,
+  readForIndex,
+  MAX_FILE_BYTES,
 } = require('./extractor');
+const { indexFile, MAX_INDEX_BYTES } = require('./symbols');
 
 const OLLAMA_URL    = process.env.QB_OLLAMA_URL || 'http://127.0.0.1:11434';
 const MODEL         = process.env.QB_MODEL      || 'deepseek-r1:7b';
@@ -52,31 +53,32 @@ async function buildContext(contract, repoPath, options = {}) {
     }
   }
 
-  // Read each relevant file and extract symbols + imports
+  // Read each relevant file and index its symbols + imports (QB-19: whole files,
+  // parsed; qualified IDs and real spans; limits recorded, never silent).
   const relevantFiles = [];
-  const symbolMap     = {};
+  const symbolMap     = {};    // qualified ID → "path:line" (exported symbols and their methods)
+  const symbolsIndex  = [];    // every indexed symbol, with kind, span and export details
+  const indexLimits   = [];    // files not fully parsed: too_large / unparsable / regex / unreadable
 
   for (const rel of topFiles) {
-    const abs     = path.join(absRepo, rel);
-    const content = readFileSafe(abs);
-    if (!content) continue;
+    const abs  = path.join(absRepo, rel);
+    const read = readForIndex(abs, MAX_INDEX_BYTES);
+    if (!read) continue;
 
-    const symbols = extractSymbols(rel, content);
-    const rawImports = extractImports(content);
+    const idx = indexFile(rel, read.full, read.bytes);
+    if (idx.status !== 'parsed' && idx.status !== 'not_indexed') indexLimits.push({ path: rel, status: idx.status, bytes: read.bytes });
+    symbolsIndex.push(...idx.symbols);
+    const exported = idx.symbols.filter(s => s.exported);
+    const symbols = exported.filter(s => s.kind !== 'method').map(s => s.name);
+    for (const s of exported) symbolMap[s.id] = `${rel}:${s.span.start.line}`;
+
+    const rawImports = extractImports(read.full ?? read.snippet);
     const imports = rawImports
       .map(imp => resolveImport(abs, imp, absRepo))
       .filter(Boolean);
 
     const testFile = findTestFile(rel, absRepo);
-
-    // Populate symbol map with file:line location
-    for (const sym of symbols) {
-      const lines = content.split('\n');
-      const lineNum = lines.findIndex(l => l.includes(sym)) + 1;
-      if (lineNum > 0) {
-        symbolMap[sym] = `${rel}:${lineNum}`;
-      }
-    }
+    const content = read.snippet;
 
     const memoryHint = hints.find(h => h === rel);
     relevantFiles.push({
@@ -88,6 +90,8 @@ async function buildContext(contract, repoPath, options = {}) {
       imports,
       test_file: testFile,
       content,
+      content_truncated: read.snippet_truncated,
+      index_status: idx.status,
     });
   }
 
@@ -155,8 +159,12 @@ async function buildContext(contract, repoPath, options = {}) {
       imports:   f.imports,
       test_file: f.test_file,
       content:   f.content,
+      content_truncated: f.content_truncated,
+      index_status: f.index_status,
     })),
     symbol_map: symbolMap,
+    symbols_index: symbolsIndex,
+    index_limits: { max_index_bytes: MAX_INDEX_BYTES, snippet_bytes: MAX_FILE_BYTES, files: indexLimits },
     test_coverage: {
       covered_files:   coveredFiles,
       test_files:      relevantTestFiles,

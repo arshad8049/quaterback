@@ -7,6 +7,24 @@ const RelevantFileSchema = z.object({
   imports:  z.array(z.string()),
   test_file: z.string().nullable(),
   content:  z.string().optional(),
+  content_truncated: z.boolean().optional(),   // QB-19: the prompt snippet was cut (the index was not)
+  index_status: z.enum(['parsed', 'regex', 'unparsable', 'too_large', 'unreadable', 'not_indexed']).optional(),
+});
+
+const SpanSchema = z.object({ line: z.number().int(), column: z.number().int() });
+const SymbolSchema = z.object({                                     // QB-19
+  id:        z.string(),                  // <path>#<name>, <path>#<Class>.<method>
+  name:      z.string(),
+  kind:      z.string(),
+  exported:  z.boolean(),
+  file:      z.string(),
+  span:      z.object({ start: SpanSchema, end: SpanSchema }),
+  method:    z.enum(['parser', 'regex']),
+  export_span: z.object({ start: SpanSchema, end: SpanSchema }).optional(),
+  local:     z.string().optional(),
+  exported_as: z.array(z.string()).optional(),
+  from:      z.string().optional(),
+  static:    z.boolean().optional(),
 });
 
 const ContextPackageSchema = z.object({
@@ -24,7 +42,13 @@ const ContextPackageSchema = z.object({
 
   relevant_files: z.array(RelevantFileSchema),
 
-  symbol_map: z.record(z.string(), z.string()),
+  symbol_map: z.record(z.string(), z.string()),     // qualified ID → "path:line" (QB-19; was bare name)
+  symbols_index: z.array(SymbolSchema).optional(),
+  index_limits: z.object({
+    max_index_bytes: z.number().int(),
+    snippet_bytes:   z.number().int(),
+    files: z.array(z.object({ path: z.string(), status: z.string(), bytes: z.number().int() })),
+  }).optional(),
 
   test_coverage: z.object({
     covered_files:   z.array(z.string()),
@@ -43,4 +67,4 @@ const ContextPackageSchema = z.object({
   agent_brief: z.string().nullable(),
 });
 
-module.exports = { ContextPackageSchema, RelevantFileSchema };
+module.exports = { ContextPackageSchema, RelevantFileSchema, SymbolSchema };

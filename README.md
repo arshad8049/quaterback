@@ -298,6 +298,11 @@ An agent that changed nothing passes only if the requirement is independently ve
 - model calls run concurrently, bounded (`QB_MODEL_CONCURRENCY`);
 - stage time and tokens are recorded.
 
+**Parser-based symbol index** (QB-19, [docs/context/symbols.md](docs/context/symbols.md)):
+- JavaScript (CJS and ESM) is parsed: every export, alias, class method and top-level declaration gets a qualified ID (`path#name`) and its real source span;
+- whole files are indexed up to 256 KiB, and larger or unparsable files are recorded in `index_limits`, never dropped silently;
+- duplicate names across files no longer overwrite each other.
+
 **Run records** (`run/store.js`, QB-38). Every run keeps a versioned, append-only record: base commit, agent version, contract, patch, test outcome, checks and report. `qb replay <run_id>` recomputes each verdict and the final outcome from the stored evidence.
 
 ---

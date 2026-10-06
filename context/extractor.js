@@ -6,7 +6,7 @@ const IGNORE_DIRS = new Set([
   'coverage', '__pycache__', '.venv', 'venv', 'vendor',
 ]);
 
-const CODE_EXTS = new Set(['.js', '.ts', '.jsx', '.tsx', '.py', '.go', '.rs']);
+const CODE_EXTS = new Set(['.js', '.cjs', '.mjs', '.ts', '.jsx', '.tsx', '.py', '.go', '.rs']);
 
 // ─── Symbol extraction ────────────────────────────────────────────────────────
 
@@ -213,6 +213,29 @@ function contractKeywords(contract) {
 
 const MAX_FILE_BYTES = 8000;
 
+/**
+ * QB-19: the whole file for indexing (up to `maxBytes`), its size, and a bounded
+ * prompt snippet flagged when cut. Never silently truncates what is indexed.
+ * @returns {{ full: string|null, bytes: number, snippet: string|null, snippet_truncated: boolean } | null}
+ */
+function readForIndex(absPath, maxBytes) {
+  let stat;
+  try { stat = fs.statSync(absPath); } catch (_) { return null; }
+  if (!stat.isFile()) return null;
+  try {
+    if (stat.size > maxBytes) {
+      const fd = fs.openSync(absPath, 'r');
+      const buf = Buffer.alloc(MAX_FILE_BYTES);
+      const n = fs.readSync(fd, buf, 0, MAX_FILE_BYTES, 0);
+      fs.closeSync(fd);
+      return { full: null, bytes: stat.size, snippet: buf.slice(0, n).toString('utf8'), snippet_truncated: true };
+    }
+    const full = fs.readFileSync(absPath, 'utf8');
+    const cut = full.length > MAX_FILE_BYTES;
+    return { full, bytes: stat.size, snippet: cut ? full.slice(0, MAX_FILE_BYTES) : full, snippet_truncated: cut };
+  } catch (_) { return null; }
+}
+
 function readFileSafe(absPath) {
   try {
     const stat = fs.statSync(absPath);
@@ -266,4 +289,6 @@ module.exports = {
   scoreFiles,
   contractKeywords,
   readFileSafe,
+  readForIndex,
+  MAX_FILE_BYTES,
 };
