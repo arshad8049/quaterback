@@ -53,6 +53,30 @@ Each case below is a regression test through the real builder:
 - a bounded snippet, flagged as cut;
 - the package passes schema validation, and the briefing renders it.
 
+## Re-review 1: no valid static JavaScript is silently lost
+Pre-fix (`9068e17`):
+- `class Store { static get() {} get() {} }` kept only one `Store.get`, because one overwrote the other.
+- `export const { alpha, beta } = …` returned `status: "parsed"` with **no symbols**.
+
+**Class member IDs** keep every distinct callable distinct:
+
+| Member | ID | `role` |
+|---|---|---|
+| instance method | `<path>#<Class>.<name>` | `method` |
+| static method | `<path>#<Class>.static.<name>` | `method` (+ `static: true`) |
+| getter / setter | `<path>#<Class>.<name>[get]` / `[set]` (static under `.static.`) | `getter` / `setter` |
+| private method | `<path>#<Class>.#<name>` | `method` (+ `private: true`) |
+| class field | `<path>#<Class>.<field>` (static under `.static.`) | `field` |
+
+Each keeps its own span. Anonymous `export default class {}` members are qualified as `default.<name>`.
+
+**Binding patterns** are enumerated for top-level declarations and ESM exports: object patterns, aliases (`{ a: b }` binds `b`), defaults, rest, arrays (holes skipped) and any nesting. Each name gets its own identifier's span.
+- A destructured `require(...)` (or `require(...).x`) is an **import**, not a declaration, so it is not indexed. Otherwise an importer would look like the definer.
+
+**Also covered:** generators, `async function`, private methods, class fields, and anonymous default classes.
+
+**Never a silent success:** anything visited but not nameable statically gets `status: "partial"` with `unindexed: [{ line, reason }]`. That covers a computed class member name, and a spread or computed key in a `module.exports` object. The context package records it in `index_limits.files[]`.
+
 ## Limitations
 - Only JavaScript is parsed. TypeScript, JSX, Python and Go keep regex extraction, marked `method: "regex"` and located at the match.
 - Only top-level declarations and methods of top-level classes are indexed.

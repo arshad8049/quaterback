@@ -8,7 +8,7 @@ const RelevantFileSchema = z.object({
   test_file: z.string().nullable(),
   content:  z.string().optional(),
   content_truncated: z.boolean().optional(),   // QB-19: the prompt snippet was cut (the index was not)
-  index_status: z.enum(['parsed', 'regex', 'unparsable', 'too_large', 'unreadable', 'not_indexed']).optional(),
+  index_status: z.enum(['parsed', 'partial', 'regex', 'unparsable', 'too_large', 'unreadable', 'not_indexed']).optional(),
   retrieval: z.object({                                              // QB-18: why this file is here
     edge:     z.enum(['seed', 'changed', 'import', 'caller', 'fill']),
     depth:    z.number().int().nullable(),
@@ -45,6 +45,8 @@ const SymbolSchema = z.object({                                     // QB-19
   exported_as: z.array(z.string()).optional(),
   from:      z.string().optional(),
   static:    z.boolean().optional(),
+  role:      z.enum(['method', 'getter', 'setter', 'field']).optional(),   // QB-19 re-review: class member role
+  private:   z.boolean().optional(),
 });
 
 const ContextPackageSchema = z.object({
@@ -67,7 +69,8 @@ const ContextPackageSchema = z.object({
   index_limits: z.object({
     max_index_bytes: z.number().int(),
     snippet_bytes:   z.number().int(),
-    files: z.array(z.object({ path: z.string(), status: z.string(), bytes: z.number().int() })),
+    files: z.array(z.object({ path: z.string(), status: z.string(), bytes: z.number().int(),
+      unindexed: z.array(z.object({ line: z.number().int(), reason: z.string() })).optional() })),
   }).optional(),
   retrieval: RetrievalSchema.optional(),
 

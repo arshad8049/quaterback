@@ -150,7 +150,7 @@ function assembleFiles(contract, absRepo, o) {
     const n = f.node;
     if (!n) continue;
     const idx = n.idx;
-    if (idx.status !== 'parsed' && idx.status !== 'not_indexed') indexLimits.push({ path: f.rel, status: idx.status, bytes: n.bytes });
+    if (idx.status !== 'parsed' && idx.status !== 'not_indexed') indexLimits.push({ path: f.rel, status: idx.status, bytes: n.bytes, ...(idx.unindexed ? { unindexed: idx.unindexed } : {}) });
     symbolsIndex.push(...idx.symbols);
     const exported = idx.symbols.filter(s => s.exported);
     for (const s of exported) symbolMap[s.id] = `${f.rel}:${s.span.start.line}`;
