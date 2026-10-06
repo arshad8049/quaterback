@@ -308,6 +308,12 @@ An agent that changed nothing passes only if the requirement is independently ve
 - whole files are indexed up to 256 KiB, and larger or unparsable files are recorded in `index_limits`, never dropped silently;
 - duplicate names across files no longer overwrite each other.
 
+**Context retrieval** (QB-18, [docs/context/retrieval.md](docs/context/retrieval.md)):
+- files are ranked by symbol and content matches to the contract, not just paths;
+- imports and callers are followed to a bounded depth, with each file's reason recorded;
+- the file and byte budget and every omission are explicit in the package;
+- after each attempt the context is refreshed with the patch's new and changed files.
+
 **Run records** (`run/store.js`, QB-38). Every run keeps a versioned, append-only record: base commit, agent version, contract, patch, test outcome, checks and report. `qb replay <run_id>` recomputes each verdict and the final outcome from the stored evidence.
 
 ---

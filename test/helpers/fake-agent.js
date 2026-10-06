@@ -16,7 +16,7 @@
  *   ] }
  *   or { "attempts": [ { "steps": [...] }, … ] } with QB_FAKE_AGENT_COUNTER (one script per run)
  *
- * stdin (the briefing) is drained and ignored.
+ * stdin (the briefing) is drained; with QB_FAKE_AGENT_BRIEFING_LOG it is appended there.
  */
 
 const fs   = require('fs');
@@ -33,7 +33,10 @@ if (Array.isArray(script.attempts)) {
   script.steps = (script.attempts[Math.min(n, script.attempts.length - 1)] || {}).steps || [];
 }
 
-try { fs.readFileSync(0); } catch (_) {}
+let briefing = '';
+try { briefing = fs.readFileSync(0, 'utf8'); } catch (_) {}
+// QB-18 tests: record each invocation's briefing (one JSON line per attempt).
+if (process.env.QB_FAKE_AGENT_BRIEFING_LOG) fs.appendFileSync(process.env.QB_FAKE_AGENT_BRIEFING_LOG, JSON.stringify(briefing) + '\n');
 
 for (const step of script.steps || []) {
   if (step.write !== undefined) {

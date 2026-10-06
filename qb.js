@@ -18,7 +18,7 @@ const readline = require('readline');
 const { program } = require('commander');
 
 const { compileIntent, MAX_ROUNDS } = require('./intent/session');
-const { buildContext } = require('./context/builder');
+const { buildContext, refreshContext } = require('./context/builder');
 const { orchestrate }  = require('./agent/orchestrator');
 const { verify }       = require('./verify/verifier');
 const { defaultJudgeCacheDir } = require('./verify/judge-cache');
@@ -254,7 +254,7 @@ async function main() {
   budgetRun.stage('L2 context');
   log('L2', 'Context engine...');
   const t2 = Date.now();
-  const context = await buildContext(contract, repoPath, {
+  let context = await buildContext(contract, repoPath, {
     noLlm:     !opts.llmContext,
     fileHints,
   });
@@ -384,6 +384,10 @@ async function main() {
 
     // Prepare repair hints for next attempt
     repairHints = route.hints;
+    // QB-18: refresh the context from this attempt's patch (new/changed files and their neighbours).
+    const refreshed = refreshContext(context, contract, repoPath, execution, { attempt });
+    context = refreshed.context;
+    run.event('context.refreshed', refreshed.refresh);
     console.log(`\n  ${route.reason} — retrying with repair hints...\n`);
     report.repair_hints.forEach(h => {
       console.log(`  [${h.criterion_id}] ${h.diagnosis}`);

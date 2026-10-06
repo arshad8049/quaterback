@@ -9,6 +9,26 @@ const RelevantFileSchema = z.object({
   content:  z.string().optional(),
   content_truncated: z.boolean().optional(),   // QB-19: the prompt snippet was cut (the index was not)
   index_status: z.enum(['parsed', 'regex', 'unparsable', 'too_large', 'unreadable', 'not_indexed']).optional(),
+  retrieval: z.object({                                              // QB-18: why this file is here
+    edge:     z.enum(['seed', 'changed', 'import', 'caller', 'fill']),
+    depth:    z.number().int().nullable(),
+    via:      z.string().nullable(),
+    priority: z.number(),
+    source:   z.enum(['checkout', 'candidate_tree', 'patch']),
+  }).optional(),
+});
+
+const RetrievalSchema = z.object({                                     // QB-18: budget, depth, seeds, omissions
+  version: z.number().int(), language: z.string(), depth: z.number().int(),
+  max_files: z.number().int(), max_bytes: z.number().int(), used_files: z.number().int(), used_bytes: z.number().int(),
+  scanned_files: z.number().int(), scan_limit: z.number().int(), scan_truncated: z.number().int(), relevance_cut: z.number(),
+  terms: z.object({ identifiers: z.array(z.string()), keywords: z.array(z.string()) }),
+  seeds: z.array(z.object({ path: z.string(), reason: z.string() })),
+  omitted: z.array(z.object({ path: z.string(), reason: z.string(),
+    dropped: z.enum(['below_relevance_cut', 'seed_limit', 'depth_limit', 'max_files', 'max_bytes']) })),
+  omitted_total: z.number().int(),
+  refreshes: z.array(z.object({ attempt: z.number().int().nullable().optional(), changed: z.array(z.string()), stale: z.array(z.string()),
+    added: z.array(z.string()), removed: z.array(z.string()), deleted: z.array(z.string()) })).optional(),
 });
 
 const SpanSchema = z.object({ line: z.number().int(), column: z.number().int() });
@@ -49,6 +69,7 @@ const ContextPackageSchema = z.object({
     snippet_bytes:   z.number().int(),
     files: z.array(z.object({ path: z.string(), status: z.string(), bytes: z.number().int() })),
   }).optional(),
+  retrieval: RetrievalSchema.optional(),
 
   test_coverage: z.object({
     covered_files:   z.array(z.string()),
