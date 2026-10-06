@@ -116,7 +116,11 @@ async function main() {
   log('RUN', `${run.id}  (${run.dir})`);
   // QB-21: the run's deadline and usage. Model calls each have their own deadline too.
   const deadlineMs = opts.deadline ? Math.round(Number(opts.deadline) * 60_000) : (Number(process.env.QB_RUN_DEADLINE_MS) || 0);
-  const budgetRun = budget.startRun({ deadlineMs: Number.isFinite(deadlineMs) && deadlineMs > 0 ? deadlineMs : 0 });
+  const budgetRun = budget.startRun({
+    deadlineMs: Number.isFinite(deadlineMs) && deadlineMs > 0 ? deadlineMs : 0,
+    agent: AGENT_IDENTITY[opts.agent] || { type: opts.agent, version: null },
+    sandboxDeadlines: opts.agent === 'claude-code' ? require('./lib/sandbox/pipeline').DEFAULT_DEADLINES : null,
+  });
   budgetRun.stage('L5 memory recall');
 
   // ── Layer 5: Memory — prior run recall ────────────────────────────────────

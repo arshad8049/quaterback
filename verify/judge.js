@@ -13,7 +13,7 @@
  * list of what was NOT shown.
  */
 const { missingText, label } = require('./evidence');
-const { modelCall } = require('../lib/budget');
+const { modelCall, currentRun } = require('../lib/budget');
 
 require('dotenv').config({ path: require('path').join(__dirname, '../intent/.env') });
 require('dotenv').config({ path: require('path').join(__dirname, '../context/.env') });
@@ -252,7 +252,13 @@ async function judgeOne(ac, material, signals, cache = null) {
   if (cached) return hitOf(cached);
   // Claim the evidence before sampling (across processes), then re-read: another run
   // may have published the decision while this one waited (QB-15 re-review).
-  const claim = await cache.acquire(key);
+  const run = currentRun();
+  const claim = await cache.acquire(key, { signal: run ? run.signal : null });
+  if (claim.cancelled) {   // QB-21: the run deadline also bounds the wait for another run's claim
+    return { id: ac.id, criterion: ac.criterion, met: null, method: `llm-vote-${VOTE_COUNT}`, votes: [], judgment_status: 'error',
+      judgment_cache: 'cancelled', refs: [], repair: null,
+      evidence: `Not judged: ${(claim.reason && claim.reason.message) || 'run cancelled'} while waiting for another run's judgment of this same evidence.` };
+  }
   if (claim.timedOut) {
     return { id: ac.id, criterion: ac.criterion, met: null, method: `llm-vote-${VOTE_COUNT}`, votes: [], judgment_status: 'error',
       judgment_cache: 'wait_timeout', refs: [], repair: null,

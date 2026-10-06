@@ -29,6 +29,26 @@ Pre-fix (`a20ba67`), `test/unit/qb21-deadlines.test.js` fails **10 of 10**. Each
 | **Telemetry** | `lib/telemetry.js` `sendMetrics`: one POST with a 3 s deadline. A stalled endpoint is abandoned (`{ sent: false, reason: "timeout" }`) and never fails the run. |
 | **Usage** | Per stage: wall time. Per run: model calls, prompt and completion tokens (when the model reports `prompt_eval_count` / `eval_count`), and timeouts. Recorded as the `run.usage` event, also on cancellation. |
 
+## Re-review 1
+### The run deadline also bounds the judge-cache claim wait
+- Before, a run waiting for another run's claim on the same evidence (QB-15) polled for its own `waitMs` (15 min by default), ignoring the run deadline.
+- Now `acquire(key, { signal })` returns `{ cancelled }` as soon as the run signal aborts, and its poll sleep is cut short too. The judge then reports `judgment_cache: "cancelled"`, and the evidence says "Not judged: run deadline … exceeded during L4 verification …".
+- The waiter **never touches the other owner's claim**: nothing is released or cached, and no model call is made. `qb.js` then ends **CANCELLED**, naming the stage.
+- **Tested end-to-end** with two real `qb.js` processes sharing one judge cache. Run A holds a live claim behind a hung model. Run B, with a 2.5 s deadline, ends CANCELLED during `L4 verification (attempt 1)`, and A's claim is intact.
+
+### Usage is honest: unknown is never zero (`run.usage`, schema `qb-usage/1`)
+| Field | Meaning |
+|---|---|
+| `model.attempted / completed / failed / timed_out / cancelled` | Every call is counted, including failed, timed-out and cancelled ones. |
+| `model.tokens.status` | `complete` (every completed call reported counts), `partial` (the sums cover only `calls_reporting`), `unknown` (none reported: `prompt` and `completion` are **null**), or `none` (no completed calls). |
+| `model.models_reported`, `model.endpoints`, `model.configured` | The model ids the server actually reported, the hosts called, and the configured default. |
+| `agent` | Identity (type, version, isolation). `usage_status: "unknown"`, `tokens: null`, `cost_usd: null`, with the reason: the sandboxed agent runs `claude -p --output-format text`, which reports no usage. Dry-run and manual are `not_applicable`. |
+| `deadlines` | The effective run deadline, the per-call model deadline, model concurrency, and the sandbox stage deadlines. |
+| `cost` | `model`: `estimated` $0 only for local Ollama endpoints and non-cloud models (basis stated; hardware and energy not metered), otherwise `unknown`. `agent`: `unknown` (basis stated). `total`: `unknown` whenever any part is unknown. |
+| `unsupported` | Budgets QB does **not** enforce: a token budget (tokens are recorded, never capped), a cost budget, and agent token usage. |
+
+- Recorded by `qb.js` (also on cancellation) and **per benchmark run** (`bench/run.js`, both arms). That covers the model-backed paths agreed in KAN-26: the benchmark, and T-POLICY, which runs through `qb.js` with the real agent.
+
 ## Locks and artifacts on interruption
 - **The judge-cache claim (QB-15) is released** in `finally`. An interrupted judgment (`error`) is **not cached**.
 - **The run record survives:** attempts already finished keep their artifacts, and the manifest ends CANCELLED with the stage.
@@ -41,5 +61,6 @@ Pre-fix (`a20ba67`), `test/unit/qb21-deadlines.test.js` fails **10 of 10**. Each
 
 ## Limitations
 - `proc.run` (synchronous, used for short `git` / `tar` calls) stays synchronous, bounded only by its optional timeout. Long work (the agent, tests, checks) is asynchronous in the sandbox.
-- Tokens are recorded only when the model reports them. The coding agent's own token usage isn't available to QB; its stage time is.
+- Agent token usage and cost stay **unknown** until the agent reports them. Switching the sandboxed agent to a structured output format would be a separate change to the agent image.
+- No token or cost budget is enforced: they are recorded and stated as unsupported.
 - Sandbox cancellation removes containers by run label. A stage already past its last Docker call finishes its host-side bookkeeping before the run returns `cancelled`.

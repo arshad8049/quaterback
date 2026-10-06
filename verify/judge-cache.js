@@ -31,7 +31,12 @@ const path = require('path');
 
 const VERSION = 2;   // 2: the full material (diff / files) hash is always part of the key
 const sha256 = (s) => crypto.createHash('sha256').update(s).digest('hex');
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+/** Wait `ms`, or less if `signal` aborts first. */
+const sleep = (ms, signal = null) => new Promise((r) => {
+  const t = setTimeout(done, ms);
+  function done() { clearTimeout(t); if (signal) signal.removeEventListener('abort', done); r(); }
+  if (signal) signal.addEventListener('abort', done, { once: true });
+});
 const envMs = (name, dflt) => { const n = Number(process.env[name]); return Number.isFinite(n) && n > 0 ? n : dflt; };
 
 function defaultJudgeCacheDir() {
@@ -102,12 +107,19 @@ function openCache(dir, o = {}) {
     return { stale: dead || Date.now() - st.mtimeMs > staleMs, token: owner && owner.token };
   };
 
-  /** Claim the key. Resolves { release } once owned, or { timedOut: true } after waitMs. */
-  const acquire = async (key) => {
+  /**
+   * Claim the key. Resolves { release } once owned, { published: true } if another run
+   * published meanwhile, { timedOut: true } after waitMs, or — QB-21 — { cancelled: true,
+   * reason } as soon as `signal` aborts (e.g. the total-run deadline). A cancelled waiter
+   * never touches another owner's claim.
+   */
+  const acquire = async (key, { signal = null } = {}) => {
     const lf = lockFile(key);
     const token = crypto.randomBytes(12).toString('hex');
     const deadline = Date.now() + waitMs;
+    const cancelled = () => ({ cancelled: true, reason: signal.reason });
     for (;;) {
+      if (signal && signal.aborted) return cancelled();
       try {
         const fd = fs.openSync(lf, 'wx', 0o600);
         fs.writeSync(fd, JSON.stringify({ pid: process.pid, host, token, at: new Date().toISOString() }));
@@ -136,7 +148,7 @@ function openCache(dir, o = {}) {
         continue;
       }
       if (Date.now() >= deadline) return { timedOut: true };
-      await sleep(pollMs);
+      await sleep(pollMs, signal);
     }
   };
 

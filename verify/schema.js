@@ -13,7 +13,7 @@ const CriterionResultSchema = z.object({
   refs:            z.array(z.string()).optional(),
   check_status:    z.enum(['passed', 'failed', 'error', 'unresolved']).optional(),   // QB-16
   checks:          z.array(z.object({ id: z.string(), status: z.enum(['pass', 'fail', 'error']), detail: z.string().optional() })).optional(),
-  judgment_cache:   z.enum(['hit', 'miss', 'wait_timeout']).optional(),                              // QB-15
+  judgment_cache:   z.enum(['hit', 'miss', 'wait_timeout', 'cancelled']).optional(),                              // QB-15
   evidence_ids:     z.array(z.string()).optional(),                                  // QB-11: what the judgment was based on
   evidence_missing: z.array(z.object({ what: z.string(), reason: z.string() })).optional(),
 });
