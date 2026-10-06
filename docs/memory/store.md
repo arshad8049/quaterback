@@ -38,8 +38,30 @@ Pre-fix (`7433d8c`), `test/unit/qb25-store.test.js` fails **9 of 9**. In particu
 - **Demo and tests write only beneath their own directory:** the demo runs with `HOME` and `TMPDIR` pointed at empty temp directories. Nothing is written under `HOME`, and its own directory is removed. Tests inject their root.
 - **Recall latency at the supported history size:** **10,000 outcomes**, `recallPrior` + `recallFiles` measured at **~51 ms** on a developer Mac (Node 20). The test asserts < 2 s.
 
+## Re-review 1
+### No lock theft from a live owner (`memory/lock.js`)
+- **Before:** a lock was taken over if its owner was dead **or** it was older than 30 s. A live owner paused past 30 s lost its lock while still inside its critical section, so two writers could run at once.
+- **Same host:** a lock is taken over **only if its owner is provably dead** (its pid is gone). Age never counts. A paused or slow owner keeps the lock, and waiters time out with `MEMORY_LOCK_TIMEOUT … held by live process <pid>`.
+- **Another host:** the owner can't be verified, so the lock is **never** taken over. The error says cross-host sharing of a memory store (e.g. a network home directory) is not supported.
+- **Dead-owner recovery is race-safe.** Takeover is serialized by a second exclusive file, `.lock.takeover`. Its holder re-reads `.lock` and removes it only if it still names the dead owner's token, so a fresh claim made meanwhile is never removed. A takeover file left by a crashed waiter is cleared the same way (dead pid).
+- **The only age-based recovery** is for a lock whose content is unreadable: its owner crashed between creating and writing it, so no owner can be identified.
+- **Tested with real processes:**
+  - Owner A holds the lock and is SIGSTOPped inside its critical section, with the lock aged to 60 s. Process B times out and does not enter.
+  - After A is killed, B recovers. The log shows no overlap and nothing lost.
+  - 6 processes recover one dead owner while incrementing a shared counter 120 times, and the counter ends at exactly 120.
+
+### Recall work is bounded by the window (`memory/store.js`)
+- **Before:** `parseJsonl(text, { limit: 2 })` on 100 rows called `JSON.parse` 100 times. `readRecords` read the whole file, and every append re-read the whole file to count lines.
+- **Recall:** a **tail read** reads the file backwards in 64 KiB chunks until the newest `maxScan` complete lines are in hand, and parses only those. Corrupt lines in that window are kept out of recall and warned about by byte offset.
+  - **Measured on 100,000 outcomes with a 1,000 window:** the file is 8.46 MB, but recall read **131 KB**, did **1,001** `JSON.parse` calls (1,000 rows plus `identity.json`) and took 3.2 ms.
+- **Appends** keep the line counts in `<file>.meta`, written under the lock. Retention is decided from those counts, so an append reads a few bytes, not the history. The counts are rebuilt by one full count if missing and reset exactly by each compaction.
+- **The full audit path is separate:** `health()` (so `stats().corrupt`) and compaction parse every row, report corruption with line and offset, and quarantine it.
+- **Pinned history is bounded:** retention is `{ outcomes: 10000, repairs: 5000, pinned: 1000 }`. The newest 1,000 proven repairs stay in `repairs.jsonl` and recallable. Older proven repairs move to `repairs.archive.jsonl`: kept, never deleted, never read by recall.
+
 ## Limitations
 - Recall is still a linear scan of the bounded window. JSONL is kept until measured concurrency or query needs justify a database.
 - The lock is advisory: it serializes Quarterback processes, not arbitrary editors of the files.
-- Stale takeover for a live owner on another host relies on the 30 s age bound, which is far longer than any critical section.
+- **Cross-host sharing of one store is unsupported.** A lock held from another host is never taken over; a dead remote owner needs a manual `rm .lock`.
+- Dead-owner detection trusts the pid. A pid reused by an unrelated process makes the owner look alive, so the waiter times out rather than steals.
+- `stats()` runs the full audit (linear in the file, bounded by retention). Recall does not.
 - `readFileStats` reports a corrupt stats file and treats it as empty for recall. The next write moves it aside.

@@ -181,3 +181,150 @@ describe('retention, compaction and bounded recall', () => {
     assert.ok(ms < 2000, `recall took ${ms} ms`);
   });
 });
+
+describe('QB-25 re-review 1: no lock theft from a live owner; dead-owner recovery is race-safe', () => {
+  const LOCK = path.join(ROOT, 'memory', 'lock.js');
+  const waitFor = async (cond, ms = 10000) => { const end = Date.now() + ms; while (!cond()) { if (Date.now() > end) throw new Error('timed out waiting'); await new Promise((r) => setTimeout(r, 20)); } };
+  const runB = (dir, log, waitMs) => spawnSync(process.execPath, ['-e', `
+    const fs = require('fs');
+    try { require(${JSON.stringify(LOCK)}).withLock(${JSON.stringify(dir)}, () => fs.appendFileSync(${JSON.stringify(log)}, 'B\\n'), { waitMs: ${waitMs} }); }
+    catch (e) { process.stdout.write(e.code || e.message); process.exit(3); }`], { encoding: 'utf8' });
+
+  test('a paused live owner whose lock is old is NOT robbed; after it is killed, the waiter recovers (pre-fix: entered by age)', async () => {
+    const dir = mk('paused');
+    const log = path.join(dir, 'log');
+    const marker = path.join(dir, 'a-in');
+    fs.writeFileSync(log, '');
+    const a = spawn(process.execPath, ['-e', `
+      const fs = require('fs');
+      require(${JSON.stringify(LOCK)}).withLock(${JSON.stringify(dir)}, () => {
+        fs.appendFileSync(${JSON.stringify(log)}, 'A-start\\n');
+        fs.writeFileSync(${JSON.stringify(marker)}, '1');
+        process.kill(process.pid, 'SIGSTOP');        // paused inside the critical section
+        fs.appendFileSync(${JSON.stringify(log)}, 'A-end\\n');
+      });`], { stdio: 'ignore' });
+    try {
+      await waitFor(() => fs.existsSync(marker));
+      const old = new Date(Date.now() - 60_000);
+      fs.utimesSync(path.join(dir, '.lock'), old, old);          // older than the 30 s age bound
+      const b1 = runB(dir, log, 1500);
+      assert.equal(b1.status, 3, 'B must not enter while A is alive');
+      assert.equal(b1.stdout, 'MEMORY_LOCK_TIMEOUT');
+      assert.equal(fs.readFileSync(log, 'utf8'), 'A-start\n', 'no overlapping critical section');
+      a.kill('SIGKILL');
+      await new Promise((r) => a.on('exit', r));
+      const b2 = runB(dir, log, 5000);
+      assert.equal(b2.status, 0, b2.stdout + b2.stderr);
+      assert.equal(fs.readFileSync(log, 'utf8'), 'A-start\nB\n', 'dead-owner recovery; nothing lost or interleaved');
+      assert.ok(!fs.existsSync(path.join(dir, '.lock')), 'B released the lock');
+    } finally { try { a.kill('SIGKILL'); } catch { /* gone */ } }
+  });
+
+  test('a lock held from another host is never stolen by age: unsupported cross-host sharing is refused with a clear error', () => {
+    const dir = mk('xhost');
+    const { withLock } = require('../../memory/lock');
+    const lf = path.join(dir, '.lock');
+    fs.writeFileSync(lf, JSON.stringify({ pid: 1, host: 'some-other-host', token: 'theirs' }));
+    const old = new Date(Date.now() - 3_600_000);
+    fs.utimesSync(lf, old, old);
+    let entered = false;
+    assert.throws(() => withLock(dir, () => { entered = true; }, { waitMs: 100 }), (e) => e.code === 'MEMORY_LOCK_TIMEOUT' && /some-other-host/.test(e.message) && /cross-host/.test(e.message));
+    assert.equal(entered, false);
+    assert.equal(JSON.parse(fs.readFileSync(lf, 'utf8')).token, 'theirs', "the other host's lock is untouched");
+  });
+
+  test('many waiters recovering one dead owner: exactly one at a time, no lost increments', async () => {
+    const dir = mk('dead');
+    const dead = spawnSync(process.execPath, ['-e', 'process.stdout.write(String(process.pid))'], { encoding: 'utf8' }).stdout;
+    fs.writeFileSync(path.join(dir, '.lock'), JSON.stringify({ pid: Number(dead), host: os.hostname(), token: 'crashed' }));
+    const counter = path.join(dir, 'count');
+    fs.writeFileSync(counter, '0');
+    const worker = `
+      const fs = require('fs');
+      const { withLock } = require(${JSON.stringify(LOCK)});
+      for (let i = 0; i < 20; i++) withLock(${JSON.stringify(dir)}, () => {
+        const inside = ${JSON.stringify(path.join(dir, 'inside'))};
+        fs.writeFileSync(inside, '', { flag: 'wx' });            // throws if another holder is inside
+        const n = Number(fs.readFileSync(${JSON.stringify(counter)}, 'utf8'));
+        fs.writeFileSync(${JSON.stringify(counter)}, String(n + 1));
+        fs.unlinkSync(inside);
+      }, { waitMs: 20000 });`;
+    const ps = Array.from({ length: 6 }, () => spawn(process.execPath, ['-e', worker], { stdio: ['ignore', 'ignore', 'pipe'] }));
+    const codes = await Promise.all(ps.map((p) => new Promise((r) => p.on('exit', r))));
+    assert.deepEqual(codes, [0, 0, 0, 0, 0, 0]);
+    assert.equal(fs.readFileSync(counter, 'utf8'), '120');
+  });
+});
+
+describe('QB-25 re-review 1: recall work is bounded by the window, not by the history size', () => {
+  const { createStore, parseJsonl } = require('../../memory/store');
+  /** Count JSON.parse calls and bytes read from disk while fn runs. */
+  function measure(fn) {
+    const P = JSON.parse; const RS = fs.readSync; const RF = fs.readFileSync;
+    const w = { parsed: 0, bytes: 0 };
+    JSON.parse = function (...a) { w.parsed++; return P.apply(this, a); };
+    fs.readSync = function (...a) { const n = RS.apply(this, a); w.bytes += n; return n; };
+    fs.readFileSync = function (...a) { const r = RF.apply(this, a); w.bytes += typeof r === 'string' ? Buffer.byteLength(r) : r.length; return r; };
+    try { return { result: fn(), ...w }; } finally { JSON.parse = P; fs.readSync = RS; fs.readFileSync = RF; }
+  }
+  const row = (i) => JSON.stringify({ id: `o-${String(i).padStart(7, '0')}`, goal: `task ${i}`, verdict: 'pass', changed_files: [`src/m${i % 50}.js`] });
+
+  test('parseJsonl with a limit parses only the window (pre-fix: 100 parses for limit 2)', () => {
+    const text = Array.from({ length: 100 }, (_, i) => row(i)).join('\n') + '\n';
+    const m = measure(() => parseJsonl(text, { limit: 2 }));
+    assert.deepEqual(m.result.records.map((r) => r.id), ['o-0000098', 'o-0000099']);
+    assert.ok(m.parsed <= 2, `parsed ${m.parsed}`);
+  });
+
+  test('100,000 outcomes, window 1,000: readOutcomes reads and parses ~the window only (pre-fix: the whole file)', () => {
+    const root = mk('big');
+    const s = createStore({ root, maxScan: 1000, retention: { outcomes: 200_000 }, onWarning: () => {} });
+    s.appendOutcome(REPO, JSON.parse(row(0)));                       // creates the namespace
+    const file = path.join(s.repoMemoryPath(REPO), 'outcomes.jsonl');
+    const lines = [];
+    for (let i = 1; i < 100_000; i++) lines.push(row(i));
+    fs.appendFileSync(file, lines.join('\n') + '\n');
+    const size = fs.statSync(file).size;
+    const m = measure(() => s.readOutcomes(REPO));
+    assert.equal(m.result.length, 1000);
+    assert.equal(m.result.at(-1).id, 'o-0099999', 'the newest record is last');
+    assert.equal(m.result[0].id, 'o-0099000');
+    assert.ok(m.parsed <= 1000 + 5, `parsed ${m.parsed} records`);
+    assert.ok(m.bytes <= 1000 * 120 + 128 * 1024, `read ${m.bytes} of ${size} bytes`);
+  });
+
+  test('appends do not rescan the history: per-append disk reads stay small (pre-fix: the whole file per append)', () => {
+    const root = mk('append');
+    const s = createStore({ root, maxScan: 1000, retention: { outcomes: 2000 }, onWarning: () => {} });
+    for (let i = 0; i < 2100; i++) s.appendOutcome(REPO, JSON.parse(row(i)));
+    const m = measure(() => { for (let i = 0; i < 50; i++) s.appendOutcome(REPO, JSON.parse(row(10_000 + i))); });
+    assert.ok(m.bytes < 50 * 8 * 1024, `50 appends read ${m.bytes} bytes`);
+    assert.equal(s.readOutcomes(REPO).at(-1).id, 'o-0010049');
+  });
+
+  test('pinned (proven) repairs are bounded too: the newest stay recallable, older ones are archived — never deleted, never scanned by recall', () => {
+    const root = mk('pinned');
+    const s = createStore({ root, maxScan: 100, retention: { repairs: 20, pinned: 10 }, onWarning: () => {} });
+    for (let i = 0; i < 40; i++) s.appendRepair(REPO, { id: `p-${i}`, schema: 2, outcome: 'resolved' });
+    for (let i = 0; i < 60; i++) s.appendRepair(REPO, { id: `u-${i}`, schema: 2, outcome: 'unresolved' });
+    const dir = s.repoMemoryPath(REPO);
+    const reps = s.readRepairs(REPO);
+    const proven = reps.filter((r) => r.outcome === 'resolved').map((r) => r.id);
+    assert.ok(proven.includes('p-39') && proven.length <= 11, `recallable proven: ${proven.length}`);
+    assert.ok(reps.length <= 11 + 22, `recall returned ${reps.length}`);
+    const archived = fs.readFileSync(path.join(dir, 'repairs.archive.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l).id);
+    const all = new Set([...archived, ...proven]);
+    for (let i = 0; i < 40; i++) assert.ok(all.has(`p-${i}`), `p-${i} kept (archive or pinned)`);
+  });
+
+  test('corruption is still reported with line and offset by the full audit (health), separate from bounded recall', () => {
+    const root = mk('audit');
+    const s = createStore({ root, maxScan: 5, onWarning: () => {} });
+    for (let i = 0; i < 3; i++) s.appendOutcome(REPO, JSON.parse(row(i)));
+    const file = path.join(s.repoMemoryPath(REPO), 'outcomes.jsonl');
+    fs.appendFileSync(file, 'garbage\n');
+    for (let i = 3; i < 20; i++) s.appendOutcome(REPO, JSON.parse(row(i)));
+    assert.deepEqual(s.health(REPO).corrupt.outcomes.map((c) => [c.line, c.reason]), [[4, 'unparsable']]);
+    assert.equal(s.readOutcomes(REPO).length, 5);
+  });
+});

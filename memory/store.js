@@ -35,7 +35,9 @@ const os   = require('os');
 const { withLock } = require('./lock');
 
 const DEFAULTS = Object.freeze({
-  retention: { outcomes: 10_000, repairs: 5_000 },   // supported history size: 10,000 outcomes
+  // supported history size: 10,000 outcomes; proven repairs: the newest 1,000 stay recallable,
+  // older ones move to repairs.archive.jsonl (kept, not read by recall)
+  retention: { outcomes: 10_000, repairs: 5_000, pinned: 1_000 },
   maxScan: 10_000,
 });
 
@@ -78,7 +80,9 @@ function parseJsonl(text, { limit = Infinity } = {}) {
     i = nl === -1 ? text.length : nl + 1;
   }
   const window = rows.length > limit ? rows.slice(rows.length - limit) : rows;
-  for (const r of rows) {
+  // QB-25 re-review: with a finite limit only the window is parsed (the bounded recall
+  // path); the full audit (limit Infinity) parses every row to report corruption.
+  for (const r of (Number.isFinite(limit) ? window : rows)) {
     let ok = !r.truncated;
     let rec = null;
     if (ok) { try { rec = JSON.parse(r.raw); ok = rec !== null && typeof rec === 'object' && !Array.isArray(rec); } catch { ok = false; } }
@@ -141,15 +145,88 @@ function createStore({ root = null, retention = {}, maxScan = DEFAULTS.maxScan, 
     if (corrupt.length) onWarning(`${file}: ${corrupt.length} corrupt record(s) at line(s) ${corrupt.map((c) => c.line).join(', ')} — kept out of recall, not deleted`);
   };
 
+  /**
+   * Bounded tail read (QB-25 re-review): read the file backwards in 64 KiB chunks until the
+   * newest `n` complete lines (plus a possibly truncated final line) are in hand. Work is
+   * bounded by the window, not by the history size.
+   * @returns {{ rows: Array<{ raw, offset, truncated }> }}
+   */
+  function tailRows(file, n) {
+    const fd = fs.openSync(file, 'r');
+    try {
+      const size = fs.fstatSync(fd).size;
+      const CHUNK = 64 * 1024;
+      const parts = [];
+      let pos = size;
+      let newlines = 0;
+      while (pos > 0 && newlines <= n) {
+        const len = Math.min(CHUNK, pos);
+        pos -= len;
+        const b = Buffer.alloc(len);
+        fs.readSync(fd, b, 0, len, pos);
+        parts.unshift(b);
+        for (let i = 0; i < len; i++) if (b[i] === 0x0a) newlines++;
+      }
+      const buf = Buffer.concat(parts);
+      let start = 0;
+      if (pos > 0) start = buf.indexOf(0x0a) + 1;           // drop the partial first line (it lies before the window)
+      const rows = [];
+      let i = start;
+      while (i < buf.length) {
+        const nl = buf.indexOf(0x0a, i);
+        const end = nl === -1 ? buf.length : nl;
+        if (end > i) rows.push({ raw: buf.toString('utf8', i, end), offset: pos + i, truncated: nl === -1 });
+        i = nl === -1 ? buf.length : nl + 1;
+      }
+      return { rows: rows.slice(Math.max(0, rows.length - n)) };
+    } finally { fs.closeSync(fd); }
+  }
+
+  /** The bounded recall path: the newest `limit` records, parsed from a tail read only. */
   function readRecords(file, { limit = maxScan } = {}) {
     if (!fs.existsSync(file)) return { records: [], corrupt: [] };
-    const r = parseJsonl(fs.readFileSync(file, 'utf8'), { limit });
+    const records = [];
+    const corrupt = [];
+    for (const r of tailRows(file, limit).rows) {
+      let rec = null;
+      if (!r.truncated) { try { rec = JSON.parse(r.raw); } catch { rec = null; } }
+      if (rec && typeof rec === 'object' && !Array.isArray(rec)) records.push(rec);
+      else corrupt.push({ line: null, offset: r.offset, reason: r.truncated ? 'truncated' : 'unparsable' });
+    }
+    if (corrupt.length) onWarning(`${file}: ${corrupt.length} corrupt record(s) in the recall window at byte offset(s) ${corrupt.map((c) => c.offset).join(', ')} — kept out of recall, not deleted`);
+    return { records, corrupt };
+  }
+
+  /** The full audit path (health / stats): every row parsed, corruption reported with line + offset. */
+  function auditRecords(file) {
+    if (!fs.existsSync(file)) return { records: [], corrupt: [] };
+    const r = parseJsonl(fs.readFileSync(file, 'utf8'));
     report(file, r.corrupt);
     return r;
   }
 
-  /** Rewrite a JSONL file keeping the newest `n` records (and any `pinned` ones); quarantine corrupt lines. */
-  function compact(file, n, pinned = () => false) {
+  // Line counts kept beside each JSONL file (`<file>.meta`, written under the lock), so an
+  // append decides on retention without rescanning the history. Rebuilt by a full count
+  // when missing; reset exactly by every compaction.
+  const metaOf = (file) => `${file}.meta`;
+  function readMeta(file, pinned) {
+    try { const m = JSON.parse(fs.readFileSync(metaOf(file), 'utf8')); if (Number.isInteger(m.lines) && Number.isInteger(m.pinned)) return m; } catch { /* rebuild */ }
+    if (!fs.existsSync(file)) return { lines: 0, pinned: 0 };
+    const { rows } = parseJsonl(fs.readFileSync(file, 'utf8'));
+    return { lines: rows.length, pinned: rows.filter((r) => r.rec && pinned(r.rec)).length };
+  }
+  function writeMeta(file, m) {
+    const tmp = `${metaOf(file)}.${process.pid}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(m), { mode: 0o600 });
+    fs.renameSync(tmp, metaOf(file));
+  }
+
+  /**
+   * Rewrite a JSONL file keeping the newest `n` unpinned records and the newest `keepPinned`
+   * pinned ones. Older pinned records move to `<name>.archive.jsonl` (kept, never deleted,
+   * never read by recall); corrupt lines move to `<file>.quarantine`. The audit path.
+   */
+  function compact(file, n, pinned = () => false, keepPinned = Infinity) {
     const text = fs.readFileSync(file, 'utf8');
     const { rows } = parseJsonl(text);
     const bad = rows.filter((r) => !r.rec);
@@ -159,14 +236,21 @@ function createStore({ root = null, retention = {}, maxScan = DEFAULTS.maxScan, 
     }
     const pinnedRows = good.filter((r) => pinned(r.rec));
     const rest = good.filter((r) => !pinned(r.rec));
-    const kept = new Set([...pinnedRows, ...rest.slice(Math.max(0, rest.length - n))]);
-    const out = good.filter((r) => kept.has(r)).map((r) => r.raw).join('\n');
+    const pinnedKept = pinnedRows.slice(Math.max(0, pinnedRows.length - keepPinned));
+    const archived = pinnedRows.slice(0, pinnedRows.length - pinnedKept.length);
+    if (archived.length) {
+      fs.appendFileSync(file.replace(/\.jsonl$/, '.archive.jsonl'), archived.map((r) => r.raw).join('\n') + '\n', { mode: 0o600 });
+    }
+    const kept = new Set([...pinnedKept, ...rest.slice(Math.max(0, rest.length - n))]);
+    const keptRows = good.filter((r) => kept.has(r));
+    const out = keptRows.map((r) => r.raw).join('\n');
     const tmp = `${file}.${process.pid}.tmp`;
     fs.writeFileSync(tmp, out ? `${out}\n` : '', { mode: 0o600 });
     fs.renameSync(tmp, file);
+    writeMeta(file, { lines: keptRows.length, pinned: pinnedKept.length });
   }
 
-  function appendLocked(repoPath, name, record, retainN, pinned) {
+  function appendLocked(repoPath, name, record, retainN, pinned, keepPinned = Infinity) {
     const dir = repoDir(repoPath);
     const file = path.join(dir, name);
     withLock(dir, () => {
@@ -183,10 +267,14 @@ function createStore({ root = null, retention = {}, maxScan = DEFAULTS.maxScan, 
           if (b[0] !== 0x0a) prefix = '\n';
         }
       }
+      const meta = readMeta(file, pinned);                 // before the append: counts the history once if missing
       fs.appendFileSync(file, `${prefix}${JSON.stringify(record)}\n`, 'utf8');
-      // retention: compact once the file exceeds its retention by 10 %
-      const lines = (fs.readFileSync(file, 'utf8').match(/\n/g) || []).length;
-      if (lines > Math.ceil(retainN * 1.1)) compact(file, retainN, pinned);
+      meta.lines++;
+      if (pinned(record)) meta.pinned++;
+      // retention: compact once unpinned records exceed their retention by 10 %, or pinned
+      // records exceed theirs — decided from the counts, without rescanning the history
+      if (meta.lines - meta.pinned > Math.ceil(retainN * 1.1) || meta.pinned > Math.ceil(keepPinned * 1.1)) compact(file, retainN, pinned, keepPinned);
+      else writeMeta(file, meta);
     }, lock);
   }
 
@@ -194,7 +282,7 @@ function createStore({ root = null, retention = {}, maxScan = DEFAULTS.maxScan, 
 
   return {
     appendOutcome: (repoPath, record) => appendLocked(repoPath, 'outcomes.jsonl', record, keep.outcomes, () => false),
-    appendRepair:  (repoPath, record) => appendLocked(repoPath, 'repairs.jsonl', record, keep.repairs, proven),
+    appendRepair:  (repoPath, record) => appendLocked(repoPath, 'repairs.jsonl', record, keep.repairs, proven, keep.pinned),
     readOutcomes:  (repoPath) => (readable(repoPath) ? readRecords(fileOf(repoPath, 'outcomes.jsonl')).records : []),
     readRepairs:   (repoPath) => (readable(repoPath) ? readRecords(fileOf(repoPath, 'repairs.jsonl')).records : []),
     repoIdentity,
@@ -235,7 +323,7 @@ function createStore({ root = null, retention = {}, maxScan = DEFAULTS.maxScan, 
     /** Corruption and quarantine report for a repository's store. */
     health(repoPath) {
       const dir = repoDir(repoPath);
-      const corruptOf = (name) => readRecords(path.join(dir, name)).corrupt;
+      const corruptOf = (name) => auditRecords(path.join(dir, name)).corrupt;   // the full audit path
       const qCount = (name) => { const q = path.join(dir, `${name}.quarantine`); return fs.existsSync(q) ? (fs.readFileSync(q, 'utf8').match(/\n/g) || []).length : 0; };
       let statsCorrupt = [];
       const p = path.join(dir, 'file_stats.json');
@@ -257,8 +345,8 @@ function createStore({ root = null, retention = {}, maxScan = DEFAULTS.maxScan, 
       const dir = repoDir(repoPath);
       withLock(dir, () => {
         ensureIdentity(repoPath);
-        for (const [name, n, pin] of [['outcomes.jsonl', keep.outcomes, () => false], ['repairs.jsonl', keep.repairs, proven]]) {
-          if (fs.existsSync(path.join(dir, name))) compact(path.join(dir, name), n, pin);
+        for (const [name, n, pin, kp] of [['outcomes.jsonl', keep.outcomes, () => false, Infinity], ['repairs.jsonl', keep.repairs, proven, keep.pinned]]) {
+          if (fs.existsSync(path.join(dir, name))) compact(path.join(dir, name), n, pin, kp);
         }
       }, lock);
     },
