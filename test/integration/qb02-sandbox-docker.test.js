@@ -35,9 +35,10 @@ describe('sandbox docker foundation', { skip: !ENABLED && 'set QB_INTEGRATION=1 
       // killed. It used to fill a tmpfs, whose pages stay charged to the container after
       // the kill — the main shell could then be OOM-killed too (flaked in CI at c8a50cd, cac8e54).
       'sh', '-c', '(echo 1000 > /proc/self/oom_score_adj; exec dd if=/dev/zero of=/dev/null bs=64M count=1 2>/dev/null); echo "child exit $?"; exit 0']);
-    assert.equal(r.exit_code, 0, 'main process exited 0');
-    assert.equal(r.oom_killed, true);
-    assert.equal(r.state, 'oom');
+    const seen = JSON.stringify({ state: r.state, reason: r.reason, exit_code: r.exit_code, oom_killed: r.oom_killed, stdout: r.stdout, stderr: r.stderr });
+    assert.equal(r.exit_code, 0, `main process exited 0 — ${seen}`);
+    assert.equal(r.oom_killed, true, `OOMKilled reported — ${seen}`);
+    assert.equal(r.state, 'oom', seen);
   });
 
   test('a log flood neither blocks nor loses the exit state', async () => {
