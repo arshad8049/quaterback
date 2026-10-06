@@ -54,6 +54,25 @@ Pre-fix (`03ab9b0`): `test/unit/qb24-identity.test.js` has **12 of 12 failing**.
   - failed-run file hints are tiered and labelled after passing-run ones.
 - **Through `qb.js`:** the QB-23 end-to-end test now also asserts that the stored repair carries the run's base revision and its criterion text.
 
+## Re-review 1
+### Intent is per clause, bound to its target
+- **The bug:** a request-wide polarity parity let independent reversals cancel out. `"Enable caching and allow uploads"` vs `"Disable caching and block uploads"` had equal parity and scored as the same intent; a proven repair for one was reused, proven, for the other.
+- **The fix, step by step:**
+  1. A request is split into **clauses** (and / but / then / also / except / commas …).
+  2. Each clause keeps its own **polarity**, flipped once per negator or antonym *inside that clause*.
+  3. Each clause also keeps its **target** words: content words, with action verbs excluded.
+  4. Clauses are matched to each other by target.
+- **Relations:**
+  - `conflicting`: some clause pair about the same target has opposite polarity, e.g. "enable caching, disable uploads" vs "disable caching, enable uploads".
+  - `ambiguous`: a negative clause, an exclusion, has no counterpart, e.g. "enable caching **but not for guests**".
+  - `same`, `partial` (extra positive clauses only) or `unrelated`.
+- **Only `same` and `partial` are actionable.** Repairs are excluded as `conflicting_intent` or `ambiguous_intent`, and the briefing never receives them. An end-to-end `qb.js` test checks the agent's actual briefing.
+- Inflected antonyms are covered too (blocked, denied, removed, disabled …). This is still lexical, not semantic proof.
+
+### Churn is revision-aware
+- **The bug:** a file rejected as `stale_revision` came back through the "high-churn" fallback, which used the revision-blind `file_stats.json`.
+- **The fix:** churn is now **recomputed from outcome records on compatible (or unrecorded) revisions only**, so a stale-only file can't re-enter. Tested through `remember()`.
+
 ## Limitations
 - Intent is **lexical**. Polarity is global (one negator flips the whole request), and the antonym list is fixed. Sentences with mixed polarity ("enable X but not for guests") are treated as negated overall, which errs toward *not* reusing.
 - Records written before QB-24 have no criterion text, so their repairs are `intent_unknown` and never reused automatically. They still count in `stats()`.

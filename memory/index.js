@@ -158,7 +158,6 @@ const TIERS = ['resolved_run', 'failed_run', 'opposite_intent', 'churn'];
 function recallFilesDetailed(repoPath, goal) {
   const query     = intentOf(goal || '');
   const outcomes  = store.readOutcomes(repoPath);
-  const fileStats = store.readFileStats(repoPath);
   const rev       = revisionChecker(repoPath);
   const rejected  = new Map();
   const ok = (file) => {
@@ -181,22 +180,29 @@ function recallFilesDetailed(repoPath, goal) {
     if (cmp.score < RECALL_THRESHOLD) continue;
     const r = rev(outcome.base_sha);
     if (r === 'stale') { for (const f of outcome.changed_files) if (!rejected.has(f)) rejected.set(f, 'stale_revision'); continue; }
-    const tier = cmp.conflicting ? 'opposite_intent' : outcome.verdict === 'pass' ? 'resolved_run' : 'failed_run';
+    const tier = !cmp.actionable ? 'opposite_intent' : outcome.verdict === 'pass' ? 'resolved_run' : 'failed_run';
     const label = tier === 'resolved_run' ? 'changed in a passing run for a similar task'
       : tier === 'failed_run' ? `changed in a failed run (${outcome.verdict}) for a similar task — not proven relevant`
-        : 'changed for an OPPOSITE-intent task — lexical hint only';
+        : `changed for an ${cmp.conflicting ? 'OPPOSITE' : 'AMBIGUOUS'}-intent task — lexical hint only`;
     for (const file of outcome.changed_files) {
       if (!ok(file)) continue;
       put(file, tier, cmp.score, `${label} (sim=${cmp.score.toFixed(2)}${r === 'unknown' ? ', revision unknown' : ''})`);
     }
   }
 
-  // Signal 2: frequently changed files (high churn awareness), any verdict
-  for (const [file, stat] of Object.entries(fileStats)) {
+  // Signal 2: frequently changed files (high churn awareness), any verdict — recomputed
+  // from records on COMPATIBLE (or unrecorded) revisions only, so a stale-revision record
+  // can never re-enter through the fallback (QB-24 re-review). file_stats.json is not used.
+  const churn = new Map();
+  for (const outcome of outcomes) {
+    if (!outcome.changed_files?.length || rev(outcome.base_sha) === 'stale') continue;
+    for (const f of outcome.changed_files) churn.set(f, (churn.get(f) || 0) + 1);
+  }
+  for (const [file, hits] of churn) {
     if (!ok(file)) continue;
     if (!fileScores[file]) fileScores[file] = { tier: 'churn', similarity: 0, hits: 0, reason: null };
-    fileScores[file].hits = stat.hits;
-    if (fileScores[file].tier === 'churn') fileScores[file].reason = `high-churn file (${stat.hits} past change(s), any verdict)`;
+    fileScores[file].hits = hits;
+    if (fileScores[file].tier === 'churn') fileScores[file].reason = `high-churn file (${hits} past change(s) in runs on compatible or unrecorded revisions, any verdict)`;
   }
 
   const hints = Object.entries(fileScores)
@@ -287,7 +293,9 @@ function recallRepairsDetailed(repoPath, criteria = []) {
       if (sim < RECALL_THRESHOLD) continue;
       const exclude = (reason) => excluded.push({ criterion_id: ac.id, record_id: rec.id, status, reason, score: sim });
       if (typeof rec.criterion_text !== 'string' || !rec.criterion_text.trim()) { exclude('intent_unknown'); continue; }
-      if (compareIntent(query, intentOf(rec.criterion_text)).conflicting) { exclude('conflicting_intent'); continue; }
+      const cmp = compareIntent(query, intentOf(rec.criterion_text));
+      if (cmp.conflicting) { exclude('conflicting_intent'); continue; }
+      if (!cmp.actionable) { exclude('ambiguous_intent'); continue; }   // compound ambiguity is never actionable (QB-24 re-review)
       const revision = rev(rec.base_sha);
       if (revision === 'stale') { exclude('stale_revision'); continue; }
       const proven = status === 'resolved';
@@ -326,7 +334,7 @@ function recallPrior(repoPath, goal) {
 
   // QB-24: negation is preserved — an opposite-intent past run is labelled and never scores 1
   return outcomes
-    .map(o => { const c = compareIntent(query, intentOf(o.goal)); return { ...o, score: c.score, intent: c.conflicting ? 'conflicting' : 'same' }; })
+    .map(o => { const c = compareIntent(query, intentOf(o.goal)); return { ...o, score: c.score, intent: c.conflicting ? 'conflicting' : c.relation === 'ambiguous' ? 'ambiguous' : 'same' }; })
     .filter(o => o.score >= RECALL_THRESHOLD)
     .sort((a, b) => b.score - a.score)
     .slice(0, MAX_RECALL);

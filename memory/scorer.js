@@ -62,37 +62,50 @@ function scoreRepair(queryKws, record) {
 
 // ── QB-24: task intent — negation and antonyms are preserved, never stop words ──
 //
-// A request's intent is its content keywords (antonyms mapped to one canonical word)
-// plus a POLARITY: +1, flipped once per negator ("not", "no", "never", "without", "n't")
-// and once per antonym ("disable" = not "enable"). Lexical overlap is a HINT only:
-// two requests with overlapping keywords and opposite polarity are `conflicting`, and
-// their score is halved — never 1.
+// Re-review 1: polarity is tracked PER CLAUSE, bound to the clause's target words — a
+// request-wide parity let independent reversals cancel out ("enable caching and allow
+// uploads" vs "disable caching and block uploads" had equal parity). A request is split
+// into clauses (and / but / then / also / except / commas …); each clause has its target
+// keywords (content words, action verbs excluded) and its own polarity (flipped once per
+// negator and once per antonym inside that clause). Two requests compare clause by clause:
+//   conflicting  some clause pair about the same target has opposite polarity
+//   ambiguous    a negative clause (an exclusion / prohibition) has no counterpart on the
+//                other side — compound ambiguity is never actionable
+//   same         every clause on both sides has a same-polarity counterpart
+//   partial      the rest agree, plus extra positive clauses on one side
+//   unrelated    no shared content
+// Only `same` and `partial` are actionable. Lexical overlap is a hint, never semantic proof.
 
 const NEGATORS = new Set(['not', 'no', 'never', 'without', 'nor', 'cannot', 'neither', 'nothing', 'none']);
 const ANTONYMS = {
   disable: 'enable', disabled: 'enable', disables: 'enable', disabling: 'enable',
-  deny: 'allow', denies: 'allow', block: 'allow', blocks: 'allow', forbid: 'allow', disallow: 'allow',
+  deny: 'allow', denies: 'allow', denied: 'allow', block: 'allow', blocks: 'allow', blocked: 'allow', blocking: 'allow',
+  forbid: 'allow', forbids: 'allow', forbidden: 'allow', disallow: 'allow', disallowed: 'allow',
   hide: 'show', hides: 'show', hidden: 'show',
-  stop: 'start', stops: 'start', exclude: 'include', excludes: 'include',
-  remove: 'add', removes: 'add', delete: 'create', deletes: 'create',
-  deactivate: 'activate', uninstall: 'install', unset: 'set', off: 'on',
-  decrease: 'increase', decreases: 'increase', reduce: 'increase', lower: 'raise',
-  reject: 'accept', rejects: 'accept', unlock: 'lock', close: 'open', closes: 'open',
+  stop: 'start', stops: 'start', stopped: 'start', exclude: 'include', excludes: 'include', excluded: 'include',
+  remove: 'add', removes: 'add', removed: 'add', delete: 'create', deletes: 'create', deleted: 'create',
+  deactivate: 'activate', deactivated: 'activate', uninstall: 'install', uninstalled: 'install', unset: 'set', off: 'on',
+  decrease: 'increase', decreases: 'increase', decreased: 'increase', reduce: 'increase', reduced: 'increase',
+  lower: 'raise', lowered: 'raise',
+  reject: 'accept', rejects: 'accept', rejected: 'accept', unlock: 'lock', close: 'open', closes: 'open', closed: 'open',
 };
 const STEM = {
   uploading: 'upload', uploads: 'upload', uploaded: 'upload', runs: 'run', running: 'run',
   deploys: 'deploy', deploying: 'deploy', deployed: 'deploy',
-  enables: 'enable', enabled: 'enable', enabling: 'enable', allows: 'allow', allowed: 'allow',
-  shows: 'show', shown: 'show', starts: 'start', started: 'start', includes: 'include',
-  adds: 'add', creates: 'create', activates: 'activate', increases: 'increase', accepts: 'accept', opens: 'open',
+  enables: 'enable', enabled: 'enable', enabling: 'enable', allows: 'allow', allowed: 'allow', allowing: 'allow',
+  shows: 'show', shown: 'show', starts: 'start', started: 'start', includes: 'include', included: 'include',
+  adds: 'add', added: 'add', creates: 'create', created: 'create', activates: 'activate', activated: 'activate',
+  increases: 'increase', increased: 'increase', accepts: 'accept', accepted: 'accept', opens: 'open', opened: 'open',
+  installs: 'install', installed: 'install', sets: 'set', raises: 'raise', raised: 'raise', locks: 'lock', locked: 'lock',
 };
+// The action verbs themselves (both sides of every antonym pair, canonical forms): a
+// clause is matched to its counterpart by its TARGET, not by the verb.
+const ACTIONS = new Set([...Object.values(ANTONYMS), ...Object.values(ANTONYMS).map((w) => STEM[w] || w)]);
 const CONTRACTION_STEMS = new Set(['don', 'doesn', 'didn', 'won', 'isn', 'aren', 'wasn', 'weren', 'shouldn', 'wouldn', 'couldn', 'can']);
+const CLAUSE_SPLIT = /\b(?:and|but|then|also|plus|while|except|however|although|whereas)\b|[,;:.!?\n]+/;
 
-/** @returns {{ keywords: string[], polarity: 1|-1 }} */
-function intentOf(text) {
-  const words = String(text || '').toLowerCase()
-    .replace(/(\w+)n['’]t\b/g, '$1 not')          // don't / doesn't / won't / can't → … not
-    .split(/[^a-z0-9]+/).filter(Boolean);
+function clauseOf(text) {
+  const words = text.split(/[^a-z0-9]+/).filter(Boolean);
   let polarity = 1;
   const kept = [];
   for (let w of words) {
@@ -101,17 +114,51 @@ function intentOf(text) {
     if (ANTONYMS[w]) { polarity = -polarity; w = ANTONYMS[w]; }
     kept.push(STEM[w] || w);
   }
-  return { keywords: [...new Set(tokenize(kept.join(' ')))], polarity };
+  const keywords = [...new Set(tokenize(kept.join(' ')))];
+  const targets = keywords.filter((k) => !ACTIONS.has(k));
+  return { keywords, targets: targets.length ? targets : keywords, polarity };
 }
 
+/** @returns {{ keywords: string[], polarity: 1|-1, clauses: Array<{keywords, targets, polarity}> }} */
+function intentOf(text) {
+  const norm = String(text || '').toLowerCase().replace(/(\w+)n['’]t\b/g, '$1 not');   // don't → do not
+  const clauses = norm.split(CLAUSE_SPLIT).map((c) => (c || '').trim()).filter(Boolean).map(clauseOf).filter((c) => c.keywords.length);
+  const keywords = [...new Set(clauses.flatMap((c) => c.keywords))];
+  const polarity = clauses.reduce((p, c) => p * c.polarity, 1);   // legacy summary only — decisions use clauses
+  return { keywords, polarity, clauses };
+}
+
+const overlaps = (a, b) => a.targets.some((t) => b.targets.includes(t));
+
 /**
- * Compare two intents. `score` is the lexical overlap, halved when the polarities are
- * opposite; `conflicting` marks opposite instructions about overlapping content.
+ * Compare two intents clause by clause (see above). `score` is the lexical overlap,
+ * halved when conflicting or ambiguous; `actionable` is true only for same / partial.
  */
 function compareIntent(a, b) {
   const lexical = jaccard(a.keywords, b.keywords);
-  const conflicting = lexical > 0 && a.polarity !== b.polarity;
-  return { lexical, score: conflicting ? lexical * 0.5 : lexical, conflicting };
+  const A = a.clauses || [{ keywords: a.keywords, targets: a.keywords, polarity: a.polarity }];
+  const B = b.clauses || [{ keywords: b.keywords, targets: b.keywords, polarity: b.polarity }];
+  let conflicting = false;
+  const matchedB = new Set();
+  const unmatched = [];
+  for (const ca of A) {
+    let matched = false;
+    B.forEach((cb, j) => {
+      if (!overlaps(ca, cb)) return;
+      matched = true;
+      matchedB.add(j);
+      if (ca.polarity !== cb.polarity) conflicting = true;
+    });
+    if (!matched) unmatched.push(ca);
+  }
+  B.forEach((cb, j) => { if (!matchedB.has(j)) unmatched.push(cb); });
+  let relation;
+  if (lexical === 0 && !conflicting) relation = 'unrelated';
+  else if (conflicting) relation = 'conflicting';
+  else if (unmatched.some((c) => c.polarity < 0)) relation = 'ambiguous';
+  else relation = unmatched.length ? 'partial' : 'same';
+  const actionable = relation === 'same' || relation === 'partial';
+  return { lexical, score: actionable ? lexical : lexical * 0.5, conflicting, relation, actionable };
 }
 
 module.exports = { tokenize, jaccard, scoreOutcome, scoreRepair, intentOf, compareIntent };

@@ -195,3 +195,108 @@ describe('file hints, revisions and failed runs', () => {
     } finally { repo.cleanup(); }
   });
 });
+
+describe('QB-24 re-review: intent is per clause; compound ambiguity is never actionable', () => {
+  const rel = (a, b) => compareIntent(intentOf(a), intentOf(b));
+  const { tokenize } = require('../../memory/scorer');
+  const repairFor = (repo, criterion) => provenRepair(repo, criterion, { crit_keywords: tokenize(criterion) });
+
+  test('senior repro: two independent reversals no longer cancel out (pre-fix: score 1, not conflicting)', () => {
+    const c = rel('Enable caching and allow uploads', 'Disable caching and block uploads');
+    assert.equal(c.conflicting, true);
+    assert.equal(c.relation, 'conflicting');
+    assert.ok(c.score < 1);
+  });
+  test('changed action/target association is conflicting: enable A + disable B vs disable A + enable B', () => {
+    assert.equal(rel('Enable caching and disable uploads', 'Disable caching and enable uploads').relation, 'conflicting');
+    assert.equal(rel('enable caching, block uploads', 'enable caching, allow uploads').relation, 'conflicting');
+  });
+  test('a partly negated compound ("… but not for guests") is ambiguous, never "same"', () => {
+    const c = rel('Enable caching', 'Enable caching but not for guests');
+    assert.equal(c.relation, 'ambiguous');
+    assert.equal(c.actionable, false);
+  });
+  test('guards: identical, double-negated and harmlessly extended requests stay actionable', () => {
+    assert.deepEqual([rel('Enable caching and allow uploads', 'Enable caching and allow uploads').relation, rel('enable caching', "don't disable caching").relation], ['same', 'same']);
+    const ext = rel('Add retry to uploads', 'Add retry to uploads and log errors');
+    assert.equal(ext.conflicting, false);
+    assert.equal(ext.actionable, true);
+  });
+  test('real store: a proven repair is never reused across reversed or ambiguous compound criteria (pre-fix: proven:true, usable)', () => {
+    const r = mk('compound');
+    const store = createStore({ root: mk('root') });
+    store.appendRepair(r, repairFor(r, 'enable caching and allow uploads'));
+    const m = createMemory({ store });
+    const q = (criterion) => m.recallRepairsDetailed(r, [{ id: 'AC-1', criterion }]);
+    assert.equal(q('enable caching and allow uploads').usable.length, 1);
+    for (const [criterion, reason] of [
+      ['disable caching and block uploads', 'conflicting_intent'],           // the double reversal (pre-fix: usable, proven)
+      ['enable caching and block uploads', 'conflicting_intent'],
+      ['caching is disabled and uploads are blocked', 'conflicting_intent'], // inflected forms
+      ['enable caching and allow uploads but not for guests', 'ambiguous_intent'],
+    ]) {
+      const d = q(criterion);
+      assert.deepEqual([d.usable.length, d.excluded.map((x) => x.reason)], [0, [reason]], criterion);
+    }
+  });
+  test('qb.js end-to-end: the agent briefing carries a proven fix only for the same intent, never for the reversed one', () => {
+    const { spawnSync, execFileSync } = require('child_process');
+    const ROOT = path.join(__dirname, '..', '..');
+    const tmp = mk('brief');
+    const repo = path.join(tmp, 'repo');
+    fs.mkdirSync(repo);
+    fs.writeFileSync(path.join(repo, 'README.md'), '# demo\n');
+    execFileSync('git', ['init', '-q'], { cwd: repo });
+    execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'add', '-A'], { cwd: repo });
+    execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'init'], { cwd: repo });
+    const memDir = path.join(tmp, 'mem');
+    const store = createStore({ root: memDir });
+    const FIX = 'UNIQUE-FIX-MARKER: set cache.enabled=true and uploads.allow=true';
+    store.appendRepair(repo, { ...repairFor(repo, 'enable caching and allow uploads'), fix: FIX, base_sha: null });
+    const briefingFor = (criterion, tag) => {
+      const file = path.join(tmp, `${tag}.json`);
+      fs.writeFileSync(file, JSON.stringify({ goal: 'Configure caching and uploads', required_behavior: [criterion],
+        acceptance_criteria: [{ id: 'AC-1', criterion, kind: 'non_behavioral', requirement_ids: ['R-1'] }],
+        verification_plan: ['read config'], requirements: [{ id: 'R-1', quote: 'Configure caching and uploads' }], scope: { allowed_changes: ['**'] } }));
+      const script = path.join(tmp, `${tag}-agent.json`);
+      fs.writeFileSync(script, JSON.stringify({ steps: [{ write: 'config.txt', content: 'x\n' }] }));
+      const log = path.join(tmp, `${tag}-briefing.log`);
+      const env = { ...process.env, QB_FAKE_AGENT_SCRIPT: script, QB_FAKE_AGENT_BRIEFING_LOG: log, QB_RUNS_DIR: path.join(tmp, 'runs'),
+        QB_MEMORY_DIR: memDir, QB_JUDGE_CACHE_DIR: path.join(tmp, 'jc'), QB_TEST_OLLAMA_REPLY: JSON.stringify({ met: true, evidence: 'ok' }) };
+      delete env.NODE_TEST_CONTEXT;
+      spawnSync(process.execPath, ['--require', path.join(ROOT, 'test', 'helpers', 'preload-ollama.js'), '--require', path.join(ROOT, 'test', 'helpers', 'preload-fake-sandbox.js'),
+        path.join(ROOT, 'qb.js'), 'Configure caching and uploads', '--repo', repo, '--agent', 'claude-code', '--no-llm-context', '--max-retries', '1', '--contract-file', file],
+      { encoding: 'utf8', timeout: 60_000, env });
+      return fs.existsSync(log) ? fs.readFileSync(log, 'utf8') : '';
+    };
+    const same = briefingFor('enable caching and allow uploads', 'same');
+    assert.ok(same.length > 0, 'the fake agent recorded its briefing');
+    assert.match(same, /UNIQUE-FIX-MARKER/);
+    assert.doesNotMatch(briefingFor('disable caching and block uploads', 'reversed'), /UNIQUE-FIX-MARKER/);   // pre-fix: the double reversal briefed the fix
+  });
+});
+
+describe('QB-24 re-review: a stale-revision record cannot re-enter through the churn fallback', () => {
+  test('senior repro through remember(): app.js from a run on an unknown revision is rejected and NOT a churn hint (pre-fix: both)', async () => {
+    const repo = makeRepo({ 'app.js': 'a\n' });
+    try {
+      const m = createMemory({ root: mk('root') });
+      await m.remember(repo.dir, contract('Enable caching for admins'), report('pass'), exec(['app.js']), { baseSha: '1'.repeat(40) });
+      const d = m.recallFilesDetailed(repo.dir, 'Enable caching for admins');
+      assert.deepEqual(d.rejected.map((x) => [x.file, x.reason]), [['app.js', 'stale_revision']]);
+      assert.deepEqual(d.hints.map((h) => h.file), []);
+      assert.deepEqual(d.hints.filter((h) => h.tier === 'churn'), []);
+    } finally { repo.cleanup(); }
+  });
+  test('guard: churn is recomputed from compatible records only — a compatible run still contributes', async () => {
+    const repo = makeRepo({ 'app.js': 'a\n', 'lib.js': 'l\n' });
+    try {
+      const m = createMemory({ root: mk('root') });
+      await m.remember(repo.dir, contract('Rename the logger'), report('pass'), exec(['lib.js']), { baseSha: repo.head() });
+      await m.remember(repo.dir, contract('Something unrelated entirely'), report('pass'), exec(['app.js']), { baseSha: '1'.repeat(40) });
+      const d = m.recallFilesDetailed(repo.dir, 'Enable caching for admins');
+      assert.deepEqual(d.hints.map((h) => [h.file, h.tier]), [['lib.js', 'churn']]);
+      assert.match(d.hints[0].reason, /compatible/);
+    } finally { repo.cleanup(); }
+  });
+});
