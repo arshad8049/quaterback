@@ -28,10 +28,13 @@ describe('sandbox docker foundation', { skip: !ENABLED && 'set QB_INTEGRATION=1 
 
   test('OOM-killed child under a main process that exits 0 is classified oom', async () => {
     const r = await D.runStage(`${RUN}-oom`, [...HARDEN, ...D.runLabels(RUN, 'workload'),
-      '--memory', '32m', '--memory-swap', '32m', '--tmpfs', '/big:rw,size=128m', IMAGE,
+      '--memory', '32m', '--memory-swap', '32m', IMAGE,
       // The child volunteers as the OOM victim (raising one's own oom_score_adj needs no
       // privilege), so the kernel cannot pick the main shell instead (flaked in CI at 52714f8).
-      'sh', '-c', '(echo 1000 > /proc/self/oom_score_adj; exec dd if=/dev/zero of=/big/f bs=1M count=96 2>/dev/null); echo "child exit $?"; exit 0']);
+      // It exhausts ANONYMOUS memory (one 64 MiB read buffer), which is freed when it is
+      // killed. It used to fill a tmpfs, whose pages stay charged to the container after
+      // the kill — the main shell could then be OOM-killed too (flaked in CI at c8a50cd, cac8e54).
+      'sh', '-c', '(echo 1000 > /proc/self/oom_score_adj; exec dd if=/dev/zero of=/dev/null bs=64M count=1 2>/dev/null); echo "child exit $?"; exit 0']);
     assert.equal(r.exit_code, 0, 'main process exited 0');
     assert.equal(r.oom_killed, true);
     assert.equal(r.state, 'oom');
