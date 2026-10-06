@@ -264,6 +264,12 @@ An agent that changed nothing passes only if the requirement is independently ve
 - only a criterion fixed on a changed patch in a run that ends in an approved PASS counts as a proven repair;
 - unconfirmed, unresolved and abandoned suggestions are kept, labeled, and never recalled as proven fixes.
 
+**A safe memory store** (QB-25, [docs/memory/store.md](docs/memory/store.md)):
+- the store path is injected (`createMemory({ root })`), not captured at import;
+- writes are locked per repository across processes, and stats are replaced atomically;
+- corrupt or truncated records are reported (line, offset) and quarantined, never silently dropped;
+- retention keeps the newest 10,000 outcomes; recall at that size takes ~51 ms.
+
 **Judge evidence with provenance** (QB-11, [docs/verify/evidence.md](docs/verify/evidence.md)):
 - the judge sees whole changed hunks, ranked within a budget (no silent 6,000-character cut);
 - it also sees the definitions of the helpers the change calls, from the tested tree, unchanged code included — resolved through the module's actual export binding, never the first declaration;

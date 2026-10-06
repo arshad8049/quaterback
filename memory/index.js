@@ -13,7 +13,7 @@
  */
 
 const { randomUUID }   = require('crypto');
-const store            = require('./store');
+const { createStore, DEFAULTS } = require('./store');
 const { tokenize, scoreOutcome, scoreRepair } = require('./scorer');
 const { OutcomeRecordSchema, RepairRecordSchema } = require('./schema');
 const { linkRepairs } = require('./repairs');
@@ -21,6 +21,18 @@ const { linkRepairs } = require('./repairs');
 const RECALL_THRESHOLD  = 0.08;  // minimum Jaccard to surface a result
 const MAX_RECALL        = 5;     // cap returned results
 const MAX_FILE_HINTS    = 8;     // cap file hints passed to L2
+
+/** QB-25: the supported history size — recall latency is measured at this many outcomes. */
+const SUPPORTED_HISTORY = DEFAULTS.retention.outcomes;
+
+/**
+ * A memory bound to one store (QB-25). The store path is injected here
+ * (createMemory({ root })) or, for the default memory, resolved from QB_MEMORY_DIR
+ * each time it is used — never captured at import.
+ * @param {object} [opts] { root, retention, maxScan, onWarning, lock } or { store }
+ */
+function createMemory(opts = {}) {
+const store = opts.store || createStore(opts);
 
 // ── Write ──────────────────────────────────────────────────────────────────────
 
@@ -243,7 +255,12 @@ function stats(repoPath) {
     repairs_proven: repairs.filter(r => repairStatus(r) === 'resolved').length,
     files_tracked: Object.keys(fileStats).length,
     memory_dir:    store.repoMemoryPath(repoPath),
+    ...store.health(repoPath),           // QB-25: corrupt records (line, offset, reason) and quarantined lines
   };
 }
 
-module.exports = { remember, recallFiles, recallRepairs, recallPrior, stats, repairStatus };
+  return { remember, recallFiles, recallRepairs, recallPrior, stats, repairStatus };
+}
+
+const defaultMemory = createMemory();
+module.exports = { ...defaultMemory, createMemory, SUPPORTED_HISTORY };

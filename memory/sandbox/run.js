@@ -11,10 +11,32 @@
 const path    = require('path');
 const os      = require('os');
 const fs      = require('fs');
-const { remember, recallFiles, recallRepairs, recallPrior, stats } = require('..');
+const { createMemory } = require('..');
+const { attemptEntry } = require('../repairs');
 
-// Use a temp dir so sandbox never pollutes real memory
-process.env.QB_MEMORY_DIR = path.join(os.tmpdir(), 'qb-memory-sandbox');
+// QB-25: the store path is injected at construction — a fresh temporary directory —
+// so the demo never touches real memory (setting QB_MEMORY_DIR after require() did not
+// work: the store had already captured the default path at import).
+const MEMORY_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'qb-memory-sandbox-'));
+const { remember, recallFiles, recallRepairs, recallPrior, stats } = createMemory({ root: MEMORY_DIR });
+
+/**
+ * QB-23: an attempt history for a demo run. A run with repair hints that ended in a
+ * pass is modelled as attempt 1 (hinted criteria not met) → attempt 2 on a changed
+ * patch (all met, approved PASS), so its hints are stored as proven repairs.
+ */
+function historyFor(run) {
+  const acs = run.contract.acceptance_criteria || [];
+  const hinted = new Set((run.report.repair_hints || []).map(h => h.criterion_id));
+  const crit = (met) => acs.map(a => ({ id: a.id, met: met(a), method: 'llm-vote-3' }));
+  if (!hinted.size) {
+    return [attemptEntry(1, { verdict: run.report.verdict, oracle: { approved: true }, criteria_results: crit(() => run.report.verdict === 'pass') }, 'a'.repeat(64))];
+  }
+  return [
+    attemptEntry(1, { verdict: 'fail', oracle: { approved: true }, criteria_results: crit(a => !hinted.has(a.id)), repair_hints: run.report.repair_hints }, 'a'.repeat(64)),
+    attemptEntry(2, { verdict: run.report.verdict, oracle: { approved: true }, criteria_results: crit(() => run.report.verdict === 'pass') }, 'b'.repeat(64)),
+  ];
+}
 
 const REPO = '/sandbox/fake-app';
 const DIVIDER = '─'.repeat(68);
@@ -114,13 +136,13 @@ const pastRuns = [
 async function main() {
   console.log(`\n${'═'.repeat(68)}`);
   console.log(`  QUARTERBACK — Layer 5 Memory Sandbox`);
-  console.log(`  Memory dir: ${process.env.QB_MEMORY_DIR}`);
+  console.log(`  Memory dir: ${MEMORY_DIR}`);
   console.log(`${'═'.repeat(68)}\n`);
 
   // ── 1. Write past runs ─────────────────────────────────────────────────────
   console.log('  Writing 4 past runs...\n');
   for (const run of pastRuns) {
-    await remember(REPO, run.contract, run.report, run.execution);
+    await remember(REPO, run.contract, run.report, run.execution, { history: historyFor(run), runId: `demo-${run.contract.id}` });
     const icon = run.report.verdict === 'pass' ? '✓' : '✗';
     console.log(`  ${icon} [${run.contract.id}] ${run.contract.goal.slice(0, 55)}`);
   }
@@ -196,16 +218,13 @@ async function main() {
   console.log(`  Total runs:    ${s.total_runs}`);
   console.log(`  Passes:        ${s.passes}`);
   console.log(`  Fails:         ${s.fails}`);
-  console.log(`  Repairs saved: ${s.repairs_saved}`);
+  console.log(`  Repairs saved: ${s.repairs_saved} (${s.repairs_proven} proven)`);
   console.log(`  Files tracked: ${s.files_tracked}`);
   console.log(`  Memory dir:    ${s.memory_dir}`);
   console.log(`\n${'═'.repeat(68)}\n`);
 
-  // Cleanup sandbox temp dir
-  fs.rmSync(process.env.QB_MEMORY_DIR, { recursive: true, force: true });
 }
 
-main().catch(e => {
-  console.error('  FATAL:', e.message);
-  process.exit(1);
-});
+main()
+  .catch(e => { console.error('  FATAL:', e.message); process.exitCode = 1; })
+  .finally(() => fs.rmSync(MEMORY_DIR, { recursive: true, force: true }));   // only its own directory
