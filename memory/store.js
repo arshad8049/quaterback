@@ -28,6 +28,7 @@
  *   - reads parse a bounded window (the newest maxScan records).
  */
 
+const crypto = require('crypto');
 const fs   = require('fs');
 const path = require('path');
 const os   = require('os');
@@ -39,6 +40,17 @@ const DEFAULTS = Object.freeze({
 });
 
 const defaultRoot = () => process.env.QB_MEMORY_DIR || path.join(os.homedir(), '.quarterback', 'memory');
+
+// QB-24: repository identity = SHA-256 of the realpath (a path that does not exist yet
+// resolves to itself). Same choice as run/store.js repoIdentity(). Moving or re-cloning a
+// repository gives it a new namespace — an explicit fresh start, never a merge.
+const IDENTITY_SCHEMA = 2;
+function repoIdentity(repoPath) {
+  let real;
+  try { real = fs.realpathSync(repoPath); } catch { real = path.resolve(repoPath); }
+  return { real, hash: crypto.createHash('sha256').update(real).digest('hex') };
+}
+const legacySanitize = (p) => String(p).replace(/[^a-zA-Z0-9._-]/g, '_').replace(/^_+/, '');
 
 const warned = new Set();
 const defaultWarn = (msg) => {
@@ -81,11 +93,49 @@ function createStore({ root = null, retention = {}, maxScan = DEFAULTS.maxScan, 
   const keep = { ...DEFAULTS.retention, ...retention };
   const rootDir = () => root || defaultRoot();
 
+  // QB-24: the namespace is a collision-resistant repository identity — the SHA-256 of the
+  // repository's realpath — prefixed with the schema version (r2-<hash>). The old
+  // path-sanitized names ("/x/a/b" and "/x/a_b" both became "x_a_b") are never read.
   function repoDir(repoPath) {
-    const sanitized = repoPath.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/^_+/, '');
-    return path.join(rootDir(), sanitized);
+    return path.join(rootDir(), `r${IDENTITY_SCHEMA}-${repoIdentity(repoPath).hash}`);
   }
   const fileOf = (repoPath, name) => path.join(repoDir(repoPath), name);
+
+  /** identity.json of the namespace: new (absent), ok, or mismatch (another repository's). */
+  function identityOf(repoPath) {
+    const dir = repoDir(repoPath);
+    const file = path.join(dir, 'identity.json');
+    const expected = repoIdentity(repoPath).real;
+    if (!fs.existsSync(file)) return { status: 'new', file, expected };
+    let found = null;
+    try { found = JSON.parse(fs.readFileSync(file, 'utf8')).repo_realpath; } catch { /* unreadable */ }
+    return found === expected ? { status: 'ok', file, expected } : { status: 'mismatch', file, expected, found };
+  }
+  /** Before any write (under the lock): record the identity, or refuse another repository's namespace. */
+  function ensureIdentity(repoPath) {
+    const id = identityOf(repoPath);
+    if (id.status === 'mismatch') throw new Error(`memory namespace ${path.dirname(id.file)} belongs to ${id.found}, not ${id.expected}; refusing to mix repositories`);
+    if (id.status === 'new') {
+      fs.writeFileSync(id.file, JSON.stringify({ schema: IDENTITY_SCHEMA, repo_realpath: id.expected, created: new Date().toISOString() }) + '\n', { mode: 0o600 });
+    }
+  }
+  /** Reads use a namespace only when its identity matches (or it has none yet). */
+  function readable(repoPath) {
+    const id = identityOf(repoPath);
+    if (id.status === 'mismatch') { onWarning(`${path.dirname(id.file)}: identity names ${id.found}, not ${id.expected} — not used`); return false; }
+    return true;
+  }
+  /** A pre-QB-24 path-sanitized namespace for this repository, if one exists (ignored, reported). */
+  function legacyNamespace(repoPath) {
+    const { real } = repoIdentity(repoPath);
+    for (const p of [...new Set([repoPath, real])]) {
+      const dir = path.join(rootDir(), legacySanitize(p));
+      if (dir !== repoDir(repoPath) && fs.existsSync(dir)) {
+        return { status: 'ignored', dir, reason: 'pre-QB-24 path-sanitized namespace: different repositories could share it, so it is never read or merged' };
+      }
+    }
+    return null;
+  }
 
   const report = (file, corrupt) => {
     if (corrupt.length) onWarning(`${file}: ${corrupt.length} corrupt record(s) at line(s) ${corrupt.map((c) => c.line).join(', ')} — kept out of recall, not deleted`);
@@ -120,6 +170,7 @@ function createStore({ root = null, retention = {}, maxScan = DEFAULTS.maxScan, 
     const dir = repoDir(repoPath);
     const file = path.join(dir, name);
     withLock(dir, () => {
+      ensureIdentity(repoPath);
       // never glue a record onto a truncated tail: complete the last line first
       let prefix = '';
       if (fs.existsSync(file)) {
@@ -144,14 +195,16 @@ function createStore({ root = null, retention = {}, maxScan = DEFAULTS.maxScan, 
   return {
     appendOutcome: (repoPath, record) => appendLocked(repoPath, 'outcomes.jsonl', record, keep.outcomes, () => false),
     appendRepair:  (repoPath, record) => appendLocked(repoPath, 'repairs.jsonl', record, keep.repairs, proven),
-    readOutcomes:  (repoPath) => readRecords(fileOf(repoPath, 'outcomes.jsonl')).records,
-    readRepairs:   (repoPath) => readRecords(fileOf(repoPath, 'repairs.jsonl')).records,
+    readOutcomes:  (repoPath) => (readable(repoPath) ? readRecords(fileOf(repoPath, 'outcomes.jsonl')).records : []),
+    readRepairs:   (repoPath) => (readable(repoPath) ? readRecords(fileOf(repoPath, 'repairs.jsonl')).records : []),
+    repoIdentity,
 
     /** Atomically merge changed files into file_stats.json, under the repository lock. */
     updateFileStats(repoPath, changedFiles, keywords) {
       const dir = repoDir(repoPath);
       const p = path.join(dir, 'file_stats.json');
       withLock(dir, () => {
+        ensureIdentity(repoPath);
         let stats = {};
         if (fs.existsSync(p)) {
           const text = fs.readFileSync(p, 'utf8');
@@ -175,7 +228,7 @@ function createStore({ root = null, retention = {}, maxScan = DEFAULTS.maxScan, 
 
     readFileStats(repoPath) {
       const p = fileOf(repoPath, 'file_stats.json');
-      if (!fs.existsSync(p)) return {};
+      if (!readable(repoPath) || !fs.existsSync(p)) return {};
       try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { onWarning(`${p}: corrupt — not used for recall`); return {}; }
     },
 
@@ -188,9 +241,14 @@ function createStore({ root = null, retention = {}, maxScan = DEFAULTS.maxScan, 
       const p = path.join(dir, 'file_stats.json');
       if (fs.existsSync(p)) { try { JSON.parse(fs.readFileSync(p, 'utf8')); } catch { statsCorrupt = [{ file: 'file_stats.json', reason: 'unparsable' }]; } }
       const aside = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.startsWith('file_stats.json.corrupt-')).map((f) => ({ file: f, reason: 'moved_aside' })) : [];
+      const id = identityOf(repoPath);
+      const legacy = legacyNamespace(repoPath);
+      if (legacy) onWarning(`${legacy.dir}: ${legacy.reason}`);
       return {
         corrupt: { outcomes: corruptOf('outcomes.jsonl'), repairs: corruptOf('repairs.jsonl'), file_stats: [...statsCorrupt, ...aside] },
         quarantined: { outcomes: qCount('outcomes.jsonl'), repairs: qCount('repairs.jsonl') },
+        identity: { schema: IDENTITY_SCHEMA, status: id.status, repo_realpath: id.expected, ...(id.found !== undefined ? { found: id.found } : {}) },   // QB-24
+        ...(legacy ? { legacy_namespace: legacy } : {}),
       };
     },
 
@@ -198,6 +256,7 @@ function createStore({ root = null, retention = {}, maxScan = DEFAULTS.maxScan, 
     compact: (repoPath) => {
       const dir = repoDir(repoPath);
       withLock(dir, () => {
+        ensureIdentity(repoPath);
         for (const [name, n, pin] of [['outcomes.jsonl', keep.outcomes, () => false], ['repairs.jsonl', keep.repairs, proven]]) {
           if (fs.existsSync(path.join(dir, name))) compact(path.join(dir, name), n, pin);
         }
@@ -209,4 +268,4 @@ function createStore({ root = null, retention = {}, maxScan = DEFAULTS.maxScan, 
 // The default store: its root is resolved from QB_MEMORY_DIR each time it is used.
 const defaultStore = createStore();
 
-module.exports = { createStore, parseJsonl, DEFAULTS, ...defaultStore };
+module.exports = { createStore, parseJsonl, DEFAULTS, IDENTITY_SCHEMA, ...defaultStore };

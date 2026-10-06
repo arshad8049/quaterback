@@ -270,6 +270,11 @@ An agent that changed nothing passes only if the requirement is independently ve
 - corrupt or truncated records are reported (line, offset) and quarantined, never silently dropped;
 - retention keeps the newest 10,000 outcomes; recall at that size takes ~51 ms.
 
+**Memory never mixes repositories or opposite instructions** (QB-24, [docs/memory/identity.md](docs/memory/identity.md)):
+- each repository's memory lives under a collision-resistant identity (`r2-<sha256 of its realpath>`); old path-sanitized namespaces are ignored and reported, never merged;
+- negation is preserved: "do not enable caching" is never similarity 1 with "enable caching", and an opposite-intent repair is never reused automatically;
+- file hints must be plain paths that exist in the current checkout; a record from an incompatible revision is stale; hints from failed runs are ranked and labelled apart from passing ones.
+
 **Judge evidence with provenance** (QB-11, [docs/verify/evidence.md](docs/verify/evidence.md)):
 - the judge sees whole changed hunks, ranked within a budget (no silent 6,000-character cut);
 - it also sees the definitions of the helpers the change calls, from the tested tree, unchanged code included — resolved through the module's actual export binding, never the first declaration;

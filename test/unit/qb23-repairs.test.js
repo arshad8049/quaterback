@@ -213,5 +213,7 @@ describe('through qb.js: the real run loop links the repair to the patch that fo
     assert.equal(rec.patch_before_sha256, run.manifest.attempts[0].patch_sha256);
     assert.equal(rec.patch_after_sha256, run.manifest.attempts[1].patch_sha256);
     assert.equal(rec.run_id, run.manifest.run_id);
+    // QB-24: qb.js records the run's base revision and the criterion as written
+    assert.deepEqual([rec.base_sha, rec.criterion_text], [r.head(), 'README documents the --verbose flag']);
   });
 });

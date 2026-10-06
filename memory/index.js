@@ -14,7 +14,10 @@
 
 const { randomUUID }   = require('crypto');
 const { createStore, DEFAULTS } = require('./store');
-const { tokenize, scoreOutcome, scoreRepair } = require('./scorer');
+const fs   = require('fs');
+const path = require('path');
+const { tokenize, scoreRepair, intentOf, compareIntent } = require('./scorer');
+const { git } = require('../lib/proc');
 const { OutcomeRecordSchema, RepairRecordSchema } = require('./schema');
 const { linkRepairs } = require('./repairs');
 
@@ -47,7 +50,7 @@ const store = opts.store || createStore(opts);
  * @param {object} [run]      - QB-23: { history, runId } — the append-only attempt history
  *                              (memory/repairs.js attemptEntry per verified attempt)
  */
-async function remember(repoPath, contract, report, execution = null, { history = null, runId = null } = {}) {
+async function remember(repoPath, contract, report, execution = null, { history = null, runId = null, baseSha = null } = {}) {
   if (!repoPath || !contract || !report) return;
 
   const keywords     = tokenize(contract.goal || contract.raw_request || '');
@@ -66,6 +69,7 @@ async function remember(repoPath, contract, report, execution = null, { history 
     ac_count:      contract.acceptance_criteria?.length || 0,
     duration_ms:   execution?.duration_ms || 0,
     contract_id:   contract.id,
+    ...(baseSha ? { base_sha: baseSha } : {}),
     ...(runId ? { run_id: runId } : {}),
     ...(history ? { attempt_history: history.map(a => ({ attempt: a.attempt, patch_sha256: a.patch_sha256, evidence_sha256: a.evidence_sha256,
       report_id: a.report_id, verdict: a.verdict, oracle_approved: a.oracle_approved })) } : {}),
@@ -94,6 +98,8 @@ async function remember(repoPath, contract, report, execution = null, { history 
       fix:              link.fix,
       resolved:         link.resolved,
       contract_id:      contract.id,
+      criterion_text:   criterionText(contract, link.criterion_id),
+      ...(baseSha ? { base_sha: baseSha } : {}),
       schema:           2,
       run_id:           runId,
       source:           link.source,
@@ -135,45 +141,108 @@ const RECALLED = new Set(['resolved', 'observed_resolved_unconfirmed', 'legacy_u
  * @returns {Array<{file, score, reason}>}
  */
 function recallFiles(repoPath, goal) {
-  const queryKws  = tokenize(goal || '');
+  return recallFilesDetailed(repoPath, goal).hints;
+}
+
+// QB-24: trust tiers, never mixed — hints from runs that passed come first, then hints from
+// failed runs, then from opposite-intent tasks, then plain churn. Each hint says which.
+const TIERS = ['resolved_run', 'failed_run', 'opposite_intent', 'churn'];
+
+/**
+ * File hints with what was rejected (QB-24). A hint must be a plain repository-relative
+ * path that exists in the current checkout (no absolute path, no "..", no escape through
+ * a symlink); a run whose base revision is incompatible with the checkout contributes
+ * nothing. Lexical overlap with the task is a hint only.
+ * @returns {{ hints: Array<{file, score, reason, tier}>, rejected: Array<{file, reason}> }}
+ */
+function recallFilesDetailed(repoPath, goal) {
+  const query     = intentOf(goal || '');
   const outcomes  = store.readOutcomes(repoPath);
   const fileStats = store.readFileStats(repoPath);
+  const rev       = revisionChecker(repoPath);
+  const rejected  = new Map();
+  const ok = (file) => {
+    const why = hintProblem(repoPath, file);
+    if (why) { if (!rejected.has(file)) rejected.set(file, why); return false; }
+    return true;
+  };
 
   const fileScores = {};
+  const put = (file, tier, similarity, reason) => {
+    const cur = fileScores[file];
+    const better = !cur || TIERS.indexOf(tier) < TIERS.indexOf(cur.tier) || (tier === cur.tier && similarity > cur.similarity);
+    if (better) fileScores[file] = { ...(cur || { hits: 0 }), tier, similarity, reason };
+  };
 
-  // Signal 1: files changed in similar past tasks
+  // Signal 1: files changed in similar past tasks, by the trust of the run that changed them
   for (const outcome of outcomes) {
     if (!outcome.changed_files?.length) continue;
-    const sim = scoreOutcome(queryKws, outcome);
-    if (sim < RECALL_THRESHOLD) continue;
+    const cmp = compareIntent(query, intentOf(outcome.goal));
+    if (cmp.score < RECALL_THRESHOLD) continue;
+    const r = rev(outcome.base_sha);
+    if (r === 'stale') { for (const f of outcome.changed_files) if (!rejected.has(f)) rejected.set(f, 'stale_revision'); continue; }
+    const tier = cmp.conflicting ? 'opposite_intent' : outcome.verdict === 'pass' ? 'resolved_run' : 'failed_run';
+    const label = tier === 'resolved_run' ? 'changed in a passing run for a similar task'
+      : tier === 'failed_run' ? `changed in a failed run (${outcome.verdict}) for a similar task — not proven relevant`
+        : 'changed for an OPPOSITE-intent task — lexical hint only';
     for (const file of outcome.changed_files) {
-      if (!fileScores[file]) fileScores[file] = { similarity: 0, hits: 0, verdict: null };
-      if (sim > fileScores[file].similarity) {
-        fileScores[file].similarity = sim;
-        fileScores[file].verdict    = outcome.verdict;
-      }
+      if (!ok(file)) continue;
+      put(file, tier, cmp.score, `${label} (sim=${cmp.score.toFixed(2)}${r === 'unknown' ? ', revision unknown' : ''})`);
     }
   }
 
-  // Signal 2: frequently changed files (high churn awareness)
+  // Signal 2: frequently changed files (high churn awareness), any verdict
   for (const [file, stat] of Object.entries(fileStats)) {
-    if (!fileScores[file]) fileScores[file] = { similarity: 0, hits: 0, verdict: null };
+    if (!ok(file)) continue;
+    if (!fileScores[file]) fileScores[file] = { tier: 'churn', similarity: 0, hits: 0, reason: null };
     fileScores[file].hits = stat.hits;
+    if (fileScores[file].tier === 'churn') fileScores[file].reason = `high-churn file (${stat.hits} past change(s), any verdict)`;
   }
 
-  // Rank: similarity first, then hits as tiebreaker
-  const ranked = Object.entries(fileScores)
-    .map(([file, s]) => ({
-      file,
-      score:  s.similarity + (s.hits * 0.01),
-      reason: s.similarity > 0
-        ? `changed in ${s.verdict} run for similar task (sim=${s.similarity.toFixed(2)})`
-        : `high-churn file (${s.hits} past change(s))`,
-    }))
-    .sort((a, b) => b.score - a.score)
+  const hints = Object.entries(fileScores)
+    .map(([file, s]) => ({ file, tier: s.tier, score: s.similarity + (s.hits * 0.01), reason: s.reason }))
+    .sort((a, b) => TIERS.indexOf(a.tier) - TIERS.indexOf(b.tier) || b.score - a.score)
     .slice(0, MAX_FILE_HINTS);
+  return { hints, rejected: [...rejected].map(([file, reason]) => ({ file, reason })) };
+}
 
-  return ranked;
+/** Why a remembered file hint cannot be used in this checkout, or null (QB-24). */
+function hintProblem(repoPath, file) {
+  if (typeof file !== 'string' || !file || /[\u0000-\u001f]/.test(file)) return 'invalid';
+  if (path.isAbsolute(file) || /^[a-zA-Z]:[\\/]/.test(file)) return 'absolute';
+  if (file.split(/[\\/]/).some((seg) => seg === '..')) return 'traversal';
+  let root;
+  try { root = fs.realpathSync(repoPath); } catch { return 'missing'; }
+  const abs = path.join(root, file);
+  if (!fs.existsSync(abs)) return 'missing';
+  let real;
+  try { real = fs.realpathSync(abs); } catch { return 'missing'; }
+  if (real !== root && !real.startsWith(root + path.sep)) return 'traversal';   // escapes through a symlink
+  return null;
+}
+
+/**
+ * Revision compatibility (QB-24): a record's base revision must be the checkout's HEAD or
+ * one of its ancestors. Unknown to the repository, or on an unrelated history → stale.
+ * No recorded revision, or no git repository → unknown (allowed, labelled).
+ */
+function revisionChecker(repoPath) {
+  let head;
+  const cache = new Map();
+  return (sha) => {
+    if (!sha) return 'unknown';
+    if (head === undefined) {
+      const r = git(['rev-parse', '--verify', '-q', 'HEAD'], repoPath, { allowFail: true });
+      head = r.status === 0 ? String(r.stdout).trim() : null;
+    }
+    if (!head) return 'unknown';
+    if (sha === head) return 'compatible';
+    if (!cache.has(sha)) {
+      const r = git(['merge-base', '--is-ancestor', sha, head], repoPath, { allowFail: true });
+      cache.set(sha, r.status === 0 ? 'compatible' : 'stale');
+    }
+    return cache.get(sha);
+  };
 }
 
 /**
@@ -186,19 +255,41 @@ function recallFiles(repoPath, goal) {
  *   status: resolved (proven) | observed_resolved_unconfirmed | legacy_unverified
  */
 function recallRepairs(repoPath, criteria = []) {
-  if (!criteria.length) return [];
-  const repairs = store.readRepairs(repoPath);
-  if (!repairs.length) return [];
+  return recallRepairsDetailed(repoPath, criteria).usable;
+}
 
-  const results = [];
+/**
+ * Repairs that may be reused automatically, and why the other relevant ones may not
+ * (QB-24). A repair is reused only when:
+ *   - its outcome is recalled at all (QB-23: resolved, observed, legacy);
+ *   - its criterion's INTENT is known (the criterion text was recorded) and is the same as
+ *     the current criterion's — an opposite instruction ("does not run" vs "runs") is
+ *     `conflicting_intent`, never reused;
+ *   - its base revision is not incompatible with the checkout (`stale_revision`).
+ * @returns {{ usable: Array, excluded: Array<{criterion_id, record_id, status, reason, score}> }}
+ */
+function recallRepairsDetailed(repoPath, criteria = []) {
+  const usable = [];
+  const excluded = [];
+  if (!criteria.length) return { usable, excluded };
+  const repairs = store.readRepairs(repoPath);
+  if (!repairs.length) return { usable, excluded };
+  const rev = revisionChecker(repoPath);
+
   for (const ac of criteria) {
     const queryKws = tokenize(ac.criterion || '');
+    const query = intentOf(ac.criterion || '');
     let best = null;
     for (const rec of repairs) {
       const status = repairStatus(rec);
       if (!RECALLED.has(status)) continue;               // failed / abandoned suggestions are not recalled as fixes
       const sim = scoreRepair(queryKws, rec);
       if (sim < RECALL_THRESHOLD) continue;
+      const exclude = (reason) => excluded.push({ criterion_id: ac.id, record_id: rec.id, status, reason, score: sim });
+      if (typeof rec.criterion_text !== 'string' || !rec.criterion_text.trim()) { exclude('intent_unknown'); continue; }
+      if (compareIntent(query, intentOf(rec.criterion_text)).conflicting) { exclude('conflicting_intent'); continue; }
+      const revision = rev(rec.base_sha);
+      if (revision === 'stale') { exclude('stale_revision'); continue; }
       const proven = status === 'resolved';
       // proven repairs rank above unconfirmed observations and legacy records
       if (!best || (proven && !best.proven) || (proven === best.proven && sim > best.score)) {
@@ -209,14 +300,16 @@ function recallRepairs(repoPath, criteria = []) {
           score:        sim,
           status,
           proven,
+          intent:       'same',
+          revision,
           ...(rec.schema === 2 ? { from_run: rec.run_id ?? null, patch_after_sha256: rec.patch_after_sha256 ?? null } : {}),
         };
       }
     }
-    if (best) results.push(best);
+    if (best) usable.push(best);
   }
 
-  return results.sort((a, b) => b.score - a.score);
+  return { usable: usable.sort((a, b) => b.score - a.score), excluded };
 }
 
 /**
@@ -228,11 +321,12 @@ function recallRepairs(repoPath, criteria = []) {
  * @returns {Array<OutcomeRecord & {score}>}
  */
 function recallPrior(repoPath, goal) {
-  const queryKws = tokenize(goal || '');
+  const query    = intentOf(goal || '');
   const outcomes = store.readOutcomes(repoPath);
 
+  // QB-24: negation is preserved — an opposite-intent past run is labelled and never scores 1
   return outcomes
-    .map(o => ({ ...o, score: scoreOutcome(queryKws, o) }))
+    .map(o => { const c = compareIntent(query, intentOf(o.goal)); return { ...o, score: c.score, intent: c.conflicting ? 'conflicting' : 'same' }; })
     .filter(o => o.score >= RECALL_THRESHOLD)
     .sort((a, b) => b.score - a.score)
     .slice(0, MAX_RECALL);
@@ -259,7 +353,7 @@ function stats(repoPath) {
   };
 }
 
-  return { remember, recallFiles, recallRepairs, recallPrior, stats, repairStatus };
+  return { remember, recallFiles, recallFilesDetailed, recallRepairs, recallRepairsDetailed, recallPrior, stats, repairStatus };
 }
 
 const defaultMemory = createMemory();

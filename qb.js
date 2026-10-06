@@ -395,7 +395,7 @@ async function main() {
 
   // ── Layer 5: Memory — persist this run ────────────────────────────────────
   budgetRun.stage('L5 memory');
-  await memory.remember(repoPath, contract, { ...report, attempts: attempt }, execution, { history: attemptHistory, runId: run.manifest.run_id });
+  await memory.remember(repoPath, contract, { ...report, attempts: attempt }, execution, { history: attemptHistory, runId: run.manifest.run_id, baseSha });
   const memStats = memory.stats(repoPath);
   log('L5', `Memory updated  (${memStats.total_runs} run(s), ${memStats.files_tracked} file(s) tracked)`);
 

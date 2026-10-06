@@ -12,6 +12,7 @@ const OutcomeRecordSchema = z.object({
   ac_count:      z.number().int(),
   duration_ms:   z.number(),
   contract_id:   z.string().optional(),
+  base_sha:      z.string().nullable().optional(),   // QB-24: the revision the run started from
   // QB-23: the append-only attempt history of this run (patch and evidence hashes)
   run_id:          z.string().optional(),
   attempt_history: z.array(z.object({
@@ -31,6 +32,10 @@ const RepairRecordSchema = z.object({
   fix:               z.string(),
   resolved:          z.boolean(),
   contract_id:       z.string().optional(),
+  // QB-24: the criterion as written (its intent, negation included, is recomputed from it)
+  // and the revision the run started from
+  criterion_text:    z.string().optional(),
+  base_sha:          z.string().nullable().optional(),
   // QB-23 (schema 2): the hint linked to the patch that followed it and its re-evaluation.
   // Records without `schema` are legacy: their `resolved` was never established.
   schema:            z.literal(2).optional(),
