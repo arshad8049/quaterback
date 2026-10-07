@@ -19,6 +19,8 @@ const {
 } = require('./extractor');
 const { MAX_INDEX_BYTES } = require('./symbols');
 const { retrieve } = require('./retrieval');
+const { readCoverage } = require('./coverage');
+const { testPlan } = require('./test-plan');
 
 const OLLAMA_URL    = process.env.QB_OLLAMA_URL || 'http://127.0.0.1:11434';
 const MODEL         = process.env.QB_MODEL      || 'deepseek-r1:7b';
@@ -52,16 +54,24 @@ async function buildContext(contract, repoPath, options = {}) {
   const { relevantFiles, symbolMap, symbolsIndex, indexLimits, retrieval } = assembled;
   const topFiles = relevantFiles.map(f => f.path);
 
-  // Test coverage
+  // QB-20: test ASSOCIATIONS (by file name) — never coverage. Real coverage only from a report.
   const allTestFiles     = findAllTestFiles(absRepo);
-  const coveredFiles     = relevantFiles.filter(f => f.test_file).map(f => f.path);
-  const uncoveredFiles   = relevantFiles.filter(f => !f.test_file).map(f => f.path);
+  const byFile           = Object.fromEntries(relevantFiles.filter(f => f.test_file).map(f => [f.path, f.test_file]));
+  const withoutTests     = relevantFiles.filter(f => !f.test_file).map(f => f.path);
   const relevantTestFiles = [
     ...new Set([
       ...relevantFiles.map(f => f.test_file).filter(Boolean),
       ...allTestFiles.filter(t => keywords.some(kw => t.toLowerCase().includes(kw))),
     ])
   ];
+  const testAssociations = {
+    basis: 'file-name conventions only — a matching test file is not coverage; it may not exercise the code at all',
+    test_files: relevantTestFiles,
+    by_file: byFile,
+    without_associated_tests: withoutTests,
+  };
+  const coverage = readCoverage(absRepo, topFiles);
+  const plan = testPlan(absRepo);
 
   // Git context for relevant files
   const gitContext = buildGitContext(absRepo, topFiles);
@@ -78,7 +88,8 @@ async function buildContext(contract, repoPath, options = {}) {
         path: f.path, symbols: f.symbols, imports: f.imports, test_file: f.test_file
       })),
       symbol_map:  symbolMap,
-      test_coverage: { covered_files: coveredFiles, test_files: relevantTestFiles, uncovered_files: uncoveredFiles },
+      test_associations: testAssociations,
+      coverage,
       git_context: gitContext,
     });
 
@@ -124,11 +135,9 @@ async function buildContext(contract, repoPath, options = {}) {
     symbols_index: symbolsIndex,
     index_limits: { max_index_bytes: MAX_INDEX_BYTES, snippet_bytes: MAX_FILE_BYTES, files: indexLimits },
     retrieval,
-    test_coverage: {
-      covered_files:   coveredFiles,
-      test_files:      relevantTestFiles,
-      uncovered_files: uncoveredFiles,
-    },
+    test_associations: testAssociations,
+    coverage,
+    test_plan: plan,
     git_context: gitContext,
     agent_brief: agentBrief,
   };

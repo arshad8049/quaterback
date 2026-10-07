@@ -193,7 +193,7 @@ Grounds the Task Contract in the actual codebase.
 1. **DSA pass** — symbol extraction (ESM + CJS `module.exports = {…}`), import graph 2 levels deep, test file finder, framework/architecture detector from `package.json`/`go.mod`, git activity per relevant file. ~500ms on a 24-file repo.
 2. **LLM pass** (optional, `--no-llm` skips) — ranks files and writes an agent brief.
 
-**ContextPackage output:** relevant files with symbols and import graph, symbol map (`createLLM → src/llm.js:96`), test coverage, git activity, agent brief.
+**ContextPackage output:** relevant files with symbols and import graph, symbol map (`createLLM → src/llm.js:96`), test associations (by file name — not coverage), real coverage data only when the repo has a report, git activity, agent brief.
 
 ```bash
 cd context && npm install
@@ -313,6 +313,11 @@ An agent that changed nothing passes only if the requirement is independently ve
 - imports and callers are followed to a bounded depth, with each file's reason recorded;
 - the file and byte budget and every omission are explicit in the package;
 - after each attempt the context is refreshed with the patch's new and changed files.
+
+**Test associations, not coverage** (QB-20, [docs/context/test-associations.md](docs/context/test-associations.md)):
+- a test file matched by name is reported as `test_associations` — never as coverage; real coverage appears only from a report the repo already has (`coverage/lcov.info`, `coverage/coverage-final.json`);
+- naming conventions for JS/TS, Python, Go and Java (`*.test.*`, `test_*.py`, `*_test.go`, `*Test.java`, `test/` and `src/test/java` mirrors);
+- only node:test verifies: an explicit `.quarterback.json` test command or the `npm test` script; any other runner, configured or detected, is refused (`unsupported runner: X`) and can never PASS.
 
 **Run records** (`run/store.js`, QB-38). Every run keeps a versioned, append-only record: base commit, agent version, contract, patch, test outcome, checks and report. `qb replay <run_id>` recomputes each verdict and the final outcome from the stored evidence.
 

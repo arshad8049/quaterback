@@ -86,7 +86,12 @@ function buildBriefing(contract, context, options = {}) {
       lines.push(`## Codebase patterns`);
       if (p.language)     lines.push(`- Language: **${p.language}**`);
       if (p.framework)    lines.push(`- Framework: **${p.framework}**`);
-      if (p.test_runner)  lines.push(`- Test runner: **${p.test_runner}**`);
+      if (p.test_runner) {
+        // QB-20: an unvalidated runner is reported, but never used to verify the change.
+        const tp = context.test_plan;
+        const unsupported = tp && tp.reason === 'unsupported_runner' && tp.runner === p.test_runner;
+        lines.push(`- Test runner: **${p.test_runner}**${unsupported ? ' — not used for verification (QB cannot execute and parse its results yet)' : ''}`);
+      }
       if (p.architecture) lines.push(`- Architecture: **${p.architecture}**`);
       lines.push('');
     }
@@ -101,7 +106,7 @@ function buildBriefing(contract, context, options = {}) {
         // QB-18: a changed file whose current content could not be read is never briefed from stale facts.
         if (f.stale) lines.push(`⚠ \`${f.path}\` changed in attempt ${f.stale.attempt ?? '?'}; its current content could not be read — do not rely on earlier context for it.`);
         lines.push(`${f.reason}`);
-        if (f.test_file) lines.push(`Test file: \`${f.test_file}\``);
+        if (f.test_file) lines.push(`Associated test (by file name): \`${f.test_file}\``);
         if (f.imports?.length) lines.push(`Imports: ${f.imports.map(i => `\`${i}\``).join(', ')}`);
         lines.push('');
       });
@@ -120,22 +125,35 @@ function buildBriefing(contract, context, options = {}) {
       lines.push('');
     }
 
-    // Test coverage
-    const tc = context.test_coverage || {};
-    const testFiles = tc.test_files || [];
-    const uncovered = tc.uncovered_files || [];
-    if (testFiles.length || uncovered.length) {
-      lines.push(`## Test coverage`);
+    // QB-20: test files matched by NAME are associations — a hint, never a claim of coverage.
+    const ta = context.test_associations
+      || (context.test_coverage && { test_files: context.test_coverage.test_files, without_associated_tests: context.test_coverage.uncovered_files });   // legacy package
+    const testFiles = (ta && ta.test_files) || [];
+    const without = (ta && ta.without_associated_tests) || [];
+    if (testFiles.length || without.length) {
+      lines.push(`## Associated tests (matched by file name only)`);
       if (testFiles.length) {
-        lines.push(`Run these after your changes:`);
+        lines.push(`Test files that may relate to these files — run them after your changes (a matching name does not mean the behavior is tested):`);
         testFiles.forEach(t => lines.push(`- \`${t}\``));
       }
-      if (uncovered.length) {
+      if (without.length) {
         lines.push('');
-        lines.push(`No existing tests for these files — write tests if you add behavior to them:`);
-        uncovered.slice(0, 8).forEach(f => lines.push(`- \`${f}\``));
-        if (uncovered.length > 8) lines.push(`  *(+ ${uncovered.length - 8} more)*`);
+        lines.push(`No associated test file was found by name for these files — add tests if you add behavior to them:`);
+        without.slice(0, 8).forEach(f => lines.push(`- \`${f}\``));
+        if (without.length > 8) lines.push(`  *(+ ${without.length - 8} more)*`);
       }
+      lines.push('');
+    }
+
+    // Real coverage — only from a report the repository already has.
+    const cov = context.coverage;
+    if (cov && cov.files && Object.keys(cov.files).length) {
+      lines.push(`## Coverage data (from ${cov.path})`);
+      for (const [f, c] of Object.entries(cov.files)) {
+        const v = c.lines_pct != null ? `${c.lines_pct}% of lines` : c.statements_pct != null ? `${c.statements_pct}% of statements` : 'no measurable lines';
+        lines.push(`- \`${f}\`: ${v}`);
+      }
+      lines.push(`(As of when the report was generated; it may be out of date.)`);
       lines.push('');
     }
 

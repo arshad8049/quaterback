@@ -45,6 +45,7 @@ const TestOutcomeSchema = z.object({                                            
   state:       z.string().nullable(),
   duration_ms: z.number().int().nullable(),
   tree:        z.string().nullable().optional(),      // QB-22: the source tree the tests ran on
+  detail:      z.string().optional(),                 // QB-20: why tests were not run (e.g. unsupported runner)
   regressions: z.array(FailingTestSchema).optional(),   // QB-10 (display-bounded; totals below)
   regressions_total: z.number().int().nonnegative().optional(),
   preexisting: z.array(FailingTestSchema).optional(),

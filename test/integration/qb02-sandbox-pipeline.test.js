@@ -478,4 +478,44 @@ describe('QB-02 done-when through the real pipeline', { skip: !ENABLED && 'set Q
       } finally { repo.cleanup(); }
     } finally { held.release(); }
   });
+
+  test('QB-20: the configured node:test command is the one that runs (the package.json script is not)', async () => {
+    const repo = fixtureRepo((files) => {
+      NODE_TEST(files);
+      const pkg = JSON.parse(files['package.json'].toString());
+      pkg.scripts.test = 'echo npm-test-script-must-not-run; exit 3';
+      files['package.json'] = JSON.stringify(pkg, null, 2) + '\n';
+      files['.quarterback.json'] = JSON.stringify({ test: { runner: 'node-test', command: ['node', '--test', 'test/double.test.js'] } });
+    });
+    try {
+      const r = await runSandboxed({ repoPath: repo.dir, briefing: 'x', stateDir, agentStage: hostileAgent('true') });
+      const v = r.sandbox.verification;
+      assert.deepEqual([v.status, v.state, v.exit_code], ['ran', 'completed', 0], v.output);
+      assert.equal(v.test_plan.source, 'config');
+      assert.doesNotMatch(v.output, /npm-test-script-must-not-run/);
+      assert.ok(v.report, 'the QB node:test reporter wrote its report for the configured command');
+    } finally { repo.cleanup(); }
+  });
+
+  test('QB-20: a configured unsupported runner is refused before anything runs, and the task cannot PASS', async () => {
+    const repo = fixtureRepo((files) => {
+      NODE_TEST(files);
+      files['.quarterback.json'] = JSON.stringify({ test: { runner: 'pytest', command: ['pytest', '-q'] } });
+    });
+    try {
+      const r = await runSandboxed({ repoPath: repo.dir, briefing: 'x', stateDir, agentStage: hostileAgent('true') });
+      const v = r.sandbox.verification;
+      assert.deepEqual([v.status, v.reason, v.state], ['not_run', 'unsupported_runner', undefined]);
+      assert.match(v.detail, /unsupported runner: pytest — QB cannot execute and parse its results yet/);
+      const c = approve({ id: 'c', goal: 'double numbers', clarifying_question: null,
+        acceptance_criteria: [{ id: 'AC-1', criterion: 'README style', met: null, kind: 'non_behavioral' }] }, { via: 'test' });
+      const m = mockFetch(ollamaReply({ met: true, evidence: 'ok' }));
+      let report;
+      try {
+        report = await verify(c, null, { id: 'e', status: r.status, diff: r.diff, changes: r.changes, candidate_tree: r.candidate_tree, sandbox: r.sandbox }, { repoPath: repo.dir });
+      } finally { m.restore(); }
+      assert.notEqual(report.verdict, 'pass');
+      assert.deepEqual([report.test_outcome.outcome, report.test_outcome.reason], ['not_run', 'unsupported_runner']);
+    } finally { repo.cleanup(); }
+  });
 });

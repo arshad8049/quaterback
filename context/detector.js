@@ -150,4 +150,4 @@ function listDirs(repoPath) {
   } catch (_) { return []; }
 }
 
-module.exports = { detectPatterns };
+module.exports = { detectPatterns, detectTestRunner };

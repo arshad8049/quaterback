@@ -33,7 +33,7 @@ const { extractImports, readForIndex, MAX_FILE_BYTES } = require('./extractor');
 
 const DEFAULTS = Object.freeze({ depth: 2, maxFiles: 25, maxBytes: 250_000, scanLimit: 5_000, maxSeeds: 10, relativeCut: 0.25, minScore: 3, decay: 0.7 });
 const IGNORE_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'coverage', '.next', '__pycache__', 'vendor']);
-const CODE_EXTS = new Set(['.js', '.cjs', '.mjs', '.ts', '.jsx', '.tsx', '.py', '.go', '.rs']);
+const CODE_EXTS = new Set(['.js', '.cjs', '.mjs', '.ts', '.jsx', '.tsx', '.py', '.go', '.rs', '.java']);   // .java: QB-20 associations
 const JS = /\.(c|m)?js$/;
 const STOP = new Set(['that', 'this', 'with', 'from', 'have', 'into', 'make', 'sure', 'also', 'when', 'them', 'then', 'than', 'been',
   'were', 'will', 'would', 'could', 'should', 'like', 'some', 'just', 'more', 'what', 'which', 'their', 'there', 'about', 'your',

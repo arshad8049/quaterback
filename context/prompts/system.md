@@ -18,7 +18,7 @@ You will receive:
 - A Task Contract (goal, required_behavior, constraints, acceptance_criteria)
 - A list of relevant files with their symbols and import relationships
 - A symbol map (name → file:line)
-- Test coverage information
+- Test associations: test files matched to source files by file name only (not coverage — a matching name does not mean the code is tested), and real coverage data only when the repository has a coverage report
 - Framework and architecture patterns
 - Git activity (recently changed files)
 

@@ -75,11 +75,35 @@ const ContextPackageSchema = z.object({
   }).optional(),
   retrieval: RetrievalSchema.optional(),
 
+  // QB-20: a test file matched by name is an ASSOCIATION, not coverage.
+  test_associations: z.object({
+    basis:                    z.string(),
+    test_files:               z.array(z.string()),
+    by_file:                  z.record(z.string(), z.string()),
+    without_associated_tests: z.array(z.string()),
+  }),
+  // Real coverage, only from a report in the checkout (lcov / istanbul); null when none.
+  coverage: z.object({
+    source: z.enum(['lcov', 'istanbul']),
+    path:   z.string(),
+    files:  z.record(z.string(), z.object({ lines_pct: z.number().nullable().optional(), statements_pct: z.number().nullable().optional() })),
+    error:  z.string().optional(),
+  }).nullable(),
+  // Which command verifies, and whether QB can trust it (only validated runners run).
+  test_plan: z.object({
+    status:  z.enum(['run', 'not_run']),
+    runner:  z.string().nullable().optional(),
+    command: z.array(z.string()).optional(),
+    source:  z.string().optional(),
+    reason:  z.string().optional(),
+    detail:  z.string().optional(),
+  }).optional(),
+  // Legacy (pre-QB-20) packages: read-only, never produced.
   test_coverage: z.object({
     covered_files:   z.array(z.string()),
     test_files:      z.array(z.string()),
     uncovered_files: z.array(z.string()),
-  }),
+  }).optional(),
 
   git_context: z.object({
     recent_changes: z.array(z.object({

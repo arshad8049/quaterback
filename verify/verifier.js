@@ -311,6 +311,7 @@ function testOutcome(execution, testOpts = {}) {
   return { outcome: c.outcome, reason: c.reason, runner: c.runner, exit_code: c.exit_code,
     state: v?.state ?? null, duration_ms: Number.isInteger(v?.duration_ms) ? v.duration_ms : null,
     tree: v?.tree ?? null,
+    ...(c.detail ? { detail: String(c.detail).slice(0, 500) } : {}),   // QB-20: e.g. why a runner was refused
     // QB-10: which failures are new, which already happened on the base tree.
     ...(c.failures ? { regressions: c.regressions.slice(0, SHOWN_TESTS), regressions_total: c.regressions.length,
       preexisting: c.preexisting.slice(0, SHOWN_TESTS), preexisting_total: c.preexisting.length, baseline: c.baseline,

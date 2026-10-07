@@ -133,7 +133,7 @@ function classifyTestRun(v, { preexisting: preexistingPolicy = 'block' } = {}) {
   const res = (outcome, reason, extra = {}) => ({ outcome, reason, runner: null, counts: null, exit_code, ...extra });
 
   if (!v) return res('not_run', 'no_test_evidence');
-  if (v.status !== 'ran') return res('not_run', v.reason === 'no_test_command' ? 'no_tests' : (v.reason || 'not_run'));
+  if (v.status !== 'ran') return res('not_run', v.reason === 'no_test_command' ? 'no_tests' : (v.reason || 'not_run'), v.detail ? { detail: v.detail } : {});   // QB-20: e.g. why a runner was refused
   if (['timeout', 'oom', 'infra_error', 'cancelled'].includes(v.state)) return res('error', v.state === 'infra_error' ? 'infra' : v.state);
   if (exit_code === null) return res('error', 'no_exit_code');
   if (exit_code === 126 || exit_code === 127) return res('error', 'missing_executable');
