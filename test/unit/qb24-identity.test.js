@@ -300,3 +300,79 @@ describe('QB-24 re-review: a stale-revision record cannot re-enter through the c
     } finally { repo.cleanup(); }
   });
 });
+
+describe('QB-24 re-review 2: restriction operators (except / unless / only) and their scope are preserved', () => {
+  const rel = (a, b) => compareIntent(intentOf(a), intentOf(b));
+  const { tokenize } = require('../../memory/scorer');
+  const repairFor = (repo, criterion, extra = {}) => provenRepair(repo, criterion, { crit_keywords: tokenize(criterion), ...extra });
+
+  test('senior repro: "Enable caching except for guests" is not the same intent as "Enable caching" (pre-fix: partial, actionable)', () => {
+    const c = rel('Enable caching', 'Enable caching except for guests');
+    assert.equal(c.relation, 'ambiguous');
+    assert.equal(c.actionable, false);
+  });
+  test('senior repro: "Allow uploads only for admins" vs "Allow uploads for guests" is not actionable (pre-fix: same)', () => {
+    assert.equal(rel('Allow uploads only for admins', 'Allow uploads for guests').actionable, false);
+    assert.equal(rel('Allow uploads for admins', 'Allow uploads for guests').actionable, false, 'different scope words: scope not established');
+  });
+  test('unless / excluding / other than are restrictions too', () => {
+    for (const r of ['Enable caching unless debug mode is on', 'Enable caching excluding guests', 'Enable caching for users other than guests']) {
+      assert.equal(rel('Enable caching', r).actionable, false, r);
+    }
+  });
+  test('positive controls: the same restriction is the same intent; an unrestricted identical request stays same', () => {
+    assert.equal(rel('Enable caching except for guests', 'enable caching except for guests').relation, 'same');
+    assert.equal(rel('Allow uploads only for admins', 'Allow uploads only for admins').relation, 'same');
+    assert.equal(rel('Enable caching', 'Enable caching').relation, 'same');
+  });
+  test('real store: the unrestricted repair is excluded for a restricted criterion; the same restriction reuses its own repair', () => {
+    const r = mk('restrict');
+    const store = createStore({ root: mk('root') });
+    store.appendRepair(r, repairFor(r, 'Enable caching', { fix: 'Enable caching for every user' }));
+    const m = createMemory({ store });
+    const d = m.recallRepairsDetailed(r, [{ id: 'AC-1', criterion: 'Enable caching except for guests' }]);
+    assert.deepEqual([d.usable.length, d.excluded.map((x) => x.reason)], [0, ['ambiguous_intent']]);
+    const r2 = mk('restrict2');
+    store.appendRepair(r2, repairFor(r2, 'Enable caching except for guests', { fix: 'Enable caching; skip it for the guest role' }));
+    assert.equal(m.recallRepairsDetailed(r2, [{ id: 'AC-1', criterion: 'enable caching except for guests' }]).usable.length, 1);
+  });
+  test('qb.js end-to-end: the briefing never carries the unrestricted fix for a restricted criterion; the same-restriction fix is briefed', () => {
+    const { spawnSync, execFileSync } = require('child_process');
+    const ROOT = path.join(__dirname, '..', '..');
+    const tmp = mk('brief2');
+    const repo = path.join(tmp, 'repo');
+    fs.mkdirSync(repo);
+    fs.writeFileSync(path.join(repo, 'README.md'), '# demo\n');
+    execFileSync('git', ['init', '-q'], { cwd: repo });
+    execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'add', '-A'], { cwd: repo });
+    execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'init'], { cwd: repo });
+    // two separate memories: the restricted request must face ONLY the unrestricted fix
+    const memA = path.join(tmp, 'memA');
+    createStore({ root: memA }).appendRepair(repo, { ...repairFor(repo, 'Enable caching'), fix: 'UNRESTRICTED-FIX-MARKER', base_sha: null });
+    const memB = path.join(tmp, 'memB');
+    createStore({ root: memB }).appendRepair(repo, { ...repairFor(repo, 'Enable caching except for guests'), fix: 'RESTRICTED-FIX-MARKER', base_sha: null });
+    let memDir;
+    const briefingFor = (criterion, tag) => {
+      const file = path.join(tmp, `${tag}.json`);
+      fs.writeFileSync(file, JSON.stringify({ goal: 'Configure caching', required_behavior: [criterion],
+        acceptance_criteria: [{ id: 'AC-1', criterion, kind: 'non_behavioral', requirement_ids: ['R-1'] }],
+        verification_plan: ['read config'], requirements: [{ id: 'R-1', quote: 'Configure caching' }], scope: { allowed_changes: ['**'] } }));
+      const script = path.join(tmp, `${tag}-agent.json`);
+      fs.writeFileSync(script, JSON.stringify({ steps: [{ write: 'config.txt', content: 'x\n' }] }));
+      const log = path.join(tmp, `${tag}-briefing.log`);
+      const env = { ...process.env, QB_FAKE_AGENT_SCRIPT: script, QB_FAKE_AGENT_BRIEFING_LOG: log, QB_RUNS_DIR: path.join(tmp, 'runs'),
+        QB_MEMORY_DIR: memDir, QB_JUDGE_CACHE_DIR: path.join(tmp, 'jc'), QB_TEST_OLLAMA_REPLY: JSON.stringify({ met: true, evidence: 'ok' }) };
+      delete env.NODE_TEST_CONTEXT;
+      spawnSync(process.execPath, ['--require', path.join(ROOT, 'test', 'helpers', 'preload-ollama.js'), '--require', path.join(ROOT, 'test', 'helpers', 'preload-fake-sandbox.js'),
+        path.join(ROOT, 'qb.js'), 'Configure caching', '--repo', repo, '--agent', 'claude-code', '--no-llm-context', '--max-retries', '1', '--contract-file', file],
+      { encoding: 'utf8', timeout: 60_000, env });
+      return fs.existsSync(log) ? fs.readFileSync(log, 'utf8') : '';
+    };
+    memDir = memA;
+    const restricted = briefingFor('Enable caching except for guests', 'restricted');
+    assert.ok(restricted.length > 0, 'the fake agent recorded its briefing');
+    assert.doesNotMatch(restricted, /UNRESTRICTED-FIX-MARKER/);           // pre-fix: briefed as a proven fix
+    memDir = memB;
+    assert.match(briefingFor('Enable caching except for guests', 'same-restriction'), /RESTRICTED-FIX-MARKER/);
+  });
+});

@@ -70,7 +70,8 @@ function scoreRepair(queryKws, record) {
 // negator and once per antonym inside that clause). Two requests compare clause by clause:
 //   conflicting  some clause pair about the same target has opposite polarity
 //   ambiguous    a negative clause (an exclusion / prohibition) has no counterpart on the
-//                other side — compound ambiguity is never actionable
+//                other side, or matched clauses differ in targets or restrictions
+//                (except / unless / only …: scope not established) — never actionable
 //   same         every clause on both sides has a same-polarity counterpart
 //   partial      the rest agree, plus extra positive clauses on one side
 //   unrelated    no shared content
@@ -102,13 +103,24 @@ const STEM = {
 // clause is matched to its counterpart by its TARGET, not by the verb.
 const ACTIONS = new Set([...Object.values(ANTONYMS), ...Object.values(ANTONYMS).map((w) => STEM[w] || w)]);
 const CONTRACTION_STEMS = new Set(['don', 'doesn', 'didn', 'won', 'isn', 'aren', 'wasn', 'weren', 'shouldn', 'wouldn', 'couldn', 'can']);
-const CLAUSE_SPLIT = /\b(?:and|but|then|also|plus|while|except|however|although|whereas)\b|[,;:.!?\n]+/;
+const CLAUSE_SPLIT = /\b(?:and|but|then|also|plus|while|however|although|whereas)\b|[,;:.!?\n]+/;
+// Re-review 2: restriction / exclusion operators stay INSIDE their clause and keep their
+// scope ("except for guests", "only for admins", "unless debug mode is on"). A clause's
+// restrictions are part of its identity: two clauses are the same intent only with the
+// same targets AND the same restrictions — otherwise scope compatibility is not established.
+const RESTRICTORS = new Set(['except', 'unless', 'only', 'excluding', 'solely', 'exclusively', 'besides', 'otherthan', 'apartfrom', 'savefor']);
+const MULTIWORD_RESTRICTORS = [[/\bother\s+than\b/g, ' otherthan '], [/\bapart\s+from\b/g, ' apartfrom '], [/\bsave\s+for\b/g, ' savefor ']];
 
 function clauseOf(text) {
-  const words = text.split(/[^a-z0-9]+/).filter(Boolean);
+  let t = text;
+  for (const [re, marker] of MULTIWORD_RESTRICTORS) t = t.replace(re, marker);
+  const words = t.split(/[^a-z0-9]+/).filter(Boolean);
   let polarity = 1;
   const kept = [];
+  const restrictions = [];   // [{ op, scope: [] }] — words after an operator are its scope
   for (let w of words) {
+    if (RESTRICTORS.has(w)) { restrictions.push({ op: w, scope: [] }); continue; }
+    if (restrictions.length) restrictions[restrictions.length - 1].scope.push(STEM[w] || ANTONYMS[w] || w);
     if (NEGATORS.has(w)) { polarity = -polarity; continue; }
     if (CONTRACTION_STEMS.has(w)) continue;
     if (ANTONYMS[w]) { polarity = -polarity; w = ANTONYMS[w]; }
@@ -116,8 +128,10 @@ function clauseOf(text) {
   }
   const keywords = [...new Set(tokenize(kept.join(' ')))];
   const targets = keywords.filter((k) => !ACTIONS.has(k));
-  return { keywords, targets: targets.length ? targets : keywords, polarity };
+  const restrictionSig = restrictions.map((r) => `${r.op}:${[...new Set(tokenize(r.scope.join(' ')))].sort().join(',')}`).sort();
+  return { keywords, targets: targets.length ? targets : keywords, polarity, restrictions: restrictionSig };
 }
+const sameSet = (a, b) => a.length === b.length && a.every((x) => b.includes(x));
 
 /** @returns {{ keywords: string[], polarity: 1|-1, clauses: Array<{keywords, targets, polarity}> }} */
 function intentOf(text) {
@@ -139,6 +153,7 @@ function compareIntent(a, b) {
   const A = a.clauses || [{ keywords: a.keywords, targets: a.keywords, polarity: a.polarity }];
   const B = b.clauses || [{ keywords: b.keywords, targets: b.keywords, polarity: b.polarity }];
   let conflicting = false;
+  let scopeMismatch = false;
   const matchedB = new Set();
   const unmatched = [];
   for (const ca of A) {
@@ -148,6 +163,9 @@ function compareIntent(a, b) {
       matched = true;
       matchedB.add(j);
       if (ca.polarity !== cb.polarity) conflicting = true;
+      // same intent needs the same targets AND the same restrictions (re-review 2): a shared
+      // word alone does not establish that the two clauses have a compatible scope
+      if (!sameSet(ca.targets, cb.targets) || !sameSet(ca.restrictions || [], cb.restrictions || [])) scopeMismatch = true;
     });
     if (!matched) unmatched.push(ca);
   }
@@ -155,7 +173,7 @@ function compareIntent(a, b) {
   let relation;
   if (lexical === 0 && !conflicting) relation = 'unrelated';
   else if (conflicting) relation = 'conflicting';
-  else if (unmatched.some((c) => c.polarity < 0)) relation = 'ambiguous';
+  else if (scopeMismatch || unmatched.some((c) => c.polarity < 0 || (c.restrictions || []).length)) relation = 'ambiguous';
   else relation = unmatched.length ? 'partial' : 'same';
   const actionable = relation === 'same' || relation === 'partial';
   return { lexical, score: actionable ? lexical : lexical * 0.5, conflicting, relation, actionable };

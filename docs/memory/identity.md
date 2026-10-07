@@ -69,6 +69,15 @@ Pre-fix (`03ab9b0`): `test/unit/qb24-identity.test.js` has **12 of 12 failing**.
 - **Only `same` and `partial` are actionable.** Repairs are excluded as `conflicting_intent` or `ambiguous_intent`, and the briefing never receives them. An end-to-end `qb.js` test checks the agent's actual briefing.
 - Inflected antonyms are covered too (blocked, denied, removed, disabled …). This is still lexical, not semantic proof.
 
+### Restrictions keep their scope (re-review 2)
+- **The bug:** "except" was a clause separator, and "only" was discarded. So "Enable caching **except for guests**" became an extra *positive* clause, rated partial and actionable, and an unrestricted "Enable caching for every user" fix was reused. Likewise "Allow uploads **only for admins**" vs "Allow uploads for guests" matched on a shared word.
+- **The fix:**
+  - Restriction operators (`except`, `unless`, `only`, `excluding`, `solely`, `exclusively`, `besides`, `other than`, `apart from`, `save for`) stay inside their clause, and the words after them are recorded as that restriction's scope.
+  - Matched clauses count as the same intent only with **the same target set and the same restrictions**. A shared word alone no longer establishes compatible scope; the comparison is then `ambiguous` and never actionable.
+  - An unmatched clause carrying a restriction is also `ambiguous`.
+- **Positive controls:** the same restriction on both sides is still `same` and reuses its own fix, through the real store and the actual `qb.js` briefing.
+- **Limitation:** this is still lexical. Differently worded but equivalent scopes ("for guests" vs "for anonymous users") count as different, which errs toward not reusing.
+
 ### Churn is revision-aware
 - **The bug:** a file rejected as `stale_revision` came back through the "high-churn" fallback, which used the revision-blind `file_stats.json`.
 - **The fix:** churn is now **recomputed from outcome records on compatible (or unrecorded) revisions only**, so a stale-only file can't re-enter. Tested through `remember()`.
