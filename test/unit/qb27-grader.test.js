@@ -59,7 +59,7 @@ describe('QB-27: grading is independent of QB\'s contract', LIVE, () => {
     const f = fx(); const spec = await qualified(f); const patch = f.patch('correct');
     const r = await g(f, spec, patch);
     S.Grade.parse(r);
-    assert.equal(r.spec_sha256, S.hashOf(S.TaskSpec.parse(spec)));
+    assert.equal(r.spec_sha256, S.specHash(spec));
     assert.equal(r.patch_sha256, S.sha256(Buffer.from(patch)));
     assert.equal(r.grader_sha256, graderHash());
     assert.deepEqual([r.environment.network, r.environment.credentials], ['none', 'none']);

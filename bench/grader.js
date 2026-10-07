@@ -146,7 +146,7 @@ async function grade(o) {
   const spec = S.TaskSpec.parse(o.spec);
   const patch = typeof o.patch === 'string' ? o.patch : '';
   const base = {
-    schema: 'qb-grade/1', task_id: spec.id, spec_sha256: S.hashOf(spec), patch_sha256: S.sha256(Buffer.from(patch)),
+    schema: 'qb-grade/1', task_id: spec.id, spec_sha256: S.specHash(spec), patch_sha256: S.sha256(Buffer.from(patch)),
     grader_sha256: graderHash(), checks: [], environment: { network: 'none', credentials: 'none', image: AGENT_IMAGE },
   };
   const result = (outcome, reason, extra = {}) => S.Grade.parse({ ...base, outcome, reason, duration_ms: Date.now() - t0, ...extra });

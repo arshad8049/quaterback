@@ -236,6 +236,11 @@ const Adjudication = z.object({
   at: Iso,
 }).strict();
 
+/** THE content hash of a task spec: over its parsed form (defaults filled), so a spec file that
+ *  omits a defaulted field hashes the same as one that spells it out. Used by freezing, the
+ *  grader, manifests and the runner alike. */
+const specHash = (spec) => hashOf(TaskSpec.parse(spec));
+
 /** The hash an approval must name: the exact holdout specs (id, version, content hash). */
 function holdoutSetHash(tasks) {
   return hashOf(tasks.filter((t) => t.split === 'holdout').map((t) => ({ id: t.id, version: t.version, sha256: t.spec_sha256 }))
@@ -245,5 +250,5 @@ function holdoutSetHash(tasks) {
 module.exports = {
   TaskSpec, SpecLock, Experiment, ArmDefinition, Approval, TrialResult, Grade, Adjudication,
   TASK_TYPES, ARM_IDS, GRADE_OUTCOMES, SCORED_OUTCOMES, TRIAL_STATUSES,
-  sha256, hashOf, sha256File, fileHashes, treeHash, holdoutSetHash,
+  sha256, hashOf, sha256File, fileHashes, treeHash, holdoutSetHash, specHash,
 };

@@ -18,21 +18,16 @@ const readline = require('readline');
 const { program } = require('commander');
 
 const { compileIntent, MAX_ROUNDS } = require('./intent/session');
-const { buildContext, refreshContext } = require('./context/builder');
-const { orchestrate }  = require('./agent/orchestrator');
-const { verify }       = require('./verify/verifier');
 const { defaultJudgeCacheDir } = require('./verify/judge-cache');
 const budget = require('./lib/budget');            // QB-21: deadlines, cancellation, usage
 const { sendMetrics } = require('./lib/telemetry');
 const memory           = require('./memory');
-const { attemptEntry } = require('./memory/repairs');
 const runStore         = require('./run/store');
 const { artifactFile } = require('./lib/fsafe');
-const { inputFromReport } = require('./verify/verdict');
 const { contractState, stateReason, approve } = require('./intent/contract-state');
 const { loadContractFile, proposalForReview } = require('./intent/contract-file');
 const { formatOracle } = require('./intent/oracle-view');
-const { routeRepair } = require('./verify/routing');
+const { runPipeline } = require('./lib/qb-pipeline');   // QB-28: L2–L5 shared with the benchmark
 const { git: gitProc }  = require('./lib/proc');
 const { AGENT_VERSION } = require('./lib/sandbox/agent');
 
@@ -240,168 +235,72 @@ async function main() {
   run.setContract(contract);
   if (opts.save) saveArtifact('intent/contracts', contract);
 
-  // ── Layer 2: Context (memory-boosted) ─────────────────────────────────────
-  const fileHints    = memory.recallFiles(repoPath, contract.goal);
-  const priorRepairs = memory.recallRepairs(repoPath, contract.acceptance_criteria);
-  if (fileHints.length) {
-    log('L5', `Memory: ${fileHints.length} file hint(s) for L2`);
-    fileHints.forEach(h => console.log(`     ↑ ${h.file}  (${h.reason})`));
-  }
-  if (priorRepairs.length) {
-    log('L5', `Memory: ${priorRepairs.length} prior repair hint(s) loaded`);
-  }
-
-  budgetRun.stage('L2 context');
-  log('L2', 'Context engine...');
-  const t2 = Date.now();
-  let context = await buildContext(contract, repoPath, {
-    noLlm:     !opts.llmContext,
-    fileHints,
+  // ── L5 recall → L2 → L3/L4 repair loop → L5 persist: one API shared with the benchmark (QB-28)
+  const { blocked, execution, report, attempt } = await runPipeline({
+    contract, repoPath, agent: opts.agent, maxRetries, run, budgetRun, baseSha, memory,
+    noLlmContext: !opts.llmContext, noLlmVerify: !opts.llmVerify, judgeCache: defaultJudgeCacheDir(),
+    hooks: {
+      memoryRecalled(fileHints, priorRepairs) {
+        if (fileHints.length) {
+          log('L5', `Memory: ${fileHints.length} file hint(s) for L2`);
+          fileHints.forEach(h => console.log(`     ↑ ${h.file}  (${h.reason})`));
+        }
+        if (priorRepairs.length) log('L5', `Memory: ${priorRepairs.length} prior repair hint(s) loaded`);
+      },
+      contextStart() { log('L2', 'Context engine...'); },
+      contextReady(context, ms) {
+        log('L2', `Context ready  (${ms}ms)`);
+        console.log(`     ${context.relevant_files.length} files, ${Object.keys(context.symbol_map).length} symbols`);
+        if (opts.save) saveArtifact('context/packages', context);
+      },
+      attemptStart(attempt, isRetry) {
+        log(isRetry ? 'L3↩' : 'L3', `${isRetry ? `L3 Agent (repair attempt ${attempt})` : 'L3 Agent'}...`);
+      },
+      executed(execution, attempt, isRetry, ms) {
+        log(isRetry ? 'L3↩' : 'L3', `Execution done  (${ms}ms)  status=${execution.status}`);
+        execution.changes.forEach(c => console.log(`     ${c.file.padEnd(38)} +${c.additions} -${c.deletions}`));
+        if (opts.save) saveArtifact('agent/executions', execution, `${execution.id}_attempt${attempt}`);
+      },
+      verifyStart() { log('L4', 'Verification...'); },
+      verified(report, attempt, ms) {
+        log('L4', `Verdict: ${verdictIcon(report.verdict)} ${report.verdict.toUpperCase()}  (${ms}ms)`);
+        report.criteria_results.forEach(r => {
+          const icon = r.met === true ? '✓' : r.met === false ? '✗' : '~';
+          const voteStr = r.votes ? ` [${r.votes.map(v => v === true ? 'T' : v === false ? 'F' : '?').join('/')}]` : '';
+          console.log(`     ${icon} [${r.id}]${voteStr} ${r.criterion.slice(0, 56)}`);
+        });
+      },
+      passed(execution) {
+        if (execution.status === 'no_change') console.log('\n  ✓ Already satisfied: the agent changed nothing, and the tests and independent judge confirm the requirement.');
+      },
+      environment(route, execution) {
+        console.log(`\n  ✗ ${route.reason}`);
+        if (execution.changes.length) console.log('    Partial changes were captured in the run record for inspection.');
+      },
+      stopped(route, execution, report) {
+        if (report.verdict === 'no-diff') console.log('\n  ○ No diff to verify — running in dry-run mode.');
+        else if (report.verdict === 'unresolved' && execution.status === 'no_change') console.log('\n  ~ Agent changed nothing — requirement not independently verified.');
+        else console.log(`\n  ~ Stopping: ${route.reason}.`);
+        if (report.test_outcome?.preexisting?.length) console.log(`    ${report.test_outcome.preexisting.length} test(s) were already failing before this change (still listed in the report).`);
+      },
+      maxRetries(n) { console.log(`\n  Reached max retries (${n}). Needs human review.`); },
+      retrying(route, report) {
+        console.log(`\n  ${route.reason} — retrying with repair hints...\n`);
+        report.repair_hints.forEach(h => {
+          console.log(`  [${h.criterion_id}] ${h.diagnosis}`);
+          console.log(`    → ${h.suggested_fix}\n`);
+        });
+      },
+      loopDone(report) { if (opts.save && report) saveArtifact('verify/reports', report); },
+      remembered(memStats) { log('L5', `Memory updated  (${memStats.total_runs} run(s), ${memStats.files_tracked} file(s) tracked)`); },
+    },
   });
-  budget.checkpoint();
-  log('L2', `Context ready  (${Date.now() - t2}ms)`);
-  console.log(`     ${context.relevant_files.length} files, ${Object.keys(context.symbol_map).length} symbols`);
-
-  if (opts.save) saveArtifact('context/packages', context);
-
-  // ── Repair loop: L3 → L4 ──────────────────────────────────────────────────
-  let execution   = null;
-  let report      = null;
-  let attempt     = 0;
-  // Seed repair loop with any prior repairs memory recalled
-  let previousPatch;                 // QB-10: no-progress detection across attempts
-  let repairHints = priorRepairs.map(r => ({
-    criterion_id:  r.criterion_id,
-    // QB-23: say what memory knows — a proven fix vs an unconfirmed or legacy suggestion
-    diagnosis:     `[${r.proven ? 'proven fix from a past run' : 'past suggestion, not proven'}] ${r.diagnosis}`,
-    suggested_fix: r.fix,
-  }));
-  const attemptHistory = [];         // QB-23: append-only, one entry per verified attempt
-
-  while (attempt < maxRetries) {
-    attempt++;
-
-    const isRetry = attempt > 1;
-    budgetRun.stage(`L3 agent (attempt ${attempt})`);
-    const label   = isRetry ? `L3 Agent (repair attempt ${attempt})` : 'L3 Agent';
-    log(isRetry ? 'L3↩' : 'L3', `${label}...`);
-
-    run.startAttempt({
-      attempt,
-      parent_attempt: isRetry ? attempt - 1 : null,
-      repair_reason:  repairHints.map(h => h.criterion_id),
-      base_sha:       baseSha,
-    });
-
-    const t3 = Date.now();
-    execution = await orchestrate(contract, context, {
-      agent:        opts.agent,
-      repoPath,
-      repairHints,
-      attempt,
-      signal:       budgetRun.signal,   // QB-21: a run deadline cancels the sandbox (its containers are removed)
-    });
-    budget.checkpoint();
-    log(isRetry ? 'L3↩' : 'L3', `Execution done  (${Date.now() - t3}ms)  status=${execution.status}`);
-
-    if (execution.changes.length) {
-      execution.changes.forEach(c => {
-        console.log(`     ${c.file.padEnd(38)} +${c.additions} -${c.deletions}`);
-      });
-    }
-
-    if (opts.save) saveArtifact('agent/executions', execution, `${execution.id}_attempt${attempt}`);
-
-    // A blocked sandbox (Docker unavailable, unsupported project, auth not ready)
-    // never reaches verification: the run ends BLOCKED with the reason.
-    if (execution.status === 'blocked') {
-      console.log(`\n  ✗ Blocked: ${execution.error}`);
-      run.event('sandbox.blocked', { reason: execution.error, sandbox: execution.sandbox || null });
-      run.finish('BLOCKED', { reason: execution.error });
-      process.exitCode = 2;
-      return;
-    }
-    if (execution.sandbox?.run_id) run.event('sandbox.run', { sandbox: execution.sandbox });
-
-    // ── Layer 4: Verify ──────────────────────────────────────────────────────
-    budgetRun.stage(`L4 verification (attempt ${attempt})`);
-    log('L4', 'Verification...');
-    const t4 = Date.now();
-    report = await verify(contract, context, execution, {
-      noLlm:    !opts.llmVerify,
-      repoPath,
-      judgeCache: defaultJudgeCacheDir(),   // QB-15: an unchanged patch is never re-sampled into a pass
-    });
-    budget.checkpoint();
-    run.finishAttempt(attempt, {
-      execution,
-      report,
-      patch:       execution.diff,
-      verifyInput: inputFromReport(report, execution),
-      checks:      runStore.checksFor(attempt, execution),
-    });
-    attemptHistory.push(attemptEntry(attempt, report, (run.manifest.attempts.find(a => a.attempt === attempt) || {}).patch_sha256));
-    // Exact patch bytes and touched-path baseline for `qb patch` (QB-02 §9.3).
-    if (execution.patch_raw) run.artifact(`a${attempt}-patch-raw`, execution.patch_raw, { ext: 'bin' });
-    if (execution.base_listing) run.artifact(`a${attempt}-base-ls`, execution.base_listing, { ext: 'bin' });
-    log('L4', `Verdict: ${verdictIcon(report.verdict)} ${report.verdict.toUpperCase()}  (${Date.now() - t4}ms)`);
-
-    // Print criteria
-    report.criteria_results.forEach(r => {
-      const icon = r.met === true ? '✓' : r.met === false ? '✗' : '~';
-      const voteStr = r.votes
-        ? ` [${r.votes.map(v => v === true ? 'T' : v === false ? 'F' : '?').join('/')}]`
-        : '';
-      console.log(`     ${icon} [${r.id}]${voteStr} ${r.criterion.slice(0, 56)}`);
-    });
-
-    if (report.verdict === 'pass') {
-      if (execution.status === 'no_change') console.log('\n  ✓ Already satisfied: the agent changed nothing, and the tests and independent judge confirm the requirement.');
-      break;
-    }
-    // QB-10: one routing decision (shared with the benchmark): repair only with
-    // concrete actions, never code-repair an environment problem, stop on no progress.
-    const route = routeRepair(report, { patch: execution.diff, previousPatch: attempt > 1 ? previousPatch : undefined });
-    previousPatch = execution.diff;
-    run.event('attempt.routed', { attempt, action: route.action, reason: route.reason });
-    if (route.action === 'environment') {
-      console.log(`\n  ✗ ${route.reason}`);
-      if (execution.changes.length) console.log('    Partial changes were captured in the run record for inspection.');
-      break;
-    }
-    if (route.action === 'stop') {
-      if (report.verdict === 'no-diff') console.log('\n  ○ No diff to verify — running in dry-run mode.');
-      else if (report.verdict === 'unresolved' && execution.status === 'no_change') console.log('\n  ~ Agent changed nothing — requirement not independently verified.');
-      else console.log(`\n  ~ Stopping: ${route.reason}.`);
-      if (report.test_outcome?.preexisting?.length) console.log(`    ${report.test_outcome.preexisting.length} test(s) were already failing before this change (still listed in the report).`);
-      break;
-    }
-
-    if (attempt >= maxRetries) {
-      console.log(`\n  Reached max retries (${maxRetries}). Needs human review.`);
-      break;
-    }
-
-    // Prepare repair hints for next attempt
-    repairHints = route.hints;
-    // QB-18: refresh the context from this attempt's patch (new/changed files and their neighbours).
-    const refreshed = refreshContext(context, contract, repoPath, execution, { attempt });
-    context = refreshed.context;
-    run.event('context.refreshed', refreshed.refresh);
-    console.log(`\n  ${route.reason} — retrying with repair hints...\n`);
-    report.repair_hints.forEach(h => {
-      console.log(`  [${h.criterion_id}] ${h.diagnosis}`);
-      console.log(`    → ${h.suggested_fix}\n`);
-    });
+  if (blocked) {
+    console.log(`\n  ✗ Blocked: ${blocked}`);
+    run.finish('BLOCKED', { reason: blocked });
+    process.exitCode = 2;
+    return;
   }
-
-  if (opts.save && report) saveArtifact('verify/reports', report);
-
-  // ── Layer 5: Memory — persist this run ────────────────────────────────────
-  budgetRun.stage('L5 memory');
-  await memory.remember(repoPath, contract, { ...report, attempts: attempt }, execution, { history: attemptHistory, runId: run.manifest.run_id, baseSha });
-  const memStats = memory.stats(repoPath);
-  log('L5', `Memory updated  (${memStats.total_runs} run(s), ${memStats.files_tracked} file(s) tracked)`);
 
   run.event('run.usage', budgetRun.usage());   // QB-21: stage times, model calls, tokens, timeouts
   budget.endRun();

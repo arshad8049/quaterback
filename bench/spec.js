@@ -41,7 +41,7 @@ function freeze(spec, o = {}) {
   if (S.treeHash(suiteDir) !== spec.qualification.suite_sha256) throw new SpecRefused(`${spec.id}: suite changed since qualification`);
   if (S.hashOf(S.fileHashes(suiteDir)) !== S.hashOf(spec.suite.files)) throw new SpecRefused(`${spec.id}: suite.files does not match the suite on disk`);
   const lock = readLock(lockFile);
-  const sha = S.hashOf(spec);
+  const sha = S.specHash(spec);
   const prev = lock.specs[spec.id];
   if (prev) {
     if (spec.version === prev.version) {
@@ -63,7 +63,7 @@ function checkFrozen(spec, lock = readLock()) {
   spec = S.TaskSpec.parse(spec);
   const e = lock.specs[spec.id];
   if (!e) throw new SpecRefused(`${spec.id}: not frozen`);
-  if (e.version !== spec.version || e.sha256 !== S.hashOf(spec)) {
+  if (e.version !== spec.version || e.sha256 !== S.specHash(spec)) {
     throw new SpecRefused(`${spec.id}: does not match the frozen v${e.version} (edited after freezing? a change needs a new version)`);
   }
   return e;

@@ -1,13 +1,12 @@
 #!/usr/bin/env node
 /**
- * bench/run.js — Quarterback Benchmark Runner
+ * bench/run.js — the LEGACY exploratory runner (QB pipeline vs a raw baseline).
  *
- * For each task in tasks.json:
- *   1. QB run     — full L1→L2→L3→L4→L5 pipeline
- *   2. Baseline   — raw claude-code, same task description, L4 verification of result
- *
- * Both runs use the same L4 contract so verdicts are directly comparable.
- * Repo is git-reset between every run to guarantee clean state.
+ * Official experiments use bench/experiment-run.js (QB-28): arms A–F through one API,
+ * equal agent-time budgets, memory isolation, the external grader (QB-27) and immutable
+ * experiment records (QB-29). This runner remains for exploration: tasks without a frozen
+ * spec are "ungraded", the QB arm runs lib/qb-pipeline.js (the code qb.js runs) with memory
+ * off, and its internal verdicts are never scores.
  *
  * Usage:
  *   node bench/run.js                      — run all tasks
@@ -23,8 +22,6 @@ const path    = require('path');
 const { program } = require('commander');
 
 const { compile }      = require('../intent/compiler');
-const { buildContext } = require('../context/builder');
-const { orchestrate }  = require('../agent/orchestrator');
 const { verify }       = require('../verify/verifier');
 const budget = require('../lib/budget');
 const { defaultJudgeCacheDir } = require('../verify/judge-cache');
@@ -35,7 +32,7 @@ const { AGENT_VERSION } = require('../lib/sandbox/agent');
 const { contractState, stateReason, approve } = require('../intent/contract-state');
 const { contractFromObject } = require('../intent/compiler');
 const { inputFromReport } = require('../verify/verdict');
-const { routeRepair } = require('../verify/routing');
+const { runPipeline } = require('../lib/qb-pipeline');   // QB-28: the production orchestration
 const { gradeArm }    = require('./grader');
 const { loadSpec, checkFrozen } = require('./spec');
 
@@ -268,81 +265,36 @@ async function runQB(task, ws) {
     return out;
   }
 
-  // L2
+  // L2 → L3/L4 repair loop: QB's production pipeline, the same code qb.js runs (QB-28).
+  // Memory is OFF in this legacy runner (no reads, no writes); arm F is the memory condition.
   t = Date.now();
-  const context = await buildContext(contract, repoPath, { noLlm: !opts.llmContext });
-  out.timing.l2_ms   = Date.now() - t;
-  out.files_in_scope = context.relevant_files.length;
-  out.symbols        = Object.keys(context.symbol_map).length;
-  console.log(`     L2 ${out.timing.l2_ms}ms — ${out.files_in_scope} files, ${out.symbols} symbols`);
-
-  // L3 + L4 repair loop
-  let attempt     = 0;
-  let execution   = null;
-  let report      = null;
-  let repairHints = [];
-  const attempts  = [];
-
-  let previousPatch;
-  while (attempt < maxRetries) {
-    attempt++;
-
-    run.startAttempt({
-      attempt,
-      parent_attempt: attempt > 1 ? attempt - 1 : null,
-      repair_reason:  repairHints.map(h => h.criterion_id),
-      base_sha:       ws.baseSha,
-    });
-
-    // L3
-    t = Date.now();
-    execution = await orchestrate(contract, context, {
-      agent:       'claude-code',
-      unapprovedExploration: out.mode === 'exploration',
-      repoPath,
-      repairHints,
-      attempt,
-    });
-    const l3_ms = Date.now() - t;
-
-    // L4
-    t = Date.now();
-    report = await verify(contract, context, execution, { repoPath, judgeCache: defaultJudgeCacheDir() });
-    const l4_ms = Date.now() - t;
-    run.finishAttempt(attempt, {
-      execution, report, patch: execution.diff,
-      verifyInput: inputFromReport(report, execution),
-      checks: runStore.checksFor(attempt, execution),
-    });
-
-    attempts.push({
-      attempt,
-      l3_ms,
-      l4_ms,
-      verdict:       report.verdict,
-      execution_status: execution.status,
-      files_changed: execution.changes.map(c => c.file),
-      ac_results:    report.criteria_results.map(r => ({ id: r.id, met: r.met, votes: r.votes || null })),
-      failures:      report.failures,
-    });
-
-    console.log(`     L3+L4 attempt ${attempt}: ${verdictIcon(report.verdict)} ${report.verdict.toUpperCase()} (${l3_ms + l4_ms}ms)`);
-
-    // QB-10: the same routing as qb.js.
-    const route = routeRepair(report, { patch: execution.diff, previousPatch: attempt > 1 ? previousPatch : undefined });
-    previousPatch = execution.diff;
-    attempts[attempts.length - 1].route = { action: route.action, reason: route.reason };
-    if (route.action !== 'repair' || attempt >= maxRetries) break;
-    repairHints = route.hints;
-  }
-
+  const attempts = [];
+  let tAttempt = 0;
+  const r = await runPipeline({
+    contract, repoPath, agent: 'claude-code', maxRetries, run, budgetRun: budget.currentRun(), baseSha: ws.baseSha, memory: null,
+    noLlmContext: !opts.llmContext, judgeCache: defaultJudgeCacheDir(), unapprovedExploration: out.mode === 'exploration',
+    hooks: {
+      contextReady(context, ms) {
+        out.timing.l2_ms = ms; out.files_in_scope = context.relevant_files.length; out.symbols = Object.keys(context.symbol_map).length;
+        console.log(`     L2 ${ms}ms — ${out.files_in_scope} files, ${out.symbols} symbols`);
+      },
+      attemptStart() { tAttempt = Date.now(); },
+      verified(report, attempt) {
+        const ms = Date.now() - tAttempt;
+        attempts.push({ attempt, ms, verdict: report.verdict, ac_results: report.criteria_results.map(x => ({ id: x.id, met: x.met, votes: x.votes || null })), failures: report.failures });
+        console.log(`     L3+L4 attempt ${attempt}: ${verdictIcon(report.verdict)} ${report.verdict.toUpperCase()} (${ms}ms)`);
+      },
+    },
+  });
   out.attempts        = attempts;
-  out.patch           = execution?.diff || '';
-  out.final_verdict   = report?.verdict || 'unknown';   // QB's own verdict — recorded, never the score (QB-27)
-  out.total_attempts  = attempt;
+  out.patch           = r.execution?.diff || '';
+  out.final_verdict   = r.blocked ? 'blocked' : (r.report?.verdict || 'unknown');   // QB's own verdict — recorded, never the score (QB-27)
+  if (r.blocked) out.blocked = r.blocked;
+  out.total_attempts  = r.attempt;
   out.first_verdict   = attempts[0]?.verdict || 'unknown';
-  out.files_changed   = attempts[attempts.length - 1]?.files_changed || [];
-  out.timing.total_ms = attempts.reduce((s, a) => s + a.l3_ms + a.l4_ms, 0) + out.timing.l1_ms + out.timing.l2_ms;
+  out.files_changed   = r.execution?.changes?.map(c => c.file) || [];
+  out.agent_ms        = r.agent_ms;
+  out.timing.total_ms = Date.now() - t + out.timing.l1_ms;
 
   return out;
 }
