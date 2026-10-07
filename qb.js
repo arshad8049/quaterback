@@ -73,6 +73,7 @@ program
   .option('--deadline <minutes>',  'Total-run deadline; in-flight work is cancelled and the run ends CANCELLED naming the stage (QB-21; env QB_RUN_DEADLINE_MS)')
   .option('--telemetry',           'Send this run\'s outcome metrics to Quarterback (opt-in; needs a telemetry token)')
   .option('--telemetry-token <t>', 'Your verified telemetry token (or QB_TELEMETRY_TOKEN); request one at /api/telemetry/request (QB-33)')
+  .option('--telemetry-dry-run',   'Print the exact telemetry payload this run would send, and send nothing (QB-32)')
   .parse(process.argv);
 
 const opts    = program.opts();
@@ -433,18 +434,24 @@ async function main() {
   // ── Telemetry (opt-in) ─────────────────────────────────────────────────────
   // QB-33: authorized by a verified telemetry token, never an email; the run id (random) is the
   // replay key; no email and no task-derived hash are sent.
+  // QB-32: off by default; the exact payload is shown (and only shown, with --telemetry-dry-run).
   const telemetryToken = opts.telemetryToken || process.env.QB_TELEMETRY_TOKEN;
-  if (opts.telemetry && !telemetryToken) console.log('  Telemetry not sent: no telemetry token (--telemetry-token or QB_TELEMETRY_TOKEN).');
-  if (opts.telemetry && telemetryToken) {
-    await sendMetrics({   // QB-21: bounded (3 s) — a stalled endpoint never holds the run
-      run_id:       run.manifest.run_id,
-      passed:       report?.verdict === 'pass',
-      attempts:     Math.max(1, attempt),
-      duration_ms:  totalMs,
-      repair_count: Math.max(0, attempt - 1),
-      layers_used:  buildLayersUsed(opts),
-      qb_version:   QB_VERSION,
-    }, { token: telemetryToken });
+  const telemetryPayload = {
+    run_id:       run.manifest.run_id,          // random per run
+    passed:       report?.verdict === 'pass',
+    attempts:     Math.max(1, attempt),
+    duration_ms:  totalMs,
+    repair_count: Math.max(0, attempt - 1),
+    layers_used:  buildLayersUsed(opts),
+    qb_version:   QB_VERSION,
+  };
+  if (opts.telemetryDryRun) {
+    console.log(`  Telemetry dry run — nothing sent. This run would send (with your token, which is linked to your email):\n  ${JSON.stringify(telemetryPayload)}`);
+  } else if (opts.telemetry && !telemetryToken) {
+    console.log('  Telemetry not sent: no telemetry token (--telemetry-token or QB_TELEMETRY_TOKEN).');
+  } else if (opts.telemetry && telemetryToken) {
+    console.log(`  Telemetry: sending ${JSON.stringify(telemetryPayload)}`);
+    await sendMetrics(telemetryPayload, { token: telemetryToken });   // QB-21: bounded (3 s)
   }
 
   process.exit(report?.verdict === 'pass' ? 0 : 1);

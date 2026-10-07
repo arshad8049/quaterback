@@ -37,6 +37,9 @@ export default {
     if (url.pathname === '/api/telemetry/revoke') {
       return handleTelemetryRevoke(request, env);
     }
+    if (url.pathname === '/api/telemetry/delete') {
+      return handleTelemetryDelete(request, env);
+    }
     if (url.pathname === '/api/report') {
       return handleReport(request, env);
     }
@@ -51,6 +54,7 @@ export default {
   // QB-35: durable email delivery — retry pending/failed deliveries (wrangler.toml [triggers]).
   async scheduled(event, env, ctx) {
     await retryDeliveries(env);
+    await applyRetention(env);   // QB-32
   },
 };
 
@@ -257,6 +261,33 @@ async function handleTelemetryRevoke(request, env) {
   return json({ ok: true, revoked: true });
 }
 
+// ─── Deletion and retention (QB-32) ───────────────────────────────────────────
+//
+// A telemetry token holder can delete every metric sent with that token (and the token is
+// revoked) — no email to the owner needed. Retention (enforced by the cron handler):
+// client metrics 180 days; used/expired verification codes 7 days; signup rate-limit rows
+// 2 days; sent/dead email deliveries 30 days.
+
+const RETENTION = { client_metrics_days: 180, verifications_days: 7, signup_attempts_days: 2, deliveries_days: 30 };
+const daysAgo = (d) => new Date(Date.now() - d * 24 * 3600 * 1000).toISOString();
+
+async function handleTelemetryDelete(request, env) {
+  if (request.method === 'OPTIONS') return cors204();
+  if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
+  const tok = await bearer(request, env, 'metrics:write');
+  if (!tok) return json({ error: 'Unauthorized' }, 401);
+  const del = await env.DB.prepare('DELETE FROM client_metrics WHERE token_id = ?').bind(tok.id).run();
+  await env.DB.prepare('UPDATE telemetry_tokens SET revoked_at = ? WHERE id = ?').bind(new Date().toISOString(), tok.id).run();
+  return json({ ok: true, deleted_metrics: del.meta ? del.meta.changes : null, token_revoked: true });
+}
+
+async function applyRetention(env) {
+  await env.DB.prepare('DELETE FROM client_metrics WHERE created_at < ?').bind(daysAgo(RETENTION.client_metrics_days)).run();
+  await env.DB.prepare('DELETE FROM telemetry_verifications WHERE created_at < ?').bind(daysAgo(RETENTION.verifications_days)).run();
+  await env.DB.prepare('DELETE FROM signup_attempts WHERE created_at < ?').bind(daysAgo(RETENTION.signup_attempts_days)).run();
+  await env.DB.prepare("DELETE FROM email_deliveries WHERE status IN ('sent', 'dead') AND created_at < ?").bind(daysAgo(RETENTION.deliveries_days)).run();
+}
+
 // ─── POST /api/metrics (QB-33) ────────────────────────────────────────────────
 //
 // Authorization: a verified, unrevoked `metrics:write` token — never an email.
@@ -458,12 +489,12 @@ cd quaterback &amp;&amp; npm install</pre>
     <p style="margin:0 0 10px 0;font-size:14px;color:#C6CFCB;"><strong style="color:#F4F1EA;">3.</strong> Run your first task</p>
     <pre style="margin:0 0 16px 0;padding:10px 14px;background:#0D100F;border:1px solid #1A211E;border-radius:4px;font-size:13px;color:#6FBF9F;">node qb.js "add getVersion() to src/utils.js" \\
   --repo /path/to/repo --agent claude-code</pre>
-    <p style="margin:0;font-size:13px;color:#8A948F;">No API keys needed. Everything runs locally via Ollama.</p>
+    <p style="margin:0;font-size:13px;color:#8A948F;">Quarterback's own model calls run locally via Ollama. With <code>--agent claude-code</code>, the coding agent runs Claude Code under your Claude account: your task and the code it reads are sent to Anthropic. Details: ${SITE}/privacy.html</p>
   </div>
   <div style="margin:28px 0;padding:18px 22px;border:1px solid #2E4F44;border-radius:6px;background:#0A0D0C;">
     <div style="font-family:monospace;font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:#6FBF9F;margin-bottom:8px;">Help us improve QB</div>
     <p style="margin:0;font-size:14px;line-height:1.65;color:#8A948F;">
-      Telemetry is off unless you turn it on. To share run outcome metrics, request a telemetry token (we email you a one-time link), then run with <code style="font-family:monospace;background:#121615;padding:2px 5px;border-radius:3px;color:#C6CFCB;">--telemetry</code> and <code style="font-family:monospace;background:#121615;padding:2px 5px;border-radius:3px;color:#C6CFCB;">QB_TELEMETRY_TOKEN</code> set. It sends pass/fail, attempts, duration, repair count, layers and the QB version, tied to your token.
+      Telemetry is off unless you turn it on. To share run outcome metrics, request a telemetry token (we email you a one-time link), then run with <code style="font-family:monospace;background:#121615;padding:2px 5px;border-radius:3px;color:#C6CFCB;">--telemetry</code> and <code style="font-family:monospace;background:#121615;padding:2px 5px;border-radius:3px;color:#C6CFCB;">QB_TELEMETRY_TOKEN</code> set. It sends pass/fail, attempts, duration, repair count, layers and the QB version, tied to your token — which is linked to your email, so it is not anonymous. Preview the exact payload with <code style="font-family:monospace;background:#121615;padding:2px 5px;border-radius:3px;color:#C6CFCB;">--telemetry-dry-run</code>; delete everything you sent with POST /api/telemetry/delete.
     </p>
   </div>
   <p style="margin:28px 0 0 0;font-size:15px;line-height:1.65;color:#9AA5A0;">

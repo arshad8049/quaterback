@@ -140,8 +140,9 @@ describe('QB-33: the client sends a token-authorized, strict payload', () => {
   });
   test('qb.js no longer sends an email or a task hash as telemetry', () => {
     const src = require('fs').readFileSync(require('path').join(__dirname, '../../qb.js'), 'utf8');
-    const block = src.slice(src.indexOf('await sendMetrics('), src.indexOf('{ token: telemetryToken }'));
+    const block = src.slice(src.indexOf('const telemetryPayload = {'), src.indexOf('if (opts.telemetryDryRun)'));
     assert.doesNotMatch(block, /email|task_hash/);
     assert.match(block, /run_id:\s+run\.manifest\.run_id/);
+    assert.match(src, /sendMetrics\(telemetryPayload, \{ token: telemetryToken \}\)/);
   });
 });
