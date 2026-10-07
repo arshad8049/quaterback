@@ -45,11 +45,22 @@ async function loadWorker(file = path.join(__dirname, '../../landing_page/_worke
 async function workerEnv({ schema = fs.readFileSync(path.join(__dirname, '../../landing_page/schema.sql'), 'utf8'), env: extra = {}, file } = {}) {
   const worker = await loadWorker(file);
   const emails = [];
+  // QB-35: tests can make the email provider fail (status per call) and run the cron handler
+  const control = { emailStatus: () => 200 };
   const env = { DB: fakeD1(schema), RESEND_API_KEY: 're_test_key', ADMIN_SECRET: 'admin-secret-for-tests',
     ASSETS: { fetch: async () => new Response('asset', { status: 200 }) }, ...extra };
   const realFetch = globalThis.fetch;
+  const stubFetch = async (url, init) => {
+    const status = control.emailStatus(emails.length);
+    emails.push({ url: String(url), body: JSON.parse(init.body), headers: { ...(init.headers || {}) }, status });
+    return new Response(status === 200 ? '{"id":"e"}' : '{"message":"provider error"}', { status });
+  };
+  async function scheduled() {
+    globalThis.fetch = stubFetch;
+    try { await worker.scheduled({ cron: '*/10 * * * *', scheduledTime: Date.now() }, env, { waitUntil() {} }); } finally { globalThis.fetch = realFetch; }
+  }
   async function call(method, p, { body, headers = {}, raw } = {}) {
-    globalThis.fetch = async (url, init) => { emails.push({ url: String(url), body: JSON.parse(init.body) }); return new Response('{}', { status: 200 }); };
+    globalThis.fetch = stubFetch;
     try {
       const init = { method, headers: { ...headers } };
       if (raw !== undefined) init.body = raw;
@@ -60,7 +71,7 @@ async function workerEnv({ schema = fs.readFileSync(path.join(__dirname, '../../
       return { status: res.status, headers: res.headers, text, json };
     } finally { globalThis.fetch = realFetch; }
   }
-  return { env, emails, call, db: env.DB._db };
+  return { env, emails, call, scheduled, control, db: env.DB._db };
 }
 
 module.exports = { workerEnv, fakeD1, loadWorker, SKIP, AVAILABLE };

@@ -47,47 +47,123 @@ export default {
     // ── Static assets fallback ────────────────────────────────────────────────
     return env.ASSETS.fetch(request);
   },
+
+  // QB-35: durable email delivery — retry pending/failed deliveries (wrangler.toml [triggers]).
+  async scheduled(event, env, ctx) {
+    await retryDeliveries(env);
+  },
 };
 
-// ─── POST /api/beta-access ────────────────────────────────────────────────────
+// ─── POST /api/beta-access (QB-35) ────────────────────────────────────────────
+//
+// Input: a JSON object of at most 2 KiB with only `email` (string, ≤ 254, an address) and
+// optional `agent` (string ≤ 80, no control characters) — anything else is a defined 400/413,
+// never an exception. Abuse: at most 10 attempts per IP per hour (the IP is stored only as a
+// sha256). Registration is atomic (INSERT … ON CONFLICT(email) DO NOTHING): concurrent
+// duplicates create one row. Registration is tracked separately from email DELIVERY: each
+// email is a row in email_deliveries with an idempotency key (welcome:<email>,
+// owner-notify:<email>), sent with that key, and retried by the cron handler with backoff
+// until sent or dead. The response says whether the welcome email was actually sent.
+
+const MAX_SIGNUP_BYTES = 2048;
+const MAX_SIGNUPS_PER_IP_HOUR = 10;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_DELIVERY_ATTEMPTS = 6;
+
+/** { email, agent } or { error } — strict, never throws. */
+function signupInput(b) {
+  if (!b || typeof b !== 'object' || Array.isArray(b)) return { error: 'body must be a JSON object' };
+  for (const k of Object.keys(b)) if (k !== 'email' && k !== 'agent') return { error: `unknown field: ${k}` };
+  if (typeof b.email !== 'string') return { error: 'email must be a string' };
+  const email = b.email.trim().toLowerCase();
+  if (!email || email.length > 254 || !EMAIL_RE.test(email)) return { error: 'Invalid email' };
+  let agent = null;
+  if (b.agent !== undefined && b.agent !== null) {
+    if (typeof b.agent !== 'string') return { error: 'agent must be a string' };
+    if (b.agent.length > 80 || /[\u0000-\u001f\u007f]/.test(b.agent)) return { error: 'agent must be at most 80 printable characters' };
+    agent = b.agent.trim() || null;
+  }
+  return { email, agent };
+}
 
 async function handleBetaAccess(request, env) {
   if (request.method === 'OPTIONS') return cors204();
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
+  const r = await boundedJson(request, MAX_SIGNUP_BYTES);
+  if (r.error) return json({ error: r.error }, r.status);
+  const input = signupInput(r.body);
+  if (input.error) return json({ error: input.error }, 400);
 
-  let body;
-  try { body = await request.json(); }
-  catch { return json({ error: 'Invalid JSON' }, 400); }
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const ipHash = await sha256Hex(`qb-signup:${ip}`);
+  const recent = await env.DB.prepare('SELECT COUNT(*) AS n FROM signup_attempts WHERE ip_hash = ? AND created_at > ?').bind(ipHash, hourAgo()).first();
+  if (recent && recent.n >= MAX_SIGNUPS_PER_IP_HOUR) return json({ error: 'Too many requests' }, 429);
+  await env.DB.prepare('INSERT INTO signup_attempts (ip_hash, created_at) VALUES (?, ?)').bind(ipHash, new Date().toISOString()).run();
 
-  const email = (body.email || '').trim().toLowerCase();
-  const agent = (body.agent || '').trim() || null;
+  const referrer = (request.headers.get('Referer') || '').slice(0, 512) || null;
+  const ins = await env.DB
+    .prepare('INSERT INTO submissions (email, agent, ip, referrer) VALUES (?, ?, ?, ?) ON CONFLICT(email) DO NOTHING')
+    .bind(input.email, input.agent, ip === 'unknown' ? null : ip, referrer).run();
+  if (!ins.meta || ins.meta.changes !== 1) return json({ ok: true, registered: true, duplicate: true });
 
-  if (!email || !email.includes('@') || !email.includes('.')) {
-    return json({ error: 'Invalid email' }, 400);
+  const { count } = await env.DB.prepare('SELECT COUNT(*) as count FROM submissions').first();
+  const now = new Date().toISOString();
+  const queue = env.DB.prepare(`INSERT INTO email_deliveries (idempotency_key, kind, recipient, payload, status, attempts, created_at, next_attempt_at)
+    VALUES (?, ?, ?, ?, 'pending', 0, ?, ?) ON CONFLICT(idempotency_key) DO NOTHING`);
+  await queue.bind(`welcome:${input.email}`, 'welcome', input.email, '{}', now, now).run();
+  await queue.bind(`owner-notify:${input.email}`, 'owner_notify', OWNER, JSON.stringify({ email: input.email, agent: input.agent, count, ip: ip === 'unknown' ? null : ip, referrer }), now, now).run();
+  const results = await sendDeliveries(env, [`welcome:${input.email}`, `owner-notify:${input.email}`]);
+  return json({ ok: true, registered: true, welcome_email: results[`welcome:${input.email}`] === 'sent' ? 'sent' : 'pending_retry' });
+}
+
+/** Claim and send the given deliveries (idempotent). Returns { key: status }. */
+async function sendDeliveries(env, keys) {
+  const out = {};
+  for (const key of keys) {
+    const now = new Date().toISOString();
+    // claim: only a pending/failed row that is due moves to 'sending' (one sender at a time)
+    const claim = await env.DB.prepare(`UPDATE email_deliveries SET status = 'sending', claimed_at = ?
+      WHERE idempotency_key = ? AND status IN ('pending', 'failed') AND next_attempt_at <= ?`).bind(now, key, now).run();
+    if (!claim.meta || claim.meta.changes !== 1) {
+      const row = await env.DB.prepare('SELECT status FROM email_deliveries WHERE idempotency_key = ?').bind(key).first();
+      out[key] = row ? row.status : 'missing';
+      continue;
+    }
+    const d = await env.DB.prepare('SELECT id, kind, recipient, payload, attempts FROM email_deliveries WHERE idempotency_key = ?').bind(key).first();
+    let res;
+    try { res = await deliver(d, key, env); } catch (e) { res = { ok: false, error: String(e && e.message || e) }; }
+    const attempts = d.attempts + 1;
+    if (res.ok) {
+      await env.DB.prepare(`UPDATE email_deliveries SET status = 'sent', attempts = ?, sent_at = ?, last_error = NULL WHERE id = ?`).bind(attempts, new Date().toISOString(), d.id).run();
+      out[key] = 'sent';
+    } else {
+      const dead = attempts >= MAX_DELIVERY_ATTEMPTS;
+      const backoff = Math.min(6 * 3600 * 1000, 60 * 1000 * 2 ** attempts);
+      await env.DB.prepare(`UPDATE email_deliveries SET status = ?, attempts = ?, last_error = ?, next_attempt_at = ? WHERE id = ?`)
+        .bind(dead ? 'dead' : 'failed', attempts, String(res.error || 'send failed').slice(0, 300), isoIn(backoff), d.id).run();
+      out[key] = dead ? 'dead' : 'failed';
+    }
   }
+  return out;
+}
 
-  // Deduplicate
-  const existing = await env.DB
-    .prepare('SELECT id FROM submissions WHERE email = ?')
-    .bind(email).first();
-  if (existing) return json({ ok: true, duplicate: true });
+async function deliver(d, key, env) {
+  if (d.kind === 'welcome') return sendWelcome(d.recipient, env.RESEND_API_KEY, key);
+  if (d.kind === 'owner_notify') {
+    const p = JSON.parse(d.payload || '{}');
+    return sendOwnerNotify(p.email, p.agent, p.count, p.ip, p.referrer, env.RESEND_API_KEY, key);
+  }
+  return { ok: false, error: `unknown delivery kind ${d.kind}` };
+}
 
-  const ip       = request.headers.get('CF-Connecting-IP') || null;
-  const referrer = request.headers.get('Referer') || null;
-
-  await env.DB
-    .prepare('INSERT INTO submissions (email, agent, ip, referrer) VALUES (?, ?, ?, ?)')
-    .bind(email, agent, ip, referrer).run();
-
-  const { count } = await env.DB
-    .prepare('SELECT COUNT(*) as count FROM submissions').first();
-
-  await Promise.allSettled([
-    sendWelcome(email, env.RESEND_API_KEY),
-    sendOwnerNotify(email, agent, count, ip, referrer, env.RESEND_API_KEY),
-  ]);
-
-  return json({ ok: true });
+/** Cron: retry due pending/failed deliveries; a send stuck in 'sending' > 10 min is retried. */
+async function retryDeliveries(env) {
+  const stale = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  await env.DB.prepare(`UPDATE email_deliveries SET status = 'failed', last_error = 'interrupted while sending'
+    WHERE status = 'sending' AND claimed_at < ?`).bind(stale).run();
+  const due = await env.DB.prepare(`SELECT idempotency_key FROM email_deliveries
+    WHERE status IN ('pending', 'failed') AND next_attempt_at <= ? ORDER BY id LIMIT 50`).bind(new Date().toISOString()).all();
+  return sendDeliveries(env, due.results.map((r) => r.idempotency_key));
 }
 
 // ─── Telemetry credentials (QB-33) ────────────────────────────────────────────
@@ -314,6 +390,12 @@ async function handleReport(request, env) {
     },
     signups: signups.results,
     next_cursor: signups.next_cursor,
+    // QB-35: email delivery is observable — counts by status and the latest failures
+    email_deliveries: {
+      by_status: (await env.DB.prepare('SELECT status, COUNT(*) AS n FROM email_deliveries GROUP BY status ORDER BY status').all()).results,
+      recent_failures: (await env.DB.prepare(`SELECT kind, recipient, status, attempts, last_error, next_attempt_at FROM email_deliveries
+        WHERE status IN ('failed', 'dead') ORDER BY id DESC LIMIT 20`).all()).results,
+    },
   });
 }
 
@@ -353,7 +435,7 @@ async function handleSubmissions(request, env) {
 
 // ─── Email helpers ────────────────────────────────────────────────────────────
 
-async function sendWelcome(to, apiKey) {
+async function sendWelcome(to, apiKey, idempotencyKey) {
   const html = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"></head>
 <body style="margin:0;padding:0;background:#0D100F;font-family:'Helvetica Neue',Arial,sans-serif;color:#C6CFCB;">
@@ -392,7 +474,7 @@ cd quaterback &amp;&amp; npm install</pre>
     <a href="https://quaterback.velorallc.workers.dev" style="color:#6FBF9F;text-decoration:none;">quaterback.velorallc.workers.dev</a></p>
   </div>
 </div></body></html>`;
-  return resendSend(to, "You're on the Quarterback beta list", html, apiKey);
+  return resendSend(to, "You're on the Quarterback beta list", html, apiKey, idempotencyKey);
 }
 
 async function sendTelemetryLink(to, link, apiKey) {
@@ -406,7 +488,7 @@ async function sendTelemetryLink(to, link, apiKey) {
   return resendSend(to, 'Your Quarterback telemetry link', html, apiKey);
 }
 
-async function sendOwnerNotify(email, agent, count, ip, referrer, apiKey) {
+async function sendOwnerNotify(email, agent, count, ip, referrer, apiKey, idempotencyKey) {
   const now  = new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
 <body style="margin:0;padding:0;background:#0D100F;font-family:monospace;color:#C6CFCB;">
@@ -424,16 +506,22 @@ async function sendOwnerNotify(email, agent, count, ip, referrer, apiKey) {
     <span style="color:#8A948F;font-size:14px;margin-left:10px;">total signups</span>
   </div>
 </div></body></html>`;
-  return resendSend(OWNER, `QB beta signup #${count}: ${email} (${agent || 'no agent'})`, html, apiKey);
+  return resendSend(OWNER, `QB beta signup #${count}: ${email} (${agent || 'no agent'})`, html, apiKey, idempotencyKey);
 }
 
-async function resendSend(to, subject, html, apiKey) {
-  if (!apiKey) return;
-  return fetch(RESEND_URL, {
-    method:  'POST',
-    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ from: FROM, to, subject, html }),
-  });
+/** One send. Returns { ok, error? } — never throws. The idempotency key stops a retried send from duplicating. */
+async function resendSend(to, subject, html, apiKey, idempotencyKey) {
+  if (!apiKey) return { ok: false, error: 'RESEND_API_KEY not configured' };
+  try {
+    const res = await fetch(RESEND_URL, {
+      method:  'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}) },
+      body:    JSON.stringify({ from: FROM, to, subject, html }),
+    });
+    if (res.ok) return { ok: true };
+    let detail = ''; try { detail = (await res.text()).slice(0, 200); } catch { /* none */ }
+    return { ok: false, error: `provider HTTP ${res.status} ${detail}`.trim() };
+  } catch (e) { return { ok: false, error: `network: ${e && e.message || e}` }; }
 }
 
 // ─── Utilities ────────────────────────────────────────────────────────────────

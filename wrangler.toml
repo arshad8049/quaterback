@@ -10,3 +10,7 @@ binding   = "ASSETS"
 binding       = "DB"
 database_name = "qb-beta"
 database_id   = "6bb621d5-e492-4154-bb38-a7bd567e363f"
+
+# QB-35: retry pending/failed email deliveries
+[triggers]
+crons = ["*/10 * * * *"]
