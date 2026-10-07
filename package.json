@@ -1,7 +1,7 @@
 {
   "name": "@velora/quarterback",
   "version": "0.1.0",
-  "description": "Quarterback — Intent to Verified Result (root orchestrator)",
+  "description": "Quarterback \u2014 Intent to Verified Result (root orchestrator)",
   "main": "qb.js",
   "bin": {
     "qb": "./qb.js"
@@ -13,7 +13,8 @@
     "test:daemon": "node --test test/daemon/*.test.js",
     "test:ci": "node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=tap --test-reporter-destination=unit.tap test/unit/*.test.js",
     "test:integration:ci": "QB_INTEGRATION=1 node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=tap --test-reporter-destination=integration.tap test/integration/*.test.js",
-    "test:daemon:ci": "node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=tap --test-reporter-destination=daemon.tap test/daemon/*.test.js"
+    "test:daemon:ci": "node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=tap --test-reporter-destination=daemon.tap test/daemon/*.test.js",
+    "smoke": "node scripts/smoke.js"
   },
   "dependencies": {
     "acorn": "8.18.0",
