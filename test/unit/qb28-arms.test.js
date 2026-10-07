@@ -57,6 +57,10 @@ const ORACLE = { approved_by: 'qb-test-oracle', goal: 'formatDuration should sho
   acceptance_criteria: [{ id: 'AC-1', criterion: 'formatDuration(30000) returns "30s"', kind: 'non_behavioral', requirement_ids: ['R-1'] }],
   requirements: [{ id: 'R-1', quote: 'formatDuration should show 30,000 ms as 30s' }], verification_plan: ['run the tests'], scope: { allowed_changes: ['**'] } };
 
+/** QB-29 preflight probes that reproduce the fake pins these tests create (no Docker, no repository probe). */
+const FAKE_PREFLIGHT = { probes: { git: (args) => Buffer.from(args[0] === 'rev-parse' ? `${'a'.repeat(40)}\n` : ''), claudeVersion: () => 'unknown',
+  agentVersion: () => 't', agentConfig: () => ({}), images: () => ({}), models: () => [], ensureImages: async () => {} } };
+
 let tmp; const fixtures = [];
 before(() => { tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'qb28-')); process.env.QB_JUDGE_CACHE_DIR = path.join(tmp, 'jc'); });
 after(() => { for (const f of fixtures) f.cleanup(); fs.rmSync(tmp, { recursive: true, force: true }); delete process.env.QB_JUDGE_CACHE_DIR; });
@@ -358,7 +362,7 @@ describe('QB-28 re-review: the manifest\'s deadlines are the ones enforced', () 
       if (init.signal) init.signal.addEventListener('abort', () => { clearTimeout(t); reject(init.signal.reason); }, { once: true });
     });
     try {
-      await runExperiment(dir, { specs: { [spec.id]: spec }, runSandboxed: correctAgent(f), runsDir: path.join(tmp, 'dl-runs'),
+      await runExperiment(dir, { specs: { [spec.id]: spec }, runSandboxed: correctAgent(f), runsDir: path.join(tmp, 'dl-runs'), preflight: FAKE_PREFLIGHT,
         grader: { suitesRoot: f.suitesRoot, runSandboxed: graderRunner() } });
     } finally { global.fetch = real; budget.endRun(); }
     const exp = loadExperiment(dir);
@@ -379,7 +383,7 @@ describe('QB-28 re-review: the manifest\'s deadlines are the ones enforced', () 
     };
     const t0 = Date.now();
     try {
-      await runExperiment(dir, { specs: { [spec.id]: spec }, runSandboxed: correctAgent(f), runsDir: path.join(tmp, 'td-runs'),
+      await runExperiment(dir, { specs: { [spec.id]: spec }, runSandboxed: correctAgent(f), runsDir: path.join(tmp, 'td-runs'), preflight: FAKE_PREFLIGHT,
         grader: { suitesRoot: f.suitesRoot, runSandboxed: slowGrader } });
     } finally { budget.endRun(); }
     assert.ok(Date.now() - t0 < 9000, 'grading was not cancelled by the trial deadline');
