@@ -13,8 +13,6 @@
  */
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('fs');
-const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { loadWorker } = require('../helpers/worker-harness');
@@ -46,12 +44,11 @@ async function exportCsv(values) {
 
 /** Import a CSV in LibreOffice with `filter`; return { formulas, cells: [text…] } from the xlsx. */
 function importInCalc(csv, filter) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'qb34-calc-'));
-  fs.chmodSync(dir, 0o777);
-  fs.writeFileSync(path.join(dir, 'in.csv'), csv);
-  const r = docker(['run', '--rm', '--network', 'none', '-v', `${dir}:/work`, IMAGE, 'sh', '-c',
-    `soffice --headless --infilter="${filter}" --convert-to xlsx --outdir /work /work/in.csv >/dev/null 2>&1 && cd /work && unzip -o -q in.xlsx -d x && cat x/xl/worksheets/sheet1.xml && printf '\\n@@SST@@\\n' && cat x/xl/sharedStrings.xml`], { timeout: 180_000 });
-  fs.rmSync(dir, { recursive: true, force: true });
+  // The CSV goes in on stdin; the conversion happens entirely inside the container (nothing is
+  // written to the host, so no files owned by the container user are left behind).
+  const r = docker(['run', '--rm', '-i', '--network', 'none', IMAGE, 'sh', '-c',
+    `mkdir -p /tmp/w && cd /tmp/w && cat > in.csv && soffice --headless --infilter="${filter}" --convert-to xlsx --outdir /tmp/w /tmp/w/in.csv >/dev/null 2>&1 && unzip -o -q in.xlsx -d x && cat x/xl/worksheets/sheet1.xml && printf '\\n@@SST@@\\n' && cat x/xl/sharedStrings.xml`],
+  { timeout: 180_000, input: csv });
   assert.equal(r.status, 0, r.stderr);
   const [sheet, sst] = r.stdout.split('\n@@SST@@\n');
   const strings = [...sst.matchAll(/<si>([\s\S]*?)<\/si>/g)].map((m) => [...m[1].matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)].map((t) => t[1]).join(''))
