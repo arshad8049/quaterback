@@ -71,9 +71,12 @@ function gradingFixture({ suite = SUITE, extra = {} } = {}) {
 function hostRunner(calls = []) {
   return async (o) => {
     calls.push(o);
-    const box = fs.mkdtempSync(path.join(os.tmpdir(), 'qb-box-'));
+    const box = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'qb-box-')), 'w');
     try {
-      fs.cpSync(o.repoPath, box, { recursive: true, verbatimSymlinks: true });
+      // the graded base is committed (task base + suite), so a clone is the container's tree
+      // (fs.cpSync of a .git directory failed intermittently on Node 24 CI)
+      const cl = spawnSync('git', ['clone', '-q', '--no-hardlinks', o.repoPath, box], { encoding: 'utf8' });
+      if (cl.status !== 0) throw new Error(`stand-in clone failed: ${cl.stderr}`);
       let changes = [];
       if (o.applyPatch) {
         const ap = spawnSync('git', ['apply', '--whitespace=nowarn', '-'], { cwd: box, input: o.applyPatch, encoding: 'utf8' });
@@ -91,7 +94,7 @@ function hostRunner(calls = []) {
       const state = missing ? 'execution_error' : r.status === 0 ? 'completed' : 'execution_error';
       return { status: changes.length ? 'completed' : 'no_change', changes, sandbox: { stages: { agent: { state: 'completed', exit_code: 0 } },
         verification: { status: 'ran', state, exit_code: missing ? 127 : r.status, report: text, report_error: text ? null : 'no_report', output: `${r.stdout}${r.stderr}` } } };
-    } finally { fs.rmSync(box, { recursive: true, force: true }); }
+    } finally { fs.rmSync(path.dirname(box), { recursive: true, force: true }); }
   };
 }
 
