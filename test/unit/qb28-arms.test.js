@@ -43,11 +43,13 @@ function scriptedAgent(steps, calls = []) {
   };
 }
 
-/** The grading stand-in: passes exactly when src/duration.js is the correct implementation. */
+/** The grading stand-in: the patch arrives as o.applyPatch (applied in the sandbox, never on the
+ *  host); it passes exactly when the patch installs the correct implementation. */
 const graderRunner = (calls = []) => async (o) => {
   calls.push(o);
-  const pass = fs.readFileSync(path.join(o.repoPath, 'src/duration.js'), 'utf8') === IMPL.correct;
-  return { status: 'no_change', sandbox: { verification: verification(pass) } };
+  const added = String(o.applyPatch || '').split('\n').filter((l) => l.startsWith('+') && !l.startsWith('+++')).map((l) => l.slice(1)).join('\n') + '\n';
+  const pass = added === IMPL.correct;
+  return { status: 'completed', changes: [{ file: 'src/duration.js' }], sandbox: { stages: { agent: { exit_code: 0 } }, verification: verification(pass) } };
 };
 
 const ORACLE = { approved_by: 'qb-test-oracle', goal: 'formatDuration should show 30,000 ms as 30s',
@@ -209,7 +211,7 @@ describe('QB-28: one experiment, every arm graded by the same external grader', 
     const exp = loadExperiment(dir);
     assert.deepEqual(exp.trials.map((t) => [t.arm, t.status, t.grade_outcome]).sort(), [['A', 'completed', 'pass'], ['E', 'completed', 'pass'], ['F', 'completed', 'pass']]);
     assert.equal(graderCalls.length, 3, 'the external grader ran once per arm');
-    for (const call of graderCalls) assert.deepEqual(Object.keys(call).sort(), ['baseTests', 'briefing', 'noAgent', 'repoPath', 'verify']);
+    for (const call of graderCalls) assert.deepEqual(Object.keys(call).sort(), ['applyPatch', 'baseTests', 'briefing', 'noAgent', 'repoPath', 'testCommand', 'verify']);
     const F = exp.trials.find((t) => t.arm === 'F');
     assert.ok(F.memory.recall_calls > 0 && F.memory.persist_calls === 1);
     assert.equal(exp.trials.find((t) => t.arm === 'E').memory.persist_calls, 0);

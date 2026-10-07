@@ -44,6 +44,9 @@ describe('QB-27: the external grader in the real sandbox', { skip: !ENABLED && '
     assert.deepEqual([five.outcome, five.reason], ['fail', 'tests_failed']);
     const syn = await run(f.patch('syntaxError'));
     assert.deepEqual([syn.outcome, syn.reason], ['fail', 'syntax_or_load_error']);
+    // re-review 1: the patch is applied INSIDE the sandbox; one that does not apply fails there
+    const bad = await run('diff --git a/src/duration.js b/src/duration.js\n--- a/src/duration.js\n+++ b/src/duration.js\n@@ -1 +1 @@\n-no such line\n+x\n');
+    assert.deepEqual([bad.outcome, bad.reason], ['fail', 'patch_does_not_apply']);
   });
 
   test('grading has no network and no credentials, even when the host process holds them', async () => {

@@ -63,22 +63,35 @@ function gradingFixture({ suite = SUITE, extra = {} } = {}) {
 }
 
 /**
- * Host-side stand-in for the sandbox (unit tests only — trusted fixture code): runs the
- * graded tree's .quarterback.json command with QB's node:test reporter and returns the
- * same verification shape stage ⑤ produces. Records every call for spies.
+ * Stand-in for the sandbox (unit tests only — trusted fixture code). Like the real grading
+ * run it never touches the checkout it is given: it copies it (the "container"), applies
+ * o.applyPatch THERE (exit 42 when it does not apply), reports the changed paths as capture
+ * would, and runs o.testCommand with QB's node:test reporter. Records every call for spies.
  */
 function hostRunner(calls = []) {
   return async (o) => {
     calls.push(o);
-    const plan = JSON.parse(fs.readFileSync(path.join(o.repoPath, '.quarterback.json'), 'utf8')).test;
-    const report = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'qb-rep-')), 'r.ndjson');
-    const reporter = path.join(__dirname, '../../sandbox/agent/qb-test-reporter.mjs');
-    const r = spawnSync(plan.command[0], plan.command.slice(1), { cwd: o.repoPath, encoding: 'utf8',
-      env: { PATH: process.env.PATH, NODE_OPTIONS: `--test-reporter=spec --test-reporter-destination=stdout --test-reporter=${reporter} --test-reporter-destination=${report}` } });
-    const text = fs.existsSync(report) ? fs.readFileSync(report, 'utf8') : null;
-    fs.rmSync(path.dirname(report), { recursive: true, force: true });
-    const state = r.error && r.error.code === 'ENOENT' ? 'execution_error' : r.status === 0 ? 'completed' : 'execution_error';
-    return { status: 'no_change', sandbox: { verification: { status: 'ran', state, exit_code: r.error && r.error.code === 'ENOENT' ? 127 : r.status, report: text, report_error: text ? null : 'no_report', output: `${r.stdout}${r.stderr}` } } };
+    const box = fs.mkdtempSync(path.join(os.tmpdir(), 'qb-box-'));
+    try {
+      fs.cpSync(o.repoPath, box, { recursive: true, verbatimSymlinks: true });
+      let changes = [];
+      if (o.applyPatch) {
+        const ap = spawnSync('git', ['apply', '--whitespace=nowarn', '-'], { cwd: box, input: o.applyPatch, encoding: 'utf8' });
+        if (ap.status !== 0) return { status: 'execution_error', changes: [], sandbox: { stages: { agent: { state: 'execution_error', exit_code: 42 } } } };
+        spawnSync('git', ['add', '-A'], { cwd: box });
+        changes = spawnSync('git', ['diff', '--cached', '--name-only', 'HEAD'], { cwd: box, encoding: 'utf8' }).stdout.split('\n').filter(Boolean).map((file) => ({ file }));
+      }
+      const command = o.testCommand || JSON.parse(fs.readFileSync(path.join(box, '.quarterback.json'), 'utf8')).test.command;
+      const report = path.join(box, '.qb-report.ndjson');
+      const reporter = path.join(__dirname, '../../sandbox/agent/qb-test-reporter.mjs');
+      const r = spawnSync(command[0], command.slice(1), { cwd: box, encoding: 'utf8',
+        env: { PATH: process.env.PATH, NODE_OPTIONS: `--test-reporter=spec --test-reporter-destination=stdout --test-reporter=${reporter} --test-reporter-destination=${report}` } });
+      const text = fs.existsSync(report) ? fs.readFileSync(report, 'utf8') : null;
+      const missing = r.error && r.error.code === 'ENOENT';
+      const state = missing ? 'execution_error' : r.status === 0 ? 'completed' : 'execution_error';
+      return { status: changes.length ? 'completed' : 'no_change', changes, sandbox: { stages: { agent: { state: 'completed', exit_code: 0 } },
+        verification: { status: 'ran', state, exit_code: missing ? 127 : r.status, report: text, report_error: text ? null : 'no_report', output: `${r.stdout}${r.stderr}` } } };
+    } finally { fs.rmSync(box, { recursive: true, force: true }); }
   };
 }
 

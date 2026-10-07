@@ -24,15 +24,26 @@
    - Suites live in `bench/suites/<task>/`, outside every task repository.
    - Grading refuses a suite that sits inside the task repository, or any of whose files exist as a blob anywhere in that repository's object database (any branch, any history).
    - Agents run on a fresh checkout of the task repository at the pinned commit, so the suite isn't there, isn't in git history, and isn't in the environment. A Docker test runs an agent stage that searches the filesystem, `env` and `git log --all -p` for a canary planted in the suite, and finds nothing.
-3. **Grader-owned paths.** A patch touching the suite's `install_to/**`, `.quarterback.json` or the spec's `owned_paths` (both sides of renames) fails with `grader_owned_path` before anything runs.
-4. **Apply.**
-   - A fresh checkout of `repo.base_rev`, with lockfiles hashing as the spec says.
-   - Then `git apply`. A patch that doesn't apply fails (`patch_does_not_apply`).
-5. **Install.** The suite is copied in after the patch, along with the grader's own test plan (`.quarterback.json` with the spec's argv command).
-6. **Run.**
-   - The hardened sandbox (`runSandboxed({ noAgent: true, baseTests: false })`) runs with no agent stage, so there are no credentials and no inference egress.
-   - The test command runs with `--network none`, read-only dependencies and a scrubbed environment.
+3. **Grader-owned paths and their ancestors.**
+   - A patch fails with `grader_owned_path` before anything is created or run if it touches any of these, or **any ancestor** of them (both sides of renames, compared case-insensitively):
+     - the suite's `install_to/**`;
+     - `.quarterback.json`;
+     - the spec's `owned_paths`.
+   - Replacing `test` with a symlink redirects `test/hidden`, so ancestors count.
+4. **Checkout.** A fresh checkout of `repo.base_rev`, which holds trusted content only; lockfiles must be regular files that hash as the spec says.
+5. **Install.**
+   - The hidden suite is written into that checkout with **no-follow, beneath-root writes** (`safeInstall`):
+     - every ancestor must be absent (then created one level at a time) or a real directory;
+     - files are created `O_EXCL|O_NOFOLLOW`;
+     - the final real path must stay beneath the checkout.
+   - A symlinked or non-directory ancestor **in the base tree** fails closed (`grader_error unsafe_install_path`), with nothing written.
+   - The suite is then committed as the graded base.
+6. **Apply and run, inside the sandbox.**
+   - The untrusted patch is **never applied on the host**. `runSandboxed({ noAgent: true, applyPatch, testCommand, baseTests: false })` runs a trusted stage in the agent image (`--network none`, no credentials) that `git apply`s it to the sandbox work tree; a patch that doesn't apply exits 42, which gives `fail patch_does_not_apply`.
+   - Capture then runs. The **captured** change list is checked again for owned paths and ancestors, as defence in depth.
+   - Then the suite's argv command runs with `--network none`, read-only dependencies and a scrubbed environment. There is no agent, no credentials and no inference egress.
    - A Docker test sets fake credentials in the host process and proves the suite sees neither them nor the network.
+   - **Re-review 1:** the first version applied the patch on the host and then copied the suite through paths the patch controlled. The reviewer showed that a patch adding a symlink `test` → an outside directory made the grader write `hidden/duration.test.js` outside its checkout, before the sandbox ran. A later sandbox rejection can't undo a host write; now no host write happens after untrusted content exists.
 7. **Classify** with `verify/tests.js` on the QB node:test report (QB-06).
 
 ## Outcomes
@@ -70,5 +81,9 @@ Attributing a load failure to the patch is sound only because the suite is quali
 
 ## Tests
 
+- **Re-review 1 regressions** (unit, every Node version): the reviewer's symlink repro and its case-variant `Test`, a base-tree symlinked ancestor, "the patch is never applied on the host" (the sandbox receives it; the host checkout is base + suite), a captured-change-list check, and `safeInstall` edge cases.
+  - Each asserts that nothing was written outside the checkout and that the sandbox was never invoked.
+  - Pre-fix, the repro and the base-tree case wrote `hidden/duration.test.js` outside.
+  - Docker: a patch that doesn't apply fails inside the sandbox.
 - **Unit** (`test/unit/qb27-grader.test.js`, 17 tests): these use the live node:test reporter, so they need Node 22+. They run on CI 22/24 and in the sandbox image (Node 24); on Node 20 they are skipped.
 - **Docker** (`test/integration/qb27-grader.test.js`): qualification plus the 30s / 5m / syntax cases, no network or credentials, and the agent-side canary search.

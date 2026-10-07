@@ -11,7 +11,7 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
-const { grade, gradeArm, graderHash, patchPaths } = require('../../bench/grader');
+const { grade, gradeArm, graderHash, patchPaths, safeInstall } = require('../../bench/grader');
 const { qualify } = require('../../bench/qualify');
 const { freeze, checkFrozen } = require('../../bench/spec');
 const adj = require('../../bench/adjudicate');
@@ -50,7 +50,7 @@ describe('QB-27: grading is independent of QB\'s contract', LIVE, () => {
       suitesRoot: f.suitesRoot, runSandboxed: hostRunner(calls) });
     assert.equal(calls.length, 1);
     const call = calls[0];
-    assert.deepEqual(Object.keys(call).sort(), ['baseTests', 'briefing', 'noAgent', 'repoPath', 'verify']);
+    assert.deepEqual(Object.keys(call).sort(), ['applyPatch', 'baseTests', 'briefing', 'noAgent', 'repoPath', 'testCommand', 'verify']);
     assert.deepEqual([call.briefing, call.noAgent, call.baseTests], ['', true, false]);
     assert.doesNotMatch(JSON.stringify(call), /5m|AC-1|acceptance/);
   });
@@ -229,5 +229,104 @@ describe('QB-27: blinded adjudication', LIVE, () => {
     const sum = adj.summarize(dir)[packets[0].item_id];
     assert.deepEqual([sum.agreed, sum.disagreement, sum.verdicts.length], [null, true, 2]);
     assert.throws(() => adj.prepare([{ ...items[0], grade: { ...items[0].grade, outcome: 'fail' } }], { seed: 's' }), /not awaiting adjudication/);
+  });
+});
+
+/**
+ * QB-27 re-review 1: the untrusted patch must never steer a host-side write. Pre-fix, the
+ * grader applied the patch on the host and then installed the suite through paths the patch
+ * controlled: a patch adding a symlink `test` → <outside dir> made it write
+ * hidden/duration.test.js OUTSIDE the grading checkout before the sandbox ran.
+ * These run without qualification (rejection happens before any run), so on every Node.
+ */
+describe('QB-27 re-review 1: no host write follows a path an untrusted patch or base tree controls', () => {
+  const outside = () => fs.mkdtempSync(path.join(os.tmpdir(), 'qb27-outside-'));
+  const listing = (d) => { const out = []; (function walk(x) { for (const e of fs.readdirSync(x, { withFileTypes: true })) { out.push(path.relative(d, path.join(x, e.name))); if (e.isDirectory()) walk(path.join(x, e.name)); } })(d); return out; };
+  /** A real git patch that adds a symlink (mode 120000) named `name` → `target`. */
+  const symlinkPatch = (f, name, target) => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'qb27-sym-'));
+    try {
+      spawnSync('git', ['clone', '-q', f.repo.dir, tmp]);
+      fs.symlinkSync(target, path.join(tmp, name));
+      spawnSync('git', ['add', '-A'], { cwd: tmp });
+      return spawnSync('git', ['diff', '--cached', 'HEAD'], { cwd: tmp, encoding: 'utf8' }).stdout;
+    } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+  };
+  const blocked = (calls) => async (o) => { calls.push(o); return { status: 'blocked', reason: 'stub', sandbox: {} }; };
+
+  test('the reviewer\'s repro: a patch adding symlink `test` → an outside dir writes nothing there and never reaches the sandbox', async () => {
+    const f = fx(); const ext = outside(); const calls = [];
+    try {
+      const patch = symlinkPatch(f, 'test', ext);
+      assert.match(patch, /new file mode 120000/);
+      const r = await grade({ spec: f.spec, patch, suitesRoot: f.suitesRoot, qualifying: true, runSandboxed: blocked(calls) });
+      assert.deepEqual(listing(ext), [], 'the grader wrote outside its checkout');
+      assert.equal(calls.length, 0, 'rejected before any sandbox invocation');
+      assert.deepEqual([r.outcome, r.reason], ['fail', 'grader_owned_path']);
+    } finally { fs.rmSync(ext, { recursive: true, force: true }); }
+  });
+
+  test('a case variant (`Test`) of an owned ancestor is caught too — a host filesystem may be case-insensitive', async () => {
+    const f = fx(); const ext = outside(); const calls = [];
+    try {
+      const r = await grade({ spec: f.spec, patch: symlinkPatch(f, 'Test', ext), suitesRoot: f.suitesRoot, qualifying: true, runSandboxed: blocked(calls) });
+      assert.deepEqual([r.outcome, r.reason], ['fail', 'grader_owned_path']);
+      assert.deepEqual(listing(ext), []);
+      assert.equal(calls.length, 0);
+    } finally { fs.rmSync(ext, { recursive: true, force: true }); }
+  });
+
+  test('a symlinked ancestor in the BASE tree fails closed (grader_error), with no write outside and no sandbox run', async () => {
+    const f = fx(); const ext = outside(); const calls = [];
+    try {
+      fs.symlinkSync(ext, path.join(f.repo.dir, 'test'));
+      const head = f.repo.commit('base tree with a symlinked test/');
+      const spec = { ...f.spec, repo: { ...f.spec.repo, base_rev: head } };
+      const r = await grade({ spec, patch: f.patch('correct'), suitesRoot: f.suitesRoot, qualifying: true, runSandboxed: blocked(calls) });
+      assert.deepEqual(listing(ext), [], 'the grader wrote outside its checkout');
+      assert.equal(calls.length, 0);
+      assert.deepEqual([r.outcome, r.reason], ['grader_error', 'unsafe_install_path']);
+      assert.match(r.detail, /symbolic link/);
+    } finally { fs.rmSync(ext, { recursive: true, force: true }); }
+  });
+
+  test('the patch is never applied on the host: the sandbox receives it, the host checkout holds only base + suite', async () => {
+    const f = fx(); const calls = []; const seen = {};
+    const patch = f.patch('correct');
+    await grade({ spec: f.spec, patch, suitesRoot: f.suitesRoot, qualifying: true, runSandboxed: async (o) => {
+      calls.push(o);
+      seen.src = fs.readFileSync(path.join(o.repoPath, 'src/duration.js'), 'utf8');
+      seen.suite = fs.existsSync(path.join(o.repoPath, 'test/hidden/duration.test.js'));
+      seen.clean = spawnSync('git', ['status', '--porcelain'], { cwd: o.repoPath, encoding: 'utf8' }).stdout;
+      return { status: 'blocked', reason: 'stub', sandbox: {} };
+    } });
+    assert.equal(calls[0].applyPatch, patch);
+    assert.deepEqual(calls[0].testCommand, f.spec.suite.command);
+    assert.equal(seen.src, 'module.exports.formatDuration = (ms) => `${ms}ms`;\n', 'the patch reached the host checkout');
+    assert.deepEqual([seen.suite, seen.clean], [true, ''], 'the suite is committed into the graded base');
+  });
+
+  test('defence in depth: an owned path or ancestor in the CAPTURED change list fails, even if the patch text looked clean', async () => {
+    const f = fx();
+    const r = await grade({ spec: f.spec, patch: f.patch('correct'), suitesRoot: f.suitesRoot, qualifying: true,
+      runSandboxed: async () => ({ status: 'completed', changes: [{ file: 'src/duration.js' }, { file: 'test' }], sandbox: { stages: { agent: { exit_code: 0 } } } }) });
+    assert.deepEqual([r.outcome, r.reason], ['fail', 'grader_owned_path']);
+    assert.match(r.detail, /captured: test/);
+  });
+
+  test('safeInstall: a deeper symlinked ancestor, an existing file, and an escape are all refused', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'qb27-root-')); const ext = outside();
+    const suite = fs.mkdtempSync(path.join(os.tmpdir(), 'qb27-suite-')); fs.writeFileSync(path.join(suite, 'x.test.js'), 'x');
+    try {
+      fs.mkdirSync(path.join(root, 'a')); fs.symlinkSync(ext, path.join(root, 'a', 'b'));
+      assert.throws(() => safeInstall(root, 'a/b/c', suite, { 'x.test.js': 'h' }), (e) => e.code === 'UNSAFE_INSTALL_PATH');
+      fs.mkdirSync(path.join(root, 'ok')); fs.writeFileSync(path.join(root, 'ok', 'x.test.js'), 'existing');
+      assert.throws(() => safeInstall(root, 'ok', suite, { 'x.test.js': 'h' }), (e) => e.code === 'EEXIST');
+      fs.symlinkSync(path.join(ext, 'f'), path.join(root, 'leaf.test.js'));
+      assert.throws(() => safeInstall(root, '', suite, { 'leaf.test.js': 'h' }), (e) => e.code === 'EEXIST' || e.code === 'ELOOP');
+      assert.deepEqual(listing(ext), []);
+      safeInstall(root, 'fresh/dir', suite, { 'x.test.js': 'h' });
+      assert.equal(fs.readFileSync(path.join(root, 'fresh/dir/x.test.js'), 'utf8'), 'x');
+    } finally { for (const d of [root, ext, suite]) fs.rmSync(d, { recursive: true, force: true }); }
   });
 });

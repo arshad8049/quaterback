@@ -9,13 +9,19 @@
  *                  hash to what the spec's qualification recorded (else grader_error)
  *   2. boundary    the suite lives outside the task repository and is not in its object
  *                  database (history) — else grader_error suite_leaked
- *   3. ownership   a patch that touches a grader-owned path (the suite's install
- *                  directory, .quarterback.json, the spec's owned_paths) → fail
- *   4. apply       fresh checkout of the pinned base commit; lockfiles must hash as the
- *                  spec says; `git apply` — a patch that does not apply → fail
- *   5. install     the suite is copied in AFTER the patch, plus the grader's test plan
- *   6. run         the hardened sandbox with no agent stage: no credentials, no egress,
- *                  and the test command runs with --network none (lib/sandbox/stages.js)
+ *   3. ownership   a patch that touches a grader-owned path OR ANY ANCESTOR of one (the suite's
+ *                  install directory, .quarterback.json, the spec's owned_paths; compared
+ *                  case-insensitively) → fail, before anything is created or run
+ *   4. checkout    fresh checkout of the pinned base commit (no untrusted content yet);
+ *                  lockfiles must hash as the spec says
+ *   5. install     the hidden suite is written into that trusted checkout with no-follow,
+ *                  beneath-root writes: every ancestor must be a real directory (a symlink in
+ *                  the BASE tree fails closed: grader_error unsafe_install_path), files are
+ *                  created O_EXCL|O_NOFOLLOW. Then it is committed as the graded base.
+ *   6. apply + run the untrusted patch is applied INSIDE the hardened sandbox (a trusted stage,
+ *                  --network none, no credentials; exit 42 = does not apply) — the host never
+ *                  writes it. Capture, then the suite command runs with --network none; the
+ *                  captured change list is checked again for owned paths and ancestors.
  *   7. classify    via verify/tests.js on the QB node:test report (QB-06)
  *
  * Outcomes (qb-grade/1). Only pass / fail are scores:
@@ -56,6 +62,57 @@ function graderHash() {
 
 /** Paths a patch may never touch: the suite's install dir, the grader's test plan, spec owned_paths. */
 const ownedGlobs = (spec) => [`${spec.suite.install_to}/**`, '.quarterback.json', ...spec.suite.owned_paths];
+/** The literal directory/file prefixes of the owned globs (before any glob character). */
+const ownedRoots = (spec) => ownedGlobs(spec).map((g) => g.split('/').filter(Boolean))
+  .map((segs) => { const i = segs.findIndex((x) => /[*?[\]{}]/.test(x)); return (i < 0 ? segs : segs.slice(0, i)).join('/'); })
+  .filter(Boolean);
+
+/**
+ * Owned paths a change list touches: a path matching an owned glob, OR an ANCESTOR of an
+ * owned root (replacing `test` with a symlink redirects `test/hidden`). Case-insensitive,
+ * because a host filesystem may be (macOS, Windows).
+ */
+function ownedTouched(spec, files) {
+  const globs = ownedGlobs(spec).map((g) => globToRegExp(g.toLowerCase()));
+  const roots = ownedRoots(spec).map((r) => r.toLowerCase());
+  return files.filter((f) => {
+    const l = f.toLowerCase();
+    return globs.some((re) => re.test(l)) || roots.some((r) => r === l || r.startsWith(`${l}/`));
+  });
+}
+
+/**
+ * Write the hidden suite beneath `root` without following any link: every ancestor of every
+ * target must be absent (then created, non-recursively) or a real directory; files are created
+ * O_EXCL|O_NOFOLLOW; the final real path must stay beneath the root. Throws UNSAFE_INSTALL_PATH.
+ */
+function safeInstall(root, installTo, suiteDir, files) {
+  const realRoot = fs.realpathSync(root);
+  const unsafe = (why) => Object.assign(new Error(why), { code: 'UNSAFE_INSTALL_PATH' });
+  const ensureDir = (rel) => {
+    let cur = realRoot;
+    for (const seg of rel.split('/').filter(Boolean)) {
+      cur = path.join(cur, seg);
+      let st = null;
+      try { st = fs.lstatSync(cur); } catch (e) { if (e.code !== 'ENOENT') throw e; }
+      if (st && st.isSymbolicLink()) throw unsafe(`${path.relative(realRoot, cur)} is a symbolic link`);
+      if (st && !st.isDirectory()) throw unsafe(`${path.relative(realRoot, cur)} is not a directory`);
+      if (!st) fs.mkdirSync(cur);                       // non-recursive: one level, no link following
+      const again = fs.lstatSync(cur);
+      if (again.isSymbolicLink() || !again.isDirectory()) throw unsafe(`${path.relative(realRoot, cur)} changed type`);
+    }
+    const real = fs.realpathSync(cur);
+    if (real !== realRoot && !real.startsWith(realRoot + path.sep)) throw unsafe(`${rel} resolves outside the checkout`);
+    return cur;
+  };
+  const { O_WRONLY, O_CREAT, O_EXCL, O_NOFOLLOW } = fs.constants;
+  for (const rel of Object.keys(files)) {
+    const target = path.posix.join(installTo, rel);
+    const dir = ensureDir(path.posix.dirname(target));
+    const fd = fs.openSync(path.join(dir, path.posix.basename(target)), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0o644);
+    try { fs.writeSync(fd, fs.readFileSync(path.join(suiteDir, rel))); } finally { fs.closeSync(fd); }
+  }
+}
 
 /** Every path a unified git diff touches (both sides of renames), or null if a header is unparseable. */
 function patchPaths(patch) {
@@ -170,10 +227,10 @@ async function grade(o) {
   if (touched === null) return result('fail', 'patch_does_not_apply', { detail: 'unparseable diff header' });
   const bad = touched.filter((f) => !supportedPath(f));
   if (bad.length) return result('fail', 'patch_does_not_apply', { detail: `unsupported path(s): ${bad.slice(0, 3).map((f) => JSON.stringify(f)).join(', ')}` });
-  const owned = touched.filter((f) => ownedGlobs(spec).some((g) => globToRegExp(g).test(f)));
+  const owned = ownedTouched(spec, touched);
   if (owned.length) return result('fail', 'grader_owned_path', { detail: owned.slice(0, 10).join(', ') });
 
-  // 4. apply on a fresh pinned checkout
+  // 4. a fresh pinned checkout — trusted content only; the patch is never applied on the host
   let ws;
   try {
     ws = createWorkspace(spec.repo.source, { baseRev: spec.repo.base_rev, label: `grade-${spec.id}` });
@@ -182,26 +239,26 @@ async function grade(o) {
     if (ws.sourceCommit !== spec.repo.base_rev) return result('grader_error', 'base_rev_mismatch');
     for (const [rel, sha] of Object.entries(spec.repo.lockfiles)) {
       const p = path.join(ws.dir, rel);
-      if (!fs.existsSync(p) || S.sha256File(p) !== sha) return result('grader_error', 'lockfile_mismatch', { detail: rel });
+      let st = null; try { st = fs.lstatSync(p); } catch { /* missing */ }
+      if (!st || !st.isFile() || S.sha256File(p) !== sha) return result('grader_error', 'lockfile_mismatch', { detail: rel });
     }
-    if (patch.trim()) {
-      const ap = proc.run('git', ['apply', '--whitespace=nowarn', '-'], { cwd: ws.dir, input: patch });
-      if (ap.status !== 0) return result('fail', 'patch_does_not_apply', { detail: String(ap.stderr).slice(0, 500) });
+    // 5. install the hidden suite (no-follow, beneath the root), committed as the graded base
+    try { safeInstall(ws.dir, spec.suite.install_to, suiteDir, spec.suite.files); } catch (e) {
+      if (e.code === 'UNSAFE_INSTALL_PATH' || e.code === 'EEXIST' || e.code === 'ELOOP') return result('grader_error', 'unsafe_install_path', { detail: e.message });
+      throw e;
     }
-    // 5. install the hidden suite + the grader's own test plan (grader-owned paths)
-    const dest = path.join(ws.dir, spec.suite.install_to);
-    if (fs.existsSync(dest)) return result('grader_error', 'install_path_exists', { detail: spec.suite.install_to });
-    for (const rel of Object.keys(spec.suite.files)) {
-      fs.mkdirSync(path.dirname(path.join(dest, rel)), { recursive: true });
-      fs.copyFileSync(path.join(suiteDir, rel), path.join(dest, rel));
-    }
-    fs.writeFileSync(path.join(ws.dir, '.quarterback.json'), JSON.stringify({ test: { runner: 'node-test', command: spec.suite.command } }));
     proc.git(['add', '-A'], ws.dir);
-    proc.git(['-c', 'user.name=qb-grader', '-c', 'user.email=qb-grader@localhost', 'commit', '--quiet', '--no-gpg-sign', '--allow-empty', '-m', 'graded tree'], ws.dir);
+    proc.git(['-c', 'user.name=qb-grader', '-c', 'user.email=qb-grader@localhost', 'commit', '--quiet', '--no-gpg-sign', '--allow-empty', '-m', 'graded base (task base + hidden suite)'], ws.dir);
 
-    // 6. run: hardened sandbox, no agent stage, no credentials, network none for the tests
+    // 6. apply the untrusted patch INSIDE the sandbox; run the suite there (no network, no credentials)
     const run = o.runSandboxed || require('../lib/sandbox/pipeline').runSandboxed;
-    const r = await run({ repoPath: ws.dir, briefing: '', noAgent: true, baseTests: false, verify: true, ...(o.sandbox || {}) });
+    const r = await run({ repoPath: ws.dir, briefing: '', noAgent: true, applyPatch: patch, testCommand: spec.suite.command,
+      baseTests: false, verify: true, ...(o.sandbox || {}) });
+    const agentStage = r && r.sandbox && r.sandbox.stages && r.sandbox.stages.agent;
+    if (agentStage && agentStage.exit_code === 42) return result('fail', 'patch_does_not_apply', { detail: 'git apply failed inside the sandbox' });
+    // Defence in depth: the CAPTURED change list must not touch an owned path or an ancestor either.
+    const captured = ownedTouched(spec, [...((r && r.changes) || []).map((c) => c.file), ...((r && r.unsupported_changes) || [])]);
+    if (captured.length) return result('fail', 'grader_owned_path', { detail: `captured: ${captured.slice(0, 10).join(', ')}` });
     const v = r && r.sandbox && r.sandbox.verification;
     if (!v) {
       if (['blocked', 'infra_error', 'cancelled'].includes(r && r.status)) return result('infra_error', 'infra_error', { detail: String(r.reason || '').slice(0, 500) });
@@ -233,4 +290,4 @@ async function gradeArm(spec, armResult, o = {}) {
   return grade({ ...o, spec, patch: typeof armResult.patch === 'string' ? armResult.patch : '' });
 }
 
-module.exports = { grade, gradeArm, graderHash, patchPaths, suiteLeak, checksFromReport, ownedGlobs, SUITES_ROOT, GRADER_FILES };
+module.exports = { grade, gradeArm, graderHash, patchPaths, suiteLeak, checksFromReport, ownedGlobs, ownedTouched, safeInstall, SUITES_ROOT, GRADER_FILES };
