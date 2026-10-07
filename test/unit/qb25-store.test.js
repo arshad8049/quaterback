@@ -372,24 +372,30 @@ describe('QB-25 re-review 2: every lock wait honours its deadline; takeovers bac
     } finally { holder.kill('SIGKILL'); }
   });
 
-  test('incomplete takeover file whose writer cannot be identified: fresh → bounded timeout (no spin); old → recovered, then the dead lock is taken over', () => {
+  // Re-review 3 changed these two: an unidentified or crashed takeover claim is NEVER
+  // reclaimed automatically (elapsed time cannot prove its writer is gone, and clearing it
+  // races a new taker). The waiter times out with explicit manual-recovery instructions.
+  test('incomplete takeover file: fresh or old, a bounded timeout naming the file for manual recovery — never reclaimed by age', () => {
     const dir = mk('incomplete-takeover');
     writeLock(dir, '.lock', { pid: deadPid(), host: HOST, token: 'dead' });
-    writeLock(dir, '.lock.takeover', '');                                // an incomplete (empty) takeover claim, just written
+    writeLock(dir, '.lock.takeover', '');
     const fresh = child(dir, 40, 2000);
     assert.deepEqual([fresh.error, fresh.out, fresh.entered], [undefined, 'MEMORY_LOCK_TIMEOUT', false]);
     const old = new Date(Date.now() - 60_000);
-    fs.utimesSync(path.join(dir, '.lock.takeover'), old, old);          // abandoned long ago: nobody is completing it
-    const recovered = child(dir, 2000, 4000);
-    assert.deepEqual([recovered.error, recovered.out, recovered.entered], [undefined, 'OK', true]);
+    fs.utimesSync(path.join(dir, '.lock.takeover'), old, old);
+    const aged = child(dir, 200, 3000);
+    assert.deepEqual([aged.error, aged.out, aged.entered], [undefined, 'MEMORY_LOCK_TIMEOUT', false]);
+    assert.ok(fs.existsSync(path.join(dir, '.lock.takeover')), 'not reclaimed');
   });
 
-  test('a takeover file left by a dead taker is cleared and the dead lock is recovered', () => {
+  test('a takeover file left by a dead taker is not cleared automatically: bounded timeout with manual-recovery instructions', () => {
     const dir = mk('dead-taker');
     writeLock(dir, '.lock', { pid: deadPid(), host: HOST, token: 'dead' });
     writeLock(dir, '.lock.takeover', { pid: deadPid(), host: HOST, token: 'crashed-taker' });
-    const r = child(dir, 2000, 4000);
-    assert.deepEqual([r.error, r.out, r.entered], [undefined, 'OK', true]);
+    const r = child(dir, 200, 3000);
+    assert.deepEqual([r.error, r.out, r.entered], [undefined, 'MEMORY_LOCK_TIMEOUT', false]);
+    const { withLock } = require('../../memory/lock');
+    assert.throws(() => withLock(dir, () => {}, { waitMs: 50 }), (e) => /\.lock\.takeover/.test(e.message) && /remove it by hand/.test(e.message));
   });
 
   test('an unreadable lock that is never old enough cannot keep a waiter past its deadline', () => {
@@ -397,5 +403,100 @@ describe('QB-25 re-review 2: every lock wait honours its deadline; takeovers bac
     writeLock(dir, '.lock', '');
     const r = child(dir, 40, 2000);
     assert.deepEqual([r.error, r.out, r.entered], [undefined, 'MEMORY_LOCK_TIMEOUT', false]);
+  });
+});
+
+describe('QB-25 re-review 3: claims are published atomically; nothing unidentifiable is ever reclaimed', () => {
+  const LOCK = path.join(ROOT, 'memory', 'lock.js');
+  const waitFor = async (cond, ms = 10000) => { const end = Date.now() + ms; while (!cond()) { if (Date.now() > end) throw new Error('timed out waiting'); await new Promise((r) => setTimeout(r, 20)); } };
+  /**
+   * A child running withLock whose FIRST exclusive create of a lock file pauses the process
+   * right after the create — before owner metadata is written (the senior's instrumented
+   * open wrapper). Inside its critical section it records any overlap.
+   */
+  const pausingChild = (dir, who, holdMs) => spawn(process.execPath, ['-e', `
+    const fs = require('fs'); const path = require('path');
+    const origOpen = fs.openSync; let paused = false;
+    fs.openSync = function (p, flags, ...rest) {
+      const fd = origOpen.call(fs, p, flags, ...rest);
+      if (!paused && flags === 'wx' && path.basename(String(p)).startsWith('.lock') && !String(p).includes('takeover')) {
+        paused = true; fs.writeFileSync(${JSON.stringify(path.join(dir, `${'${who}'}-created`))}.replace('\${who}', ${JSON.stringify(who)}), '1');
+        process.kill(process.pid, 'SIGSTOP');
+      }
+      return fd;
+    };
+    const INSIDE = ${JSON.stringify(path.join(dir, 'inside'))}, OVERLAP = ${JSON.stringify(path.join(dir, 'overlap'))};
+    require(${JSON.stringify(LOCK)}).withLock(${JSON.stringify(dir)}, () => {
+      if (fs.existsSync(INSIDE)) fs.appendFileSync(OVERLAP, ${JSON.stringify(who)} + ' entered while ' + fs.readFileSync(INSIDE, 'utf8') + ' was inside\\n');
+      fs.writeFileSync(INSIDE, ${JSON.stringify(who)});
+      fs.appendFileSync(${JSON.stringify(path.join(dir, 'order'))}, ${JSON.stringify(who)} + '\\n');
+      const end = Date.now() + ${holdMs}; while (Date.now() < end) {}
+      fs.unlinkSync(INSIDE);
+    }, { waitMs: 8000 });`], { stdio: 'ignore' });
+  const plainChild = (dir, who, holdMs) => spawn(process.execPath, ['-e', `
+    const fs = require('fs');
+    const INSIDE = ${JSON.stringify(path.join(dir, 'inside'))}, OVERLAP = ${JSON.stringify(path.join(dir, 'overlap'))};
+    require(${JSON.stringify(LOCK)}).withLock(${JSON.stringify(dir)}, () => {
+      if (fs.existsSync(INSIDE)) fs.appendFileSync(OVERLAP, ${JSON.stringify(who)} + ' entered while ' + fs.readFileSync(INSIDE, 'utf8') + ' was inside\\n');
+      fs.writeFileSync(INSIDE, ${JSON.stringify(who)});
+      fs.writeFileSync(${JSON.stringify(path.join(dir, `B-in`))}, '1');
+      fs.appendFileSync(${JSON.stringify(path.join(dir, 'order'))}, ${JSON.stringify(who)} + '\\n');
+      const end = Date.now() + ${holdMs}; while (Date.now() < end) {}
+      fs.unlinkSync(INSIDE);
+    }, { waitMs: 8000 });`], { stdio: 'ignore' });
+  const exited = (cp) => new Promise((r) => (cp.exitCode !== null || cp.signalCode ? r() : cp.on('exit', r)));
+
+  test('senior repro: A paused between creating its claim and publishing its owner, claim aged 31 s; B runs; A resumes → never two in the critical section (pre-fix: both inside)', async () => {
+    const dir = mk('pause-publish');
+    const a = pausingChild(dir, 'A', 300);
+    let b;
+    try {
+      await waitFor(() => fs.existsSync(path.join(dir, 'A-created')));
+      const old = new Date(Date.now() - 31_000);
+      for (const f of fs.readdirSync(dir).filter((x) => x.startsWith('.lock'))) fs.utimesSync(path.join(dir, f), old, old);   // a long scheduling pause
+      b = plainChild(dir, 'B', 800);
+      await waitFor(() => fs.existsSync(path.join(dir, 'B-in')));
+      a.kill('SIGCONT');                                                // A resumes while B is inside
+      await Promise.all([exited(a), exited(b)]);
+      assert.ok(!fs.existsSync(path.join(dir, 'overlap')), fs.existsSync(path.join(dir, 'overlap')) ? fs.readFileSync(path.join(dir, 'overlap'), 'utf8') : '');
+      assert.deepEqual(fs.readFileSync(path.join(dir, 'order'), 'utf8').trim().split('\n'), ['B', 'A']);
+    } finally { try { a.kill('SIGKILL'); } catch { /* gone */ } try { if (b) b.kill('SIGKILL'); } catch { /* gone */ } }
+  });
+
+  test('a genuinely dead initializer (killed before publishing its owner) does not block the next process (pre-fix: an empty claim blocked it)', async () => {
+    const dir = mk('dead-initializer');
+    const a = pausingChild(dir, 'A', 0);
+    try {
+      await waitFor(() => fs.existsSync(path.join(dir, 'A-created')));
+      a.kill('SIGKILL');
+      await exited(a);
+      const r = spawnSync(process.execPath, ['-e', `
+        try { require(${JSON.stringify(LOCK)}).withLock(${JSON.stringify(dir)}, () => {}, { waitMs: 1500 }); process.stdout.write('OK'); }
+        catch (e) { process.stdout.write(e.code || e.message); process.exit(3); }`], { encoding: 'utf8', timeout: 5000 });
+      assert.equal(r.stdout, 'OK', r.stderr);
+    } finally { try { a.kill('SIGKILL'); } catch { /* gone */ } }
+  });
+
+  test('an unidentifiable (unreadable) lock is never reclaimed by age: bounded timeout with manual-recovery instructions (pre-fix: removed after 30 s)', () => {
+    const dir = mk('unreadable-old');
+    fs.writeFileSync(path.join(dir, '.lock'), '');
+    const old = new Date(Date.now() - 120_000);
+    fs.utimesSync(path.join(dir, '.lock'), old, old);
+    const { withLock } = require('../../memory/lock');
+    let entered = false;
+    assert.throws(() => withLock(dir, () => { entered = true; }, { waitMs: 150 }),
+      (e) => e.code === 'MEMORY_LOCK_TIMEOUT' && /remove it by hand/.test(e.message) && /\.lock/.test(e.message));
+    assert.equal(entered, false);
+    assert.ok(fs.existsSync(path.join(dir, '.lock')));
+  });
+
+  test('a published claim is complete (owner metadata present) the moment it exists; no temporary files are left behind', () => {
+    const dir = mk('complete-claim');
+    const { withLock } = require('../../memory/lock');
+    let seen = null;
+    withLock(dir, () => { seen = JSON.parse(fs.readFileSync(path.join(dir, '.lock'), 'utf8')); });
+    assert.equal(seen.pid, process.pid);
+    assert.equal(typeof seen.token, 'string');
+    assert.deepEqual(fs.readdirSync(dir).filter((f) => f.startsWith('.lock')), []);
   });
 });

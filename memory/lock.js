@@ -1,32 +1,30 @@
 /**
  * memory/lock.js — a per-repository, cross-process lock for the memory store (QB-25).
  *
- * Synchronous (every memory critical section is a short file update):
- *   - claim: `<dir>/.lock` created exclusively (O_EXCL) with { pid, host, token };
- *   - a held claim is waited for, bounded by waitMs (polling every pollMs), then
- *     MemoryLockTimeout;
- *   - re-review 1: a claim is NEVER taken from a live owner because of its age.
- *     Takeover happens only when the owner is provably dead: same host, pid gone.
- *     A paused owner keeps its lock, so its later writes cannot overlap another
- *     writer's;
- *   - a claim from ANOTHER host cannot be verified, so it is never taken. Sharing one
- *     store across hosts (e.g. a network home directory) is unsupported, and the
- *     timeout error says so;
- *   - a lock whose content is unreadable (its owner crashed between creating and
- *     writing it — a window of microseconds) is the only case recovered by age
- *     (staleMs), because no owner can be identified;
- *   - dead-owner takeover is serialized by a second exclusive file, `.lock.takeover`.
- *     Only its holder may remove a dead owner's lock, after re-reading it under the
- *     takeover claim and checking it still names the dead owner's token. So a fresh
- *     claim made meanwhile can never be removed. A takeover claim left by a crashed
- *     waiter is cleared the same way (dead pid on this host);
- *   - release removes the lock only if it still holds our token;
- *   - re-review 2: EVERY wait iteration ends at the deadline check, whatever a recovery
- *     attempt did, so no path can spin past waitMs. A takeover claim held by a live
- *     taker (or one from another host) means no progress: the waiter backs off
- *     (doubling up to 50 ms) and times out. An incomplete (unreadable) takeover file is
- *     recovered only once it is older than 2 s (a takeover takes microseconds); before
- *     that it counts as held.
+ * Synchronous (every memory critical section is a short file update).
+ *
+ * Re-review 3 — claims are PUBLISHED ATOMICALLY, and nothing unidentifiable is ever
+ * reclaimed:
+ *   - a claim is written complete ({ pid, host, token }) to a private temp file, then
+ *     hard-linked to `<dir>/.lock`. link() is atomic and fails if `.lock` exists, so the
+ *     lock is either absent or names its owner — it can never be seen half-written. (The
+ *     old open('wx') + write left an empty claim visible; a paused creator could then be
+ *     "reclaimed by age" while alive and enter alongside another process.)
+ *   - the claim is re-read before entering: a process whose claim is not the current
+ *     `.lock` never enters.
+ *   - a lock is taken over ONLY when its owner is provably dead (same host, pid gone),
+ *     and only under the takeover claim `<dir>/.lock.takeover`, itself published the same
+ *     atomic way. While it is held nobody else may remove `.lock`, so "still the dead
+ *     owner's token? → remove" cannot race a fresh claim (only the owner, which is dead,
+ *     or the takeover holder ever removes `.lock`; a new claimant can only create it once
+ *     it is gone).
+ *   - NOTHING is reclaimed by age: a live owner (however paused), an owner on another
+ *     host, an unreadable `.lock` (only possible through outside corruption now), and a
+ *     takeover claim left by a crashed taker (clearing it would race a new taker). The
+ *     waiter times out with MEMORY_LOCK_TIMEOUT, and the error names the file to remove
+ *     by hand when no Quarterback process is running.
+ *   - every wait iteration ends at the deadline check; no progress → back off (doubling
+ *     up to 50 ms, never past the deadline).
  */
 
 const crypto = require('crypto');
@@ -37,76 +35,60 @@ const path = require('path');
 const SLEEPER = new Int32Array(new SharedArrayBuffer(4));
 const sleepSync = (ms) => Atomics.wait(SLEEPER, 0, 0, ms);
 const pidAlive = (pid) => { try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; } };
+const MAX_BACKOFF_MS = 50;
 
 class MemoryLockTimeout extends Error {
-  constructor(dir, waitMs, owner) {
-    const who = owner && owner.host && owner.host !== os.hostname()
-      ? ` held from host ${owner.host} (pid ${owner.pid}); cross-host sharing of a memory store is not supported and the lock is never taken over by age`
-      : owner && owner.pid ? ` held by live process ${owner.pid}` : '';
-    super(`memory store ${dir} is locked${who} (waited ${waitMs} ms)`);
+  constructor(dir, waitMs, why) {
+    super(`memory store ${dir} is locked${why ? `: ${why}` : ''} (waited ${waitMs} ms)`);
     this.code = 'MEMORY_LOCK_TIMEOUT';
   }
 }
 
-const readOwner = (file) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; } };
-
-// A takeover critical section is two file operations (microseconds). A takeover file that
-// cannot be read (its writer crashed between creating and writing it) and is older than
-// this cannot belong to a taker still at work, so it is recovered (re-review 2).
-const TAKEOVER_STALE_MS = 2_000;
-const MAX_BACKOFF_MS = 50;
+const readOwner = (file) => {
+  try { const o = JSON.parse(fs.readFileSync(file, 'utf8')); return o && typeof o === 'object' && typeof o.token === 'string' ? o : null; } catch { return null; }
+};
 
 /**
- * Move `file` aside and delete it, but only if its bytes are still `raw` — so a file
- * rewritten meanwhile is put back, never removed. Returns true if it was removed.
+ * Publish `owner` at `file` atomically: complete content in a private temp file, then
+ * link() — which fails with EEXIST if `file` exists. Returns true if published.
  */
-function removeIfUnchanged(file, raw, tag) {
-  const moved = `${file}.recover.${tag}`;
-  try {
-    fs.renameSync(file, moved);
-    if (fs.readFileSync(moved, 'utf8') !== raw) { try { fs.linkSync(moved, file); } catch { /* claimed meanwhile */ } fs.unlinkSync(moved); return false; }
-    fs.unlinkSync(moved);
-    return true;
-  } catch { return false; }   // raced: someone else moved or removed it
+function publish(file, owner) {
+  const tmp = `${file}.${owner.token}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(owner), { mode: 0o600, flag: 'wx' });
+  try { fs.linkSync(tmp, file); return true; } catch (e) { if (e.code === 'EEXIST') return false; throw e; } finally {
+    try { fs.unlinkSync(tmp); } catch { /* gone */ }
+  }
+}
+
+/** Why the current holder cannot be displaced (for the timeout message), or null. */
+function blocker(lf, host) {
+  const tf = `${lf}.takeover`;
+  if (fs.existsSync(tf)) {
+    const t = readOwner(tf);
+    if (!t) return `${tf} is unreadable; if no Quarterback process is running, remove it by hand`;
+    if (t.host === host && Number.isInteger(t.pid) && !pidAlive(t.pid)) return `${tf} was left by a crashed process (pid ${t.pid}); if no Quarterback process is running, remove it by hand`;
+  }
+  const o = readOwner(lf);
+  if (!o) return fs.existsSync(lf) ? `${lf} is unreadable (not written by this version of Quarterback); if no Quarterback process is running, remove it by hand` : null;
+  if (o.host !== host) return `held from host ${o.host} (pid ${o.pid}); cross-host sharing of a memory store is not supported and the lock is never taken over`;
+  return `held by live process ${o.pid}`;
 }
 
 /**
- * Remove `lf` only if it still names `token` — under the takeover claim, so no fresh lock
- * is ever removed. Returns what happened, so the caller always checks its deadline and
- * backs off when it made no progress (re-review 2):
- *   'removed'   the dead owner's lock was removed (progress)
- *   'cleared'   a crashed or abandoned taker's claim was cleared (progress)
- *   'held'      another live taker holds the claim, or it cannot be verified (no progress)
- *   'not_mine'  the lock changed meanwhile, nothing removed (progress: re-check the lock)
+ * Remove `lf` if it still names the dead owner's `token` — only while holding the takeover
+ * claim. Returns 'removed' | 'not_mine' (the lock changed: re-check) | 'held' (someone
+ * holds the takeover claim, or it cannot be verified: no progress).
  */
-function takeOver(lf, token, host, tag) {
+function takeOver(lf, token, host) {
   const tf = `${lf}.takeover`;
-  const mine = crypto.randomBytes(12).toString('hex');
-  try {
-    const fd = fs.openSync(tf, 'wx', 0o600);
-    fs.writeSync(fd, JSON.stringify({ pid: process.pid, host, token: mine }));
-    fs.closeSync(fd);
-  } catch (e) {
-    if (e.code !== 'EEXIST') throw e;
-    let raw;
-    let st;
-    try { raw = fs.readFileSync(tf, 'utf8'); st = fs.statSync(tf); } catch { return 'cleared'; }   // gone meanwhile: retry
-    let t = null;
-    try { t = JSON.parse(raw); } catch { /* incomplete */ }
-    if (t && typeof t === 'object') {
-      // a dead taker on this host is cleared; a live one, or one from another host, holds it
-      const dead = t.host === host && Number.isInteger(t.pid) && !pidAlive(t.pid);
-      return dead && removeIfUnchanged(tf, raw, tag) ? 'cleared' : 'held';
-    }
-    // incomplete (unreadable) takeover file: recovered only once it is clearly abandoned
-    return Date.now() - st.mtimeMs > TAKEOVER_STALE_MS && removeIfUnchanged(tf, raw, tag) ? 'cleared' : 'held';
-  }
+  const mine = { pid: process.pid, host, token: crypto.randomBytes(12).toString('hex') };
+  if (!publish(tf, mine)) return 'held';                      // a crashed taker's claim is never cleared automatically
   try {
     const now = readOwner(lf);
     if (now && now.token === token) { fs.unlinkSync(lf); return 'removed'; }
     return 'not_mine';
-  } catch { return 'not_mine'; /* already gone */ } finally {
-    try { if ((readOwner(tf) || {}).token === mine) fs.unlinkSync(tf); } catch { /* gone */ }
+  } catch { return 'not_mine'; } finally {
+    try { if ((readOwner(tf) || {}).token === mine.token) fs.unlinkSync(tf); } catch { /* gone */ }
   }
 }
 
@@ -114,48 +96,34 @@ function takeOver(lf, token, host, tag) {
  * Run fn() while holding the repository's lock.
  * @param {string} dir  the repository's memory directory
  * @param {Function} fn
- * @param {{ waitMs?: number, staleMs?: number, pollMs?: number }} [o]
- *   staleMs applies ONLY to an unreadable lock (no identifiable owner).
+ * @param {{ waitMs?: number, pollMs?: number }} [o]
  */
-function withLock(dir, fn, { waitMs = 10_000, staleMs = 30_000, pollMs = 5 } = {}) {
+function withLock(dir, fn, { waitMs = 10_000, pollMs = 5 } = {}) {
   fs.mkdirSync(dir, { recursive: true });
   const lf = path.join(dir, '.lock');
-  const token = crypto.randomBytes(12).toString('hex');
   const host = os.hostname();
+  const me = { pid: process.pid, host, token: crypto.randomBytes(12).toString('hex'), at: new Date().toISOString() };
   const deadline = Date.now() + waitMs;
-  let lastOwner = null;
   let backoff = pollMs;
-  // Re-review 2: every iteration ends at the same deadline check, whatever the recovery
-  // attempt did. An attempt that made progress (lock released, dead owner removed, a
-  // crashed taker cleared) retries at once; one that made none (a live owner, a live or
-  // unverifiable taker, a fresh unreadable file) backs off, doubling up to MAX_BACKOFF_MS.
   for (;;) {
-    try {
-      const fd = fs.openSync(lf, 'wx', 0o600);
-      fs.writeSync(fd, JSON.stringify({ pid: process.pid, host, token, at: new Date().toISOString() }));
-      fs.closeSync(fd);
-      break;
-    } catch (e) { if (e.code !== 'EEXIST') throw e; }
+    if (publish(lf, me)) {
+      // enter only if the published claim is ours (it can only be, unless the lock was
+      // removed by hand meanwhile — then we must not enter on a claim that is gone)
+      if ((readOwner(lf) || {}).token === me.token) break;
+    }
     let progressed = false;
     const owner = readOwner(lf);
-    lastOwner = owner || lastOwner;
-    if (owner && owner.host === host && Number.isInteger(owner.pid) && !pidAlive(owner.pid)) {
-      progressed = takeOver(lf, owner.token, host, token) !== 'held';   // dead owner on this host: race-safe removal
-    } else if (!owner) {
-      let st = null;
-      let raw = null;
-      try { st = fs.statSync(lf); raw = fs.readFileSync(lf, 'utf8'); } catch { progressed = true; }   // released meanwhile
-      if (st && raw !== null && Date.now() - st.mtimeMs > staleMs && readOwner(lf) === null) {
-        progressed = removeIfUnchanged(lf, raw, token);   // unreadable for a long time: no owner can be identified
-      }
+    if (!owner && !fs.existsSync(lf)) progressed = true;                       // released meanwhile: retry at once
+    else if (owner && owner.host === host && Number.isInteger(owner.pid) && !pidAlive(owner.pid)) {
+      progressed = takeOver(lf, owner.token, host) !== 'held';                // provably dead owner on this host
     }
-    if (Date.now() >= deadline) throw new MemoryLockTimeout(dir, waitMs, lastOwner);
+    if (Date.now() >= deadline) throw new MemoryLockTimeout(dir, waitMs, blocker(lf, host));
     if (progressed) { backoff = pollMs; continue; }
     sleepSync(Math.max(1, Math.min(backoff, deadline - Date.now())));
     backoff = Math.min(backoff * 2, Math.max(pollMs, MAX_BACKOFF_MS));
   }
   try { return fn(); } finally {
-    try { if ((readOwner(lf) || {}).token === token) fs.unlinkSync(lf); } catch { /* gone */ }
+    try { if ((readOwner(lf) || {}).token === me.token) fs.unlinkSync(lf); } catch { /* gone */ }
   }
 }
 

@@ -86,3 +86,20 @@ Pre-fix (`7433d8c`), `test/unit/qb25-store.test.js` fails **9 of 9**. In particu
 - Dead-owner detection trusts the pid. A pid reused by an unrelated process makes the owner look alive, so the waiter times out rather than steals.
 - `stats()` runs the full audit (linear in the file, bounded by retention). Recall does not.
 - `readFileStats` reports a corrupt stats file and treats it as empty for recall. The next write moves it aside.
+
+## Re-review 3: atomic claims; nothing unidentifiable is reclaimed
+- **The bug:** a claim was created empty (`open('wx')`) and the owner written afterwards. A creator paused between those two steps left an empty claim that looked abandoned. A waiter "recovered" it by age (`.lock` after 30 s, `.lock.takeover` after 2 s) and entered. The paused creator, still alive, then wrote to its now-unlinked file and entered too: **two processes in the critical section**. Elapsed time cannot prove a writer died, and the rename/restore recovery had its own window.
+- **The fix (`memory/lock.js`):**
+  - **Atomic publication.** A claim is written complete to a private temp file and **hard-linked** to `.lock`. `link()` is atomic and fails if `.lock` exists, so the lock is either absent or names its owner; it can never be seen half-written. The takeover claim is published the same way.
+  - **Entry check.** A process enters only if the current `.lock` names its own token.
+  - **Dead owners only, under the takeover claim.** A lock is removed only when its owner is provably dead (same host, pid gone), and only while holding `.lock.takeover`. While it is held, nobody else may remove `.lock`, and a new claimant can only create `.lock` once it is gone, so "still the dead owner's token → remove" cannot race a fresh claim.
+  - **Nothing is reclaimed by age.** That covers a live owner, however paused; an owner on another host; an unreadable `.lock` (only possible through outside corruption now); and a takeover claim left by a crashed taker, since clearing it automatically would race a new taker.
+  - **In those cases** the waiter times out (`MEMORY_LOCK_TIMEOUT`), and the message names the file to **remove by hand** if no Quarterback process is running. The `staleMs` option is gone.
+- **Tests:**
+  - Two real processes: A pauses between creating and publishing its claim, the claim is aged 31 s, B runs, then A resumes. There is **no overlap**: the order is B then A. Pre-fix: "A entered while B was inside".
+  - A creator killed at that point does not block the next process.
+  - An old, unreadable lock is never reclaimed.
+  - A published claim is complete the moment it exists, and no temp files are left.
+  - The incomplete-takeover and dead-taker cases now time out with manual-recovery instructions; they were automatic before.
+  - All deadline, live-owner, dead-owner contention and bounded-read tests are unchanged.
+- **Limitation:** a crash inside the takeover critical section (two file operations, microseconds) needs a person to remove `.lock.takeover`. The error says exactly that. This is the deliberate trade: a bounded timeout instead of stealing an unverifiable claim.
