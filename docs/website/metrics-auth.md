@@ -55,3 +55,15 @@ npx wrangler d1 execute qb-beta --remote --file=landing_page/migrations/0002_qb3
 
 - Delivering the verification email depends on Resend. With the current `onboarding@resend.dev` sender, Resend only delivers to the account owner, so other users can't receive links until a verified sender domain is set up (a known open item).
 - A token proves control of an email inbox, not honest reporting: records are client-reported by design and labelled so.
+
+## Re-review 1
+
+- **No enumeration under repeated requests.**
+  - Every `POST /api/telemetry/request`, for any address, is first counted in `telemetry_link_requests` (sha256 of the address, kept 7 days) and limited to 3 per hour. This happens **before** registration is looked up.
+  - Registered and unregistered addresses therefore get identical status sequences: `[202, 202, 202, 429, …]`. Pre-fix, unregistered addresses never hit the limit.
+  - **Remaining side channel:** response timing still differs, because only registered addresses cause a code insert and an email send.
+- **A hard body limit.**
+  - `boundedJson` now reads the request body as a stream, counting bytes, and **cancels the read** as soon as the limit is passed (413). A chunked body without `Content-Length` is never buffered beyond the limit.
+  - The test streams 1 MiB in 1 KiB chunks without `Content-Length`: at most 4 KiB is read before a 413, and the stream is cancelled. Pre-fix, all 1025 KiB were read.
+  - The same helper serves signup, metrics and the link request.
+- **Atomic with revocation:** a metric insert is `INSERT … SELECT … WHERE EXISTS (token active)`, never a check-then-insert. See QB-32 in `docs/privacy/data-flows.md`.

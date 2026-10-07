@@ -66,3 +66,13 @@ Email addresses go to Resend for delivery. The signup notification goes to the s
 | Signup box | "Anonymized metrics only" | "Metrics are opt-in, tied to your account (not anonymous), deletable by you" |
 | Positioning ("Local-first by default") | "you decide explicitly what ever leaves it" | "own model calls stay local by default; the coding agent sends your task and code to its provider; telemetry is off unless you turn it on" |
 | Welcome email | "No API keys needed. Everything runs locally via Ollama." and "anonymous run metrics" | local Ollama for QB's own calls, with the Claude Code → Anthropic flow stated; telemetry described as not anonymous, with the dry run and deletion |
+
+## Re-review 1: deletion is final
+
+- **One transaction:** `POST /api/telemetry/delete` runs **revoke, then delete** in one D1 batch (one transaction). If either statement fails, neither applies and the caller gets an error; a retry is safe.
+- **Inserts check the token at write time:** a metric insert succeeds only if the token is still active **at the moment of the insert** (`INSERT … SELECT … WHERE EXISTS (… revoked_at IS NULL)`). An upload that was authorized before the deletion but writes after it inserts nothing, and gets 401.
+- **Regressions** (`test/unit/phase5-rereview.test.js`):
+  - an upload paused between authorization and insert, a deletion completing meanwhile, the upload resumed → 401 and no row. Pre-fix: 200, and the row survived;
+  - the other order (inserted, then deleted);
+  - concurrent uploads and deletion over 5 rounds → no row survives;
+  - an injected failure of the DELETE → nothing revoked, nothing deleted, error returned; the retry deletes.

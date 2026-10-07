@@ -70,3 +70,11 @@ Pre-fix, all 5 fail, the first with `TypeError: Cannot read properties of null (
 ## Limits
 
 Welcome emails can only reach the account owner until a verified Resend sender domain replaces `onboarding@resend.dev`. Until then they fail visibly (`failed`/`dead`) instead of silently.
+
+## Re-review 1: registration and delivery intents commit atomically
+
+- **One transaction:** a signup runs ONE D1 batch (one transaction) holding the `submissions` insert (`ON CONFLICT DO NOTHING`) and **both** delivery intents (`ON CONFLICT(idempotency_key) DO NOTHING`). A database failure anywhere, before either enqueue or between the two, leaves **nothing**, and the client simply retries. Pre-fix, the registration survived without jobs, and the duplicate early-return meant they were never created.
+- **Repair path:** the idempotent enqueues also run for duplicates, so a registration missing its jobs (made by an older worker, or by a crash) is repaired on the next signup attempt. Completed jobs are never re-sent: only `pending`/`failed` jobs are claimed.
+- **Sends stay outside the transaction:** each job carries a stable payload and its idempotency key. The owner-notification count is computed at send time.
+- **Legacy signups:** migration `0004` records them as closed (`dead`, with "legacy signup before delivery tracking; not re-sent"), so a returning legacy user doesn't get a second welcome email.
+- **Regressions:** faults injected before either enqueue and between the two (no registration, then retry → each email once); legacy repair (one welcome, never repeated); concurrent duplicates with a transient enqueue failure (1 row, 1 welcome).

@@ -105,19 +105,26 @@ async function handleBetaAccess(request, env) {
   await env.DB.prepare('INSERT INTO signup_attempts (ip_hash, created_at) VALUES (?, ?)').bind(ipHash, new Date().toISOString()).run();
 
   const referrer = (request.headers.get('Referer') || '').slice(0, 512) || null;
-  const ins = await env.DB
-    .prepare('INSERT INTO submissions (email, agent, ip, referrer) VALUES (?, ?, ?, ?) ON CONFLICT(email) DO NOTHING')
-    .bind(input.email, input.agent, ip === 'unknown' ? null : ip, referrer).run();
-  if (!ins.meta || ins.meta.changes !== 1) return json({ ok: true, registered: true, duplicate: true });
-
-  const { count } = await env.DB.prepare('SELECT COUNT(*) as count FROM submissions').first();
   const now = new Date().toISOString();
-  const queue = env.DB.prepare(`INSERT INTO email_deliveries (idempotency_key, kind, recipient, payload, status, attempts, created_at, next_attempt_at)
-    VALUES (?, ?, ?, ?, 'pending', 0, ?, ?) ON CONFLICT(idempotency_key) DO NOTHING`);
-  await queue.bind(`welcome:${input.email}`, 'welcome', input.email, '{}', now, now).run();
-  await queue.bind(`owner-notify:${input.email}`, 'owner_notify', OWNER, JSON.stringify({ email: input.email, agent: input.agent, count, ip: ip === 'unknown' ? null : ip, referrer }), now, now).run();
-  const results = await sendDeliveries(env, [`welcome:${input.email}`, `owner-notify:${input.email}`]);
-  return json({ ok: true, registered: true, welcome_email: results[`welcome:${input.email}`] === 'sent' ? 'sent' : 'pending_retry' });
+  const welcomeKey = `welcome:${input.email}`; const ownerKey = `owner-notify:${input.email}`;
+  const queue = `INSERT INTO email_deliveries (idempotency_key, kind, recipient, payload, status, attempts, created_at, next_attempt_at)
+    VALUES (?, ?, ?, ?, 'pending', 0, ?, ?) ON CONFLICT(idempotency_key) DO NOTHING`;
+  // QB-35 re-review: the registration and BOTH delivery intents commit atomically (one D1 batch =
+  // one transaction): a failure anywhere leaves neither, and the client can simply retry. The
+  // enqueues are idempotent and run for duplicates too, so a registration that is missing its
+  // jobs (e.g. made by an older worker) is repaired without re-sending completed jobs.
+  const [ins] = await env.DB.batch([
+    env.DB.prepare('INSERT INTO submissions (email, agent, ip, referrer) VALUES (?, ?, ?, ?) ON CONFLICT(email) DO NOTHING')
+      .bind(input.email, input.agent, ip === 'unknown' ? null : ip, referrer),
+    env.DB.prepare(queue).bind(welcomeKey, 'welcome', input.email, '{}', now, now),
+    env.DB.prepare(queue).bind(ownerKey, 'owner_notify', OWNER, JSON.stringify({ email: input.email, agent: input.agent, ip: ip === 'unknown' ? null : ip, referrer }), now, now),
+  ]);
+  const duplicate = !ins.meta || ins.meta.changes !== 1;
+  // Sends happen outside the transaction; only pending/failed jobs are claimed, so completed
+  // jobs are never re-sent (and each send carries its idempotency key).
+  const results = await sendDeliveries(env, [welcomeKey, ownerKey]);
+  if (duplicate) return json({ ok: true, registered: true, duplicate: true });
+  return json({ ok: true, registered: true, welcome_email: results[welcomeKey] === 'sent' ? 'sent' : 'pending_retry' });
 }
 
 /** Claim and send the given deliveries (idempotent). Returns { key: status }. */
@@ -155,7 +162,8 @@ async function deliver(d, key, env) {
   if (d.kind === 'welcome') return sendWelcome(d.recipient, env.RESEND_API_KEY, key);
   if (d.kind === 'owner_notify') {
     const p = JSON.parse(d.payload || '{}');
-    return sendOwnerNotify(p.email, p.agent, p.count, p.ip, p.referrer, env.RESEND_API_KEY, key);
+    const { count } = await env.DB.prepare('SELECT COUNT(*) AS count FROM submissions').first();
+    return sendOwnerNotify(p.email, p.agent, count, p.ip, p.referrer, env.RESEND_API_KEY, key);
   }
   return { ok: false, error: `unknown delivery kind ${d.kind}` };
 }
@@ -196,13 +204,33 @@ function randomHex(bytes = 32) {
 const isoIn = (ms) => new Date(Date.now() + ms).toISOString();
 const hourAgo = () => new Date(Date.now() - 3600 * 1000).toISOString();
 
-/** Read a JSON body with a hard size limit. Returns { body } or { error, status }. */
+/**
+ * Read a JSON body with a HARD size limit (QB-33 re-review): the body is consumed as a stream,
+ * counting bytes, and the read is cancelled as soon as the limit is passed — a chunked body
+ * without Content-Length is never buffered beyond the limit. Returns { body } or { error, status }.
+ */
 async function boundedJson(request, maxBytes) {
   const declared = Number(request.headers.get('Content-Length'));
-  if (Number.isFinite(declared) && declared > maxBytes) return { error: 'Payload too large', status: 413 };
+  if (request.headers.has('Content-Length') && Number.isFinite(declared) && declared > maxBytes) return { error: 'Payload too large', status: 413 };
+  if (!request.body) return { error: 'Invalid JSON', status: 400 };
+  const reader = request.body.getReader();
+  const chunks = []; let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        try { await reader.cancel('payload too large'); } catch { /* already closed */ }
+        return { error: 'Payload too large', status: 413 };
+      }
+      chunks.push(value);
+    }
+  } catch { return { error: 'Unreadable body', status: 400 }; }
+  const buf = new Uint8Array(total); let off = 0;
+  for (const c of chunks) { buf.set(c, off); off += c.byteLength; }
   let text;
-  try { text = await request.text(); } catch { return { error: 'Unreadable body', status: 400 }; }
-  if (new TextEncoder().encode(text).length > maxBytes) return { error: 'Payload too large', status: 413 };
+  try { text = new TextDecoder('utf-8', { fatal: true }).decode(buf); } catch { return { error: 'Invalid JSON', status: 400 }; }
   try { return { body: JSON.parse(text) }; } catch { return { error: 'Invalid JSON', status: 400 }; }
 }
 
@@ -213,12 +241,15 @@ async function handleTelemetryRequest(request, env) {
   if (r.error) return json({ error: r.error }, r.status);
   const email = r.body && typeof r.body.email === 'string' ? r.body.email.trim().toLowerCase() : '';
   if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: 'Invalid email' }, 400);
-  // The same answer whether or not the email is registered (no enumeration).
+  // No enumeration (re-review): EVERY address — registered or not — is counted and limited the
+  // same way, BEFORE registration is looked up, and gets the same answers (202, then 429).
   const accepted = json({ ok: true, message: 'If this email is registered, a one-time link has been sent.' }, 202);
+  const emailHash = await sha256Hex(`qb-telemetry-request:${email}`);
+  const recent = await env.DB.prepare('SELECT COUNT(*) AS n FROM telemetry_link_requests WHERE email_hash = ? AND created_at > ?').bind(emailHash, hourAgo()).first();
+  if (recent && recent.n >= MAX_CODE_REQUESTS_PER_HOUR) return json({ error: 'Too many requests' }, 429);
+  await env.DB.prepare('INSERT INTO telemetry_link_requests (email_hash, created_at) VALUES (?, ?)').bind(emailHash, new Date().toISOString()).run();
   const registered = await env.DB.prepare('SELECT id FROM submissions WHERE email = ?').bind(email).first();
   if (!registered) return accepted;
-  const recent = await env.DB.prepare('SELECT COUNT(*) AS n FROM telemetry_verifications WHERE email = ? AND created_at > ?').bind(email, hourAgo()).first();
-  if (recent && recent.n >= MAX_CODE_REQUESTS_PER_HOUR) return json({ error: 'Too many requests' }, 429);
   const code = randomHex(32);
   await env.DB.prepare('INSERT INTO telemetry_verifications (code_hash, email, created_at, expires_at) VALUES (?, ?, ?, ?)')
     .bind(await sha256Hex(code), email, new Date().toISOString(), isoIn(CODE_TTL_MS)).run();
@@ -276,14 +307,20 @@ async function handleTelemetryDelete(request, env) {
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
   const tok = await bearer(request, env, 'metrics:write');
   if (!tok) return json({ error: 'Unauthorized' }, 401);
-  const del = await env.DB.prepare('DELETE FROM client_metrics WHERE token_id = ?').bind(tok.id).run();
-  await env.DB.prepare('UPDATE telemetry_tokens SET revoked_at = ? WHERE id = ?').bind(new Date().toISOString(), tok.id).run();
+  // One transaction (D1 batch): revoke, then delete. Any upload that has not inserted yet now
+  // fails its atomic "token still active" condition; any that already inserted is deleted here.
+  // If either statement fails, neither applies and the caller gets an error (retry is safe).
+  const [, del] = await env.DB.batch([
+    env.DB.prepare('UPDATE telemetry_tokens SET revoked_at = ? WHERE id = ?').bind(new Date().toISOString(), tok.id),
+    env.DB.prepare('DELETE FROM client_metrics WHERE token_id = ?').bind(tok.id),
+  ]);
   return json({ ok: true, deleted_metrics: del.meta ? del.meta.changes : null, token_revoked: true });
 }
 
 async function applyRetention(env) {
   await env.DB.prepare('DELETE FROM client_metrics WHERE created_at < ?').bind(daysAgo(RETENTION.client_metrics_days)).run();
   await env.DB.prepare('DELETE FROM telemetry_verifications WHERE created_at < ?').bind(daysAgo(RETENTION.verifications_days)).run();
+  await env.DB.prepare('DELETE FROM telemetry_link_requests WHERE created_at < ?').bind(daysAgo(RETENTION.verifications_days)).run();
   await env.DB.prepare('DELETE FROM signup_attempts WHERE created_at < ?').bind(daysAgo(RETENTION.signup_attempts_days)).run();
   await env.DB.prepare("DELETE FROM email_deliveries WHERE status IN ('sent', 'dead') AND created_at < ?").bind(daysAgo(RETENTION.deliveries_days)).run();
 }
@@ -332,10 +369,14 @@ async function handleMetrics(request, env) {
   if (recent && recent.n >= MAX_METRICS_PER_HOUR) return json({ error: 'Too many requests' }, 429);
   const b = r.body;
   try {
-    await env.DB.prepare(`INSERT INTO client_metrics
+    // Atomic with revocation (QB-32/33 re-review): the row is inserted only if the token is
+    // STILL active at the moment of the insert — never on the strength of the earlier lookup.
+    const ins = await env.DB.prepare(`INSERT INTO client_metrics
       (run_id, token_id, passed, attempts, duration_ms, repair_count, layers_used, qb_version, source, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'client_reported', ?)`)
-      .bind(b.run_id, tok.id, b.passed ? 1 : 0, b.attempts, b.duration_ms, b.repair_count, b.layers_used ?? null, b.qb_version, new Date().toISOString()).run();
+      SELECT ?, ?, ?, ?, ?, ?, ?, ?, 'client_reported', ?
+      WHERE EXISTS (SELECT 1 FROM telemetry_tokens WHERE id = ? AND revoked_at IS NULL AND scope = 'metrics:write')`)
+      .bind(b.run_id, tok.id, b.passed ? 1 : 0, b.attempts, b.duration_ms, b.repair_count, b.layers_used ?? null, b.qb_version, new Date().toISOString(), tok.id).run();
+    if (!ins.meta || ins.meta.changes !== 1) return json({ error: 'Unauthorized: the telemetry token was revoked' }, 401);
   } catch (e) {
     if (/UNIQUE/i.test(String(e && e.message))) return json({ error: 'Duplicate run_id' }, 409);
     throw e;
@@ -435,7 +476,7 @@ async function handleReport(request, env) {
 /** A CSV cell that spreadsheet clients open as inert text (formula prefixes neutralized). */
 function csvCell(v) {
   let s = String(v ?? '');
-  if (/^[=+\-@\t\r＝＋－＠]/.test(s)) s = `'${s}`;
+  if (/^[=+\-@\t\r\n＝＋－＠]/.test(s)) s = `'${s}`;   // QB-34: also LF
   return `"${s.replace(/"/g, '""')}"`;
 }
 

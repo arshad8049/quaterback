@@ -87,3 +87,11 @@ CREATE TABLE IF NOT EXISTS email_deliveries (
   sent_at         TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_ed_status_next ON email_deliveries(status, next_attempt_at);
+
+-- Phase 5 re-review (also landing_page/migrations/0004_phase5_rereview.sql; its legacy backfill applies only to existing databases)
+CREATE TABLE IF NOT EXISTS telemetry_link_requests (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  email_hash TEXT    NOT NULL,
+  created_at TEXT    NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_tlr_hash_created ON telemetry_link_requests(email_hash, created_at);
