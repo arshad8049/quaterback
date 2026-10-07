@@ -58,6 +58,27 @@ Pre-fix (`7433d8c`), `test/unit/qb25-store.test.js` fails **9 of 9**. In particu
 - **The full audit path is separate:** `health()` (so `stats().corrupt`) and compaction parse every row, report corruption with line and offset, and quarantine it.
 - **Pinned history is bounded:** retention is `{ outcomes: 10000, repairs: 5000, pinned: 1000 }`. The newest 1,000 proven repairs stay in `repairs.jsonl` and recallable. Older proven repairs move to `repairs.archive.jsonl`: kept, never deleted, never read by recall.
 
+## Re-review 2
+### Every lock wait honours its deadline (`memory/lock.js`)
+- **The bug:** when the lock's owner was dead, the wait loop tried a takeover and immediately looped again. If another process held the takeover claim, nothing changed, so the loop never reached its deadline check or its sleep and spun forever. The senior's repro: a dead `.lock` plus a `.lock.takeover` naming a live process. `withLock({ waitMs: 40 })` kept running until an outside 700 ms timeout killed it. An incomplete (unreadable) takeover file caused the same spin.
+- **The rule now: every iteration ends at the same deadline check,** whatever a recovery attempt did.
+  - **Progress** (the lock was released, a dead owner's lock removed, a crashed taker cleared, or the lock changed): retry at once.
+  - **No progress** (a live owner, a live taker, a taker from another host, a fresh unreadable file): back off, doubling from `pollMs` up to 50 ms. The sleep never runs past the deadline.
+  - At the deadline: `MEMORY_LOCK_TIMEOUT`. The critical section never runs, and no claim is touched.
+- **Takeover outcomes are explicit:** `removed`, `cleared`, `held` or `not_mine`.
+  - A takeover claim from a dead taker on this host is cleared.
+  - A live taker's claim, or one from another host, is `held` and never touched.
+- **An incomplete takeover file** (its writer crashed between creating and writing it) is recovered only once it is **older than 2 s**, because a takeover is two file operations. Before that it counts as held, so the waiter times out rather than spins.
+  - Recovery moves the file aside and deletes it only if its bytes are unchanged, so a file rewritten meanwhile is put back.
+  - The long-unreadable `.lock` recovery uses the same move-aside check.
+- **Regressions** (`test/unit/qb25-store.test.js`, "re-review 2"). Each runs `withLock` in a child process with an outside timeout, so a spin shows up as `ETIMEDOUT` instead of hanging the suite.
+  - The senior's repro (a dead `.lock` plus a takeover file naming a live process): `MEMORY_LOCK_TIMEOUT` within the bound, no entry, the live taker's claim untouched.
+  - Two processes: a live process genuinely holding the takeover claim makes the waiter time out and never enter.
+  - An incomplete takeover file: fresh, it ends in a timeout, not a spin. Aged past 2 s, it is recovered and the dead lock taken over.
+  - A dead taker's file is cleared and the lock recovered.
+  - A fresh unreadable `.lock` ends in a timeout, not a spin.
+  - The SIGSTOP live-owner, dead-owner concurrency and bounded-read tests still pass. The re-review tests passed 5 of 5 repeated runs.
+
 ## Limitations
 - Recall is still a linear scan of the bounded window. JSONL is kept until measured concurrency or query needs justify a database.
 - The lock is advisory: it serializes Quarterback processes, not arbitrary editors of the files.

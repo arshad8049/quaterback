@@ -328,3 +328,74 @@ describe('QB-25 re-review 1: recall work is bounded by the window, not by the hi
     assert.equal(s.readOutcomes(REPO).length, 5);
   });
 });
+
+describe('QB-25 re-review 2: every lock wait honours its deadline; takeovers back off and recover', () => {
+  const LOCK = path.join(ROOT, 'memory', 'lock.js');
+  const HOST = os.hostname();
+  /** A pid that provably does not exist on this host (a child that has exited). */
+  const deadPid = () => Number(spawnSync(process.execPath, ['-e', 'process.stdout.write(String(process.pid))'], { encoding: 'utf8' }).stdout);
+  /** Run withLock in a child with an external timeout, so a spin shows as ETIMEDOUT instead of hanging the suite. */
+  const child = (dir, waitMs, extTimeout = 3000) => {
+    const log = path.join(dir, 'entered');
+    const t0 = Date.now();
+    const r = spawnSync(process.execPath, ['-e', `
+      const fs = require('fs');
+      try { require(${JSON.stringify(LOCK)}).withLock(${JSON.stringify(dir)}, () => fs.writeFileSync(${JSON.stringify(log)}, 'in'), { waitMs: ${waitMs}, pollMs: 5 }); process.stdout.write('OK'); }
+      catch (e) { process.stdout.write(e.code || e.message); process.exit(3); }`], { encoding: 'utf8', timeout: extTimeout });
+    return { out: r.stdout, error: r.error && r.error.code, ms: Date.now() - t0, entered: fs.existsSync(log) };
+  };
+  const writeLock = (dir, name, owner) => fs.writeFileSync(path.join(dir, name), typeof owner === 'string' ? owner : JSON.stringify(owner));
+
+  test('senior repro: dead lock owner + takeover held by a LIVE process → MEMORY_LOCK_TIMEOUT near the deadline, no entry (pre-fix: spun until killed)', () => {
+    const dir = mk('held-takeover');
+    writeLock(dir, '.lock', { pid: deadPid(), host: HOST, token: 'dead' });
+    writeLock(dir, '.lock.takeover', { pid: process.pid, host: HOST, token: 'live-taker' });
+    const r = child(dir, 40, 2000);
+    assert.equal(r.error, undefined, `the child must not spin until killed (${r.error})`);
+    assert.equal(r.out, 'MEMORY_LOCK_TIMEOUT');
+    assert.equal(r.entered, false);
+    assert.ok(r.ms < 1500, `timed out after ${r.ms} ms`);
+    assert.equal(JSON.parse(fs.readFileSync(path.join(dir, '.lock.takeover'), 'utf8')).token, 'live-taker', "the live taker's claim is untouched");
+  });
+
+  test('two processes: a live process genuinely holding the takeover claim → the waiter times out, never enters', async () => {
+    const dir = mk('held-takeover-2p');
+    writeLock(dir, '.lock', { pid: deadPid(), host: HOST, token: 'dead' });
+    const holder = spawn(process.execPath, ['-e', `
+      const fs = require('fs');
+      fs.writeFileSync(${JSON.stringify(path.join(dir, '.lock.takeover'))}, JSON.stringify({ pid: process.pid, host: ${JSON.stringify(HOST)}, token: 'holder' }));
+      process.stdout.write('held\\n'); setTimeout(() => {}, 30000);`], { stdio: ['ignore', 'pipe', 'inherit'] });
+    try {
+      await new Promise((res) => holder.stdout.once('data', res));
+      const r = child(dir, 60, 2000);
+      assert.deepEqual([r.error, r.out, r.entered], [undefined, 'MEMORY_LOCK_TIMEOUT', false]);
+    } finally { holder.kill('SIGKILL'); }
+  });
+
+  test('incomplete takeover file whose writer cannot be identified: fresh → bounded timeout (no spin); old → recovered, then the dead lock is taken over', () => {
+    const dir = mk('incomplete-takeover');
+    writeLock(dir, '.lock', { pid: deadPid(), host: HOST, token: 'dead' });
+    writeLock(dir, '.lock.takeover', '');                                // an incomplete (empty) takeover claim, just written
+    const fresh = child(dir, 40, 2000);
+    assert.deepEqual([fresh.error, fresh.out, fresh.entered], [undefined, 'MEMORY_LOCK_TIMEOUT', false]);
+    const old = new Date(Date.now() - 60_000);
+    fs.utimesSync(path.join(dir, '.lock.takeover'), old, old);          // abandoned long ago: nobody is completing it
+    const recovered = child(dir, 2000, 4000);
+    assert.deepEqual([recovered.error, recovered.out, recovered.entered], [undefined, 'OK', true]);
+  });
+
+  test('a takeover file left by a dead taker is cleared and the dead lock is recovered', () => {
+    const dir = mk('dead-taker');
+    writeLock(dir, '.lock', { pid: deadPid(), host: HOST, token: 'dead' });
+    writeLock(dir, '.lock.takeover', { pid: deadPid(), host: HOST, token: 'crashed-taker' });
+    const r = child(dir, 2000, 4000);
+    assert.deepEqual([r.error, r.out, r.entered], [undefined, 'OK', true]);
+  });
+
+  test('an unreadable lock that is never old enough cannot keep a waiter past its deadline', () => {
+    const dir = mk('unreadable-fresh');
+    writeLock(dir, '.lock', '');
+    const r = child(dir, 40, 2000);
+    assert.deepEqual([r.error, r.out, r.entered], [undefined, 'MEMORY_LOCK_TIMEOUT', false]);
+  });
+});
