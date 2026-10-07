@@ -13,7 +13,7 @@ const CriterionResultSchema = z.object({
   refs:            z.array(z.string()).optional(),
   check_status:    z.enum(['passed', 'failed', 'error', 'unresolved']).optional(),   // QB-16
   checks:          z.array(z.object({ id: z.string(), status: z.enum(['pass', 'fail', 'error']), detail: z.string().optional() })).optional(),
-  judgment_cache:   z.enum(['hit', 'miss', 'wait_timeout']).optional(),                              // QB-15
+  judgment_cache:   z.enum(['hit', 'miss', 'wait_timeout', 'cancelled']).optional(),                              // QB-15
   evidence_ids:     z.array(z.string()).optional(),                                  // QB-11: what the judgment was based on
   evidence_missing: z.array(z.object({ what: z.string(), reason: z.string() })).optional(),
 });
@@ -45,6 +45,7 @@ const TestOutcomeSchema = z.object({                                            
   state:       z.string().nullable(),
   duration_ms: z.number().int().nullable(),
   tree:        z.string().nullable().optional(),      // QB-22: the source tree the tests ran on
+  detail:      z.string().optional(),                 // QB-20: why tests were not run (e.g. unsupported runner)
   regressions: z.array(FailingTestSchema).optional(),   // QB-10 (display-bounded; totals below)
   regressions_total: z.number().int().nonnegative().optional(),
   preexisting: z.array(FailingTestSchema).optional(),

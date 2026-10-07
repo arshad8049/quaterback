@@ -26,6 +26,7 @@ const { compile }      = require('../intent/compiler');
 const { buildContext } = require('../context/builder');
 const { orchestrate }  = require('../agent/orchestrator');
 const { verify }       = require('../verify/verifier');
+const budget = require('../lib/budget');
 const { defaultJudgeCacheDir } = require('../verify/judge-cache');
 const { runBaseline }  = require('./baseline');
 const { createWorkspace } = require('../lib/workspace');
@@ -389,8 +390,15 @@ async function withWorkspace(source, task, arm, fn) {
     config:   { task_id: task.id, base_rev: baseRev, source_commit: ws.sourceCommit, mode: ws.mode, max_retries: opts.maxRetries },
   });
 
+  // QB-21: an honest usage record per benchmark run (model calls, tokens when reported,
+  // agent usage explicitly unknown, deadlines, cost with provenance).
+  const budgetRun = budget.startRun({ agent: { type: 'claude-code', version: AGENT_VERSION, isolation: 'sandbox' },
+    sandboxDeadlines: require('../lib/sandbox/pipeline').DEFAULT_DEADLINES });
+  budgetRun.stage(`${arm} ${task.id}`);
+  const recordUsage = () => { try { ws.run.event('run.usage', budgetRun.usage()); } catch { /* run already closed */ } budget.endRun(); };
   try {
     const out = await fn(ws);
+    recordUsage();
     const verdict = arm === 'qb' ? out.final_verdict : out.verdict;
     if (out.blocked) ws.run.finish('BLOCKED', { reason: out.blocked });
     else ws.run.finish(runStore.outcomeFor(verdict), { legacy_verdict: verdict });
@@ -398,6 +406,7 @@ async function withWorkspace(source, task, arm, fn) {
     out.workspace = { base_rev: baseRev, source_commit: ws.sourceCommit, base_sha: ws.baseSha, base_tree: ws.baseTree, mode: ws.mode };
     return out;
   } catch (e) {
+    if (budget.currentRun()) recordUsage();
     ws.run.abort('ERROR', e.message);
     throw e;
   } finally {

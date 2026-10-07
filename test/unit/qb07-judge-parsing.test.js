@@ -63,8 +63,9 @@ describe('QB-07: strict judgment parsing', () => {
     const always = await judgeWith(ollamaReply('The criterion is not implemented.'));
     assert.equal(always.calls, 3 * (1 + MAX_FORMAT_RETRIES));
 
-    let n = 0;   // every first call per vote is garbage, every retry is valid
-    const healed = await judgeWith(() => (n++ % 2 === 0
+    // every first call per vote is garbage, every format re-ask is valid — decided by the
+    // request itself, since votes run concurrently (QB-21) and calls interleave
+    const healed = await judgeWith((url, init) => (JSON.parse(init.body).messages.length === 2
       ? ollamaReply('implemented!') : ollamaReply({ met: true, evidence: 'x.js adds targetFunction' })));
     assert.equal(healed.r.met, true);
     assert.equal(healed.calls, 6);

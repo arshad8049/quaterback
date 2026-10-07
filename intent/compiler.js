@@ -17,6 +17,7 @@ const SEMANTIC_FIELDS = [
   'test_policy',                  // QB-10: explicit, approved waiver of pre-existing test failures
   'proposed_defaults',            // QB-17: QB's own choices where the request is silent — shown and approved, never silent
 ];
+const { modelCall } = require('../lib/budget');
 const { validateChecks } = require('../verify/checks/registry');
 
 const SYSTEM_PROMPT = fs.readFileSync(path.join(__dirname, 'prompts/system.md'), 'utf8');
@@ -37,26 +38,16 @@ async function compile(request, repoContext = null, clarification = null) {
   if (ambiguity) return ambiguity;
   const clar = resolveClarifications(request, bound);
 
-  const res = await fetch(`${OLLAMA_URL}/api/chat`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user',   content: buildUserContent(request, repoContext, history, clar.byEntry) },
-      ],
-      stream: false,
-      options: { temperature: 0.1, num_ctx: 16384 },
-    }),
+  // QB-21: deadline-bound, cancellable, concurrency-bounded (lib/budget.js)
+  const data = await modelCall(`${OLLAMA_URL}/api/chat`, {
+    model: MODEL,
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user',   content: buildUserContent(request, repoContext, history, clar.byEntry) },
+    ],
+    stream: false,
+    options: { temperature: 0.1, num_ctx: 16384 },
   });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Ollama error ${res.status}: ${text || res.statusText}`);
-  }
-
-  const data = await res.json();
   const raw = data.message?.content;
   if (!raw) throw new Error('Empty response from Ollama');
 

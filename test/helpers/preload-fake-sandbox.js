@@ -33,6 +33,19 @@ function snapshot(dir) {
   return out;
 }
 
+/** A unified diff with the new content as added lines (text files), so judge evidence is realistic. */
+function diffFor(c, dir) {
+  const head = `diff --git a/${c.file} b/${c.file}\n`;
+  if (c.status === 'D') return `${head}--- a/${c.file}\n+++ /dev/null\n`;
+  // QB-18 tests: simulate a change whose bytes were not captured (header-only diff).
+  if ((process.env.QB_FAKE_SANDBOX_HEADER_ONLY || '').split(',').includes(c.file)) return head;
+  let text;
+  try { text = fs.readFileSync(path.join(dir, c.file), 'utf8'); } catch { return head; }
+  if (text.includes('\u0000')) return head;
+  const lines = text.replace(/\n$/, '').split('\n');
+  return `${head}--- a/${c.file}\n+++ b/${c.file}\n@@ -0,0 +1,${lines.length} @@\n${lines.map((l) => `+${l}`).join('\n')}\n`;
+}
+
 pipeline.runSandboxed = async ({ repoPath, briefing }) => {
   const copy = fs.mkdtempSync(path.join(os.tmpdir(), 'qb-fake-sandbox-'));
   try {
@@ -45,7 +58,7 @@ pipeline.runSandboxed = async ({ repoPath, briefing }) => {
     const status = r.status !== 0 ? 'execution_error' : changes.length ? 'completed' : 'no_change';
     return {
       status, reason: status, changes, unsupported_changes: [],
-      diff: changes.length ? changes.map((c) => `diff --git a/${c.file} b/${c.file}\n`).join('') : null,
+      diff: changes.length ? changes.map((c) => diffFor(c, copy)).join('') : null,
       base_tree: null, candidate_tree: null, exit_code: r.status, signal: null,
       stderr_tail: (r.stderr || '').slice(-2000), sandbox: { isolation: 'none-test-only' },
     };

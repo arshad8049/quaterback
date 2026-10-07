@@ -107,6 +107,7 @@ describe('supervisor protocol (real detached supervisor)', () => {
     assert.equal(t.state, 'timeout');
     assert.equal(t.reason, 'stage_deadline');
     assert.ok(elapsed >= 1000 + 500 - 300 && elapsed < 6000, `enforced after ${elapsed} ms`);
+    await until(() => !P.alive(s.supervisor), 10_000);     // let it finish its records before cleanup (CI ENOTEMPTY at 494fcec)
   });
 
   test('lease expiry (CLI gone) → ABANDONED by the supervisor', async () => {
@@ -125,6 +126,7 @@ describe('supervisor protocol (real detached supervisor)', () => {
     const e = await until(() => P.readJson(path.join(dir, 'enforcement.json')), 10_000);
     const late = Date.parse(e.enforce_at) - lastRenewal;
     assert.ok(late >= 1500 && late < 1500 + 500 + 2000, `enforced ${late} ms after the last renewal`);
+    await until(() => !P.alive(s.supervisor), 10_000);     // let it finish its records before cleanup
   });
 
   test('a completed proposal is committed by the supervisor, which then exits', async () => {

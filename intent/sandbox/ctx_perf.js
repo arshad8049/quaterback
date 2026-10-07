@@ -63,10 +63,10 @@ async function run() {
     console.log(`    ${k.padEnd(30)} ${v}`);
   });
 
-  console.log('\n  TEST COVERAGE:');
-  console.log(`    test files: ${JSON.stringify(pkg.test_coverage.test_files)}`);
-  console.log(`    covered:    ${JSON.stringify(pkg.test_coverage.covered_files)}`);
-  console.log(`    uncovered:  ${JSON.stringify(pkg.test_coverage.uncovered_files)}`);
+  console.log('\n  TEST ASSOCIATIONS (by file name, not coverage):');
+  console.log(`    test files:              ${JSON.stringify(pkg.test_associations.test_files)}`);
+  console.log(`    associated:              ${JSON.stringify(pkg.test_associations.by_file)}`);
+  console.log(`    without associated test: ${JSON.stringify(pkg.test_associations.without_associated_tests)}`);
 
   if (pkg.git_context.recent_changes.length) {
     console.log('\n  GIT ACTIVITY (last 30 days):');

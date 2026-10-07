@@ -13,6 +13,7 @@
  * list of what was NOT shown.
  */
 const { missingText, label } = require('./evidence');
+const { modelCall, currentRun } = require('../lib/budget');
 
 require('dotenv').config({ path: require('path').join(__dirname, '../intent/.env') });
 require('dotenv').config({ path: require('path').join(__dirname, '../context/.env') });
@@ -183,13 +184,8 @@ async function callOnce(ac, material, signals) {
       { role: 'user',   content: userContent },
       ...(attempt ? [{ role: 'user', content: FORMAT_REMINDER }] : []),
     ];
-    const res = await fetch(`${OLLAMA_URL}/api/chat`, {
-      method:  'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ model: MODEL, messages, stream: false, options: { temperature: 0.05, num_ctx: b ? 12288 : 8192 } }),
-    });
-    if (!res.ok) throw new Error(`Ollama ${res.status}`);
-    const data = await res.json();
+    // QB-21: deadline-bound, cancellable, concurrency-bounded (lib/budget.js)
+    const data = await modelCall(`${OLLAMA_URL}/api/chat`, { model: MODEL, messages, stream: false, options: { temperature: 0.05, num_ctx: b ? 12288 : 8192 } });
     const raw  = data.message?.content;
     try {
       if (!raw) throw invalid('empty response');
@@ -256,7 +252,13 @@ async function judgeOne(ac, material, signals, cache = null) {
   if (cached) return hitOf(cached);
   // Claim the evidence before sampling (across processes), then re-read: another run
   // may have published the decision while this one waited (QB-15 re-review).
-  const claim = await cache.acquire(key);
+  const run = currentRun();
+  const claim = await cache.acquire(key, { signal: run ? run.signal : null });
+  if (claim.cancelled) {   // QB-21: the run deadline also bounds the wait for another run's claim
+    return { id: ac.id, criterion: ac.criterion, met: null, method: `llm-vote-${VOTE_COUNT}`, votes: [], judgment_status: 'error',
+      judgment_cache: 'cancelled', refs: [], repair: null,
+      evidence: `Not judged: ${(claim.reason && claim.reason.message) || 'run cancelled'} while waiting for another run's judgment of this same evidence.` };
+  }
   if (claim.timedOut) {
     return { id: ac.id, criterion: ac.criterion, met: null, method: `llm-vote-${VOTE_COUNT}`, votes: [], judgment_status: 'error',
       judgment_cache: 'wait_timeout', refs: [], repair: null,
@@ -273,19 +275,19 @@ async function judgeOne(ac, material, signals, cache = null) {
 }
 
 async function judgeFresh(ac, material, signals) {
-  const votes = [];
-
-  for (let i = 0; i < VOTE_COUNT; i++) {
+  // QB-21: the votes run concurrently; lib/budget.js bounds concurrent model calls
+  // (QB_MODEL_CONCURRENCY) and gives each a deadline. Vote order is preserved.
+  const votes = await Promise.all(Array.from({ length: VOTE_COUNT }, async (_, i) => {
     try {
       const result = await callOnce(ac, material, signals);
-      votes.push({ ...result, status: 'ok' });
+      return { ...result, status: 'ok' };
     } catch (err) {
       // A failed or malformed call counts as null — it doesn't tip the vote either way.
-      votes.push(err.code === 'invalid_judgment'
+      return err.code === 'invalid_judgment'
         ? { met: null, status: 'invalid_judgment', evidence: `Call ${i + 1}: invalid judgment (${err.message})` }
-        : { met: null, status: 'error', evidence: `Call ${i + 1} error: ${err.message}` });
+        : { met: null, status: 'error', evidence: `Call ${i + 1} error: ${err.message}`, error: err.message };
     }
-  }
+  }));
   const valid = votes.filter(v => v.status === 'ok');
   const judgment_status = valid.length ? 'ok'
     : votes.some(v => v.status === 'invalid_judgment') ? 'invalid_judgment' : 'error';
@@ -329,7 +331,7 @@ async function judgeFresh(ac, material, signals) {
     judgment_status,
     evidence:  capped ? `Missing material evidence: ${missing.map(missingText).join('; ')}. Not judged as met (the judge saw: ${winning?.evidence || 'n/a'})`.slice(0, 2000)
       : winning?.evidence || (judgment_status === 'ok' ? 'No evidence provided.'
-        : `No valid judgment: ${votes.map(v => v.status).join(', ')}.`),
+        : `No valid judgment: ${votes.map(v => v.status).join(', ')}${[...new Set(votes.map(v => v.error).filter(Boolean))].map(e => ` — ${e}`).join('')}.`),
     refs:      winning?.refs || [],
     repair:    met === false ? (repairVote?.repair || `Implement the missing behavior: "${ac.criterion}"`) : null,
     ...(b ? { evidence_ids: b.shown.map((it) => it.id), evidence_missing: missing.map((m) => ({ what: m.what, reason: m.reason })) } : {}),

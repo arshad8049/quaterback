@@ -100,11 +100,14 @@ async function main() {
     console.log(`    ${sym.padEnd(24)} ${loc}`);
   });
 
-  console.log(`\n  TEST COVERAGE:\n`);
-  console.log(`    Covered files:   ${pkg.test_coverage.covered_files.length}`);
-  console.log(`    Test files:      ${pkg.test_coverage.test_files.length}`);
-  console.log(`    Uncovered files: ${pkg.test_coverage.uncovered_files.length}`);
-  pkg.test_coverage.test_files.forEach(t => console.log(`      ${t}`));
+  // QB-20: associations by file name — not coverage.
+  const ta = pkg.test_associations;
+  console.log(`\n  TEST ASSOCIATIONS (by file name, not coverage):\n`);
+  console.log(`    With an associated test:    ${Object.keys(ta.by_file).length}`);
+  console.log(`    Test files:                 ${ta.test_files.length}`);
+  console.log(`    Without an associated test: ${ta.without_associated_tests.length}`);
+  ta.test_files.forEach(t => console.log(`      ${t}`));
+  console.log(`    Coverage data: ${pkg.coverage ? `${pkg.coverage.source} (${pkg.coverage.path})` : 'none in the repository'}`);
 
   if (pkg.git_context.recent_changes.length > 0) {
     console.log(`\n  GIT ACTIVITY (last 30 days):\n`);

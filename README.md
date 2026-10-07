@@ -197,7 +197,7 @@ Grounds the Task Contract in the actual codebase.
 1. **DSA pass** — symbol extraction (ESM + CJS `module.exports = {…}`), import graph 2 levels deep, test file finder, framework/architecture detector from `package.json`/`go.mod`, git activity per relevant file. ~500ms on a 24-file repo.
 2. **LLM pass** (optional, `--no-llm` skips) — ranks files and writes an agent brief.
 
-**ContextPackage output:** relevant files with symbols and import graph, symbol map (`createLLM → src/llm.js:96`), test coverage, git activity, agent brief.
+**ContextPackage output:** relevant files with symbols and import graph, symbol map (`createLLM → src/llm.js:96`), test associations (by file name — not coverage), real coverage data only when the repo has a report, git activity, agent brief.
 
 ```bash
 cd context && npm install
@@ -263,6 +263,22 @@ An agent that changed nothing passes only if the requirement is independently ve
 - unsupported additions and duplicates block execution;
 - `call_sequence` checks prove behaviour over time.
 
+**Repairs that are actually proven** (QB-23, [docs/memory/repairs.md](docs/memory/repairs.md)):
+- every repair hint is linked to the next patch and to its criterion's re-evaluation;
+- only a criterion fixed on a changed patch in a run that ends in an approved PASS counts as a proven repair;
+- unconfirmed, unresolved and abandoned suggestions are kept, labeled, and never recalled as proven fixes.
+
+**A safe memory store** (QB-25, [docs/memory/store.md](docs/memory/store.md)):
+- the store path is injected (`createMemory({ root })`), not captured at import;
+- writes are locked per repository across processes, and stats are replaced atomically;
+- corrupt or truncated records are reported (line, offset) and quarantined, never silently dropped;
+- retention keeps the newest 10,000 outcomes; recall at that size takes ~51 ms.
+
+**Memory never mixes repositories or opposite instructions** (QB-24, [docs/memory/identity.md](docs/memory/identity.md)):
+- each repository's memory lives under a collision-resistant identity (`r2-<sha256 of its realpath>`); old path-sanitized namespaces are ignored and reported, never merged;
+- negation is preserved: "do not enable caching" is never similarity 1 with "enable caching", and an opposite-intent repair is never reused automatically;
+- file hints must be plain paths that exist in the current checkout; a record from an incompatible revision is stale; hints from failed runs are ranked and labelled apart from passing ones.
+
 **Judge evidence with provenance** (QB-11, [docs/verify/evidence.md](docs/verify/evidence.md)):
 - the judge sees whole changed hunks, ranked within a budget (no silent 6,000-character cut);
 - it also sees the definitions of the helpers the change calls, from the tested tree, unchanged code included — resolved through the module's actual export binding, never the first declaration;
@@ -282,6 +298,30 @@ An agent that changed nothing passes only if the requirement is independently ve
 - a choice that needs a value (a numeric target) stays open until a valid target is given (`--clarify "improve_unmeasured=numeric_target:p95 latency < 200ms"`); the target is recorded in the approved contract;
 - QB's own choices are separate "proposed defaults" that the human approves;
 - incomplete compiler output is rejected, not filled in.
+
+**Deadlines and cancellation** (QB-21, [docs/verify/deadlines.md](docs/verify/deadlines.md)):
+- every model call has a deadline (`QB_MODEL_CALL_TIMEOUT_MS`);
+- `qb --deadline <minutes>` cancels the run, including its sandbox containers, and ends it CANCELLED, naming the interrupted stage;
+- timed-out commands are killed with their whole process tree;
+- telemetry is bounded to 3 s;
+- model calls run concurrently, bounded (`QB_MODEL_CONCURRENCY`);
+- stage time and tokens are recorded.
+
+**Parser-based symbol index** (QB-19, [docs/context/symbols.md](docs/context/symbols.md)):
+- JavaScript (CJS and ESM) is parsed: every export, alias, class method and top-level declaration gets a qualified ID (`path#name`) and its real source span;
+- whole files are indexed up to 256 KiB, and larger or unparsable files are recorded in `index_limits`, never dropped silently;
+- duplicate names across files no longer overwrite each other.
+
+**Context retrieval** (QB-18, [docs/context/retrieval.md](docs/context/retrieval.md)):
+- files are ranked by symbol and content matches to the contract, not just paths;
+- imports and callers are followed to a bounded depth, with each file's reason recorded;
+- the file and byte budget and every omission are explicit in the package;
+- after each attempt the context is refreshed with the patch's new and changed files.
+
+**Test associations, not coverage** (QB-20, [docs/context/test-associations.md](docs/context/test-associations.md)):
+- a test file matched by name is reported as `test_associations` — never as coverage; real coverage appears only from a report the repo already has (`coverage/lcov.info`, `coverage/coverage-final.json`);
+- naming conventions for JS/TS, Python, Go and Java (`*.test.*`, `test_*.py`, `*_test.go`, `*Test.java`, `test/` and `src/test/java` mirrors);
+- only node:test verifies: an explicit `.quarterback.json` test command or the `npm test` script; any other runner, configured or detected, is refused (`unsupported runner: X`) and can never PASS.
 
 **Run records** (`run/store.js`, QB-38). Every run keeps a versioned, append-only record: base commit, agent version, contract, patch, test outcome, checks and report. `qb replay <run_id>` recomputes each verdict and the final outcome from the stored evidence.
 

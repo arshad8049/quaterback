@@ -4,18 +4,23 @@ const path = require('path');
 const { randomUUID } = require('crypto');
 
 const { ContextPackageSchema } = require('./schema');
+const { modelCall } = require('../lib/budget');
 const { detectPatterns }       = require('./detector');
 const { buildGitContext }      = require('./git');
 const {
-  extractSymbols,
   extractImports,
   resolveImport,
   findTestFile,
   findAllTestFiles,
   scoreFiles,
   contractKeywords,
-  readFileSafe,
+  readForIndex,
+  MAX_FILE_BYTES,
 } = require('./extractor');
+const { MAX_INDEX_BYTES } = require('./symbols');
+const { retrieve } = require('./retrieval');
+const { readCoverage } = require('./coverage');
+const { testPlan } = require('./test-plan');
 
 const OLLAMA_URL    = process.env.QB_OLLAMA_URL || 'http://127.0.0.1:11434';
 const MODEL         = process.env.QB_MODEL      || 'deepseek-r1:7b';
@@ -40,66 +45,33 @@ async function buildContext(contract, repoPath, options = {}) {
 
   const patterns  = detectPatterns(absRepo);
   const keywords  = contractKeywords(contract);
-  let   topFiles  = scoreFiles(absRepo, keywords, 25);
-
-  // Memory boost: prepend memory-recalled files that aren't already in topFiles
   const hints = (options.fileHints || []).map(h => h.file);
-  const topSet = new Set(topFiles);
-  for (const hintFile of hints) {
-    if (!topSet.has(hintFile) && fs.existsSync(path.join(absRepo, hintFile))) {
-      topFiles = [hintFile, ...topFiles];
-    }
-  }
+  const assembled = assembleFiles(contract, absRepo, {
+    ...(options.retrieval || {}),
+    // Memory boost: memory-recalled files are seeds, with their reason.
+    forcedSeeds: hints.filter(h => fs.existsSync(path.join(absRepo, h))).map(h => ({ path: h, reason: `[Memory] changed in similar past run — seed` })),
+  });
+  const { relevantFiles, symbolMap, symbolsIndex, indexLimits, retrieval } = assembled;
+  const topFiles = relevantFiles.map(f => f.path);
 
-  // Read each relevant file and extract symbols + imports
-  const relevantFiles = [];
-  const symbolMap     = {};
-
-  for (const rel of topFiles) {
-    const abs     = path.join(absRepo, rel);
-    const content = readFileSafe(abs);
-    if (!content) continue;
-
-    const symbols = extractSymbols(rel, content);
-    const rawImports = extractImports(content);
-    const imports = rawImports
-      .map(imp => resolveImport(abs, imp, absRepo))
-      .filter(Boolean);
-
-    const testFile = findTestFile(rel, absRepo);
-
-    // Populate symbol map with file:line location
-    for (const sym of symbols) {
-      const lines = content.split('\n');
-      const lineNum = lines.findIndex(l => l.includes(sym)) + 1;
-      if (lineNum > 0) {
-        symbolMap[sym] = `${rel}:${lineNum}`;
-      }
-    }
-
-    const memoryHint = hints.find(h => h === rel);
-    relevantFiles.push({
-      path:      rel,
-      reason:    memoryHint
-        ? `[Memory] changed in similar past run — ${buildReason(rel, keywords)}`
-        : buildReason(rel, keywords),
-      symbols,
-      imports,
-      test_file: testFile,
-      content,
-    });
-  }
-
-  // Test coverage
+  // QB-20: test ASSOCIATIONS (by file name) — never coverage. Real coverage only from a report.
   const allTestFiles     = findAllTestFiles(absRepo);
-  const coveredFiles     = relevantFiles.filter(f => f.test_file).map(f => f.path);
-  const uncoveredFiles   = relevantFiles.filter(f => !f.test_file).map(f => f.path);
+  const byFile           = Object.fromEntries(relevantFiles.filter(f => f.test_file).map(f => [f.path, f.test_file]));
+  const withoutTests     = relevantFiles.filter(f => !f.test_file).map(f => f.path);
   const relevantTestFiles = [
     ...new Set([
       ...relevantFiles.map(f => f.test_file).filter(Boolean),
       ...allTestFiles.filter(t => keywords.some(kw => t.toLowerCase().includes(kw))),
     ])
   ];
+  const testAssociations = {
+    basis: 'file-name conventions only — a matching test file is not coverage; it may not exercise the code at all',
+    test_files: relevantTestFiles,
+    by_file: byFile,
+    without_associated_tests: withoutTests,
+  };
+  const coverage = readCoverage(absRepo, topFiles);
+  const plan = testPlan(absRepo);
 
   // Git context for relevant files
   const gitContext = buildGitContext(absRepo, topFiles);
@@ -116,7 +88,8 @@ async function buildContext(contract, repoPath, options = {}) {
         path: f.path, symbols: f.symbols, imports: f.imports, test_file: f.test_file
       })),
       symbol_map:  symbolMap,
-      test_coverage: { covered_files: coveredFiles, test_files: relevantTestFiles, uncovered_files: uncoveredFiles },
+      test_associations: testAssociations,
+      coverage,
       git_context: gitContext,
     });
 
@@ -154,18 +127,135 @@ async function buildContext(contract, repoPath, options = {}) {
       imports:   f.imports,
       test_file: f.test_file,
       content:   f.content,
+      content_truncated: f.content_truncated,
+      index_status: f.index_status,
+      retrieval: f.retrieval,
     })),
     symbol_map: symbolMap,
-    test_coverage: {
-      covered_files:   coveredFiles,
-      test_files:      relevantTestFiles,
-      uncovered_files: uncoveredFiles,
-    },
+    symbols_index: symbolsIndex,
+    index_limits: { max_index_bytes: MAX_INDEX_BYTES, snippet_bytes: MAX_FILE_BYTES, files: indexLimits },
+    retrieval,
+    test_associations: testAssociations,
+    coverage,
+    test_plan: plan,
     git_context: gitContext,
     agent_brief: agentBrief,
   };
 
   return ContextPackageSchema.parse(pkg);
+}
+
+/**
+ * QB-18: select files by symbol/content relevance plus bounded import/caller traversal
+ * (context/retrieval.js), then shape them as relevant_files with their symbols.
+ */
+function assembleFiles(contract, absRepo, o) {
+  const { files, retrieval } = retrieve(contract, absRepo, o);
+  const relevantFiles = [];
+  const symbolMap     = {};    // qualified ID → "path:line" (exported symbols and their methods)
+  const symbolsIndex  = [];    // every indexed symbol, with kind, span and export details
+  const indexLimits   = [];    // files not fully parsed: too_large / unparsable / regex / unreadable
+  for (const f of files) {
+    const n = f.node;
+    if (!n) continue;
+    const idx = n.idx;
+    if (idx.status !== 'parsed' && idx.status !== 'not_indexed') indexLimits.push({ path: f.rel, status: idx.status, bytes: n.bytes, ...(idx.unindexed ? { unindexed: idx.unindexed } : {}) });
+    symbolsIndex.push(...idx.symbols);
+    const exported = idx.symbols.filter(s => s.exported);
+    for (const s of exported) symbolMap[s.id] = `${f.rel}:${s.span.start.line}`;
+    relevantFiles.push({
+      path:      f.rel,
+      reason:    f.reason,
+      symbols:   exported.filter(s => s.kind !== 'method').map(s => s.name),
+      imports:   n.imports,
+      test_file: n.source === 'checkout' ? findTestFile(f.rel, absRepo) : null,
+      content:   n.snippet,
+      content_truncated: n.cut,
+      index_status: idx.status,
+      retrieval: f.retrieval,
+    });
+  }
+  return { relevantFiles, symbolMap, symbolsIndex, indexLimits, retrieval };
+}
+
+/** The candidate content an attempt produced for each changed file (QB-18 refresh). */
+function candidateOverlay(execution) {
+  const overlay = new Map();
+  const deleted = new Set();
+  const stale = [];
+  const snap = execution?.sandbox?.snapshot;
+  const snapFiles = new Map(((snap && !snap.error && snap.files) || []).map(f => [f.path, f.text]));
+  // New files: the patch carries their whole content as one added hunk.
+  const fromPatch = new Map();
+  let cur = null;
+  for (const line of String(execution?.diff || '').split('\n')) {
+    const h = /^diff --git a\/(.+?) b\/(.+)$/.exec(line);
+    if (h) { cur = { file: h[2], lines: [], whole: false }; fromPatch.set(cur.file, cur); continue; }
+    if (!cur) continue;
+    if (/^@@ -0,0 \+1(,\d+)? @@/.test(line)) { cur.whole = true; continue; }
+    if (line.startsWith('@@')) { cur.whole = false; continue; }
+    if (cur.whole && line.startsWith('+') && !line.startsWith('+++')) cur.lines.push(line.slice(1));
+  }
+  for (const c of execution?.changes || []) {
+    if (c.status === 'D') { deleted.add(c.file); continue; }
+    if (snapFiles.has(c.file)) overlay.set(c.file, { content: snapFiles.get(c.file), source: 'candidate_tree' });
+    else if (fromPatch.get(c.file)?.whole) overlay.set(c.file, { content: fromPatch.get(c.file).lines.join('\n') + '\n', source: 'patch' });
+    else stale.push(c.file);
+  }
+  return { overlay, deleted, stale };
+}
+
+/**
+ * QB-18: refresh the context after an attempt's patch. The candidate's changed files are
+ * seeds (with their imports and callers, to the same bounded depth); deleted files leave
+ * the package; files whose candidate content is unavailable are reported as stale. The
+ * LLM brief and git context are kept. Returns { context, refresh }.
+ */
+function refreshContext(context, contract, repoPath, execution, { attempt } = {}) {
+  const absRepo = path.resolve(repoPath);
+  const { overlay, deleted, stale } = candidateOverlay(execution);
+  const changed = (execution?.changes || []).filter(c => c.status !== 'D').map(c => c.file);
+  const assembled = assembleFiles(contract, absRepo, {
+    depth: context.retrieval?.depth, maxFiles: context.retrieval?.max_files, maxBytes: context.retrieval?.max_bytes,
+    overlay, deleted,
+    forcedSeeds: [
+      ...changed.filter(f => overlay.has(f)).map(f => ({ path: f, reason: `changed by attempt ${attempt} (${overlay.get(f).source})` })),
+      ...stale.map(f => ({ path: f, reason: `changed by attempt ${attempt} (current content unavailable)` })),
+    ],
+  });
+  // Re-review 1: a changed file whose candidate bytes could not be read must not be briefed
+  // from its OLD checkout content. Its symbols leave the symbol map and index, and its entry
+  // keeps the path but no content or symbols, marked stale (the briefing renders a warning).
+  for (const f of stale) {
+    for (const k of Object.keys(assembled.symbolMap)) if (k.startsWith(`${f}#`)) delete assembled.symbolMap[k];
+    assembled.symbolsIndex = assembled.symbolsIndex.filter(s => s.file !== f);
+    let entry = assembled.relevantFiles.find(e => e.path === f);
+    if (!entry) { entry = { path: f, reason: `changed by attempt ${attempt} (current content unavailable)`, imports: [], test_file: null }; assembled.relevantFiles.unshift(entry); }
+    entry.symbols = [];
+    entry.imports = [];
+    delete entry.content;
+    delete entry.content_truncated;
+    entry.index_status = 'stale';
+    entry.stale = { attempt: attempt ?? null, reason: 'changed by the attempt; the candidate content was not captured (no sandbox file export, no whole-file patch)' };
+  }
+  const before = new Set((context.relevant_files || []).map(f => f.path));
+  const after = new Set(assembled.relevantFiles.map(f => f.path));
+  const refresh = {
+    attempt, changed, stale,
+    added: [...after].filter(p => !before.has(p)).sort(),
+    removed: [...before].filter(p => !after.has(p)).sort(),
+    deleted: [...deleted].sort(),
+  };
+  const next = {
+    ...context,
+    generated_at: new Date().toISOString(),
+    relevant_files: assembled.relevantFiles,
+    symbol_map: assembled.symbolMap,
+    symbols_index: assembled.symbolsIndex,
+    index_limits: { max_index_bytes: MAX_INDEX_BYTES, snippet_bytes: MAX_FILE_BYTES, files: assembled.indexLimits },
+    retrieval: { ...assembled.retrieval, refreshes: [...(context.retrieval?.refreshes || []), refresh] },
+  };
+  return { context: ContextPackageSchema.parse(next), refresh };
 }
 
 // ─── LLM enrichment ──────────────────────────────────────────────────────────
@@ -185,28 +275,22 @@ async function callLlm(contract, extractedData) {
   ].join('\n');
 
   try {
-    const res = await fetch(`${OLLAMA_URL}/api/chat`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user',   content: userContent },
-        ],
-        stream: false,
-        options: { temperature: 0.1, num_ctx: 16384 },
-      }),
+    // QB-21: deadline-bound, cancellable, concurrency-bounded (lib/budget.js)
+    const data = await modelCall(`${OLLAMA_URL}/api/chat`, {
+      model: MODEL,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user',   content: userContent },
+      ],
+      stream: false,
+      options: { temperature: 0.1, num_ctx: 16384 },
     });
-
-    if (!res.ok) return null;
-
-    const data = await res.json();
     const raw  = data.message?.content;
     if (!raw) return null;
 
     return parseJSON(raw);
-  } catch (_) {
+  } catch (e) {
+    if (e && e.code === 'DEADLINE' && e.kind === 'run') throw e;   // QB-21: a run deadline stops the run (enrichment is optional otherwise)
     return null;
   }
 }
@@ -234,4 +318,4 @@ function buildReason(filePath, keywords) {
   return `Included by relevance scoring (${name})`;
 }
 
-module.exports = { buildContext };
+module.exports = { buildContext, refreshContext };

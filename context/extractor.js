@@ -6,7 +6,7 @@ const IGNORE_DIRS = new Set([
   'coverage', '__pycache__', '.venv', 'venv', 'vendor',
 ]);
 
-const CODE_EXTS = new Set(['.js', '.ts', '.jsx', '.tsx', '.py', '.go', '.rs']);
+const CODE_EXTS = new Set(['.js', '.cjs', '.mjs', '.ts', '.jsx', '.tsx', '.py', '.go', '.rs', '.java']);
 
 // ─── Symbol extraction ────────────────────────────────────────────────────────
 
@@ -123,40 +123,66 @@ function resolveImport(fromFile, importPath, repoPath) {
 // ─── Test file finder ─────────────────────────────────────────────────────────
 
 /**
- * Given a source file path, find its associated test file.
- * Looks for __tests__/ sibling, .test.ext, .spec.ext patterns.
+ * QB-20: the test file ASSOCIATED with a source file by naming convention, or null.
+ * An association is a hint for the agent — never evidence that the code is covered.
+ * Conventions:
+ *   JS/TS   <stem>.test|spec.<ext> beside it or in __tests__/; __tests__/<stem>.<ext>;
+ *           test/ or tests/ mirrors (src|lib|app/<dir>/x.js → test/<dir>/x.test.js, test/x.test.js)
+ *   Python  test_<stem>.py / <stem>_test.py beside it, in tests/ or test/, or a tests/ mirror
+ *   Go      <stem>_test.go in the same package directory
+ *   Java    <Stem>Test.java / <Stem>Tests.java beside it or in the src/test/java mirror
  */
+function testCandidates(filePath) {
+  const rel = filePath.replace(/\\/g, '/');
+  const ext = path.posix.extname(rel);
+  const dir = path.posix.dirname(rel);
+  const stem = path.posix.basename(rel, ext);
+  const inner = dir.replace(/^(src|lib|app)(\/|$)/, '').replace(/^\.$/, '');
+  const j = (...p) => path.posix.normalize(path.posix.join(...p.filter((x) => x !== '' && x !== '.')));
+  const c = [];
+  if (/^\.(c|m)?[jt]sx?$/.test(ext)) {
+    for (const k of ['test', 'spec']) c.push(j(dir, '__tests__', `${stem}.${k}${ext}`), j(dir, `${stem}.${k}${ext}`));
+    c.push(j(dir, '__tests__', `${stem}${ext}`));
+    for (const root of ['test', 'tests']) {
+      for (const name of [`${stem}.test${ext}`, `${stem}.spec${ext}`, `${stem}${ext}`]) {
+        c.push(j(root, inner, name));
+        if (inner) c.push(j(root, name));
+      }
+    }
+  } else if (ext === '.py') {
+    for (const name of [`test_${stem}.py`, `${stem}_test.py`]) {
+      c.push(j(dir, name), j(dir, 'tests', name), j('tests', inner, name), j('test', inner, name));
+      if (inner) c.push(j('tests', name), j('test', name));
+    }
+  } else if (ext === '.go') {
+    c.push(j(dir, `${stem}_test.go`));
+  } else if (ext === '.java') {
+    for (const name of [`${stem}Test.java`, `${stem}Tests.java`]) {
+      c.push(j(dir, name));
+      if (dir.includes('src/main/java')) c.push(j(dir.replace('src/main/java', 'src/test/java'), name));
+    }
+  }
+  return [...new Set(c)].filter((p) => p !== rel);
+}
+
 function findTestFile(filePath, repoPath) {
-  const abs    = path.join(repoPath, filePath);
-  const dir    = path.dirname(abs);
-  const base   = path.basename(abs);
-  const ext    = path.extname(base);
-  const stem   = path.basename(base, ext);
-
-  const candidates = [
-    path.join(dir, '__tests__', `${stem}.test${ext}`),
-    path.join(dir, '__tests__', `${stem}.spec${ext}`),
-    path.join(dir, `${stem}.test${ext}`),
-    path.join(dir, `${stem}.spec${ext}`),
-    path.join(dir, '__tests__', `${stem}${ext}`),
-  ];
-
-  for (const c of candidates) {
-    if (fs.existsSync(c)) return path.relative(repoPath, c);
+  for (const c of testCandidates(filePath)) {
+    try { if (fs.statSync(path.join(repoPath, c)).isFile()) return c; } catch { /* not there */ }
   }
   return null;
 }
 
+/** QB-20: a file named like a test by the supported conventions. */
+const TEST_FILE_RE = /(^|\/)__tests__\/|\.(test|spec)\.(c|m)?[jt]sx?$|(^|\/)test_[^/]+\.py$|_test\.(py|go)$|(Test|Tests)\.java$/;
+const isTestFile = (rel) => TEST_FILE_RE.test(String(rel).replace(/\\/g, '/'));
+
 /**
- * Walk the repo and collect all test files.
+ * Walk the repo and collect all test files (by the conventions above).
  */
 function findAllTestFiles(repoPath) {
   const results = [];
   walk(repoPath, repoPath, results);
-  return results.filter(f =>
-    /\.(test|spec)\.(js|ts|jsx|tsx|py|go)$/.test(f) ||
-    f.includes('__tests__')
-  );
+  return results.filter((f) => isTestFile(f));
 }
 
 // ─── Relevance scoring ────────────────────────────────────────────────────────
@@ -213,6 +239,29 @@ function contractKeywords(contract) {
 
 const MAX_FILE_BYTES = 8000;
 
+/**
+ * QB-19: the whole file for indexing (up to `maxBytes`), its size, and a bounded
+ * prompt snippet flagged when cut. Never silently truncates what is indexed.
+ * @returns {{ full: string|null, bytes: number, snippet: string|null, snippet_truncated: boolean } | null}
+ */
+function readForIndex(absPath, maxBytes) {
+  let stat;
+  try { stat = fs.statSync(absPath); } catch (_) { return null; }
+  if (!stat.isFile()) return null;
+  try {
+    if (stat.size > maxBytes) {
+      const fd = fs.openSync(absPath, 'r');
+      const buf = Buffer.alloc(MAX_FILE_BYTES);
+      const n = fs.readSync(fd, buf, 0, MAX_FILE_BYTES, 0);
+      fs.closeSync(fd);
+      return { full: null, bytes: stat.size, snippet: buf.slice(0, n).toString('utf8'), snippet_truncated: true };
+    }
+    const full = fs.readFileSync(absPath, 'utf8');
+    const cut = full.length > MAX_FILE_BYTES;
+    return { full, bytes: stat.size, snippet: cut ? full.slice(0, MAX_FILE_BYTES) : full, snippet_truncated: cut };
+  } catch (_) { return null; }
+}
+
 function readFileSafe(absPath) {
   try {
     const stat = fs.statSync(absPath);
@@ -263,7 +312,11 @@ module.exports = {
   resolveImport,
   findTestFile,
   findAllTestFiles,
+  isTestFile,
+  testCandidates,
   scoreFiles,
   contractKeywords,
   readFileSafe,
+  readForIndex,
+  MAX_FILE_BYTES,
 };
