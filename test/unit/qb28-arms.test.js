@@ -214,7 +214,8 @@ describe('QB-28: one experiment, every arm graded by the same external grader', 
     const exp = loadExperiment(dir);
     assert.deepEqual(exp.trials.map((t) => [t.arm, t.status, t.grade_outcome]).sort(), [['A', 'completed', 'pass'], ['E', 'completed', 'pass'], ['F', 'completed', 'pass']]);
     assert.equal(graderCalls.length, 3, 'the external grader ran once per arm');
-    for (const call of graderCalls) assert.deepEqual(Object.keys(call).sort(), ['applyPatch', 'baseTests', 'briefing', 'noAgent', 'repoPath', 'testCommand', 'verify']);
+    // the trial's cancellation signal (QB-28 re-review: the trial deadline covers grading) — no arm or contract data
+    for (const call of graderCalls) assert.deepEqual(Object.keys(call).sort(), ['applyPatch', 'baseTests', 'briefing', 'noAgent', 'repoPath', 'signal', 'testCommand', 'verify']);
     const F = exp.trials.find((t) => t.arm === 'F');
     assert.ok(F.memory.recall_calls > 0 && F.memory.persist_calls === 1);
     assert.equal(exp.trials.find((t) => t.arm === 'E').memory.persist_calls, 0);
@@ -231,5 +232,173 @@ describe('QB-28: one experiment, every arm graded by the same external grader', 
     const src = fs.readFileSync(path.join(__dirname, '../../bench/run.js'), 'utf8');
     assert.match(src, /require\('\.\.\/lib\/qb-pipeline'\)/);
     assert.doesNotMatch(src, /\borchestrate\(|\brouteRepair\(/);
+  });
+});
+
+/**
+ * QB-28 re-review (KAN-28 comment 10215):
+ *   1. memory-on must retrieve the SOURCE repository's frozen experience in a fresh trial checkout;
+ *   2. the equal agent-time budget debits the agent STAGE only, not setup/capture/verification;
+ *   3. the manifest's per-call model deadline is the one in force, and the trial deadline covers grading.
+ */
+describe('QB-28 re-review: memory-on retrieves the frozen source experience in fresh checkouts', () => {
+  const memory = require('../../memory');
+  const { attemptEntry } = require('../../memory/repairs');
+  const { verify } = require('../../verify/verifier');
+  const { approve } = require('../../intent/contract-state');
+  const { contractFromObject } = require('../../intent/compiler');
+  const { createWorkspace } = require('../../lib/workspace');
+  const crypto = require('crypto');
+  const PASS_REPORT = fs.readFileSync(path.join(__dirname, '..', 'fixtures', 'node-test-reports', 'pass.ndjson'), 'utf8');
+  const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
+  const HINT = 'Render whole seconds as <s>s using Math.round(ms / 1000)';
+
+  /** Seed a real history on the SOURCE repo: attempt 1 fails AC-1 with a repair, attempt 2 passes (a proven repair). */
+  async function seedStart(f) {
+    const start = fs.mkdtempSync(path.join(tmp, 'start-'));
+    const mem = memory.createMemory({ root: start });
+    const c = approve(contractFromObject({ ...ORACLE, clarifying_question: null }, ORACLE.goal), { via: 'test' });
+    const exec = (body) => ({ id: 'e', status: 'completed', diff: DIFF(body), changes: [{ file: 'src/duration.js', status: 'M' }],
+      sandbox: { verification: { status: 'ran', state: 'completed', exit_code: 0, output: '', report: PASS_REPORT } } });
+    const history = []; let final;
+    for (const [i, met] of [false, true].entries()) {
+      const m = mockFetch(met ? ollamaReply({ met: true, evidence: 'renders 30s' }) : ollamaReply({ met: false, evidence: 'renders 30000ms', repair: HINT }));
+      try { final = await verify(c, null, exec(`v${i}`), { repoPath: f.repo.dir }); } finally { m.restore(); }
+      history.push(attemptEntry(i + 1, final, sha(DIFF(`v${i}`))));
+    }
+    assert.equal(final.verdict, 'pass');
+    await mem.remember(f.repo.dir, c, { ...final, attempts: 2 }, exec('v1'), { history, runId: 'seed', baseSha: f.repo.head() });
+    // the source itself recalls it (sanity)
+    assert.ok(mem.recallFiles(f.repo.dir, ORACLE.goal).some((h) => h.file === 'src/duration.js'));
+    assert.ok(mem.recallRepairs(f.repo.dir, c.acceptance_criteria).some((r) => r.proven));
+    return start;
+  }
+
+  test('F (not E) gets the source repository\'s file and proven repair hints in a fresh checkout; two F trials see the same start; the start never changes', async () => {
+    const f = gradingFixture(); fixtures.push(f);
+    const spec = { ...f.spec, oracle: ORACLE };
+    const start = await seedStart(f);
+    const startSha = S.treeHash(start);
+    const briefings = {};
+    for (const [label, arm] of [['F1', 'F'], ['F2', 'F'], ['E', 'E']]) {
+      const ws = createWorkspace(f.repo.dir, { baseRev: f.repo.head(), label: `mem-${label}` });
+      const run = runStore.createRun({ kind: 'bench-arm', request: 'x', repoPath: ws.dir, baseSha: ws.baseSha, runsDir: path.join(tmp, `mr-${label}`) });
+      const calls = [];
+      const m = mockFetch(NO);
+      try {
+        const r = await runArm({ arm, spec, repoPath: ws.dir, run, baseSha: ws.baseSha, agentTimeMs: 60_000, noLlmContext: true, judgeCache: path.join(tmp, `jc-${label}`),
+          memoryStart: arm === 'F' ? { store: start, sha256: startSha } : null,
+          runSandboxed: scriptedAgent([{ diff: 'a', pass: false }], calls) });
+        briefings[label] = { text: calls[0].briefing, memory: r.memory };
+      } finally { m.restore(); ws.cleanup(); }
+    }
+    for (const k of ['F1', 'F2']) {
+      assert.match(briefings[k].text, /proven fix from a past run/, `${k}: the proven repair hint is missing`);
+      assert.ok(briefings[k].text.includes(HINT), `${k}: the repair text is missing`);
+      assert.match(briefings[k].text, /src\/duration\.js/);
+      assert.equal(briefings[k].memory.persist_calls, 1);
+    }
+    const norm = (t) => t.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, '<id>').replace(/qb-mem-[A-Za-z0-9]+/g, '<ws>').replace(/last changed [^\n]* ago/g, 'last changed <t>');
+    assert.equal(norm(briefings.F1.text), norm(briefings.F2.text), 'two F trials must start from the same experience (no cross-trial writes)');
+    assert.doesNotMatch(briefings.E.text, /proven fix from a past run|past suggestion/);
+    assert.ok(!briefings.E.text.includes(HINT));
+    assert.equal(S.treeHash(start), startSha, 'the frozen starting store changed');
+  });
+});
+
+describe('QB-28 re-review: the equal agent-time budget debits the agent stage only', () => {
+  /** A stand-in whose invocation spends `setupMs` outside the agent stage and reports `agentMs` for the stage. */
+  const staged = (calls, { setupMs, agentMs }) => async (o) => {
+    calls.push({ agentDeadline: o.deadlines && o.deadlines.agent, briefing: o.briefing });
+    const until = Date.now() + setupMs; while (Date.now() < until) { /* seed, deps, capture, tests */ }
+    return { status: 'completed', diff: DIFF(`x${calls.length}`), changes: [{ file: 'src/duration.js', status: 'M', additions: 1, deletions: 1 }], unsupported_changes: [],
+      sandbox: { isolation: 'none-test-only', stages: { agent: { state: 'completed', duration_ms: agentMs } }, verification: verification(false, 'visible fail') } };
+  };
+  test('large setup/test delays are not debited: each retry gets the budget minus the agent stages so far (B and E)', async () => {
+    for (const arm of ['B', 'E']) {
+      const { f, run, spec } = armEnv();
+      const calls = [];
+      const m = mockFetch(NO);
+      try {
+        const r = await runArm({ arm, spec, repoPath: f.repo.dir, run, agentTimeMs: 150, noLlmContext: true, judgeCache: path.join(tmp, 'jc'),
+          runSandboxed: staged(calls, { setupMs: 120, agentMs: 10 }) });
+        assert.deepEqual(calls.map((c) => c.agentDeadline), [150, 140, 130], `${arm}: deadlines`);
+        assert.equal(r.agent_ms, 30, `${arm}: only agent-stage time is debited`);
+        assert.deepEqual(r.timing.map((t) => [t.agent_stage_ms, t.basis]), [[10, 'agent_stage'], [10, 'agent_stage'], [10, 'agent_stage']]);
+        assert.ok(r.timing.every((t) => t.invocation_ms >= 120), 'the whole invocation is still recorded separately');
+      } finally { m.restore(); }
+    }
+  });
+  test('the sandbox reports the agent stage\'s own duration', () => {
+    const src = fs.readFileSync(path.join(__dirname, '../../lib/sandbox/pipeline.js'), 'utf8');
+    assert.match(src, /sandbox\.stages\.agent = \{[^}]*duration_ms/);
+  });
+});
+
+describe('QB-28 re-review: the manifest\'s deadlines are the ones enforced', () => {
+  async function experiment(budgetCfg, arms) {
+    const f = gradingFixture(); fixtures.push(f);
+    const q = await qualify({ spec: f.spec, suitesRoot: f.suitesRoot, runSandboxed: graderRunner(), reference: f.patch('correct'),
+      incorrect: [{ label: '5m', patch: f.patch('fiveMinutes') }, { label: 'off-by-one', patch: f.patch('offByOne') }] });
+    const spec = { ...f.spec, oracle: ORACLE, qualification: q };
+    const pins = { qb: { commit: 'a'.repeat(40), dirty: false, dirty_patch_sha256: null }, agent: { name: 'claude-code', adapter_version: 't', cli_version: 'unknown' },
+      images: {}, node: process.version, grader: { files: Object.fromEntries(GRADER_FILES.map((g) => [g, S.sha256File(path.join(__dirname, '../..', g))])) }, models: [] };
+    const { dir } = createExperiment({ dir: path.join(tmp, `exps-${fixtures.length}`), kind: 'exploratory', tasks: taskEntries([spec]), arms: armDefinitions(arms),
+      primary_comparison: arms, budget: { ...budgetCfg, total_compute_controlled: false }, repetitions: 1, pins, memory: { starting_store_sha256: null } });
+    return { f, spec, dir };
+  }
+  const correctAgent = (f) => async () => ({ status: 'completed', diff: f.patch('correct'), changes: [{ file: 'src/duration.js', status: 'M', additions: 3, deletions: 1 }],
+    unsupported_changes: [], sandbox: { isolation: 'none-test-only', stages: { agent: { duration_ms: 5 } }, verification: verification(true) } });
+
+  test('model_call_deadline_ms is the per-call limit in force: a slower model call times out, and usage.json reports the manifest value', async () => {
+    const { f, spec, dir } = await experiment({ agent_time_ms: 60_000, trial_deadline_ms: 120_000, model_call_deadline_ms: 50 }, ['A', 'E']);
+    const real = global.fetch;
+    global.fetch = (url, init = {}) => new Promise((resolve, reject) => {
+      const t = setTimeout(() => resolve({ ok: true, status: 200, json: async () => ({ message: { content: JSON.stringify({ met: true, evidence: 'x' }) } }) }), 300);
+      if (init.signal) init.signal.addEventListener('abort', () => { clearTimeout(t); reject(init.signal.reason); }, { once: true });
+    });
+    try {
+      await runExperiment(dir, { specs: { [spec.id]: spec }, runSandboxed: correctAgent(f), runsDir: path.join(tmp, 'dl-runs'),
+        grader: { suitesRoot: f.suitesRoot, runSandboxed: graderRunner() } });
+    } finally { global.fetch = real; budget.endRun(); }
+    const exp = loadExperiment(dir);
+    const E = exp.trials.find((t) => t.arm === 'E');
+    const usage = JSON.parse(fs.readFileSync(path.join(dir, E.artifacts['usage.json'].path), 'utf8'));
+    assert.equal(usage.deadlines.model_call_ms, 50);
+    assert.ok(usage.model.timed_out > 0, `expected per-call timeouts, got ${JSON.stringify(usage.model)}`);
+    assert.equal(usage.deadlines.run_ms, 120_000);
+  });
+
+  test('trial_deadline_ms covers external grading: a grading run past the deadline is cancelled and the trial is a timeout', async () => {
+    const { f, spec, dir } = await experiment({ agent_time_ms: 60_000, trial_deadline_ms: 1500, model_call_deadline_ms: 30_000 }, ['A', 'B']);
+    const seen = [];
+    const slowGrader = async (o) => {
+      seen.push(Boolean(o.signal));
+      await new Promise((res) => { const t = setTimeout(res, 5000); if (o.signal) o.signal.addEventListener('abort', () => { clearTimeout(t); res(); }, { once: true }); });
+      return o.signal && o.signal.aborted ? { status: 'cancelled', reason: 'cancelled: trial deadline', sandbox: {} } : { status: 'no_change', sandbox: { verification: verification(true) } };
+    };
+    const t0 = Date.now();
+    try {
+      await runExperiment(dir, { specs: { [spec.id]: spec }, runSandboxed: correctAgent(f), runsDir: path.join(tmp, 'td-runs'),
+        grader: { suitesRoot: f.suitesRoot, runSandboxed: slowGrader } });
+    } finally { budget.endRun(); }
+    assert.ok(Date.now() - t0 < 9000, 'grading was not cancelled by the trial deadline');
+    assert.deepEqual(seen, [true, true], 'grading must receive the trial\'s cancellation signal');
+    const exp = loadExperiment(dir);
+    for (const t of exp.trials) {
+      assert.equal(t.status, 'timeout', JSON.stringify(t));
+      assert.match(t.detail, /during external grading/);
+    }
+  });
+});
+
+describe('QB-28 re-review: scope label', () => {
+  test('E/F are labelled as production orchestration AFTER L1 from a human-approved oracle — not end-to-end QB', () => {
+    const { SCOPE } = require('../../bench/arms');
+    assert.match(String(SCOPE), /after L1/i);
+    assert.match(String(SCOPE), /intent compilation/i);
+    assert.match(ARMS.E.adds, /after L1/);
+    const doc = fs.readFileSync(path.join(__dirname, '../../docs/bench/arms.md'), 'utf8');
+    assert.match(doc, /not evidence of end-to-end/i);
   });
 });

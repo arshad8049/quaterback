@@ -33,7 +33,7 @@ const { classifyTestRun } = require('../verify/tests');
 const { approve } = require('../intent/contract-state');
 const { contractFromObject } = require('../intent/compiler');
 const { createMemory } = require('../memory');
-const { runPipeline } = require('../lib/qb-pipeline');
+const { runPipeline, agentStageMs } = require('../lib/qb-pipeline');
 const S = require('./schemas');
 
 /** The arm table — the single source for docs, manifests and runs. */
@@ -42,10 +42,19 @@ const ARMS = Object.freeze({
   B: { id: 'B', adds: 'retry loop on the repository\'s own visible test output', contract: 'none', feedback: 'visible_tests', context: false, memory: 'off', max_attempts: 3 },
   C: { id: 'C', adds: 'accepted contract (spec oracle, human-approved)', contract: 'oracle_approved', feedback: 'visible_tests', context: false, memory: 'off', max_attempts: 3 },
   D: { id: 'D', adds: 'QB context package (L2)', contract: 'oracle_approved', feedback: 'visible_tests', context: true, memory: 'off', max_attempts: 3 },
-  E: { id: 'E', adds: 'QB verifier and repair policy (L4 + QB-10 routing)', contract: 'oracle_approved', feedback: 'qb_verifier', context: true, memory: 'off', max_attempts: 3 },
+  E: { id: 'E', adds: 'QB verifier and repair policy (L4 + QB-10 routing); production orchestration after L1, from the approved oracle', contract: 'oracle_approved', feedback: 'qb_verifier', context: true, memory: 'off', max_attempts: 3 },
   F: { id: 'F', adds: 'memory (own copy of the frozen starting store)', contract: 'oracle_approved', feedback: 'qb_verifier', context: true, memory: 'on', max_attempts: 3 },
 });
 for (const a of Object.values(ARMS)) S.ArmDefinition.parse(a);
+
+/**
+ * What these arms measure (QB-28 re-review). C–F start from the spec's human-written,
+ * human-approved oracle; E/F run QB's production orchestration AFTER L1. Intent
+ * compilation (L1: generating the contract, clarification, its errors and cost) is NOT
+ * exercised, so results are not evidence of end-to-end QB performance.
+ */
+const SCOPE = 'post-L1: arms C–F use the frozen spec\'s human-approved oracle as the contract; E/F run QB\'s production orchestration after L1. '
+  + 'Intent compilation (L1 contract generation, clarification, their errors and cost) is not measured — not evidence of end-to-end QB performance.';
 
 const NATIVE_NOTE = 'Work in this repository to complete the task. You may plan, read the code, and run the project\'s own tests as you see fit.';
 const MAX_FEEDBACK = 4000;
@@ -108,7 +117,7 @@ async function nativeArm(def, o) {
     const context = def.context ? await buildContext(contract, repoPath, { noLlm: Boolean(o.noLlmContext) }) : null;
     base = buildBriefing(contract, context, { repairHints: [], attempt: 1 });
   }
-  let agentMs = 0; let attempt = 0; let execution = null; let feedback = null;
+  let agentMs = 0; let attempt = 0; let execution = null; let feedback = null; const timing = [];
   while (attempt < def.max_attempts) {
     const remaining = o.agentTimeMs - agentMs;
     if (remaining <= 0) { run.event('budget.agent_time_exhausted', { after_attempt: attempt, agent_time_ms: o.agentTimeMs, agent_ms: agentMs }); break; }
@@ -120,16 +129,18 @@ async function nativeArm(def, o) {
     const t = Date.now();
     const r = await runAgentSandboxed(briefing, repoPath, { timeoutMs: remaining, runSandboxed: o.runSandboxed, signal: o.signal,
       checks: [] });
-    agentMs += Date.now() - t;
+    const spent = agentStageMs(r, Date.now() - t);   // debit the agent stage only (QB-28 re-review)
+    agentMs += spent.ms;
+    timing.push({ attempt, agent_stage_ms: spent.ms, basis: spent.basis, invocation_ms: Date.now() - t });
     execution = r;
     run.event('arm.attempt', { attempt, status: r.status, visible_tests: visibleTests(r).outcome });
-    if (r.status === 'blocked' || r.status === 'infra_error') return { status: r.status === 'blocked' ? 'agent_error' : 'infra_error', detail: r.error, patch: r.diff || '', attempts: attempt, agent_ms: agentMs };
+    if (r.status === 'blocked' || r.status === 'infra_error') return { status: r.status === 'blocked' ? 'agent_error' : 'infra_error', detail: r.error, patch: r.diff || '', attempts: attempt, agent_ms: agentMs, timing };
     if (def.feedback !== 'visible_tests') break;
     const vt = visibleTests(r);
     if (vt.outcome === 'passed' || vt.outcome === 'not_run') break;   // nothing to feed back
     feedback = vt;
   }
-  return { status: 'completed', patch: (execution && execution.diff) || '', attempts: attempt, agent_ms: agentMs,
+  return { status: 'completed', patch: (execution && execution.diff) || '', attempts: attempt, agent_ms: agentMs, timing,
     internal_verdict: null, visible_tests: execution ? visibleTests(execution).outcome : null };
 }
 
@@ -157,7 +168,10 @@ async function runArm(o) {
   let mem = null; let counts = null; let copy = null;
   if (def.memory === 'on') {
     copy = memoryCopy(o.memoryStart && o.memoryStart.store, o.memoryStart ? o.memoryStart.sha256 : null);
-    ({ memory: mem, counts } = countingMemory(createMemory({ root: copy.dir })));
+    // QB-28 re-review: the trial checkout has a fresh path, but the experience in the frozen
+    // store belongs to the SOURCE repository (spec.repo.source, frozen in the spec). Bind the
+    // namespace to it; hint file/revision checks still run against this trial's checkout.
+    ({ memory: mem, counts } = countingMemory(createMemory({ root: copy.dir, namespaceRepo: o.spec.repo.source })));
   }
   try {
     const r = await runPipeline({
@@ -168,12 +182,12 @@ async function runArm(o) {
     const memory = def.memory === 'on'
       ? { mode: 'on', store_sha256_before: copy.before, ...counts }
       : memOff;
-    if (r.blocked) return { status: 'agent_error', detail: `blocked: ${r.blocked}`, patch: '', attempts: r.attempt, agent_ms: r.agent_ms, internal_verdict: null, memory };
-    return { status: 'completed', patch: (r.execution && r.execution.diff) || '', attempts: r.attempt, agent_ms: r.agent_ms,
+    if (r.blocked) return { status: 'agent_error', detail: `blocked: ${r.blocked}`, patch: '', attempts: r.attempt, agent_ms: r.agent_ms, timing: r.timing, internal_verdict: null, memory };
+    return { status: 'completed', patch: (r.execution && r.execution.diff) || '', attempts: r.attempt, agent_ms: r.agent_ms, timing: r.timing,
       internal_verdict: r.report ? r.report.verdict : null, memory };
   } finally {
     if (copy) copy.cleanup();
   }
 }
 
-module.exports = { ARMS, runArm, oracleContract, visibleTests, countingMemory, memoryCopy };
+module.exports = { ARMS, SCOPE, runArm, oracleContract, visibleTests, countingMemory, memoryCopy };

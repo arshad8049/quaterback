@@ -22,7 +22,7 @@ const runStore = require('../run/store');
 const budget = require('../lib/budget');
 const { AGENT_VERSION } = require('../lib/sandbox/agent');
 const { pinExperiment, recordTrial, readManifest, preflight } = require('./experiment');
-const { ARMS, runArm } = require('./arms');
+const { ARMS, SCOPE, runArm } = require('./arms');
 const { grade, GRADER_FILES } = require('./grader');
 const { checkFrozen } = require('./spec');
 const S = require('./schemas');
@@ -84,7 +84,9 @@ async function runExperiment(expDir, o) {
     const spec = o.specs[p.task_id];
     const started = new Date();
     let ws = null; let run = null; let out; let usage = null;
-    const budgetRun = budget.startRun({ deadlineMs: m.budget.trial_deadline_ms, agent: AGENT });
+    // QB-28 re-review: one budget run per arm-trial. trial_deadline_ms covers EVERY stage,
+    // external grading included; model_call_deadline_ms is the per-call limit in force.
+    const budgetRun = budget.startRun({ deadlineMs: m.budget.trial_deadline_ms, agent: AGENT, modelCallMs: m.budget.model_call_deadline_ms });
     try {
       ws = createWorkspace(spec.repo.source, { baseRev: spec.repo.base_rev, label: `${p.task_id}-${p.arm}` });
       run = runStore.createRun({ kind: 'bench-arm', request: spec.prompt, repoPath: ws.dir, baseSha: ws.baseSha, agent: AGENT,
@@ -102,12 +104,20 @@ async function runExperiment(expDir, o) {
         memory: { mode: ARMS[p.arm].memory, store_sha256_before: ARMS[p.arm].memory === 'on' ? m.memory.starting_store_sha256 : null, recall_calls: 0, persist_calls: 0 } };
       if (run) { try { run.abort('ERROR', out.detail); } catch { /* closed */ } }
     } finally {
-      usage = budgetRun.usage();
-      budget.endRun();
       if (ws) ws.cleanup();
     }
     // QB-27: the same external grader for every arm; nothing about the arm reaches it.
-    const g = out.status === 'completed' ? await grade({ spec, patch: out.patch, ...(o.grader || {}) }) : null;
+    // It runs inside the trial's budget run: the trial deadline cancels grading too.
+    let g = null;
+    try {
+      if (out.status === 'completed') {
+        g = await grade({ spec, patch: out.patch, ...(o.grader || {}), sandbox: { ...((o.grader && o.grader.sandbox) || {}), signal: budgetRun.signal } });
+        if (budgetRun.interrupted()) out = { ...out, status: 'timeout', detail: `trial deadline (${m.budget.trial_deadline_ms} ms) reached during external grading` };
+      }
+    } finally {
+      usage = { ...budgetRun.usage(), arm_timing: out.timing || [] };   // agent stage vs whole invocation, per attempt
+      budget.endRun();
+    }
     const finished = new Date();
     const artifacts = { 'patch.diff': out.patch || '', 'usage.json': usage, 'runtime.json': runtime };
     if (g) artifacts['grade.json'] = g;
@@ -136,7 +146,7 @@ async function main(argv) {
   const { dir } = await pinExperiment({
     dir: path.resolve(opts.out), kind: cfg.kind, tasks: taskEntries(specs), arms: armDefinitions(cfg.arms),
     primary_comparison: cfg.primary, budget: { ...cfg.budget, total_compute_controlled: false },
-    repetitions: cfg.repetitions || 1, seed: cfg.seed || 'none', order: cfg.order, config: cfg, protocol, approval: cfg.approval || null,
+    repetitions: cfg.repetitions || 1, seed: cfg.seed || 'none', order: cfg.order, config: { ...cfg, scope: SCOPE }, protocol, approval: cfg.approval || null,
     memory: { starting_store_sha256: memoryStart ? S.treeHash(memoryStart) : null }, graderFiles: GRADER_FILES,
     models: [{ role: 'qb-model', requested: process.env.QB_MODEL || 'deepseek-r1:7b' }],
   });

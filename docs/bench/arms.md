@@ -6,6 +6,10 @@
 - **Duplicated loop:** the benchmark carried its own copy of QB's attempt loop (`runQB` in `bench/run.js`) instead of the code users run.
 - **Memory:** the benchmark never called L5.
 
+## Scope: what these arms measure
+
+Arms C–F start from the frozen spec's human-written, **human-approved oracle** as their contract. E and F run QB's production orchestration **after L1**. Intent compilation is not exercised: the L1 contract generation, the clarification rounds, their errors and their cost. Results from these arms are therefore **not evidence of end-to-end QB performance**. They measure what QB adds once a correct contract exists. Evaluating full production L1 with human approval would be a separate experiment. The label is recorded in `bench/arms.js` `SCOPE`, written into every manifest's `config.scope`, and reflected in arm E's `adds` text.
+
 ## One orchestration API
 
 `lib/qb-pipeline.js` `runPipeline()` is QB's production orchestration after L1:
@@ -44,9 +48,21 @@ Each arm differs from the previous one by one thing. B differs from A in both it
 - **What this experiment is:** total compute is **not** controlled, and the manifest says so (`total_compute_controlled: false`). Results from this design must be described as an **equal agent-time** comparison.
 - **One budget for all arms:** the manifest has a single `agent_time_ms` for every arm, so there is no way to write per-arm budgets. Extra budget fields, and per-arm time on an arm definition, are refused by the strict schema.
 
+### Re-review: what the agent budget debits, and which deadlines are in force
+
+- **Only the trusted agent stage is debited.** The sandbox reports the agent container's own run as `sandbox.stages.agent.duration_ms`. That is what `agent_time_ms` debits, and the next invocation's deadline is the budget minus the agent stages so far.
+  - Seed, dependency install, capture and the visible-test run are **not** debited, so retry arms aren't penalized for sandbox overhead.
+  - Each attempt's agent-stage and whole-invocation times are kept separately, in `usage.json` `arm_timing`.
+  - If a result carries no stage duration, the whole invocation is debited (conservative), with `basis` saying so.
+- **`model_call_deadline_ms` is the per-call limit in force.** The trial's budget run carries it (`lib/budget.js` `startRun({ modelCallMs })`), overriding `QB_MODEL_CALL_TIMEOUT_MS` while the run is active. `usage.json` `deadlines.model_call_ms` reports it.
+- **`trial_deadline_ms` covers every stage, external grading included.**
+  - The trial's budget run stays open through `grade()`, and grading receives its cancellation signal.
+  - A grading run cut off by the deadline is cancelled, and the trial is recorded as `timeout` ("during external grading"). That is attrition, never a score.
+
 ## Memory isolation
 
 - **Memory OFF (A–E):** no recall and no persist. A spy records `recall_calls: 0, persist_calls: 0`, and the default store stays untouched.
+- **Memory identity (re-review):** a store namespace is keyed by a repository's realpath, and every trial runs in a fresh checkout at a new path. Arm F therefore binds its memory to the **frozen source repository** (`spec.repo.source`, part of the frozen spec) through `createMemory({ root, namespaceRepo })`. Recall and persist use that namespace, while each hint's file-existence and revision checks still run against the trial's own checkout. A test seeds a real history on the source (a passing task that changed `src/duration.js`, with a proven repair) and shows two things: the proven repair and the file reach F's first briefing in a fresh checkout, in two independent trials with identical starts; and E sees neither.
 - **Memory ON (F):**
   - each trial copies the frozen starting store into a private directory, after checking its tree hash against `manifest.memory.starting_store_sha256`;
   - it runs with `createMemory({ root: <copy> })` and discards the copy afterwards;
