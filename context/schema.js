@@ -86,7 +86,13 @@ const ContextPackageSchema = z.object({
   coverage: z.object({
     source: z.enum(['lcov', 'istanbul']),
     path:   z.string(),
-    files:  z.record(z.string(), z.object({ lines_pct: z.number().nullable().optional(), statements_pct: z.number().nullable().optional() })),
+    status: z.enum(['available', 'unavailable']).optional(),
+    files:  z.record(z.string(), z.object({ lines_pct: z.number().min(0).max(100).nullable().optional(), statements_pct: z.number().min(0).max(100).nullable().optional() })),
+    // Report paths that are not exact paths in this checkout (never attributed), and why entries were rejected.
+    unmapped:         z.array(z.string()).optional(),
+    unmapped_count:   z.number().int().nonnegative().optional(),
+    diagnostics:      z.array(z.object({ code: z.string(), entry: z.string().optional(), detail: z.string().optional() })).optional(),
+    diagnostic_count: z.number().int().nonnegative().optional(),
     error:  z.string().optional(),
   }).nullable(),
   // Which command verifies, and whether QB can trust it (only validated runners run).

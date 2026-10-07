@@ -47,12 +47,29 @@ The package field is `test_associations`:
 
 - **Backward compatibility:** a legacy package that carries `test_coverage` still validates (the schema field is optional) and is still briefed, under the association wording.
 
-**Coverage data** (`context/coverage.js`): read only from a report already in the checkout. Reports larger than 5 MB are ignored.
+**Coverage data** (`context/coverage.js`): read only from a report already in the checkout. A report is optional, untrusted input (re-review 1, below).
 
 - **`coverage/lcov.info`:** gives `lines_pct` from `LF`/`LH`.
 - **`coverage/coverage-final.json` (istanbul):** gives `statements_pct` from the `s` counters.
-- **Output:** report paths are matched to the relevant files, and the result is `coverage: { source, path, files }`. There is no report → `null`. Coverage is never inferred from associations.
-- **Briefing:** shows "Coverage data (from <path>)", with a note that the report may be out of date.
+- **Output:** `coverage: { source, path, status, files, unmapped, diagnostics }`. There is no report → `null`. Coverage is never inferred from associations.
+- **Briefing:** shows "Coverage data (from <path>)" with only validated figures, how many entries were rejected and how many report paths were outside the repository, and a note that the report may be out of date.
+
+### Re-review 1 — validation and file identity
+
+The first version crashed L2 on `{"s": null}` (`Object.values(null)`), reported `LF:2 LH:5` as 250 %, and credited `SF:/another-project/src/a.js` to local `src/a.js` through a suffix match.
+
+- **Never aborts L2.** `readCoverage` never throws. A report that cannot be used at all (unparsable, top level not an object, larger than 5 MB, unreadable) is `status: 'unavailable'` with a diagnostic and no figures. One bad entry is dropped with a diagnostic (`invalid_entry`, `invalid_counts`, `inconsistent_counts`, `truncated_record`), and the valid entries are kept.
+- **Counts are validated, never clamped.**
+  - lcov: each record needs exactly one `LF` and one `LH`, both nonnegative integers, with `LH <= LF`. When `DA` lines are present they must agree with `LF`/`LH`.
+  - istanbul: each entry is an object with a `statementMap` object and an `s` object with exactly the same keys. Every counter is a nonnegative integer, and every location has `start`/`end`. An entry's `path`, if present, must equal its key.
+- **Exact file identity.** A report path is attributed only if it normalizes to a path inside this checkout and that file exists:
+  - a relative path (`src/a.js`, `./src/a.js`);
+  - an absolute path under the checkout's path or its real path;
+  - an absolute path under an explicit mapping for reports generated elsewhere, in `.quarterback.json`: `{ "coverage": { "source_root": "/ci/build/project" } }`. The mapping must be absolute, or it gives `invalid_coverage_config` and maps nothing.
+
+  Anything else (`/another-project/src/a.js`, `../other/src/a.js`, `vendor/x/src/a.js` when no such file exists) is listed in `unmapped` and never becomes a fact about a local file. There is no suffix matching.
+- **Duplicates are ambiguous.** Two entries naming the same file (for example `src/a.js` and `./src/a.js`) → `duplicate_entry`, and neither is used.
+- **Changed fixture:** the original istanbul test used a key under `/x/`, which was attributed only through the suffix match. It now uses an in-repo key with a `statementMap`.
 
 **Test plan** (`context/test-plan.js`): read from the user's checkout (the base), so the agent cannot change which command verifies its own work.
 
@@ -94,11 +111,13 @@ The package field is `test_associations`:
   - configured or detected, they give `unsupported_runner` with the stated reason (unit);
   - a configured pytest project runs nothing in the sandbox and does not PASS (integration).
 - **No coverage claims:** no briefing or package field claims coverage because a test file exists. Real lcov/istanbul data is reported separately (unit).
+- **Re-review 1 (unit, all through `buildContext`):** a malformed istanbul entry, non-object reports, bad istanbul counters / `statementMap` mismatches, impossible lcov counts, foreign and suffix paths, exact in-repo paths, the `source_root` mapping, duplicates, oversized and truncated reports, and the briefing wording. All 10 fail on `83ae801`.
 
 ## Limitations
 
 - **Associations are heuristics.** A test can exist under any name, and a matching name can test something else. Associations are hints for the agent and are never used as verification evidence.
-- **Coverage data may be stale.** The report is whatever is in the checkout: it is not regenerated, and it may describe an older revision. QB does not run coverage tools.
+- **Coverage data may be stale.** The report is whatever is in the checkout: it is not regenerated, and it may describe an older revision. QB does not run coverage tools. Validation proves a report is self-consistent and names files in this checkout. It does not prove the report matches the current contents of those files.
+- **Reports generated elsewhere need a mapping.** A CI-generated lcov with absolute paths from another machine is `unmapped` until `coverage.source_root` is set.
 - **node:test is the only validated runner.** jest, vitest, mocha, pytest and `go test` projects get no test verification until an adapter that executes and parses their results is added. Their tasks end unresolved, not PASS.
 - **Undetected runners still run `npm test`.** A project whose runner is not detected (e.g. a hand-written `node test/run.js`) still runs `npm test`, as before. Without a node:test report such a run cannot PASS either (QB-06).
 - **Language support:**

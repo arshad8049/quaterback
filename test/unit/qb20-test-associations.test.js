@@ -76,9 +76,10 @@ describe('associations are not coverage', () => {
     assert.deepEqual([ctx.coverage.source, ctx.coverage.files['src/clamp.js'].lines_pct], ['lcov', 70]);
     const b = buildBriefing(contract('Fix clamp'), ctx);
     assert.match(b, /Coverage data \(from coverage\/lcov\.info\)/);
-    const ist = { [path.join('/x', 'src/clamp.js')]: { path: '/x/src/clamp.js', s: { 0: 1, 1: 0, 2: 3, 3: 1 } } };
+    const loc = { start: { line: 1, column: 0 }, end: { line: 1, column: 1 } };
+    const ist = { 'src/clamp.js': { path: 'src/clamp.js', statementMap: { 0: loc, 1: loc, 2: loc, 3: loc }, s: { 0: 1, 1: 0, 2: 3, 3: 1 } } };
     const c2 = await ctxFor({ 'src/clamp.js': 'module.exports.clamp = (v) => v;\n', 'coverage/coverage-final.json': JSON.stringify(ist) }, 'Fix clamp');
-    assert.equal(c2.ctx.coverage.source, 'istanbul');
+    assert.deepEqual([c2.ctx.coverage.source, c2.ctx.coverage.files['src/clamp.js'].statements_pct], ['istanbul', 75]);
   });
 });
 
@@ -130,5 +131,135 @@ describe('only validated runners verify; explicit project config', () => {
       assert.equal(r.test_outcome.reason, 'unsupported_runner');
       assert.match(r.test_outcome.detail, /unsupported runner: pytest/);
     } finally { m.restore(); }
+  });
+});
+
+/**
+ * QB-20 re-review 1: a coverage report is optional, untrusted input. It must never crash
+ * L2, never yield an impossible percentage, and never attribute another project's file to
+ * this repository (all through the real buildContext).
+ */
+describe('QB-20 re-review 1: coverage reports are validated, never trusted blindly', () => {
+  const SRC = { 'src/clamp.js': 'module.exports.clamp = (v) => v;\n', 'src/fmt.js': 'module.exports.fmt = (v) => v;\n' };
+  const GOAL = 'Fix clamp and fmt';
+  const smap = (n) => Object.fromEntries(Array.from({ length: n }, (_, i) => [String(i), { start: { line: i + 1, column: 0 }, end: { line: i + 1, column: 1 } }]));
+  const ist = (s, extra = {}) => ({ path: extra.path, statementMap: smap(Object.keys(s).length), s, ...extra });
+  const withReport = (name, body, more = {}) => ctxFor({ ...SRC, [`coverage/${name}`]: typeof body === 'string' ? body : JSON.stringify(body), ...more }, GOAL);
+  const codes = (cov) => (cov.diagnostics || []).map((d) => d.code);
+
+  test('a malformed istanbul entry (s: null) does not crash L2; the valid entry is kept (pre-fix: "Cannot convert undefined or null to object")', async () => {
+    const { ctx } = await withReport('coverage-final.json', {
+      'src/clamp.js': { path: 'src/clamp.js', s: null },
+      'src/fmt.js': ist({ 0: 1, 1: 0 }, { path: 'src/fmt.js' }),
+    });
+    assert.equal(ctx.coverage.files['src/clamp.js'], undefined);
+    assert.equal(ctx.coverage.files['src/fmt.js'].statements_pct, 50);
+    assert.ok(codes(ctx.coverage).includes('invalid_entry'));
+  });
+
+  test('a report whose top level is not an object is unavailable with a diagnostic, not a crash', async () => {
+    for (const body of ['null', '[]', '"x"', '42', '{nope']) {
+      const { ctx } = await withReport('coverage-final.json', body);
+      assert.equal(ctx.coverage.status, 'unavailable', body);
+      assert.deepEqual(ctx.coverage.files, {}, body);
+      assert.ok(ctx.coverage.diagnostics.length >= 1, body);
+    }
+  });
+
+  test('istanbul: negative / fractional / non-numeric counters and a statementMap mismatch are rejected', async () => {
+    const bad = [
+      ist({ 0: -1, 1: 2 }, { path: 'src/clamp.js' }),
+      ist({ 0: 1.5, 1: 2 }, { path: 'src/clamp.js' }),
+      ist({ 0: '3', 1: 2 }, { path: 'src/clamp.js' }),
+      { path: 'src/clamp.js', statementMap: smap(3), s: { 0: 1, 1: 1 } },   // s does not match statementMap
+      { path: 'src/clamp.js', s: { 0: 1 } },                                // no statementMap
+      { path: 'src/clamp.js', statementMap: null, s: { 0: 1 } },
+    ];
+    for (const entry of bad) {
+      const { ctx } = await withReport('coverage-final.json', { 'src/clamp.js': entry, 'src/fmt.js': ist({ 0: 1 }, { path: 'src/fmt.js' }) });
+      assert.equal(ctx.coverage.files['src/clamp.js'], undefined, JSON.stringify(entry));
+      assert.equal(ctx.coverage.files['src/fmt.js'].statements_pct, 100);
+      assert.ok(codes(ctx.coverage).includes('invalid_entry'), JSON.stringify(entry));
+    }
+  });
+
+  test('lcov: impossible counts are rejected, never reported or clamped (pre-fix: LF:2 LH:5 → lines_pct 250)', async () => {
+    const bad = [
+      'LF:2\nLH:5',            // more hits than lines
+      'LF:-1\nLH:0',           // negative
+      'LF:abc\nLH:1',          // not a number
+      'LF:4.5\nLH:1',          // not an integer
+      'LH:1',                  // missing LF
+      'LF:3\nLF:4\nLH:1',      // duplicate counter
+      'DA:1,1\nDA:2,0\nLF:2\nLH:2',   // LH disagrees with the DA lines
+      'DA:1,-3\nLF:1\nLH:0',   // negative hit count
+    ];
+    for (const rec of bad) {
+      const lcov = `TN:\nSF:src/clamp.js\n${rec}\nend_of_record\nSF:src/fmt.js\nDA:1,1\nDA:2,0\nLF:2\nLH:1\nend_of_record\n`;
+      const { ctx } = await withReport('lcov.info', lcov);
+      assert.equal(ctx.coverage.files['src/clamp.js'], undefined, rec);
+      assert.equal(ctx.coverage.files['src/fmt.js'].lines_pct, 50, rec);
+      assert.ok(codes(ctx.coverage).some((c) => c === 'invalid_counts' || c === 'inconsistent_counts'), rec);
+    }
+  });
+
+  test('foreign report paths are never attributed to this repository (pre-fix: SF:/another-project/src/clamp.js → 100% for local src/clamp.js)', async () => {
+    for (const sf of ['/another-project/src/clamp.js', '/home/ci/other/src/clamp.js', '../other/src/clamp.js', 'lib/src/clamp.js', 'vendor/x/src/clamp.js']) {
+      const { ctx } = await withReport('lcov.info', `SF:${sf}\nLF:10\nLH:10\nend_of_record\n`);
+      assert.equal(ctx.coverage.files['src/clamp.js'], undefined, sf);
+      assert.ok(ctx.coverage.unmapped.includes(sf), sf);
+    }
+    const { ctx } = await withReport('coverage-final.json', { '/another-project/src/clamp.js': ist({ 0: 1 }, { path: '/another-project/src/clamp.js' }) });
+    assert.equal(ctx.coverage.files['src/clamp.js'], undefined);
+    assert.deepEqual(ctx.coverage.unmapped, ['/another-project/src/clamp.js']);
+  });
+
+  test('exact in-repo paths are attributed: relative, ./relative, and absolute under this checkout (real or symlinked path)', async () => {
+    const r = repo({ ...SRC });
+    const real = fs.realpathSync(r.dir);
+    fs.mkdirSync(path.join(r.dir, 'coverage'));
+    fs.writeFileSync(path.join(r.dir, 'coverage/lcov.info'),
+      `SF:./src/fmt.js\nLF:4\nLH:1\nend_of_record\nSF:${path.join(real, 'src/clamp.js')}\nLF:10\nLH:7\nend_of_record\n`);
+    const ctx = await buildContext(contract(GOAL), r.dir, { noLlm: true });
+    assert.equal(ctx.coverage.files['src/clamp.js'].lines_pct, 70);
+    assert.equal(ctx.coverage.files['src/fmt.js'].lines_pct, 25);
+    assert.deepEqual(ctx.coverage.unmapped, []);
+  });
+
+  test('a report generated elsewhere is attributed only through an explicit coverage.source_root mapping', async () => {
+    const cfg = JSON.stringify({ coverage: { source_root: '/ci/build/project' } });
+    const lcov = 'SF:/ci/build/project/src/clamp.js\nLF:10\nLH:9\nend_of_record\nSF:/ci/build/other/src/fmt.js\nLF:2\nLH:2\nend_of_record\n';
+    const { ctx } = await withReport('lcov.info', lcov, { [CONFIG_FILE]: cfg });
+    assert.equal(ctx.coverage.files['src/clamp.js'].lines_pct, 90);
+    assert.equal(ctx.coverage.files['src/fmt.js'], undefined);
+    assert.deepEqual(ctx.coverage.unmapped, ['/ci/build/other/src/fmt.js']);
+    // an invalid mapping is a diagnostic, and maps nothing
+    const bad = await withReport('lcov.info', lcov, { [CONFIG_FILE]: JSON.stringify({ coverage: { source_root: 'relative/dir' } }) });
+    assert.equal(bad.ctx.coverage.files['src/clamp.js'], undefined);
+    assert.ok(codes(bad.ctx.coverage).includes('invalid_coverage_config'));
+  });
+
+  test('two records for the same file are ambiguous: neither is reported', async () => {
+    const { ctx } = await withReport('lcov.info', 'SF:src/clamp.js\nLF:10\nLH:1\nend_of_record\nSF:./src/clamp.js\nLF:10\nLH:10\nend_of_record\n');
+    assert.equal(ctx.coverage.files['src/clamp.js'], undefined);
+    assert.ok(codes(ctx.coverage).includes('duplicate_entry'));
+  });
+
+  test('an oversized or truncated report is reported as such, not silently treated as absent or complete', async () => {
+    const big = await withReport('lcov.info', 'TN:\n' + 'x'.repeat(5 * 1024 * 1024 + 1));
+    assert.equal(big.ctx.coverage.status, 'unavailable');
+    assert.ok(codes(big.ctx.coverage).includes('too_large'));
+    const cut = await withReport('lcov.info', 'SF:src/clamp.js\nLF:10\nLH:5\n');
+    assert.equal(cut.ctx.coverage.files['src/clamp.js'], undefined);
+    assert.ok(codes(cut.ctx.coverage).includes('truncated_record'));
+  });
+
+  test('the briefing shows only validated figures and states what was not used', async () => {
+    const { ctx } = await withReport('lcov.info', 'SF:src/fmt.js\nLF:2\nLH:1\nend_of_record\nSF:src/clamp.js\nLF:2\nLH:5\nend_of_record\nSF:/elsewhere/src/clamp.js\nLF:1\nLH:1\nend_of_record\n');
+    const b = buildBriefing(contract(GOAL), ctx);
+    assert.match(b, /`src\/fmt\.js`: 50% of lines/);
+    assert.doesNotMatch(b, /250%|100%/);
+    assert.match(b, /1 report entr(y|ies) rejected/);
+    assert.match(b, /1 report path\(s\) outside this repository/);
   });
 });

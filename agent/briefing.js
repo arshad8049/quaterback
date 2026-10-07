@@ -146,13 +146,20 @@ function buildBriefing(contract, context, options = {}) {
     }
 
     // Real coverage — only from a report the repository already has.
+    // Only validated figures for exact in-repo paths are shown; what was not used is stated.
     const cov = context.coverage;
-    if (cov && cov.files && Object.keys(cov.files).length) {
+    const covFiles = (cov && cov.files) || {};
+    const rejected = cov ? (cov.diagnostic_count ?? (cov.diagnostics || []).length) : 0;
+    const unmapped = cov ? (cov.unmapped_count ?? (cov.unmapped || []).length) : 0;
+    if (cov && (Object.keys(covFiles).length || rejected || unmapped || cov.status === 'unavailable')) {
       lines.push(`## Coverage data (from ${cov.path})`);
-      for (const [f, c] of Object.entries(cov.files)) {
+      if (cov.status === 'unavailable') lines.push(`The report could not be used (${cov.error || 'invalid'}); no coverage figures are available.`);
+      for (const [f, c] of Object.entries(covFiles)) {
         const v = c.lines_pct != null ? `${c.lines_pct}% of lines` : c.statements_pct != null ? `${c.statements_pct}% of statements` : 'no measurable lines';
         lines.push(`- \`${f}\`: ${v}`);
       }
+      if (cov.status !== 'unavailable' && rejected) lines.push(`(${rejected} report ${rejected === 1 ? 'entry' : 'entries'} rejected as malformed or inconsistent — not shown.)`);
+      if (unmapped) lines.push(`(${unmapped} report path(s) outside this repository — not attributed to any file here.)`);
       lines.push(`(As of when the report was generated; it may be out of date.)`);
       lines.push('');
     }
