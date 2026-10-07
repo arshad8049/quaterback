@@ -8,7 +8,7 @@ Quarterback is a 5-layer AI reliability runtime for software teams. It sits betw
 
 ## Status
 
-- 21 of the original 38 engineering findings are fixed and accepted in internal review (Phases 0–2, merged into `main`, tag `phase-0-2-accepted`).
+- 25 of the original 38 engineering findings are fixed and accepted in internal review: all 21 from Phases 0–2 (merged into `main`, tag `phase-0-2-accepted`) and four from Phase 3 (accepted on branch `phase-3-context-memory`, not yet merged).
 - Coding-agent runs require an approved contract. Changing the contract requires approval again ([test oracle](docs/verify/test-oracle.md)).
 - Requirement tracing catches omitted instructions, including missing negation, before execution ([traceability](docs/verify/traceability.md)).
 - Behavioral requirements are checked through executable tests in the sandbox. Protected-file edits fail scope checks ([executable checks](docs/verify/executable-checks.md), [scope policy](docs/verify/scope-policy.md)).
@@ -17,7 +17,11 @@ Quarterback is a 5-layer AI reliability runtime for software teams. It sits betw
 - Requests are grounded in repository context. Unresolved choices and incomplete numeric targets stay blocked ([grounding](docs/intent/grounding.md)).
 - Accepted work has regression coverage and CI across Node 20, 22 and 24, plus Docker integration tests.
 - Initial judge calibration covers 13 human-labeled patches. It measures false approvals, false rejections and abstentions separately; it does not establish production accuracy.
-- Phase 3 work on deadlines, cancellation and repair memory is underway (branch `phase-3-context-memory`). Quarterback is still in development, with an independent-oracle benchmark rerun and supervised beta ahead.
+- Every model call and every run has a deadline. A cancelled run stops its sandbox and records the stage it interrupted. Usage records mark unreported tokens and agent cost as unknown, never as zero ([deadlines](https://github.com/arshad8049/quaterback/blob/phase-3-context-memory/docs/verify/deadlines.md), QB-21, Phase 3 branch).
+- A repair is recorded as proven only when the hinted criterion passes on a changed patch and the run ends in an approved PASS ([repairs](https://github.com/arshad8049/quaterback/blob/phase-3-context-memory/docs/memory/repairs.md), QB-23, Phase 3 branch).
+- JavaScript symbols are indexed with a parser, with qualified IDs and real source spans. Syntax it cannot index is reported, not dropped ([symbols](https://github.com/arshad8049/quaterback/blob/phase-3-context-memory/docs/context/symbols.md), QB-19, Phase 3 branch).
+- Context retrieval ranks files by symbols and content, follows imports and callers to a bounded depth, refreshes after each attempt, and records what it left out ([retrieval](https://github.com/arshad8049/quaterback/blob/phase-3-context-memory/docs/context/retrieval.md), QB-18, Phase 3 branch).
+- Phase 3 (context and memory) is underway: four of seven findings are accepted on the `phase-3-context-memory` branch; memory identity and store safety are in rework after review, and test associations are next. Quarterback is still in development, with an independent-oracle benchmark rerun and supervised beta ahead.
 
 ---
 
