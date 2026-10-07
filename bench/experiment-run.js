@@ -23,6 +23,7 @@ const budget = require('../lib/budget');
 const { AGENT_VERSION } = require('../lib/sandbox/agent');
 const { pinExperiment, recordTrial, readManifest, preflight } = require('./experiment');
 const { ARMS, SCOPE, runArm } = require('./arms');
+const D = require('../lib/sandbox/docker');
 const { grade, GRADER_FILES } = require('./grader');
 const { checkFrozen } = require('./spec');
 const S = require('./schemas');
@@ -66,8 +67,9 @@ function trialUsage(u, agentMs) {
 async function runExperiment(expDir, o) {
   const m = readManifest(expDir);
   // QB-29: bind the pins to execution — on every run AND resume, before any agent work.
-  // Drift (code, dirty state, images, agent/model config, Node, grader) is refused.
-  const runtime = await preflight(m, o.preflight || {});
+  // Drift (code, dirty state, images, agent/model config, Node, grader) is refused. It is
+  // checked again before EVERY arm-trial below (re-review 2), not only here.
+  await preflight(m, o.preflight || {});
   for (const t of m.tasks) {
     const spec = o.specs[t.id];
     if (!spec || S.specHash(spec) !== t.spec_sha256) throw new Error(`spec for ${t.id} does not match the manifest`);
@@ -82,8 +84,16 @@ async function runExperiment(expDir, o) {
   for (const p of m.trial_plan.order) {
     if (fs.existsSync(path.join(expDir, 'trials', p.trial_id, p.arm, 'result.json'))) continue;   // recorded
     const spec = o.specs[p.task_id];
+    // QB-29 re-review 2: this arm-trial's own runtime identity — observed now, drift refused
+    // (an identity change after an earlier trial stops the experiment before this one runs).
+    const runtime = await preflight(m, o.preflight || {});
+    // Every container this trial creates (arm AND grading) launches from the pinned immutable
+    // image ids, and each created container's image is verified before it starts.
+    const release = D.bindImages(Object.fromEntries(Object.values(runtime.image_ids || {}).map((x) => [x.ref, x.id])));
+    let launched = []; let g = null;
     const started = new Date();
     let ws = null; let run = null; let out; let usage = null;
+    try {
     // QB-28 re-review: one budget run per arm-trial. trial_deadline_ms covers EVERY stage,
     // external grading included; model_call_deadline_ms is the per-call limit in force.
     const budgetRun = budget.startRun({ deadlineMs: m.budget.trial_deadline_ms, agent: AGENT, modelCallMs: m.budget.model_call_deadline_ms });
@@ -108,7 +118,6 @@ async function runExperiment(expDir, o) {
     }
     // QB-27: the same external grader for every arm; nothing about the arm reaches it.
     // It runs inside the trial's budget run: the trial deadline cancels grading too.
-    let g = null;
     try {
       if (out.status === 'completed') {
         g = await grade({ spec, patch: out.patch, ...(o.grader || {}), sandbox: { ...((o.grader && o.grader.sandbox) || {}), signal: budgetRun.signal } });
@@ -118,8 +127,12 @@ async function runExperiment(expDir, o) {
       usage = { ...budgetRun.usage(), arm_timing: out.timing || [] };   // agent stage vs whole invocation, per attempt
       budget.endRun();
     }
+    } finally {
+      launched = release();
+    }
     const finished = new Date();
-    const artifacts = { 'patch.diff': out.patch || '', 'usage.json': usage, 'runtime.json': runtime };
+    // The trial's runtime evidence: its own preflight identity plus every container it actually launched.
+    const artifacts = { 'patch.diff': out.patch || '', 'usage.json': usage, 'runtime.json': { ...runtime, launched } };
     if (g) artifacts['grade.json'] = g;
     if (run) artifacts['run.json'] = { run_id: run.id, outcome: run.manifest.outcome, attempts: run.manifest.attempts.length };
     results.push(recordTrial(expDir, {

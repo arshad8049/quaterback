@@ -62,9 +62,13 @@ function grade(task, patch, outcome, extra = {}) {
     grader_sha256: S.hashOf(GRADER_FILES), outcome, reason: outcome === 'pass' ? 'tests_passed' : outcome === 'fail' ? 'tests_failed' : outcome,
     checks: [], environment: { network: 'none', credentials: 'none', image: 'qb-sandbox-tools@sha256:x' }, duration_ms: 10, ...extra };
 }
+/** The runtime evidence a trial records under exactly the manifest's pins (launch ids derived from them). */
+const runtimeFor = (pins, launched = []) => ({ schema: 'qb-runtime/1', ...pins,
+  image_ids: Object.fromEntries(Object.entries(pins.images).map(([k, v]) => [k, { ref: v.ref, id: `sha256:${S.sha256(Buffer.from(v.digest))}` }])), launched });
+
 function record(e, { task = TASKS[0], rep = 1, arm, outcome = 'pass', status = 'completed', internal = null, patch = `diff ${arm} ${task.id}\n`, gradeExtra } = {}) {
   // every trial records the runtime it ran under (here: exactly the manifest's pins, as preflight returns)
-  const artifacts = { 'patch.diff': patch, 'runtime.json': { schema: 'qb-runtime/1', ...e.manifest.pins } };
+  const artifacts = { 'patch.diff': patch, 'runtime.json': runtimeFor(e.manifest.pins) };
   if (outcome) artifacts['grade.json'] = grade(task, patch, outcome, gradeExtra);
   return exp().recordTrial(e.dir, {
     experiment_id: e.manifest.experiment_id, trial_id: `${task.id}-r${rep}`, task_id: task.id, repetition: rep, arm, status,
@@ -143,7 +147,7 @@ describe('QB-29: immutable, pinned experiments', () => {
     assert.throws(() => exp().recordTrial(e.dir, { experiment_id: 'exp-test-1', trial_id: 'T-001-r1', task_id: 'T-001', repetition: 1, arm: 'A', status: 'completed',
       started_at: T0, finished_at: T0, elapsed_ms: 1, internal_verdict: null, grade_outcome: 'fail', usage: USAGE,
       memory: { mode: 'off', store_sha256_before: null, recall_calls: 0, persist_calls: 0 } },
-      { 'patch.diff': 'p', 'grade.json': grade(TASKS[0], 'p', 'pass'), 'runtime.json': { schema: 'qb-runtime/1', ...e.manifest.pins } }), /disagrees with the grade/);
+      { 'patch.diff': 'p', 'grade.json': grade(TASKS[0], 'p', 'pass'), 'runtime.json': runtimeFor(e.manifest.pins) }), /disagrees with the grade/);
   });
 });
 
@@ -259,6 +263,8 @@ describe('QB-29 re-review 1: scores need their patch; pins are enforced at run t
     agentConfig: () => ({ requested_model: over.model || 'default', config_sha256: H('7') }),
     images: () => Object.fromEntries(Object.entries(IMAGES).map(([k, v]) => [k, v.ref])),
     imageDigest: (ref) => (over.digest && ref.startsWith('qb-sandbox-agent') ? over.digest : Object.values(IMAGES).find((v) => v.ref === ref).digest),
+    // the immutable id to launch, from the same inspect as the digest (re-review 2)
+    imageIdentity: (ref) => { const d = over.identityDigest && ref.startsWith('qb-sandbox-agent') ? over.identityDigest : (over.digest && ref.startsWith('qb-sandbox-agent') ? over.digest : Object.values(IMAGES).find((v) => v.ref === ref).digest); return { digest: d, id: `sha256:${S.sha256(Buffer.from(d))}` }; },
     graderFile: () => H('1'),
     models: () => PINS.models,
     node: () => 'v22.0.0',

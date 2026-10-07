@@ -406,3 +406,49 @@ describe('QB-28 re-review: scope label', () => {
     assert.match(doc, /not evidence of end-to-end/i);
   });
 });
+
+/**
+ * QB-29 re-review 2 (binding tests kept with the runner they exercise): runtime identity is
+ * observed per arm-trial, not once per experiment. Pre-fix, preflight ran once before the
+ * loop and every later trial was certified with that first snapshot.
+ */
+describe('QB-29 re-review 2: runtime identity is checked and recorded per arm-trial', () => {
+  test('an image identity change after the first arm stops the experiment before the second arm runs', async () => {
+    const f = gradingFixture(); fixtures.push(f);
+    const q = await qualify({ spec: f.spec, suitesRoot: f.suitesRoot, runSandboxed: graderRunner(), reference: f.patch('correct'),
+      incorrect: [{ label: '5m', patch: f.patch('fiveMinutes') }, { label: 'off-by-one', patch: f.patch('offByOne') }] });
+    const spec = { ...f.spec, oracle: ORACLE, qualification: q };
+    const D1 = `sha256:${'1'.repeat(64)}`; const D2 = `sha256:${'2'.repeat(64)}`;
+    const ID = (d) => `sha256:${S.sha256(Buffer.from(d))}`;
+    let current = D1;
+    const pins = { qb: { commit: 'a'.repeat(40), dirty: false, dirty_patch_sha256: null }, agent: { name: 'claude-code', adapter_version: 't', cli_version: 'unknown' },
+      images: { agent: { ref: 'qb-sandbox-agent:t', digest: D1 } }, node: process.version,
+      grader: { files: Object.fromEntries(GRADER_FILES.map((g) => [g, S.sha256File(path.join(__dirname, '../..', g))])) }, models: [] };
+    const { dir } = createExperiment({ dir: path.join(tmp, 'exps-drift'), kind: 'exploratory', tasks: taskEntries([spec]), arms: armDefinitions(['A', 'E']),
+      primary_comparison: ['A', 'E'], budget: { agent_time_ms: 60_000, trial_deadline_ms: 120_000, model_call_deadline_ms: 30_000, total_compute_controlled: false },
+      repetitions: 1, pins, memory: { starting_store_sha256: null } });
+    const probes = { ...FAKE_PREFLIGHT.probes, images: () => ({ agent: 'qb-sandbox-agent:t' }),
+      imageDigest: () => current, imageIdentity: () => ({ digest: current, id: ID(current) }) };
+    const correct = f.patch('correct'); let agentCalls = 0;
+    const agent = async () => { agentCalls++; current = D2;   // the image behind the tag changes after the first arm's agent ran
+      return { status: 'completed', diff: correct, changes: [{ file: 'src/duration.js', status: 'M', additions: 3, deletions: 1 }], unsupported_changes: [],
+        sandbox: { isolation: 'none-test-only', verification: verification(true) } }; };
+    const m = mockFetch(ollamaReply({ met: true, evidence: 'renders 30s' }));
+    try {
+      await assert.rejects(runExperiment(dir, { specs: { [spec.id]: spec }, runSandboxed: agent, runsDir: path.join(tmp, 'drift-runs'), preflight: { probes },
+        grader: { suitesRoot: f.suitesRoot, runSandboxed: graderRunner() } }), /runtime drift/);
+    } finally { m.restore(); budget.endRun(); }
+    assert.equal(agentCalls, 1, 'the second arm ran under an unpinned identity');
+    const exp = loadExperiment(dir);
+    assert.deepEqual(exp.trials.map((t) => t.arm), ['A']);
+    assert.equal(exp.trials[0].runtime.image_ids.agent.id, ID(D1), 'the recorded trial names the identity it actually ran under');
+  });
+
+  test('each trial records its own preflight and its launches; the image binding is released after every trial', async () => {
+    const D = require('../../lib/sandbox/docker');
+    const release = D.bindImages({ 'x:t': `sha256:${'3'.repeat(64)}` });
+    assert.throws(() => D.bindImages({}), /already active/);
+    assert.deepEqual(release(), []);
+    D.bindImages({})();   // released: a new binding can start
+  });
+});

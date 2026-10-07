@@ -61,6 +61,16 @@ describe('QB-28: a paired A-vs-E trial through the real sandbox', { skip: !ENABL
     assert.deepEqual(exp.trials.map((t) => [t.arm, t.status, t.grade_outcome]).sort(), [['A', 'completed', 'pass'], ['E', 'completed', 'pass']],
       JSON.stringify(exp.trials.map((t) => [t.arm, t.status, t.detail, t.grade && t.grade.reason])));
     assert.equal(exp.trials[0].grade.grader_sha256, exp.trials[1].grade.grader_sha256);
+    // QB-29 re-review 2: each trial's evidence names the containers it actually launched (arm + grading),
+    // every one from a pinned immutable image id resolved for THAT trial
+    const realId = (await require('../../lib/sandbox/docker').op(['image', 'inspect', '-f', '{{.Id}}', require('../../lib/sandbox/agent').AGENT_IMAGE])).stdout.trim();
+    for (const t of exp.trials) {
+      const ids = new Set(Object.values(t.runtime.image_ids).map((x) => x.id));
+      assert.equal(t.runtime.image_ids.agent.id, realId);
+      assert.ok(t.runtime.launched.length >= 5, `${t.arm}: ${t.runtime.launched.length} launches recorded`);
+      for (const l of t.runtime.launched) assert.ok(ids.has(l.image), `${t.arm}: ${l.container} ran ${l.image}`);
+      assert.ok(t.runtime.launched.some((l) => l.image === realId), `${t.arm}: no agent-image launch recorded`);
+    }
     const report = () => proc.run(process.execPath, [path.join(ROOT, 'bench/report.js'), dir, '--format', 'json']);
     const r1 = report(); const r2 = report();
     assert.equal(r1.status, 0, r1.stderr);

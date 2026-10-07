@@ -58,6 +58,17 @@ const defaultProbes = {
       return repo || id || 'unknown';
     } catch { return 'unknown'; }
   },
+  /** One inspect → both the pinned identity (repo digest, else id) and the immutable id to launch. */
+  imageIdentity: (ref) => {
+    try {
+      const out = output('docker', ['image', 'inspect', ref], { timeout: 30_000 });
+      if (out === null) return null;
+      const [info] = JSON.parse(out);
+      const id = /^sha256:[0-9a-f]{64}$/.test(info.Id || '') ? info.Id : null;
+      const repo = (info.RepoDigests || []).map((d) => d.split('@')[1]).find((d) => /^sha256:[0-9a-f]{64}$/.test(d || ''));
+      return id ? { digest: repo || id, id } : null;
+    } catch { return null; }
+  },
   agentVersion: () => require('../lib/sandbox/agent').AGENT_VERSION,
   images: () => {
     const { AGENT_IMAGE } = require('../lib/sandbox/agent');
@@ -199,7 +210,21 @@ function diffPaths(a, b, prefix = '') {
   return keys.flatMap((k) => diffPaths(a[k], b[k], prefix ? `${prefix}.${k}` : k));
 }
 
-const fingerprintPins = (fp) => { const { schema, ...pins } = fp || {}; void schema; return pins; };
+/** The pins part of a runtime fingerprint (launch evidence — image_ids, launched — is checked separately). */
+const fingerprintPins = (fp) => { const { schema, image_ids, launched, ...pins } = fp || {}; void schema; void image_ids; void launched; return pins; };
+
+/** Launch evidence: every container the trial created ran a pinned image id, resolved from a pinned ref. */
+function launchProblems(m, fp) {
+  const ids = fp.image_ids || {};
+  const problems = [];
+  for (const [name, x] of Object.entries(ids)) {
+    if (!m.pins.images[name] || m.pins.images[name].ref !== x.ref) problems.push(`image_ids.${name} names an unpinned image`);
+  }
+  for (const name of Object.keys(m.pins.images)) if (!ids[name]) problems.push(`image_ids.${name} missing`);
+  const allowed = new Set(Object.values(ids).map((x) => x.id));
+  for (const l of fp.launched || []) if (!allowed.has(l.image)) problems.push(`container ${l.container} ran unpinned image ${l.image}`);
+  return problems;
+}
 
 /**
  * Bind the manifest's pins to execution (QB-29 re-review). Builds/resolves the images, then
@@ -222,7 +247,17 @@ async function preflight(manifest, { qbRoot = QB_ROOT, probes = {} } = {}) {
       return `${d}: pinned ${JSON.stringify(get(manifest.pins))}, now ${JSON.stringify(get(pins))}`;
     }).join('; ')}`);
   }
-  return { schema: 'qb-runtime/1', ...pins };
+  // QB-29 re-review 2: the immutable ids to LAUNCH, from the same inspect that confirms the
+  // pinned identity (no gap between "this tag is the pinned image" and "launch this id").
+  const image_ids = {};
+  for (const [name, img] of Object.entries(manifest.pins.images)) {
+    const ident = p.imageIdentity(img.ref);
+    if (!ident || ident.digest !== img.digest) {
+      throw new Error(`runtime drift from experiment ${manifest.experiment_id} — refusing to run: images.${name}: pinned ${img.digest}, now ${ident ? ident.digest : 'unresolvable'}`);
+    }
+    image_ids[name] = { ref: img.ref, id: ident.id };
+  }
+  return { schema: 'qb-runtime/1', ...pins, image_ids };
 }
 
 /** Create an experiment after building/resolving its images (the CLI path). */
@@ -329,6 +364,8 @@ function recordTrial(expDir, result, artifacts = {}) {
   if (!fp || fp.schema !== 'qb-runtime/1') throw new Error('runtime.json is not a qb-runtime/1 fingerprint');
   const drift = diffPaths(m.pins, fingerprintPins(fp));
   if (drift.length) throw new Error(`runtime fingerprint differs from the manifest pins: ${drift.join(', ')}`);
+  const launch = launchProblems(m, fp);
+  if (launch.length) throw new Error(`runtime launch evidence does not match the pins: ${launch.join('; ')}`);
   if (bytes['grade.json'] && !bytes['patch.diff']) {
     throw new Error('a graded trial needs its exact patch bytes: patch.diff is missing (use an empty patch.diff for a no-change result)');
   }
@@ -414,5 +451,5 @@ function loadExperiment(expDir) {
   return { dir: expDir, manifest, trials, incomplete };
 }
 
-module.exports = { createExperiment, pinExperiment, preflight, collectPins, recordTrial, loadExperiment, readManifest, graderHash, defaultOrder,
+module.exports = { createExperiment, pinExperiment, preflight, launchProblems, collectPins, recordTrial, loadExperiment, readManifest, graderHash, defaultOrder,
   officialIdentityProblems, diffPaths, fingerprintPins };

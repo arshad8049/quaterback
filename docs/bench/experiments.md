@@ -110,3 +110,25 @@ node bench/report.js --legacy bench/results [--format table|markdown|json]
 - `preflight` checks identity immediately before the run. An image retagged between the check and a stage's launch is not re-verified per stage.
 - Images are launched by their content tags (`QB_SANDBOX_*_IMAGE` or content-derived tags); preflight verifies those tags resolve to the pinned digests.
 - **Old results are unrecoverable.** The pre-QB-29 results in `bench/results/` have no pins, patches or external grades and cannot be converted into an experiment.
+
+## Re-review 2: identity per arm-trial, launches bound to pinned image ids
+
+**Problem (review):** `preflight` ran once before the trial loop, and every trial's `runtime.json` reused that snapshot, while the sandbox launched by mutable tags. An image change after the first check went undetected, and later trials were certified with the earlier identity.
+
+- **Per arm-trial preflight.** `runExperiment` calls `preflight` before **every** arm-trial (and once up front), so resumed trials are checked too.
+  - Drift refuses that trial, which stops the experiment before its agent runs. Earlier trials stay recorded under their own identities.
+  - Alongside the pins, `preflight` returns `image_ids`: each pinned image's immutable id (`sha256:…`), taken from the **same** `docker image inspect` that confirms the pinned digest, so there is no gap between "this tag is the pinned image" and "launch this id".
+- **Launches bound to pinned ids** (`lib/sandbox/docker.js` `bindImages`). For the whole arm-trial, including external grading, every container the sandbox creates goes through the binding:
+  - `create` (every `runStage`) and `run` (keeper, proxy, probes; executed as create → verify → start) launch from the pinned **image id**: a pinned tag in the arguments is replaced by its id, so a retag between validation and launch has no effect;
+  - each created container's actual image (`.Image`) is checked against the pinned ids **before it starts**; a container from any other image is removed unstarted and the launch fails;
+  - every launch is recorded as `{ container, image, ref }`.
+- **Evidence from the trial itself.** `runtime.json` holds that trial's own preflight (`image_ids`) plus `launched`.
+  - `recordTrial` refuses evidence whose `image_ids` don't cover the pinned images, or where any launch ran an image outside them.
+  - `report.js` re-checks every trial's own launch evidence.
+- **Regressions:**
+  - unit: an identity change after the first arm stops the experiment before the second arm runs (pre-fix, both arms ran and were certified with the first snapshot); the recorded trial names the identity it ran under; binding lifecycle;
+  - Docker, `test/integration/qb29-image-binding.test.js`: a tag retagged to busybox after binding still runs the pinned image (`node` works, both via `runStage` and `run --rm`); a container from an unpinned image is removed before its workload prints anything;
+  - Docker, `qb28-experiment.test.js`: every trial records ≥ 5 launches (arm and grading), all from pinned ids, including the real agent image id.
+- **Remaining limits:**
+  - the provider-served model version is still `unknown` unless reported;
+  - the binding covers containers the sandbox creates through `lib/sandbox/docker.js`, which is all of them in a benchmark run; the interactive `qb auth login` path is outside it and isn't used by experiments.

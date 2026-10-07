@@ -27,7 +27,7 @@
 const fs = require('fs');
 const path = require('path');
 const S = require('./schemas');
-const { loadExperiment, graderHash, diffPaths, fingerprintPins } = require('./experiment');
+const { loadExperiment, graderHash, diffPaths, fingerprintPins, launchProblems } = require('./experiment');
 
 const ARM_ORDER = S.ARM_IDS;
 const ATTRITION = ['needs_adjudication', 'grader_error', 'grade_infra_error', 'ungraded', 'agent_error', 'timeout', 'trial_infra_error', 'missing', 'incomplete', 'not_recorded'];
@@ -57,6 +57,7 @@ function mixedReasons(m, t) {
   // the experiment id it cites.
   const drift = t.runtime && t.runtime.schema === 'qb-runtime/1' ? diffPaths(m.pins, fingerprintPins(t.runtime)) : ['(no qb-runtime/1 fingerprint)'];
   if (drift.length) out.push(`${where}: runtime fingerprint differs from the manifest pins (${drift.join(', ')})`);
+  else for (const pr of launchProblems(m, t.runtime)) out.push(`${where}: ${pr}`);   // what each trial actually launched
   return out;
 }
 
