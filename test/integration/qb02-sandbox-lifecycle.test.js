@@ -42,11 +42,11 @@ i=0; while :; do sleep 1; i=$((i+1)); echo "alive $i"; done
 
 let root, payload;
 const runs = [];
-function startDriver(deadlineMs, env = {}) {
+function startDriver(deadlineMs, env = {}, inContainerTimeoutS = '3') {
   const id = `qbit-${process.pid}-${runs.length}-${Date.now() % 100000}`;
   const dir = path.join(root, id);
   runs.push(id);
-  const child = spawn(process.execPath, [DRIVER, dir, id, payload, String(deadlineMs), '3'],
+  const child = spawn(process.execPath, [DRIVER, dir, id, payload, String(deadlineMs), inContainerTimeoutS],
     { env: { ...process.env, ...env }, stdio: ['ignore', 'pipe', 'pipe'] });
   let out = '';
   child.stdout.on('data', (d) => { out += d; });
@@ -137,7 +137,11 @@ describe('T-LIFE: product supervisor with Docker', { skip: !ENABLED && 'set QB_I
     const real = spawnSync('sh', ['-c', 'command -v docker'], { encoding: 'utf8' }).stdout.trim();
     // While the marker exists, every new Docker command fails the way a stopped daemon does.
     fs.writeFileSync(stub, `#!/bin/sh\nif [ -e '${down}' ]; then echo 'Cannot connect to the Docker daemon' >&2; exit 1; fi\nexec '${real}' "$@"\n`, { mode: 0o755 });
-    const d = startDriver(3000, { QB_DOCKER_BIN: stub });
+    // The workload must outlive the deadline (its own in-container timeout is 60 s). With
+    // the default 3 s it could exit by itself right at the 3 s deadline: `docker wait`
+    // (already running) returned, the driver proposed an outcome while Docker was "down",
+    // and the supervisor committed it — the flake seen on macOS and once on CI.
+    const d = startDriver(3000, { QB_DOCKER_BIN: stub }, '60');
     await d.started;
     fs.writeFileSync(down, '');
     await sleep(3000 + 1500 + 4000);                         // well past deadline + grace
