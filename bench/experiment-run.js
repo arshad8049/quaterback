@@ -24,6 +24,7 @@ const { AGENT_VERSION } = require('../lib/sandbox/agent');
 const { pinExperiment, recordTrial, readManifest, preflight } = require('./experiment');
 const { ARMS, SCOPE, runArm } = require('./arms');
 const D = require('../lib/sandbox/docker');
+const { seededOrder, holdoutGate } = require('./plan');
 const { grade, GRADER_FILES } = require('./grader');
 const { checkFrozen } = require('./spec');
 const S = require('./schemas');
@@ -32,7 +33,8 @@ const AGENT = { type: 'claude-code', version: AGENT_VERSION, isolation: 'sandbox
 
 /** Manifest task entries for frozen specs. */
 function taskEntries(specs) {
-  return specs.map((s) => ({ id: s.id, version: s.version, spec_sha256: S.specHash(s), split: s.split, repo_commit: s.repo.base_rev, lockfiles: s.repo.lockfiles }));
+  return specs.map((s) => ({ id: s.id, version: s.version, spec_sha256: S.specHash(s), split: s.split, repo_commit: s.repo.base_rev, lockfiles: s.repo.lockfiles,
+    stratum: { type: s.stratum.type, repository: s.stratum.repository } }));
 }
 
 /** The exact arm definitions (bench/arms.js) — a manifest cannot redefine an arm. */
@@ -69,6 +71,8 @@ async function runExperiment(expDir, o) {
   // QB-29: bind the pins to execution — on every run AND resume, before any agent work.
   // Drift (code, dirty state, images, agent/model config, Node, grader) is refused. It is
   // checked again before EVERY arm-trial below (re-review 2), not only here.
+  // QB-30: holdout tasks run only under a hash-matched independent approval (official only).
+  holdoutGate(m, { qbRoot: o.qbRoot });
   await preflight(m, o.preflight || {});
   for (const t of m.tasks) {
     const spec = o.specs[t.id];
@@ -159,7 +163,9 @@ async function main(argv) {
   const { dir } = await pinExperiment({
     dir: path.resolve(opts.out), kind: cfg.kind, tasks: taskEntries(specs), arms: armDefinitions(cfg.arms),
     primary_comparison: cfg.primary, budget: { ...cfg.budget, total_compute_controlled: false },
-    repetitions: cfg.repetitions || 1, seed: cfg.seed || 'none', order: cfg.order, config: { ...cfg, scope: SCOPE }, protocol, approval: cfg.approval || null,
+    repetitions: cfg.repetitions || 1, seed: cfg.seed || 'none',
+    // QB-30: a seeded, randomized, paired order unless the config gives one explicitly
+    order: cfg.order || (cfg.seed ? seededOrder(taskEntries(specs), armDefinitions(cfg.arms), cfg.repetitions || 1, cfg.seed) : undefined), config: { ...cfg, scope: SCOPE }, protocol, approval: cfg.approval || null,
     memory: { starting_store_sha256: memoryStart ? S.treeHash(memoryStart) : null }, graderFiles: GRADER_FILES,
     models: [{ role: 'qb-model', requested: process.env.QB_MODEL || 'deepseek-r1:7b' }],
   });

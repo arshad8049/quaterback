@@ -28,6 +28,7 @@ const fs = require('fs');
 const path = require('path');
 const S = require('./schemas');
 const { loadExperiment, graderHash, diffPaths, fingerprintPins, launchProblems } = require('./experiment');
+const { analyze } = require('./stats');
 
 const ARM_ORDER = S.ARM_IDS;
 const ATTRITION = ['needs_adjudication', 'grader_error', 'grade_infra_error', 'ungraded', 'agent_error', 'timeout', 'trial_infra_error', 'missing', 'incomplete', 'not_recorded'];
@@ -161,7 +162,7 @@ function reportData(expDir, { allowMixed = false } = {}) {
   }
 
   const task = (id) => m.tasks.find((t) => t.id === id);
-  return {
+  const data = {
     schema: 'qb-report/1',
     experiment_id: m.experiment_id,
     kind: m.kind,
@@ -186,6 +187,9 @@ function reportData(expDir, { allowMixed = false } = {}) {
     per_task: [...perTask.values()].map((pt) => ({ ...pt, split: task(pt.task_id) ? task(pt.task_id).split : null })),
     rows,
   };
+  // QB-30: the predeclared analysis — task as the unit, cluster bootstrap, strata, attrition next to completion
+  data.analysis = analyze(data, m);
+  return data;
 }
 
 // ── Formatting ────────────────────────────────────────────────────────────────
@@ -224,6 +228,22 @@ function lines(d, md) {
   L.push(`Matched pairs: ${p.count} (both pass ${p.both_pass}, both fail ${p.both_fail}, only ${X} ${p[`only_${X}`]}, only ${Y} ${p[`only_${Y}`]}).`);
   L.push(`Unmatched (excluded from the comparison, counted above as attrition): ${p.unmatched.length}`);
   for (const u of p.unmatched) L.push(`${md ? '- ' : '  '}${u.task_id} r${u.repetition}: ${X} ${u[X]}, ${Y} ${u[Y]}`);
+  L.push('');
+
+  const an = d.analysis;
+  h(`Analysis — unit: ${an.unit}`);
+  const fmtCI = (c) => (c.estimate === null ? `no estimate (${c.note || 'no matched task'})` : `mean task effect ${c.estimate} (95% CI ${c.ci95[0]} to ${c.ci95[1]}; ${c.method}, B=${c.B}; ${c.n_tasks} task(s), ${c.n_repositories} repositor${c.n_repositories === 1 ? 'y' : 'ies'})${c.note ? ` — ${c.note}` : ''}`);
+  L.push(`Primary ${an.primary.comparison.join(' vs ')} (predeclared): ${fmtCI(an.primary)}.`);
+  L.push(`Tasks without a matched pair (no effect, not counted as 0): ${an.primary.unmatched_tasks.length ? an.primary.unmatched_tasks.join(', ') : 'none'}.`);
+  for (const s2 of an.secondary) L.push(`Secondary ${s2.comparison.join(' vs ')} (exploratory ablation): ${fmtCI(s2)}.`);
+  L.push(`Not used: ${an.not_used}.`);
+  L.push('Completion and attrition per arm (completion = scored / planned):');
+  for (const [a, c] of Object.entries(an.completion)) {
+    L.push(`${md ? '- ' : '  '}${a}: completion ${c.completion_rate ?? '—'} (${c.scored}/${c.planned}); pass rate of scored ${c.pass_rate_of_scored ?? '—'}; attrition ${Object.entries(c.attrition).filter(([, n]) => n).map(([k, n]) => `${k} ${n}`).join(', ') || 'none'}`);
+  }
+  for (const [label, rows2, key] of [['By task type', an.strata.by_type, 'type'], ['By repository', an.strata.by_repository, 'repository']]) {
+    L.push(`${label}: ${rows2.map((r) => `${r[key]} — ${r.tasks_matched}/${r.tasks} tasks matched, mean effect ${r.mean_effect ?? '—'}`).join('; ') || 'none'}`);
+  }
   L.push('');
 
   h('Trials (each score links to its patch and grade)');

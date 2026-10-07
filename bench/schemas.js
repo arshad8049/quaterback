@@ -158,7 +158,9 @@ const Experiment = z.object({
     models: z.array(z.object({ role: z.string().min(1), requested: z.string().min(1) }).strict()),
   }).strict(),
   tasks: z.array(z.object({ id: Id, version: z.number().int().min(1), spec_sha256: Sha, split: z.enum(['dev', 'holdout']),
-    repo_commit: Commit, lockfiles: z.record(RelPath, Sha) }).strict()).min(1),
+    repo_commit: Commit, lockfiles: z.record(RelPath, Sha),
+    // QB-30: the spec's stratum, for per-type / per-repository reporting and the cluster bootstrap (optional for older manifests)
+    stratum: z.object({ type: z.enum(TASK_TYPES), repository: z.string().min(1) }).strict().optional() }).strict()).min(1),
   arms: z.array(ArmDefinition).min(1),
   primary_comparison: z.tuple([z.enum(ARM_IDS), z.enum(ARM_IDS)]),
   budget: z.object({
