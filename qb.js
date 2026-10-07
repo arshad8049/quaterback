@@ -71,8 +71,8 @@ program
   .option('--no-llm-verify',       'Skip LLM judgment in Layer 4 (DSA only)')
   .option('--save',                'Save all artifacts to disk')
   .option('--deadline <minutes>',  'Total-run deadline; in-flight work is cancelled and the run ends CANCELLED naming the stage (QB-21; env QB_RUN_DEADLINE_MS)')
-  .option('--telemetry',           'Send anonymous run metrics to Quarterback (opt-in)')
-  .option('--beta-email <email>',  'Your beta registration email (required for --telemetry)')
+  .option('--telemetry',           'Send this run\'s outcome metrics to Quarterback (opt-in; needs a telemetry token)')
+  .option('--telemetry-token <t>', 'Your verified telemetry token (or QB_TELEMETRY_TOKEN); request one at /api/telemetry/request (QB-33)')
   .parse(process.argv);
 
 const opts    = program.opts();
@@ -431,18 +431,20 @@ async function main() {
   console.log(`\n${DIVIDER2}\n`);
 
   // ── Telemetry (opt-in) ─────────────────────────────────────────────────────
-  const betaEmail = opts.betaEmail || process.env.QB_BETA_EMAIL;
-  if (opts.telemetry && betaEmail) {
+  // QB-33: authorized by a verified telemetry token, never an email; the run id (random) is the
+  // replay key; no email and no task-derived hash are sent.
+  const telemetryToken = opts.telemetryToken || process.env.QB_TELEMETRY_TOKEN;
+  if (opts.telemetry && !telemetryToken) console.log('  Telemetry not sent: no telemetry token (--telemetry-token or QB_TELEMETRY_TOKEN).');
+  if (opts.telemetry && telemetryToken) {
     await sendMetrics({   // QB-21: bounded (3 s) — a stalled endpoint never holds the run
-      email:        betaEmail,
-      task_hash:    hashTask(request),
+      run_id:       run.manifest.run_id,
       passed:       report?.verdict === 'pass',
-      attempts:     attempt,
+      attempts:     Math.max(1, attempt),
       duration_ms:  totalMs,
       repair_count: Math.max(0, attempt - 1),
       layers_used:  buildLayersUsed(opts),
       qb_version:   QB_VERSION,
-    });
+    }, { token: telemetryToken });
   }
 
   process.exit(report?.verdict === 'pass' ? 0 : 1);
@@ -473,14 +475,6 @@ function prompt(question) {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     rl.question(question, answer => { rl.close(); resolve(answer); });
   });
-}
-
-function hashTask(str) {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) {
-    h = Math.imul(31, h) + str.charCodeAt(i) | 0;
-  }
-  return (h >>> 0).toString(16).padStart(8, '0');
 }
 
 function buildLayersUsed(opts) {
