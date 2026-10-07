@@ -236,18 +236,64 @@ async function handleMetrics(request, env) {
   return json({ ok: true, source: 'client_reported' });
 }
 
+// ─── Admin endpoints (QB-34) ──────────────────────────────────────────────────
+//
+// Authentication: `Authorization: Bearer <ADMIN_SECRET>` only, compared in constant time.
+// A credential in the query string is REFUSED (even a correct one): URLs end up in browser
+// history, proxies and logs. Every admin response — including 400/401 — is `no-store` and
+// carries no CORS grant, and an unauthorized request never receives signup data. Results are
+// paginated (`limit` ≤ 500, `cursor` = the last id seen). CSV cells are inert text in
+// spreadsheet clients (formula prefixes neutralized).
+
+const ADMIN_HEADERS = { 'Cache-Control': 'no-store, max-age=0', 'Pragma': 'no-cache', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer' };
+const adminJson = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json', ...ADMIN_HEADERS } });
+
+/** null if authorized, else the refusal Response. */
+async function adminAuth(request, env) {
+  const url = new URL(request.url);
+  if (url.searchParams.has('secret') || url.searchParams.has('token') || url.searchParams.has('key')) {
+    return adminJson({ error: 'Credentials in the URL are not accepted; send Authorization: Bearer <secret>' }, 400);
+  }
+  if (request.method !== 'GET') return adminJson({ error: 'Method not allowed' }, 405);
+  const m = /^Bearer\s+(.+)$/.exec(request.headers.get('Authorization') || '');
+  if (!m || !env.ADMIN_SECRET) return adminJson({ error: 'Unauthorized' }, 401);
+  // constant-time: compare fixed-length digests
+  const [a, b] = await Promise.all([sha256Hex(m[1]), sha256Hex(env.ADMIN_SECRET)]);
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0 ? null : adminJson({ error: 'Unauthorized' }, 401);
+}
+
+/** { limit, cursor } from the query, or a 400 Response. */
+function page(url) {
+  const lim = url.searchParams.get('limit'); const cur = url.searchParams.get('cursor');
+  const limit = lim === null ? 100 : Number(lim);
+  const cursor = cur === null ? null : Number(cur);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 500) return { error: adminJson({ error: 'limit must be an integer 1..500' }, 400) };
+  if (cursor !== null && (!Number.isInteger(cursor) || cursor < 1)) return { error: adminJson({ error: 'cursor must be a positive integer id' }, 400) };
+  return { limit, cursor };
+}
+
+async function signupPage(env, { limit, cursor }) {
+  const rows = cursor === null
+    ? await env.DB.prepare('SELECT id, email, agent, created_at, ip, referrer FROM submissions ORDER BY id DESC LIMIT ?').bind(limit + 1).all()
+    : await env.DB.prepare('SELECT id, email, agent, created_at, ip, referrer FROM submissions WHERE id < ? ORDER BY id DESC LIMIT ?').bind(cursor, limit + 1).all();
+  const results = rows.results.slice(0, limit);
+  return { results, next_cursor: rows.results.length > limit ? results[results.length - 1].id : null };
+}
+
 // ─── GET /api/report ─────────────────────────────────────────────────────────
 
 async function handleReport(request, env) {
-  if (!checkSecret(request, env)) return json({ error: 'Unauthorized' }, 403);
-
+  const denied = await adminAuth(request, env);
+  if (denied) return denied;
+  const p = page(new URL(request.url));
+  if (p.error) return p.error;
   const [signups, runs, summary] = await Promise.all([
+    signupPage(env, p),
     env.DB.prepare(
-      'SELECT id, email, agent, created_at, ip, referrer FROM submissions ORDER BY created_at DESC'
-    ).all(),
-    env.DB.prepare(
-      'SELECT run_id, passed, attempts, duration_ms, repair_count, layers_used, qb_version, source, created_at FROM client_metrics ORDER BY created_at DESC LIMIT 500'
-    ).all(),
+      'SELECT run_id, passed, attempts, duration_ms, repair_count, layers_used, qb_version, source, created_at FROM client_metrics ORDER BY id DESC LIMIT ?'
+    ).bind(p.limit).all(),
     env.DB.prepare(`
       SELECT
         (SELECT COUNT(*) FROM submissions)                             AS total_signups,
@@ -261,41 +307,48 @@ async function handleReport(request, env) {
   ]);
 
   // QB-33: these numbers are what clients reported — never independently verified results.
-  return json({
+  return adminJson({
     client_reported: {
       label: 'Client-reported run outcomes (authenticated, schema-validated, NOT independently verified). Not benchmark evidence.',
       summary, metrics: runs.results,
     },
     signups: signups.results,
+    next_cursor: signups.next_cursor,
   });
 }
 
 // ─── GET /api/submissions ────────────────────────────────────────────────────
 
-async function handleSubmissions(request, env) {
-  if (!checkSecret(request, env)) return json({ error: 'Unauthorized' }, 403);
-  const fmt = new URL(request.url).searchParams.get('format') || 'json';
+/** A CSV cell that spreadsheet clients open as inert text (formula prefixes neutralized). */
+function csvCell(v) {
+  let s = String(v ?? '');
+  if (/^[=+\-@\t\r＝＋－＠]/.test(s)) s = `'${s}`;
+  return `"${s.replace(/"/g, '""')}"`;
+}
 
-  const { results } = await env.DB
-    .prepare('SELECT id, email, agent, created_at, ip, referrer FROM submissions ORDER BY created_at DESC')
-    .all();
+async function handleSubmissions(request, env) {
+  const denied = await adminAuth(request, env);
+  if (denied) return denied;
+  const url = new URL(request.url);
+  const p = page(url);
+  if (p.error) return p.error;
+  const fmt = url.searchParams.get('format') || 'json';
+  if (fmt !== 'json' && fmt !== 'csv') return adminJson({ error: 'format must be json or csv' }, 400);
+  const { results, next_cursor } = await signupPage(env, p);
 
   if (fmt === 'csv') {
-    const header = 'id,email,agent,created_at,ip,referrer\n';
-    const rows   = results.map(r =>
-      [r.id, r.email, r.agent ?? '', r.created_at, r.ip ?? '', r.referrer ?? '']
-        .map(v => `"${String(v).replace(/"/g, '""')}"`)
-        .join(',')
-    ).join('\n');
+    const header = 'id,email,agent,created_at,ip,referrer\r\n';
+    const rows = results.map((r) => [r.id, r.email, r.agent, r.created_at, r.ip, r.referrer].map(csvCell).join(',')).join('\r\n');
     return new Response(header + rows, {
       headers: {
-        'Content-Type': 'text/csv',
+        'Content-Type': 'text/csv; charset=utf-8',
         'Content-Disposition': 'attachment; filename="qb-beta-signups.csv"',
+        ...(next_cursor !== null ? { 'X-Next-Cursor': String(next_cursor) } : {}),
+        ...ADMIN_HEADERS,
       },
     });
   }
-
-  return json({ count: results.length, signups: results });
+  return adminJson({ count: results.length, signups: results, next_cursor });
 }
 
 // ─── Email helpers ────────────────────────────────────────────────────────────
@@ -402,11 +455,6 @@ function corsObject() {
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   };
-}
-
-function checkSecret(request, env) {
-  const secret = new URL(request.url).searchParams.get('secret');
-  return secret && secret === env.ADMIN_SECRET;
 }
 
 function escHtml(str) {

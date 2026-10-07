@@ -117,7 +117,7 @@ describe('QB-33: strict metrics', SKIPPED, () => {
     const rows = w.db.prepare('SELECT run_id, passed, attempts, duration_ms, repair_count, source FROM client_metrics ORDER BY attempts DESC').all();
     assert.deepEqual(rows.map((r) => [r.run_id, r.passed, r.attempts, r.repair_count, r.source]),
       [[a.run_id, 0, 3, 2, 'client_reported'], [b.run_id, 1, 1, 0, 'client_reported']]);
-    const rep = await w.call('GET', '/api/report?secret=admin-secret-for-tests');
+    const rep = await w.call('GET', '/api/report', { headers: { Authorization: 'Bearer admin-secret-for-tests' } });
     assert.match(rep.json.client_reported.label, /NOT independently verified/);
     assert.equal(rep.json.client_reported.summary.total_runs, 2);
   });
