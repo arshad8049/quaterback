@@ -17,7 +17,7 @@ const { hardened } = require('../../lib/sandbox/workspace');
 const { AGENT_IMAGE } = require('../../lib/sandbox/agent');
 const { qualify } = require('../../bench/qualify');
 const { GRADER_FILES } = require('../../bench/grader');
-const { createExperiment, loadExperiment } = require('../../bench/experiment');
+const { pinExperiment, loadExperiment } = require('../../bench/experiment');
 const { runExperiment, taskEntries, armDefinitions } = require('../../bench/experiment-run');
 const proc = require('../../lib/proc');
 const { mockFetch, ollamaReply } = require('../helpers/mocks');
@@ -48,7 +48,7 @@ describe('QB-28: a paired A-vs-E trial through the real sandbox', { skip: !ENABL
     const qualification = await qualify({ spec: f.spec, suitesRoot: f.suitesRoot, sandbox,
       reference: f.patch('correct'), incorrect: [{ label: '5m', patch: f.patch('fiveMinutes') }, { label: 'off-by-one', patch: f.patch('offByOne') }] });
     const spec = { ...f.spec, oracle: ORACLE, qualification };
-    const { dir } = createExperiment({ dir: path.join(tmp, 'exps'), kind: 'exploratory', tasks: taskEntries([spec]), arms: armDefinitions(['A', 'E']),
+    const { dir } = await pinExperiment({ dir: path.join(tmp, 'exps'), kind: 'exploratory', tasks: taskEntries([spec]), arms: armDefinitions(['A', 'E']),
       primary_comparison: ['A', 'E'], budget: { agent_time_ms: 300_000, trial_deadline_ms: 900_000, model_call_deadline_ms: 30_000, total_compute_controlled: false },
       repetitions: 1, graderFiles: GRADER_FILES, memory: { starting_store_sha256: null } });
     const m = mockFetch(ollamaReply({ met: true, evidence: 'renders 30s' }));

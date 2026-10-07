@@ -71,5 +71,42 @@ node bench/report.js --legacy bench/results [--format table|markdown|json]
 - **Reproducible reporting:** the stored, hash-verified artifacts regenerate the same report.
 - **Execution is not reproducible:** re-running an AI agent from the same manifest can produce a different patch. A re-run is a new trial.
 - **Hashes are not signatures.** They detect corruption, and tampering by anyone who does not also rewrite the recorded hash in `result.json` / `manifest.json`. Someone with write access to the experiment directory can rewrite both. `wx` only prevents accidental overwrites.
-- **Unknowns stay `unknown`.** Image digests and the agent CLI version are `unknown` when Docker or the CLI is unavailable at creation; the report shows them as such. An official run should be created on the machine that runs it.
+- **Unknowns stay `unknown` — but not for an official experiment's essentials.** In an exploratory experiment, image digests and the agent CLI version may be `unknown` when Docker or the CLI is unavailable. An official experiment is refused (re-review 1, below) unless the agent, proxy and tools images resolve to digests and the agent adapter version, requested coding-agent model and launch configuration are pinned.
+
+## Re-review 1: every score has its patch; pins bind execution
+
+**Problems (review, Jira 10216):**
+- A graded trial could be recorded without `patch.diff`; the report then emitted `score: pass` with `patch: null`.
+- Pins were observations. Nothing checked the actual code, images, agent or models before a run or a resume. An official manifest accepted an `unknown` agent image digest. The coding agent's requested model wasn't pinned.
+
+**Patch evidence:**
+- `recordTrial` refuses a `grade.json` without `patch.diff`. An empty `patch.diff` is the valid evidence for a no-change result. The grade's `patch_sha256` must equal the patch bytes.
+- `loadExperiment` refuses a graded trial whose result has no `patch.diff`, or whose grade names another patch.
+- The report never shows a score without its patch: a row with a grade but no patch is `missing_patch`, never pass or fail.
+
+**Pins are enforced at run time (`preflight(manifest)`):**
+1. It builds or resolves the sandbox images first (`ensureImages`, injectable).
+2. It observes what **will** run now:
+   - the QB commit and dirty state, including the exact archived dirty diff;
+   - the image refs the sandbox modules will launch, and their resolved digests;
+   - the agent adapter and CLI versions;
+   - the coding agent's requested model and launch-configuration hash;
+   - QB's requested model(s);
+   - Node;
+   - the grader file hashes.
+3. It compares all of that with `manifest.pins` and **refuses any drift**, naming each field (e.g. `images.agent.digest: pinned …, now …`), before any agent work.
+
+`bench/experiment-run.js` calls `preflight` at the start of every run and resume.
+- A changed checkout, dirty state, image identity, model or Node can't continue an existing experiment; it needs a new one.
+- The fingerprint it returns (`qb-runtime/1`) is recorded with every trial as `runtime.json`, hashed like any artifact.
+- `recordTrial` refuses a trial without one, or one that differs from the pins.
+- `report.js` checks each trial's own recorded fingerprint against the manifest. A row whose fingerprint differs, or that has none, is a mixed version: refused by default, labelled MIXED with `--allow-mixed`. A report can't certify versions just because every row cites the same experiment id.
+
+**The coding agent's model:** the sandbox runs `claude -p` with no `--model` and passes no model variable (`sandbox/agent/entry.sh`, `AGENT_ENV`). So the requested model is recorded explicitly as `default`, together with a hash of the agent's launch configuration (entry script, managed settings, Dockerfile, environment). The model the provider actually served is not reported to QB; it stays `unknown` in `usage.models_returned`.
+
+**Schema:** `pins.agent` gained two optional fields, `requested_model` and `config_sha256`. They are optional only so older manifests still parse; `bench/experiment.js` requires them for official experiments. New experiments create through `pinExperiment` (async: images first).
+
+**Limits:**
+- `preflight` checks identity immediately before the run. An image retagged between the check and a stage's launch is not re-verified per stage.
+- Images are launched by their content tags (`QB_SANDBOX_*_IMAGE` or content-derived tags); preflight verifies those tags resolve to the pinned digests.
 - **Old results are unrecoverable.** The pre-QB-29 results in `bench/results/` have no pins, patches or external grades and cannot be converted into an experiment.

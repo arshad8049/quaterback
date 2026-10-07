@@ -205,7 +205,10 @@ describe('QB-28: one experiment, every arm graded by the same external grader', 
       sandbox: { isolation: 'none-test-only', verification: verification(true) } });
     const m = mockFetch(ollamaReply({ met: true, evidence: 'renders 30s' }));
     try {
-      await runExperiment(dir, { specs: { [spec.id]: spec }, runSandboxed: agent, runsDir: path.join(tmp, 'exp-runs'),
+      // QB-29 preflight: probes that reproduce this test's pins (no Docker, no repository probe).
+      const probes = { git: (args) => Buffer.from(args[0] === 'rev-parse' ? `${'a'.repeat(40)}\n` : ''), claudeVersion: () => 'unknown',
+        agentVersion: () => 't', agentConfig: () => ({}), images: () => ({}), models: () => [], ensureImages: async () => {} };
+      await runExperiment(dir, { specs: { [spec.id]: spec }, runSandboxed: agent, runsDir: path.join(tmp, 'exp-runs'), preflight: { probes },
         grader: { suitesRoot: f.suitesRoot, runSandboxed: graderRunner(graderCalls) } });
     } finally { m.restore(); budget.endRun(); }
     const exp = loadExperiment(dir);

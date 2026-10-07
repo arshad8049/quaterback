@@ -21,7 +21,7 @@ const { createWorkspace } = require('../lib/workspace');
 const runStore = require('../run/store');
 const budget = require('../lib/budget');
 const { AGENT_VERSION } = require('../lib/sandbox/agent');
-const { createExperiment, recordTrial, readManifest } = require('./experiment');
+const { pinExperiment, recordTrial, readManifest, preflight } = require('./experiment');
 const { ARMS, runArm } = require('./arms');
 const { grade, GRADER_FILES } = require('./grader');
 const { checkFrozen } = require('./spec');
@@ -65,6 +65,9 @@ function trialUsage(u, agentMs) {
  */
 async function runExperiment(expDir, o) {
   const m = readManifest(expDir);
+  // QB-29: bind the pins to execution — on every run AND resume, before any agent work.
+  // Drift (code, dirty state, images, agent/model config, Node, grader) is refused.
+  const runtime = await preflight(m, o.preflight || {});
   for (const t of m.tasks) {
     const spec = o.specs[t.id];
     if (!spec || S.specHash(spec) !== t.spec_sha256) throw new Error(`spec for ${t.id} does not match the manifest`);
@@ -106,7 +109,7 @@ async function runExperiment(expDir, o) {
     // QB-27: the same external grader for every arm; nothing about the arm reaches it.
     const g = out.status === 'completed' ? await grade({ spec, patch: out.patch, ...(o.grader || {}) }) : null;
     const finished = new Date();
-    const artifacts = { 'patch.diff': out.patch || '', 'usage.json': usage };
+    const artifacts = { 'patch.diff': out.patch || '', 'usage.json': usage, 'runtime.json': runtime };
     if (g) artifacts['grade.json'] = g;
     if (run) artifacts['run.json'] = { run_id: run.id, outcome: run.manifest.outcome, attempts: run.manifest.attempts.length };
     results.push(recordTrial(expDir, {
@@ -130,7 +133,7 @@ async function main(argv) {
   for (const s of specs) checkFrozen(s);
   const protocol = cfg.protocol ? { path: cfg.protocol.path, sha256: S.sha256File(path.resolve(path.dirname(cfgFile), cfg.protocol.path)) } : null;
   const memoryStart = cfg.memory_start ? path.resolve(path.dirname(cfgFile), cfg.memory_start) : null;
-  const { dir } = createExperiment({
+  const { dir } = await pinExperiment({
     dir: path.resolve(opts.out), kind: cfg.kind, tasks: taskEntries(specs), arms: armDefinitions(cfg.arms),
     primary_comparison: cfg.primary, budget: { ...cfg.budget, total_compute_controlled: false },
     repetitions: cfg.repetitions || 1, seed: cfg.seed || 'none', order: cfg.order, config: cfg, protocol, approval: cfg.approval || null,

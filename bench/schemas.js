@@ -145,7 +145,13 @@ const Experiment = z.object({
   approval: Approval.nullable(),
   pins: z.object({
     qb: z.object({ commit: Commit, dirty: z.boolean(), dirty_patch_sha256: Sha.nullable() }).strict(),
-    agent: z.object({ name: z.string().min(1), adapter_version: z.string().min(1), cli_version: Measured(z.string().min(1)) }).strict(),
+    agent: z.object({ name: z.string().min(1), adapter_version: z.string().min(1), cli_version: Measured(z.string().min(1)),
+      // QB-29 re-review (optional for older manifests; REQUIRED for official experiments by
+      // bench/experiment.js): the coding agent's requested model ('default' = the sandbox
+      // passes none) and the hash of its launch configuration.
+      requested_model: z.string().min(1).optional(),
+      config_sha256: Sha.optional(),
+    }).strict(),
     images: z.record(z.string().min(1), z.object({ ref: z.string().min(1), digest: Measured(z.string().regex(/^sha256:[0-9a-f]{64}$/)) }).strict()),
     node: z.string().min(1),
     grader: z.object({ files: z.record(RelPath, Sha) }).strict(),

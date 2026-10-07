@@ -34,8 +34,9 @@ const rep = () => require('../../bench/report');
 const GRADER_FILES = { 'bench/grader.js': H('1') };
 const PINS = {
   qb: { commit: COMMIT, dirty: false, dirty_patch_sha256: null },
-  agent: { name: 'claude-code', adapter_version: 'claude-code@2.0.0 (qb-sandbox-agent:abc)', cli_version: 'unknown' },
-  images: { agent: { ref: 'qb-sandbox-agent:abc', digest: `sha256:${H('d')}` } },
+  agent: { name: 'claude-code', adapter_version: 'claude-code@2.0.0 (qb-sandbox-agent:abc)', cli_version: 'unknown', requested_model: 'default', config_sha256: H('7') },
+  images: { agent: { ref: 'qb-sandbox-agent:abc', digest: `sha256:${H('d')}` }, proxy: { ref: 'qb-sandbox-proxy:abc', digest: `sha256:${H('e')}` },
+    tools: { ref: 'qb-sandbox-tools:abc', digest: `sha256:${H('f')}` } },
   node: 'v22.0.0',
   grader: { files: GRADER_FILES },
   models: [{ role: 'l1', requested: 'deepseek-r1:7b' }],
@@ -62,7 +63,8 @@ function grade(task, patch, outcome, extra = {}) {
     checks: [], environment: { network: 'none', credentials: 'none', image: 'qb-sandbox-tools@sha256:x' }, duration_ms: 10, ...extra };
 }
 function record(e, { task = TASKS[0], rep = 1, arm, outcome = 'pass', status = 'completed', internal = null, patch = `diff ${arm} ${task.id}\n`, gradeExtra } = {}) {
-  const artifacts = { 'patch.diff': patch };
+  // every trial records the runtime it ran under (here: exactly the manifest's pins, as preflight returns)
+  const artifacts = { 'patch.diff': patch, 'runtime.json': { schema: 'qb-runtime/1', ...e.manifest.pins } };
   if (outcome) artifacts['grade.json'] = grade(task, patch, outcome, gradeExtra);
   return exp().recordTrial(e.dir, {
     experiment_id: e.manifest.experiment_id, trial_id: `${task.id}-r${rep}`, task_id: task.id, repetition: rep, arm, status,
@@ -107,7 +109,9 @@ describe('QB-29: immutable, pinned experiments', () => {
     const qb = makeRepo({ 'qb.js': 'console.log(1)\n', 'bench/grader.js': 'g\n' }); repos.push(qb);
     fs.writeFileSync(path.join(qb.dir, 'qb.js'), 'console.log(2)\n');
     fs.writeFileSync(path.join(qb.dir, 'new-file.js'), 'x\n');
-    const probes = { claudeVersion: () => 'unknown', imageDigest: () => 'unknown', agentVersion: () => 'claude-code@test', images: () => ({ agent: 'qb-sandbox-agent:t' }) };
+    // QB-29 re-review: an official experiment needs every essential image resolved to a digest
+    const probes = { claudeVersion: () => 'unknown', imageDigest: () => `sha256:${H('d')}`, agentVersion: () => 'claude-code@test',
+      images: () => ({ agent: 'qb-sandbox-agent:t', proxy: 'qb-sandbox-proxy:t', tools: 'qb-sandbox-tools:t' }) };
     const base = { kind: 'official', tasks: TASKS, arms: [ARM('A'), ARM('E')], primary_comparison: ['A', 'E'], budget: BUDGET, qbRoot: qb.dir,
       graderFiles: ['bench/grader.js'], probes, now: () => new Date(T0) };
     assert.throws(() => exp().createExperiment({ ...base, dir: tmp(), experimentId: 'exp-dirty' }), /official experiment refused.*uncommitted/s);
@@ -118,7 +122,8 @@ describe('QB-29: immutable, pinned experiments', () => {
     assert.equal(e.manifest.pins.qb.dirty, true);
     assert.equal(e.manifest.pins.qb.dirty_patch_sha256, S.sha256File(path.join(e.dir, 'dirty.patch')));
     assert.equal(e.manifest.pins.grader.files['bench/grader.js'], S.sha256(Buffer.from('g\n')));
-    assert.deepEqual(e.manifest.pins.images, { agent: { ref: 'qb-sandbox-agent:t', digest: 'unknown' } });
+    assert.deepEqual(e.manifest.pins.images.agent, { ref: 'qb-sandbox-agent:t', digest: `sha256:${H('d')}` });
+    assert.equal(e.manifest.pins.agent.requested_model, 'default');
     assert.match(e.manifest.pins.qb.commit, /^[0-9a-f]{40}$/);
     fs.appendFileSync(path.join(e.dir, 'dirty.patch'), 'x');
     assert.throws(() => exp().loadExperiment(e.dir), /dirty\.patch: hash does not match/);
@@ -137,7 +142,8 @@ describe('QB-29: immutable, pinned experiments', () => {
     assert.throws(() => record(e, { arm: 'A', gradeExtra: { patch_sha256: H('8') } }), /another patch/);
     assert.throws(() => exp().recordTrial(e.dir, { experiment_id: 'exp-test-1', trial_id: 'T-001-r1', task_id: 'T-001', repetition: 1, arm: 'A', status: 'completed',
       started_at: T0, finished_at: T0, elapsed_ms: 1, internal_verdict: null, grade_outcome: 'fail', usage: USAGE,
-      memory: { mode: 'off', store_sha256_before: null, recall_calls: 0, persist_calls: 0 } }, { 'grade.json': grade(TASKS[0], 'p', 'pass') }), /disagrees with the grade/);
+      memory: { mode: 'off', store_sha256_before: null, recall_calls: 0, persist_calls: 0 } },
+      { 'patch.diff': 'p', 'grade.json': grade(TASKS[0], 'p', 'pass'), 'runtime.json': { schema: 'qb-runtime/1', ...e.manifest.pins } }), /disagrees with the grade/);
   });
 });
 
@@ -228,5 +234,101 @@ describe('QB-29: the report', () => {
     }
     assert.match(rep().buildReport(e.dir), /trials\/T-001-r1\/E\/grade\.json/);
     assert.match(rep().buildReport(e.dir), /Execution is not reproducible/);
+  });
+});
+
+/**
+ * QB-29 re-review 1 (Jira 10216): every score carries its exact patch bytes, and pins are
+ * bound to execution — a runtime fingerprint is checked before any agent work and recorded
+ * per trial, so homogeneity is proven from per-trial evidence, not the experiment id.
+ */
+describe('QB-29 re-review 1: scores need their patch; pins are enforced at run time', () => {
+  const AGENT_FULL = { ...PINS.agent, requested_model: 'default', config_sha256: H('7') };
+  const IMAGES = { agent: { ref: 'qb-sandbox-agent:abc', digest: `sha256:${H('d')}` }, proxy: { ref: 'qb-sandbox-proxy:abc', digest: `sha256:${H('e')}` },
+    tools: { ref: 'qb-sandbox-tools:abc', digest: `sha256:${H('f')}` } };
+  const FULL = { ...PINS, agent: AGENT_FULL, images: IMAGES };
+  /** Probes that reproduce FULL exactly; override one field to simulate drift. */
+  const probesFor = (over = {}) => ({
+    git: (args) => {
+      if (args[0] === 'rev-parse') return Buffer.from(`${over.commit || COMMIT}\n`);
+      if (args[0] === 'status') return Buffer.from(over.status || '');
+      return Buffer.from('');
+    },
+    claudeVersion: () => 'unknown',
+    agentVersion: () => AGENT_FULL.adapter_version,
+    agentConfig: () => ({ requested_model: over.model || 'default', config_sha256: H('7') }),
+    images: () => Object.fromEntries(Object.entries(IMAGES).map(([k, v]) => [k, v.ref])),
+    imageDigest: (ref) => (over.digest && ref.startsWith('qb-sandbox-agent') ? over.digest : Object.values(IMAGES).find((v) => v.ref === ref).digest),
+    graderFile: () => H('1'),
+    models: () => PINS.models,
+    node: () => 'v22.0.0',
+    ensureImages: async () => {},
+  });
+  const fullExperiment = (id) => exp().createExperiment({ dir: tmp(), kind: 'official', tasks: TASKS, arms: [ARM('A'), ARM('E')], primary_comparison: ['A', 'E'],
+    budget: BUDGET, repetitions: 1, config: {}, pins: FULL, experimentId: id, now: () => new Date(T0) });
+  const result = (e, arm, outcome) => ({ experiment_id: e.manifest.experiment_id, trial_id: 'T-001-r1', task_id: 'T-001', repetition: 1, arm, status: 'completed',
+    started_at: T0, finished_at: T0, elapsed_ms: 1, internal_verdict: null, grade_outcome: outcome, usage: USAGE,
+    memory: { mode: 'off', store_sha256_before: null, recall_calls: 0, persist_calls: 0 } });
+
+  test('a graded trial without patch bytes is refused (pre-fix: recorded, and reported as score pass with patch: null)', async () => {
+    const e = fullExperiment('exp-nopatch');
+    const fp = await exp().preflight(e.manifest, { probes: probesFor() });
+    assert.throws(() => exp().recordTrial(e.dir, result(e, 'A', 'pass'), { 'grade.json': grade(TASKS[0], '', 'pass'), 'runtime.json': fp }), /patch\.diff/);
+  });
+
+  test('an empty patch (no change) is valid evidence for a graded trial, and the score links to it', async () => {
+    const e = fullExperiment('exp-empty');
+    const fp = await exp().preflight(e.manifest, { probes: probesFor() });
+    exp().recordTrial(e.dir, result(e, 'A', 'fail'), { 'patch.diff': '', 'grade.json': grade(TASKS[0], '', 'fail'), 'runtime.json': fp });
+    const row = rep().reportData(e.dir, { allowMixed: true }).rows.find((r) => r.arm === 'A');
+    assert.equal(row.score, 'fail');
+    assert.match(row.patch, /patch\.diff$/);
+  });
+
+  test('a loaded grade whose patch artifact is missing is refused (no score without its patch)', async () => {
+    const e = fullExperiment('exp-rmpatch');
+    const fp = await exp().preflight(e.manifest, { probes: probesFor() });
+    exp().recordTrial(e.dir, result(e, 'A', 'pass'), { 'patch.diff': 'p\n', 'grade.json': grade(TASKS[0], 'p\n', 'pass'), 'runtime.json': fp });
+    const rf = path.join(e.dir, 'trials/T-001-r1/A/result.json');
+    const r = JSON.parse(fs.readFileSync(rf, 'utf8')); delete r.artifacts['patch.diff'];
+    fs.chmodSync(rf, 0o644); fs.writeFileSync(rf, JSON.stringify(r));
+    assert.throws(() => exp().loadExperiment(e.dir), /patch\.diff/);
+  });
+
+  test('an official experiment refuses unknown essential identities (pre-fix: accepted an agent digest of unknown)', () => {
+    const base = { kind: 'official', tasks: TASKS, arms: [ARM('A'), ARM('E')], primary_comparison: ['A', 'E'], budget: BUDGET, repetitions: 1, now: () => new Date(T0) };
+    assert.throws(() => exp().createExperiment({ ...base, dir: tmp(), experimentId: 'exp-u1', pins: { ...FULL, images: { ...IMAGES, agent: { ref: 'x', digest: 'unknown' } } } }), /agent image/);
+    assert.throws(() => exp().createExperiment({ ...base, dir: tmp(), experimentId: 'exp-u2', pins: { ...FULL, images: { agent: IMAGES.agent } } }), /proxy image|tools image/);
+    assert.throws(() => exp().createExperiment({ ...base, dir: tmp(), experimentId: 'exp-u3', pins: { ...FULL, agent: { name: 'claude-code', adapter_version: 'x', cli_version: 'unknown' } } }), /requested coding-agent model/);
+  });
+
+  test('drift on resume is refused before any agent work: checkout, dirty state, image identity, requested model', async () => {
+    const e = fullExperiment('exp-drift');
+    await exp().preflight(e.manifest, { probes: probesFor() });
+    await assert.rejects(exp().preflight(e.manifest, { probes: probesFor({ commit: 'b'.repeat(40) }) }), /qb\.commit/);
+    await assert.rejects(exp().preflight(e.manifest, { probes: probesFor({ status: ' M qb.js\n' }) }), /qb\.dirty/);
+    await assert.rejects(exp().preflight(e.manifest, { probes: probesFor({ digest: `sha256:${H('9')}` }) }), /images\.agent/);
+    await assert.rejects(exp().preflight(e.manifest, { probes: probesFor({ model: 'claude-opus-x' }) }), /requested_model/);
+    // through the runner: refused before any agent invocation
+    const { runExperiment } = require('../../bench/experiment-run');
+    let agentCalls = 0;
+    await assert.rejects(runExperiment(e.dir, { specs: {}, runSandboxed: async () => { agentCalls++; return {}; }, preflight: { probes: probesFor({ commit: 'b'.repeat(40) }) } }), /drift/);
+    assert.equal(agentCalls, 0);
+  });
+
+  test('the report verifies each trial\'s recorded runtime fingerprint, not just the experiment id', async () => {
+    const e = fullExperiment('exp-fp');
+    const fp = await exp().preflight(e.manifest, { probes: probesFor() });
+    exp().recordTrial(e.dir, result(e, 'A', 'pass'), { 'patch.diff': 'a\n', 'grade.json': grade(TASKS[0], 'a\n', 'pass'), 'runtime.json': fp });
+    assert.throws(() => exp().recordTrial(e.dir, result(e, 'E', 'pass'), { 'patch.diff': 'e\n', 'grade.json': grade(TASKS[0], 'e\n', 'pass'),
+      'runtime.json': { ...fp, node: 'v99.0.0' } }), /runtime fingerprint/);
+    // a row recorded under another runtime (rewritten with a consistent hash) is refused by the report
+    const ad = path.join(e.dir, 'trials/T-001-r1/A');
+    const bad = Buffer.from(`${JSON.stringify({ ...fp, node: 'v99.0.0' }, null, 2)}\n`);
+    fs.chmodSync(path.join(ad, 'runtime.json'), 0o644); fs.writeFileSync(path.join(ad, 'runtime.json'), bad);
+    const rf = path.join(ad, 'result.json'); const r = JSON.parse(fs.readFileSync(rf, 'utf8'));
+    r.artifacts['runtime.json'].sha256 = S.sha256(bad); fs.chmodSync(rf, 0o644); fs.writeFileSync(rf, JSON.stringify(r));
+    assert.throws(() => rep().reportData(e.dir), /runtime fingerprint/);
+    assert.ok(rep().reportData(e.dir, { allowMixed: true }).mixed);
   });
 });

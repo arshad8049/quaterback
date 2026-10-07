@@ -66,6 +66,35 @@ const defaultProbes = {
     try { out.tools = require('../lib/sandbox/workspace').TOOLS_IMAGE; } catch { /* not exported */ }
     return Object.fromEntries(Object.entries(out).filter(([, v]) => typeof v === 'string' && v));
   },
+  /**
+   * The coding agent's requested model and launch configuration. The sandbox runs
+   * `claude -p` with no --model and passes no model variable (sandbox/agent/entry.sh,
+   * lib/sandbox/agent.js AGENT_ENV), so the requested model is recorded as 'default' —
+   * explicitly, never omitted. The config hash covers what decides the agent's behaviour.
+   */
+  agentConfig: () => {
+    const sb = path.join(QB_ROOT, 'sandbox', 'agent');
+    const { AGENT_ENV } = require('../lib/sandbox/agent');
+    const config = {
+      requested_model: 'default',
+      model_flag: null,
+      env: AGENT_ENV,
+      entry_sha256: S.sha256File(path.join(sb, 'entry.sh')),
+      settings_sha256: S.sha256File(path.join(sb, 'managed-settings.json')),
+      dockerfile_sha256: S.sha256File(path.join(sb, 'Dockerfile')),
+    };
+    return { requested_model: config.requested_model, config_sha256: S.hashOf(config) };
+  },
+  /** QB's own requested model(s) (L1/L2/L4). */
+  models: () => [{ role: 'qb-model', requested: process.env.QB_MODEL || 'deepseek-r1:7b' }],
+  graderFile: (abs) => S.sha256File(abs),
+  node: () => process.version,
+  /** Build or verify the sandbox images BEFORE their identities are pinned or checked. */
+  ensureImages: async () => {
+    await require('../lib/sandbox/agent').ensureAgentImage();
+    await require('../lib/sandbox/egress').ensureProxyImage();
+    await require('../lib/sandbox/workspace').ensureToolsImage();
+  },
 };
 
 /**
@@ -96,15 +125,15 @@ function collectPins({ kind, qbRoot = QB_ROOT, graderFiles = [], models = [], pr
   const grader = {};
   for (const f of graderFiles) {
     const rel = path.relative(qbRoot, path.resolve(qbRoot, f)).split(path.sep).join('/');
-    grader[rel] = S.sha256File(path.join(qbRoot, rel));
+    grader[rel] = p.graderFile(path.join(qbRoot, rel));
   }
   const images = Object.fromEntries(Object.entries(p.images()).sort(([a], [b]) => a.localeCompare(b))
     .map(([name, ref]) => [name, { ref, digest: p.imageDigest(ref) }]));
   const pins = {
     qb: { commit, dirty, dirty_patch_sha256: dirtyPatch ? S.sha256(dirtyPatch) : null },
-    agent: { name: 'claude-code', adapter_version: p.agentVersion(), cli_version: p.claudeVersion() },
+    agent: { name: 'claude-code', adapter_version: p.agentVersion(), cli_version: p.claudeVersion(), ...p.agentConfig() },
     images,
-    node: process.version,
+    node: p.node(),
     grader: { files: grader },
     models,
   };
@@ -142,6 +171,65 @@ function validatePlan(m) {
     if (prev && (prev.task_id !== o.task_id || prev.repetition !== o.repetition)) throw new Error(`trial ${o.trial_id} mixes tasks or repetitions`);
     byTrial.set(o.trial_id, o);
   }
+}
+
+const ESSENTIAL_IMAGES = ['agent', 'proxy', 'tools'];
+const DIGEST = /^sha256:[0-9a-f]{64}$/;
+
+/** Why an OFFICIAL experiment's pins do not identify what will run (empty = ok). */
+function officialIdentityProblems(pins) {
+  const out = [];
+  for (const name of ESSENTIAL_IMAGES) {
+    const img = pins.images && pins.images[name];
+    if (!img) out.push(`${name} image is not pinned`);
+    else if (!DIGEST.test(img.digest)) out.push(`${name} image digest is ${img.digest} (build/resolve the image before pinning)`);
+  }
+  if (!pins.agent || !pins.agent.adapter_version || pins.agent.adapter_version === 'unknown') out.push('agent adapter version is unknown');
+  if (!pins.agent || !pins.agent.requested_model) out.push('requested coding-agent model is not pinned');
+  if (!pins.agent || !pins.agent.config_sha256) out.push('coding-agent launch configuration is not pinned');
+  return out;
+}
+
+/** Dotted paths where two JSON values differ (for drift messages). */
+function diffPaths(a, b, prefix = '') {
+  if (S.hashOf(a ?? null) === S.hashOf(b ?? null)) return [];
+  const obj = (v) => v && typeof v === 'object' && !Array.isArray(v);
+  if (!obj(a) || !obj(b)) return [prefix || '(root)'];
+  const keys = [...new Set([...Object.keys(a), ...Object.keys(b)])].sort();
+  return keys.flatMap((k) => diffPaths(a[k], b[k], prefix ? `${prefix}.${k}` : k));
+}
+
+const fingerprintPins = (fp) => { const { schema, ...pins } = fp || {}; void schema; return pins; };
+
+/**
+ * Bind the manifest's pins to execution (QB-29 re-review). Builds/resolves the images, then
+ * observes what WILL run now — QB checkout (commit, dirty state and the exact dirty diff),
+ * the image refs the sandbox modules will launch and their resolved digests, the agent
+ * adapter/CLI version, the coding agent's requested model and launch config, QB's requested
+ * model(s), Node, the grader files — and refuses any drift from the manifest BEFORE any
+ * agent work. Called at the start of every run and resume.
+ * @returns {Promise<object>} the runtime fingerprint (qb-runtime/1) to record with every trial
+ */
+async function preflight(manifest, { qbRoot = QB_ROOT, probes = {} } = {}) {
+  const p = { ...defaultProbes, ...probes };
+  await p.ensureImages();
+  const graderFiles = Object.keys(manifest.pins.grader.files);
+  const { pins } = collectPins({ kind: 'exploratory', qbRoot, graderFiles, models: p.models(), probes: p });
+  const drift = diffPaths(manifest.pins, pins);
+  if (drift.length) {
+    throw new Error(`runtime drift from experiment ${manifest.experiment_id} — refusing to run (start a new experiment for the changed setup): ${drift.map((d) => {
+      const get = (o) => d.split('.').reduce((v, k) => (v && typeof v === 'object' ? v[k] : undefined), o);
+      return `${d}: pinned ${JSON.stringify(get(manifest.pins))}, now ${JSON.stringify(get(pins))}`;
+    }).join('; ')}`);
+  }
+  return { schema: 'qb-runtime/1', ...pins };
+}
+
+/** Create an experiment after building/resolving its images (the CLI path). */
+async function pinExperiment(o) {
+  const p = { ...defaultProbes, ...(o.probes || {}) };
+  await p.ensureImages();
+  return createExperiment({ ...o, probes: p, models: o.models || p.models() });
 }
 
 /**
@@ -187,6 +275,10 @@ function createExperiment(o) {
     config_sha256: S.hashOf(config),
   });
   validatePlan(manifest);
+  if (kind === 'official') {
+    const problems = officialIdentityProblems(manifest.pins);
+    if (problems.length) throw new Error(`official experiment refused: ${problems.join('; ')}`);
+  }
   fs.mkdirSync(dir, { recursive: true });
   const expDir = path.join(dir, id);
   fs.mkdirSync(expDir);                         // throws EEXIST: an experiment id is never reused
@@ -229,12 +321,23 @@ function recordTrial(expDir, result, artifacts = {}) {
   for (const [name] of files) if (!FILE_RE.test(name) || name === 'result.json') throw new Error(`invalid artifact name: ${name}`);
   const bytes = Object.fromEntries(files.map(([name, v]) => [name, toBytes(v)]));
   const task = m.tasks.find((t) => t.id === result.task_id);
+  // Every recorded trial carries the runtime it actually ran under (preflight), and it must be
+  // exactly the manifest's pins — a trial under drifted code/images/models cannot be recorded.
+  if (!bytes['runtime.json']) throw new Error('missing runtime.json: every trial records the runtime fingerprint it ran under (preflight)');
+  let fp;
+  try { fp = JSON.parse(bytes['runtime.json'].toString('utf8')); } catch { throw new Error('runtime.json is not JSON'); }
+  if (!fp || fp.schema !== 'qb-runtime/1') throw new Error('runtime.json is not a qb-runtime/1 fingerprint');
+  const drift = diffPaths(m.pins, fingerprintPins(fp));
+  if (drift.length) throw new Error(`runtime fingerprint differs from the manifest pins: ${drift.join(', ')}`);
+  if (bytes['grade.json'] && !bytes['patch.diff']) {
+    throw new Error('a graded trial needs its exact patch bytes: patch.diff is missing (use an empty patch.diff for a no-change result)');
+  }
   if (bytes['grade.json']) {
     const g = S.Grade.parse(JSON.parse(bytes['grade.json'].toString('utf8')));
     if (g.task_id !== result.task_id) throw new Error('grade is for another task');
     if (g.spec_sha256 !== task.spec_sha256) throw new Error('grade was made against another spec version');
     if (g.grader_sha256 !== graderHash(m.pins.grader.files)) throw new Error('grade was made by an unpinned grader');
-    if (bytes['patch.diff'] && g.patch_sha256 !== S.sha256(bytes['patch.diff'])) throw new Error('grade is for another patch');
+    if (g.patch_sha256 !== S.sha256(bytes['patch.diff'])) throw new Error('grade is for another patch');
     if (result.grade_outcome !== g.outcome) throw new Error(`grade_outcome ${result.grade_outcome} disagrees with the grade (${g.outcome})`);
   } else if (result.grade_outcome !== null && result.grade_outcome !== undefined) {
     throw new Error('grade_outcome given without a grade.json artifact');
@@ -287,6 +390,9 @@ function loadExperiment(expDir) {
         if (!fs.existsSync(abs)) throw new Error(`${abs}: artifact missing`);
         if (S.sha256File(abs) !== a.sha256) throw new Error(`${abs}: artifact hash mismatch (recorded ${a.sha256.slice(0, 12)}…)`);
       }
+      if (!res.artifacts['runtime.json']) throw new Error(`${rf}: no runtime.json — the trial's runtime is unverifiable`);
+      let runtime;
+      try { runtime = JSON.parse(fs.readFileSync(path.join(expDir, res.artifacts['runtime.json'].path), 'utf8')); } catch (e) { throw new Error(`${rf}: unreadable runtime.json (${e.message})`); }
       let grade = null;
       if (res.artifacts['grade.json']) {
         const gf = path.join(expDir, res.artifacts['grade.json'].path);
@@ -297,10 +403,16 @@ function loadExperiment(expDir) {
       } else if (res.grade_outcome !== null) {
         throw new Error(`${rf}: grade_outcome ${res.grade_outcome} without a grade.json artifact`);
       }
-      trials.push({ ...res, grade });
+      if (grade) {
+        const pa = res.artifacts['patch.diff'];
+        if (!pa) throw new Error(`${rf}: graded without its patch.diff — a score must link to the evaluated patch`);
+        if (grade.patch_sha256 !== pa.sha256) throw new Error(`${rf}: the grade is for another patch than its patch.diff`);
+      }
+      trials.push({ ...res, grade, runtime });
     }
   }
   return { dir: expDir, manifest, trials, incomplete };
 }
 
-module.exports = { createExperiment, collectPins, recordTrial, loadExperiment, readManifest, graderHash, defaultOrder };
+module.exports = { createExperiment, pinExperiment, preflight, collectPins, recordTrial, loadExperiment, readManifest, graderHash, defaultOrder,
+  officialIdentityProblems, diffPaths, fingerprintPins };

@@ -27,7 +27,7 @@
 const fs = require('fs');
 const path = require('path');
 const S = require('./schemas');
-const { loadExperiment, graderHash } = require('./experiment');
+const { loadExperiment, graderHash, diffPaths, fingerprintPins } = require('./experiment');
 
 const ARM_ORDER = S.ARM_IDS;
 const ATTRITION = ['needs_adjudication', 'grader_error', 'grade_infra_error', 'ungraded', 'agent_error', 'timeout', 'trial_infra_error', 'missing', 'incomplete', 'not_recorded'];
@@ -50,8 +50,13 @@ function mixedReasons(m, t) {
     if (task && t.grade.spec_sha256 !== task.spec_sha256) out.push(`${where}: graded against spec ${t.grade.spec_sha256.slice(0, 12)}…, manifest pins ${task.spec_sha256.slice(0, 12)}…`);
     if (t.grade.grader_sha256 !== graderHash(m.pins.grader.files)) out.push(`${where}: graded by an unpinned grader ${t.grade.grader_sha256.slice(0, 12)}…`);
     const patch = t.artifacts['patch.diff'];
-    if (patch && t.grade.patch_sha256 !== patch.sha256) out.push(`${where}: grade is for another patch`);
+    if (!patch) out.push(`${where}: graded without its patch`);
+    else if (t.grade.patch_sha256 !== patch.sha256) out.push(`${where}: grade is for another patch`);
   }
+  // QB-29 re-review: homogeneity is proven from each trial's own recorded runtime, not from
+  // the experiment id it cites.
+  const drift = t.runtime && t.runtime.schema === 'qb-runtime/1' ? diffPaths(m.pins, fingerprintPins(t.runtime)) : ['(no qb-runtime/1 fingerprint)'];
+  if (drift.length) out.push(`${where}: runtime fingerprint differs from the manifest pins (${drift.join(', ')})`);
   return out;
 }
 
@@ -94,8 +99,9 @@ function reportData(expDir, { allowMixed = false } = {}) {
   }
 
   const rows = [...cells.values()].map((c) => {
-    const category = categorize(c.t);
     const t = c.t && !c.t.incomplete ? c.t : null;
+    // Defense in depth (loadExperiment already refuses it): a score without its patch is not a score.
+    const category = t && t.grade && !t.artifacts['patch.diff'] ? 'missing_patch' : categorize(c.t);
     return {
       trial_id: c.trial_id, task_id: c.task_id, repetition: c.repetition, arm: c.arm, planned: c.planned,
       experiment_id: t ? t.experiment_id : m.experiment_id,
