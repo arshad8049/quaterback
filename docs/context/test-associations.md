@@ -73,13 +73,15 @@ The first version crashed L2 on `{"s": null}` (`Object.values(null)`), reported 
 
 **Test plan** (`context/test-plan.js`): read from the user's checkout (the base), so the agent cannot change which command verifies its own work.
 
-1. If `.quarterback.json` is present, it wins:
+1. If `.quarterback.json` has a `test` section, it wins:
 
    ```json
    { "test": { "runner": "node-test", "command": ["node", "--test", "test/"] } }
    ```
 
-   `command` is an argv array, never a shell string. Bad JSON or a bad shape gives `not_run` / `invalid_test_config`.
+   `command` is an argv array, never a shell string. Bad JSON, a top level that is not an object, or a `test` section that is present but malformed (including `null`) gives `not_run` / `invalid_test_config`.
+
+   **Sections are optional (re-review 2).** A config without a `test` section, for example coverage-only (`{ "coverage": { "source_root": … } }`) or `{}`, plans exactly as if there were no config. The first version required `test`, so a coverage-only config turned a valid `npm test` suite into `invalid_test_config`, and the task could not PASS. Regressions: unit (no config, coverage-only, `{}`, coverage-only with a detected unsupported runner, test + coverage, every invalid `test` / top level) and the real sandbox pipeline (a coverage-only config still runs the package.json suite, with the QB report).
 
 2. Otherwise the runner is detected (`context/detector.js` `detectTestRunner`).
 

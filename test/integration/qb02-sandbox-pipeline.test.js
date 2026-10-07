@@ -497,6 +497,20 @@ describe('QB-02 done-when through the real pipeline', { skip: !ENABLED && 'set Q
     } finally { repo.cleanup(); }
   });
 
+  test('QB-20 re-review 2: a coverage-only .quarterback.json does not turn verification off — the package.json suite runs', async () => {
+    const repo = fixtureRepo((files) => {
+      NODE_TEST(files);
+      files['.quarterback.json'] = JSON.stringify({ coverage: { source_root: '/ci/build/project' } });
+    });
+    try {
+      const r = await runSandboxed({ repoPath: repo.dir, briefing: 'x', stateDir, agentStage: hostileAgent('true') });
+      const v = r.sandbox.verification;
+      assert.deepEqual([v.status, v.state, v.exit_code], ['ran', 'completed', 0], `${v.reason || ''} ${v.detail || ''} ${v.output || ''}`);
+      assert.deepEqual([v.test_plan.status, v.test_plan.source, v.test_plan.command], ['run', 'package.json', ['npm', 'test']]);
+      assert.ok(v.report, 'the QB node:test reporter wrote its report');
+    } finally { repo.cleanup(); }
+  });
+
   test('QB-20: a configured unsupported runner is refused before anything runs, and the task cannot PASS', async () => {
     const repo = fixtureRepo((files) => {
       NODE_TEST(files);

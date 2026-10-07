@@ -263,3 +263,50 @@ describe('QB-20 re-review 1: coverage reports are validated, never trusted blind
     assert.match(b, /1 report path\(s\) outside this repository/);
   });
 });
+
+/**
+ * QB-20 re-review 2: `.quarterback.json` is a project config with OPTIONAL sections.
+ * A coverage-only config must not turn verification off (pre-fix: no `test` section →
+ * invalid_test_config → the valid package.json suite was skipped and the task could not PASS).
+ */
+describe('QB-20 re-review 2: the test section is optional in a valid project config', () => {
+  const PKG = { 'package.json': JSON.stringify({ scripts: { test: 'node --test' } }), 'src/clamp.js': 'module.exports.clamp = (v) => v;\n' };
+  const COV = { coverage: { source_root: '/ci/build/project' } };
+  const LCOV = { 'coverage/lcov.info': 'SF:/ci/build/project/src/clamp.js\nLF:2\nLH:1\nend_of_record\n' };
+  const NPM_PLAN = { status: 'run', runner: 'node-test', command: ['npm', 'test'], source: 'package.json' };
+
+  test('no config → the package.json node:test plan runs', () => {
+    assert.deepEqual(testPlan(repo(PKG).dir), NPM_PLAN);
+  });
+
+  test('coverage-only config → the same run plan, plus mapped coverage (pre-fix: not_run / invalid_test_config)', async () => {
+    const { ctx } = await ctxFor({ ...PKG, ...LCOV, [CONFIG_FILE]: JSON.stringify(COV) }, 'Fix clamp');
+    assert.deepEqual(ctx.test_plan, NPM_PLAN);
+    assert.equal(ctx.coverage.files['src/clamp.js'].lines_pct, 50);
+    // a config with no sections at all is valid, and also changes nothing
+    assert.deepEqual(testPlan(repo({ ...PKG, [CONFIG_FILE]: '{}' }).dir), NPM_PLAN);
+  });
+
+  test('coverage-only config keeps runner detection: a detected unsupported runner is still refused', () => {
+    const p = testPlan(repo({ 'pytest.ini': '[pytest]\n', [CONFIG_FILE]: JSON.stringify(COV) }).dir);
+    assert.deepEqual([p.status, p.reason, p.runner, p.source], ['not_run', 'unsupported_runner', 'pytest', 'detected']);
+  });
+
+  test('test + coverage config → the configured argv, and coverage is still mapped', async () => {
+    const cfg = { test: { runner: 'node-test', command: ['node', '--test', 'test/'] }, ...COV };
+    const { ctx } = await ctxFor({ ...PKG, ...LCOV, [CONFIG_FILE]: JSON.stringify(cfg) }, 'Fix clamp');
+    assert.deepEqual(ctx.test_plan, { status: 'run', runner: 'node-test', command: ['node', '--test', 'test/'], source: 'config' });
+    assert.equal(ctx.coverage.files['src/clamp.js'].lines_pct, 50);
+  });
+
+  test('an explicitly present but invalid test section, or an invalid top level, is still rejected', () => {
+    for (const bad of [{ test: null }, { test: {} }, { test: 'npm test' }, { test: { runner: 'node-test' } }, { test: { runner: 'node-test', command: 'npm test' } }, { test: { runner: 'node-test', command: [] } }, { test: null, ...COV }]) {
+      const p = testPlan(repo({ ...PKG, [CONFIG_FILE]: JSON.stringify(bad) }).dir);
+      assert.deepEqual([p.status, p.reason], ['not_run', 'invalid_test_config'], JSON.stringify(bad));
+    }
+    for (const bad of ['{nope', 'null', '[]', '"x"', '3']) {
+      const p = testPlan(repo({ ...PKG, [CONFIG_FILE]: bad }).dir);
+      assert.deepEqual([p.status, p.reason], ['not_run', 'invalid_test_config'], bad);
+    }
+  });
+});

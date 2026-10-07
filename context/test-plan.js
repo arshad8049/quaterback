@@ -10,7 +10,9 @@
  *
  * An explicit project config wins over detection:
  *   .quarterback.json   { "test": { "runner": "node-test", "command": ["node", "--test", "test/"] } }
- * `command` is an argv array (never a shell string). Without a config, a node:test
+ * `command` is an argv array (never a shell string). The `test` section is optional:
+ * a config without it (e.g. coverage-only) plans exactly as if there were no config.
+ * A present-but-invalid `test` section, or an invalid file, is rejected. Without one, a node:test
  * project (or an undetected runner) runs its package.json `test` script (`npm test`).
  * The plan is read from the user's checkout (the base), so the agent cannot change it.
  */
@@ -32,13 +34,20 @@ function testPlan(repoPath) {
   if (fs.existsSync(cfgPath)) {
     let cfg;
     try { cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8')); } catch { return notRun('invalid_test_config', `${CONFIG_FILE} is not valid JSON`); }
-    const t = cfg && cfg.test;
-    if (!t || typeof t.runner !== 'string' || !Array.isArray(t.command) || !t.command.length
-      || !t.command.every((x) => typeof x === 'string' && x.length > 0)) {
-      return notRun('invalid_test_config', `${CONFIG_FILE}: expected { "test": { "runner": "<runner>", "command": ["<argv>", …] } }`);
+    if (cfg === null || typeof cfg !== 'object' || Array.isArray(cfg)) {
+      return notRun('invalid_test_config', `${CONFIG_FILE}: the top level must be an object of sections`);
     }
-    if (!VALIDATED.has(t.runner)) return unsupported(t.runner, 'config');
-    return { status: 'run', runner: t.runner, command: t.command, source: 'config' };
+    // QB-20 re-review 2: `test` is an OPTIONAL section — absent → detection / package.json
+    // below (a coverage-only config must not turn verification off); present → it must be valid.
+    if (Object.prototype.hasOwnProperty.call(cfg, 'test')) {
+      const t = cfg.test;
+      if (!t || typeof t !== 'object' || typeof t.runner !== 'string' || !Array.isArray(t.command) || !t.command.length
+        || !t.command.every((x) => typeof x === 'string' && x.length > 0)) {
+        return notRun('invalid_test_config', `${CONFIG_FILE}: expected { "test": { "runner": "<runner>", "command": ["<argv>", …] } }`);
+      }
+      if (!VALIDATED.has(t.runner)) return unsupported(t.runner, 'config');
+      return { status: 'run', runner: t.runner, command: t.command, source: 'config' };
+    }
   }
   const runner = detectTestRunner(repoPath);
   if (runner && !VALIDATED.has(runner)) return unsupported(runner, 'detected');
