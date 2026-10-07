@@ -36,6 +36,8 @@ const { contractState, stateReason, approve } = require('../intent/contract-stat
 const { contractFromObject } = require('../intent/compiler');
 const { inputFromReport } = require('../verify/verdict');
 const { routeRepair } = require('../verify/routing');
+const { gradeArm }    = require('./grader');
+const { loadSpec, checkFrozen } = require('./spec');
 
 program
   .name('bench')
@@ -108,6 +110,10 @@ async function main() {
     const summary = [];
 
     for (const task of taskList) {
+      // QB-27: a task is SCORED only by the external grader against its frozen spec.
+      // A task without one still runs, but its result is "ungraded" — never a score.
+      const spec = task.spec ? loadSpec(path.resolve(path.dirname(tasksFile), task.spec)) : null;
+      if (spec) checkFrozen(spec);
       console.log(`\n${D1}`);
       console.log(`  [${task.id}] ${task.difficulty.toUpperCase()}  — ${task.description.slice(0, 65)}`);
       console.log(D1);
@@ -120,6 +126,7 @@ async function main() {
       // ── QB run ─────────────────────────────────────────────────────────────
       console.log('\n  [QB] Running full pipeline...');
       result.qb = await withWorkspace(repoPath, task, 'qb', ws => runQB(task, ws));
+      result.qb.grade = await gradeArm(spec, result.qb);
       printQBResult(result.qb);
 
       // ── Baseline run ───────────────────────────────────────────────────────
@@ -128,6 +135,7 @@ async function main() {
       } else if (opts.baseline !== false) {
         console.log('\n  [BASE] Running raw baseline (no pipeline)...');
         result.baseline = await withWorkspace(repoPath, task, 'base', ws => runBaselineTask(task, ws, result.qb.contract));
+        result.baseline.grade = await gradeArm(spec, result.baseline);
         printBaselineResult(result.baseline);
         if (result.baseline.workspace.base_tree !== result.qb.workspace.base_tree) {
           throw new Error(`[${task.id}] arms started from different snapshots`);
@@ -140,7 +148,7 @@ async function main() {
       console.log(`\n  Saved → ${outPath}`);
 
       summary.push(result);
-      multiRunData[task.id].push(result.qb?.final_verdict === 'pass');
+      multiRunData[task.id].push(result.qb?.grade?.outcome === 'pass');
     }
 
     // ── Per-run summary table ────────────────────────────────────────────────
@@ -329,7 +337,8 @@ async function runQB(task, ws) {
   }
 
   out.attempts        = attempts;
-  out.final_verdict   = report?.verdict || 'unknown';
+  out.patch           = execution?.diff || '';
+  out.final_verdict   = report?.verdict || 'unknown';   // QB's own verdict — recorded, never the score (QB-27)
   out.total_attempts  = attempt;
   out.first_verdict   = attempts[0]?.verdict || 'unknown';
   out.files_changed   = attempts[attempts.length - 1]?.files_changed || [];
@@ -349,6 +358,7 @@ async function runBaselineTask(task, ws, contract) {
   run.startAttempt({ attempt: 1, base_sha: ws.baseSha });
 
   const execution = { id: 'baseline', ...(await runBaseline(task.description, repoPath, { contract, exploration: Boolean(opts.explore) && !contract.approval })) };
+  out.patch         = execution.diff || '';
   out.agent_ms      = execution.duration_ms;
   out.status        = execution.status;
   out.error         = execution.error || null;
@@ -420,60 +430,42 @@ function verdictIcon(v) {
   return { pass: '✓', fail: '✗', partial: '~', 'no-diff': '○', error: '!', unresolved: '~' }[v] || '?';
 }
 
+const gradeOf = (arm) => (arm && arm.grade ? arm.grade.outcome : 'ungraded');
+
 function printQBResult(r) {
-  const icon = verdictIcon(r.final_verdict);
-  console.log(`\n     QB  ${icon} ${r.final_verdict.toUpperCase()}  — ${r.total_attempts} attempt(s)  ${(r.timing.total_ms / 1000).toFixed(1)}s`);
-  console.log(`         first attempt: ${verdictIcon(r.first_verdict)} ${r.first_verdict}`);
+  console.log(`\n     QB  score: ${gradeOf(r).toUpperCase()}${r.grade?.reason ? ` (${r.grade.reason})` : ''}  — ${r.total_attempts} attempt(s)  ${(r.timing.total_ms / 1000).toFixed(1)}s`);
+  console.log(`         internal QB verdict (not a score): ${r.final_verdict}; first attempt: ${r.first_verdict}`);
   if (r.files_changed.length) console.log(`         changed: ${r.files_changed.join(', ')}`);
 }
 
 function printBaselineResult(r) {
-  const icon = verdictIcon(r.verdict);
-  console.log(`     BASE ${icon} ${r.verdict.toUpperCase()}  — ${(r.timing_ms / 1000).toFixed(1)}s`);
+  console.log(`     BASE score: ${gradeOf(r).toUpperCase()}${r.grade?.reason ? ` (${r.grade.reason})` : ''}  — ${(r.timing_ms / 1000).toFixed(1)}s`);
+  console.log(`         internal verdict (not a score): ${r.verdict}`);
   if (r.files_changed.length) console.log(`         changed: ${r.files_changed.join(', ')}`);
-  if (r.failures?.length) console.log(`         failing ACs: ${r.failures.join(', ')}`);
 }
 
+/**
+ * QB-27: scores come only from the external grader. pass/fail are scores; every other
+ * outcome (ungraded, needs_adjudication, grader_error, infra_error) is listed, never
+ * counted as a pass or a fail. Matched comparisons and statistics: bench/report.js (QB-29/30).
+ */
 function printSummary(summary, hasBaseline) {
   console.log(`\n\n${D2}`);
-  console.log(`  BENCHMARK SUMMARY`);
+  console.log(`  BENCHMARK SUMMARY  (scores: external grader only)`);
   console.log(D2);
-
-  const header = hasBaseline
-    ? `  ${'ID'.padEnd(7)} ${'Diff'.padEnd(8)} ${'QB'.padEnd(10)} ${'1st'.padEnd(10)} ${'Tries'.padEnd(7)} ${'Time'.padEnd(8)} ${'BASE'.padEnd(10)}`
-    : `  ${'ID'.padEnd(7)} ${'Diff'.padEnd(8)} ${'QB'.padEnd(10)} ${'1st'.padEnd(10)} ${'Tries'.padEnd(7)} ${'Time'.padEnd(8)}`;
-  console.log(header);
-  console.log('  ' + '─'.repeat(hasBaseline ? 66 : 52));
-
+  console.log(`  ${'ID'.padEnd(8)} ${'QB score'.padEnd(20)} ${'QB internal'.padEnd(14)}${hasBaseline ? ` ${'BASE score'.padEnd(20)}` : ''}`);
   for (const r of summary) {
-    const qbVerdict   = `${verdictIcon(r.qb?.final_verdict)} ${r.qb?.final_verdict || '?'}`;
-    const firstV      = `${verdictIcon(r.qb?.first_verdict)} ${r.qb?.first_verdict || '?'}`;
-    const tries       = String(r.qb?.total_attempts || '?');
-    const time        = r.qb?.timing?.total_ms ? `${(r.qb.timing.total_ms / 1000).toFixed(1)}s` : '?';
-    const diff        = r.qb?.difficulty || '?';
-    const baseVerdict = r.baseline ? `${verdictIcon(r.baseline?.verdict)} ${r.baseline?.verdict || '?'}` : 'skipped';
-
-    const row = hasBaseline
-      ? `  ${r.task_id.padEnd(7)} ${diff.padEnd(8)} ${qbVerdict.padEnd(10)} ${firstV.padEnd(10)} ${tries.padEnd(7)} ${time.padEnd(8)} ${baseVerdict}`
-      : `  ${r.task_id.padEnd(7)} ${diff.padEnd(8)} ${qbVerdict.padEnd(10)} ${firstV.padEnd(10)} ${tries.padEnd(7)} ${time}`;
-    console.log(row);
+    console.log(`  ${r.task_id.padEnd(8)} ${gradeOf(r.qb).padEnd(20)} ${String(r.qb?.final_verdict || '?').padEnd(14)}${hasBaseline ? ` ${(r.baseline ? gradeOf(r.baseline) : 'missing').padEnd(20)}` : ''}`);
   }
-
-  // Aggregate stats
-  const qbPasses    = summary.filter(r => r.qb?.final_verdict === 'pass').length;
-  const qbFirst     = summary.filter(r => r.qb?.first_verdict === 'pass').length;
-  const basePasses  = summary.filter(r => r.baseline?.verdict === 'pass').length;
-  const avgMs       = summary.reduce((s, r) => s + (r.qb?.timing?.total_ms || 0), 0) / summary.length;
-  const avgAttempts = summary.reduce((s, r) => s + (r.qb?.total_attempts || 0), 0) / summary.length;
-
-  console.log('\n  ' + '─'.repeat(hasBaseline ? 66 : 52));
-  console.log(`  QB pass rate:         ${qbPasses}/${summary.length} (${Math.round(qbPasses/summary.length*100)}%)`);
-  console.log(`  QB first-attempt:     ${qbFirst}/${summary.length} (${Math.round(qbFirst/summary.length*100)}%)`);
-  console.log(`  QB avg attempts:      ${avgAttempts.toFixed(1)}`);
-  console.log(`  QB avg time:          ${(avgMs/1000).toFixed(1)}s`);
-  if (hasBaseline) {
-    console.log(`  Baseline pass rate:   ${basePasses}/${summary.filter(r=>r.baseline).length} (${Math.round(basePasses/summary.filter(r=>r.baseline).length*100)}%)`);
-  }
+  const tally = (arm) => {
+    const outs = summary.map((r) => (r[arm] ? gradeOf(r[arm]) : 'missing'));
+    const scored = outs.filter((o) => o === 'pass' || o === 'fail');
+    const other = {};
+    for (const o of outs) if (o !== 'pass' && o !== 'fail') other[o] = (other[o] || 0) + 1;
+    return `${scored.filter((o) => o === 'pass').length}/${scored.length} scored passed` + (Object.keys(other).length ? `; not scored: ${Object.entries(other).map(([k, n]) => `${k} ${n}`).join(', ')}` : '');
+  };
+  console.log(`\n  QB:       ${tally('qb')}`);
+  if (hasBaseline) console.log(`  Baseline: ${tally('baseline')}`);
   console.log(`\n${D2}\n`);
 }
 

@@ -377,9 +377,11 @@ cd bench && npm install
 node run.js                     # run all 6 tasks
 node run.js --task T-005        # single task
 node run.js --no-baseline       # QB only (faster)
-node report.js                  # table report
-node report.js --format markdown
+node report.js <experiment-dir> [--format table|markdown|json] [--allow-mixed]
+node report.js --legacy results # old result files, labelled "pre-QB-29, not comparable"
 ```
+
+Scores come only from the external grader (`bench/grader.js`, QB-27): a frozen, human-written task spec and a hidden check suite, the same for both arms. QB's own verdict is recorded but is never a score; a task without a frozen spec is "ungraded". Experiments are immutable and pinned (`bench/experiment.js`, QB-29). See `docs/bench/`.
 
 ---
 

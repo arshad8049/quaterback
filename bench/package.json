@@ -6,9 +6,8 @@
     "bench":       "node run.js",
     "bench:quick": "node run.js --no-llm-context",
     "bench:one":   "node run.js --task",
-    "report":      "node report.js",
-    "report:md":   "node report.js --format markdown",
-    "report:csv":  "node report.js --format csv"
+    "report":        "node report.js",
+    "report:legacy": "node report.js --legacy results"
   },
   "dependencies": {
     "commander": "^13.1.0",
