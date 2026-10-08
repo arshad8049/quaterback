@@ -1,0 +1,88 @@
+{
+  "schema": "qb-task-spec/1",
+  "id": "PW-06",
+  "version": 1,
+  "split": "dev",
+  "stratum": {
+    "type": "refactor",
+    "repository": "process-warning"
+  },
+  "repo": {
+    "source": "qb-bench:process-warning",
+    "base_rev": "6d4b11b9159ea2a77fe68420ec4806891c582b6f",
+    "lockfiles": {
+      "package-lock.json": "8f806ba8a79e7c69a60f587d92fd49e5c6e63c46f7838bee412af737ec671948"
+    }
+  },
+  "prompt": "Refactor: move spyWarning out of index.js into lib/spy.js (named export spyWarning), and move the internal symbols it shares with createWarning into lib/symbols.js, which exports them; index.js and lib/spy.js both take the symbols from lib/symbols.js. index.js re-exports spyWarning from lib/spy.js. The public API must behave exactly as before.",
+  "requirement": "lib/spy.js exports { spyWarning }; index.js no longer defines spyWarning and re-exports the one from lib/spy.js (require('process-warning').spyWarning === require('process-warning/lib/spy').spyWarning). lib/symbols.js exports the shared symbols (only symbols); the warnings createWarning builds are keyed by those exported symbols, and lib/spy.js uses the same ones. The spy keeps working on warnings created by createWarning: calls, callCount, reset and restore behave as before, and spying twice returns the same spy data.",
+  "oracle": {
+    "approved_by": "Arshad Ahmed Shaik (delegated approval; AI technical review by Codex)",
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "require('lib/spy').spyWarning is the function exported by index.js, and index.js takes it from lib/spy"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "index.js does not define spyWarning (as a declaration, function expression or arrow function)"
+      },
+      {
+        "id": "AC-3",
+        "criterion": "lib/symbols.js exports the shared symbols; createWarning and lib/spy.js both use them"
+      },
+      {
+        "id": "AC-4",
+        "criterion": "spying records calls and callCount; reset clears calls and emitted; restore detaches the spy"
+      },
+      {
+        "id": "AC-5",
+        "criterion": "spying the same warning twice returns the same spy data"
+      }
+    ]
+  },
+  "suite": {
+    "dir": "PW-06",
+    "files": {
+      "spy-module.test.js": "141cee6b9b39ac66537e3bb001719bd6ec7b9d23f19e373e48527d8d58934bd1"
+    },
+    "command": [
+      "node",
+      "--test",
+      "test/hidden/*.test.js"
+    ],
+    "install_to": "test/hidden",
+    "owned_paths": [
+      "test/hidden/**"
+    ],
+    "adjudicate_checks": []
+  },
+  "qualification": {
+    "grader_sha256": "3116461e6934079a16ed5af0ae2c35e701094b699f62feeea86fe2106d4ea886",
+    "suite_sha256": "6a99649ea65792699e53047fda7cc3ae5dd32678e61dfd12c55b72961842180e",
+    "reference": {
+      "patch_sha256": "9508a55950cf4fc6931364d3baea7fe0deb6404679965c454ad7ae85d180ce19",
+      "outcome": "pass"
+    },
+    "incorrect": [
+      {
+        "label": "copy-kept",
+        "patch_sha256": "702d8d07c7d5a715b4abcc758a3d0e809b6227bf2dccdb98a10428df1486e9ec",
+        "outcome": "fail"
+      },
+      {
+        "label": "own-symbols",
+        "patch_sha256": "6e1161d603b1412e10a0dcf5e00e9851e994eaa8561be19b4689b83221ffaf9a",
+        "outcome": "fail"
+      }
+    ],
+    "qualified_at": "2026-10-08T16:01:53.601Z"
+  },
+  "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
+  "provenance": {
+    "author": "Claude (QB developer side; dev split only)",
+    "created_at": "2026-10-08T00:00:00Z",
+    "tuned_during_development": false
+  },
+  "changelog": []
+}

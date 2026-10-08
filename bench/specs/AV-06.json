@@ -1,0 +1,94 @@
+{
+  "schema": "qb-task-spec/1",
+  "id": "AV-06",
+  "version": 1,
+  "split": "dev",
+  "stratum": {
+    "type": "refactor",
+    "repository": "avvio"
+  },
+  "repo": {
+    "source": "qb-bench:avvio",
+    "base_rev": "4c5d9176b6e4457bff6e2524e7873f4f6a5193c3",
+    "lockfiles": {
+      "package-lock.json": "40f643378825af4dd7e734a80b1f80660f74b0d9fbc790a1b363857f012b32e7"
+    }
+  },
+  "prompt": "Refactor: move the tree pretty-printer (prettyPrintTimeTree) out of lib/time-tree.js into its own module lib/pretty-print.js, exported as a named function, and have TimeTree use it. Output must not change.",
+  "requirement": "lib/pretty-print.js exports { prettyPrintTimeTree } taking a TimeTree JSON node (and optional prefix) and returning exactly the string TimeTree#prettyPrint returned before. lib/time-tree.js no longer defines its own copy and uses the new module; TimeTree#prettyPrint and app.prettyPrint output are unchanged byte for byte.",
+  "oracle": {
+    "approved_by": "Arshad Ahmed Shaik (delegated approval; AI technical review by Codex)",
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "require('lib/pretty-print').prettyPrintTimeTree(tree.toJSON()) equals tree.prettyPrint() and the known output for a nested tree"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "TimeTree#prettyPrint renders through lib/pretty-print (replacing that module changes its output)"
+      },
+      {
+        "id": "AC-3",
+        "criterion": "lib/time-tree.js no longer defines its own prettyPrintTimeTree (as a declaration, function expression or arrow function)"
+      },
+      {
+        "id": "AC-4",
+        "criterion": "app.prettyPrint() output is unchanged"
+      }
+    ]
+  },
+  "suite": {
+    "dir": "AV-06",
+    "files": {
+      "pretty-print-module.test.js": "f1423d0e04041659a93484e103eec87dbd3fc10e71e7cb080febb44761bd2b55"
+    },
+    "command": [
+      "node",
+      "--test",
+      "test/hidden/*.test.js"
+    ],
+    "install_to": "test/hidden",
+    "owned_paths": [
+      "test/hidden/**"
+    ],
+    "adjudicate_checks": []
+  },
+  "qualification": {
+    "grader_sha256": "3116461e6934079a16ed5af0ae2c35e701094b699f62feeea86fe2106d4ea886",
+    "suite_sha256": "287f08d07b82f8a3955427f899dcb8bac4b4ce2a58a93b5a842ddbb6154d84c5",
+    "reference": {
+      "patch_sha256": "81db6f252b1c13c4d12b5f1d286b9117cdfd61e101ae5339e684bc575327f4b7",
+      "outcome": "pass"
+    },
+    "incorrect": [
+      {
+        "label": "arrow-copy-kept",
+        "patch_sha256": "301f7b1457f772ce9b942c26a2c8235300a9cbec46f2d8a5b513408cbc0b40ee",
+        "outcome": "fail"
+      },
+      {
+        "label": "copy-kept",
+        "patch_sha256": "087b13efb56d2e56da4bf4d647afb9abd657b0c1351c333746aab9c75934bf91",
+        "outcome": "fail"
+      },
+      {
+        "label": "default-export",
+        "patch_sha256": "5754feb0d473babd463ce736ebdd746d90709356d563defec23f7d2a8f29690a",
+        "outcome": "fail"
+      },
+      {
+        "label": "drops-branch-marker",
+        "patch_sha256": "79299cb0a4bb0d6d058a8975c5b6cf943cbd19930e0748cafc3b97fc5b1eea66",
+        "outcome": "fail"
+      }
+    ],
+    "qualified_at": "2026-10-08T15:18:48.199Z"
+  },
+  "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
+  "provenance": {
+    "author": "Claude (QB developer side; dev split only)",
+    "created_at": "2026-10-08T00:00:00Z",
+    "tuned_during_development": false
+  },
+  "changelog": []
+}

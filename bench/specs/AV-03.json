@@ -1,0 +1,84 @@
+{
+  "schema": "qb-task-spec/1",
+  "id": "AV-03",
+  "version": 1,
+  "split": "dev",
+  "stratum": {
+    "type": "addition",
+    "repository": "avvio"
+  },
+  "repo": {
+    "source": "qb-bench:avvio",
+    "base_rev": "4c5d9176b6e4457bff6e2524e7873f4f6a5193c3",
+    "lockfiles": {
+      "package-lock.json": "40f643378825af4dd7e734a80b1f80660f74b0d9fbc790a1b363857f012b32e7"
+    }
+  },
+  "prompt": "Add app.hasPlugin(name): it should return true or false for whether a plugin with that name has been registered with this avvio instance with use(), directly or nested inside another plugin, as soon as use() has been called (before or after ready). The name is the one avvio already gives a plugin: its fastify-plugin metadata name, the name option passed to use(), or the function's name.",
+  "requirement": "Boot#hasPlugin(name) returns true once a plugin with that name (as avvio names it: fastify-plugin metadata name, options.name, or the function name) has been registered with use() on the instance, at any nesting depth, and false otherwise. It returns a boolean and is available on the avvio instance before and after ready.",
+  "oracle": {
+    "approved_by": "Arshad Ahmed Shaik (delegated approval; AI technical review by Codex)",
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "after use(function foo …) and ready, app.hasPlugin('foo') === true"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "nested plugins registered inside another plugin are found"
+      },
+      {
+        "id": "AC-3",
+        "criterion": "a name given through options.name is found"
+      },
+      {
+        "id": "AC-4",
+        "criterion": "unknown names return false"
+      }
+    ]
+  },
+  "suite": {
+    "dir": "AV-03",
+    "files": {
+      "has-plugin.test.js": "6f62841b58c07b97c8db912d39a43f82288a921d049b10490d31cf50f8246551"
+    },
+    "command": [
+      "node",
+      "--test",
+      "test/hidden/*.test.js"
+    ],
+    "install_to": "test/hidden",
+    "owned_paths": [
+      "test/hidden/**"
+    ],
+    "adjudicate_checks": []
+  },
+  "qualification": {
+    "grader_sha256": "3116461e6934079a16ed5af0ae2c35e701094b699f62feeea86fe2106d4ea886",
+    "suite_sha256": "97e2e5d3e5b1bd7f62da7cb6ab0c17e027bbe28a483cf68a8c770ce586e51215",
+    "reference": {
+      "patch_sha256": "c234d7fd5ec7cd9865d511dacece592ef3f478a870db789cecddd848e3681e33",
+      "outcome": "pass"
+    },
+    "incorrect": [
+      {
+        "label": "function-name-only",
+        "patch_sha256": "38d6cbbd47f0b40644486a2a466186dfc4ae1f0f31e54c29955edf5e15f64a84",
+        "outcome": "fail"
+      },
+      {
+        "label": "top-level-only",
+        "patch_sha256": "caabd5720978ddbafa6d6a0e06082f4e4486b9b7276e3ffc0de3c4f0330f8eac",
+        "outcome": "fail"
+      }
+    ],
+    "qualified_at": "2026-10-08T15:13:54.989Z"
+  },
+  "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
+  "provenance": {
+    "author": "Claude (QB developer side; dev split only)",
+    "created_at": "2026-10-08T00:00:00Z",
+    "tuned_during_development": false
+  },
+  "changelog": []
+}

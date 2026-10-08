@@ -1,0 +1,90 @@
+{
+  "schema": "qb-task-spec/1",
+  "id": "LM-02",
+  "version": 1,
+  "split": "dev",
+  "stratum": {
+    "type": "bug_fix",
+    "repository": "light-my-request"
+  },
+  "repo": {
+    "source": "qb-bench:light-my-request",
+    "base_rev": "e02b8f2ac1290d99a2ec67649606991bb2a08db3",
+    "lockfiles": {
+      "package-lock.json": "8a3f87872e50737155a56cc9d28a0e0bf40b8021a3a1430c9f5a3ec8efff2113"
+    }
+  },
+  "prompt": "query values that are undefined end up in the URL as the text 'undefined': inject(dispatch, { url: '/', query: { a: undefined, b: 1 } }) requests /?a=undefined&b=1. Leave undefined values out of the query string, including undefined entries inside array values; an undefined value must not add, replace or remove a parameter (a parameter already in the url stays). Other values, including null, 0 and '', are serialized as before, and string queries are unchanged.",
+  "requirement": "When query is an object, keys whose value is undefined are omitted from the request URL (they neither add nor replace a parameter), and undefined elements of an array value are skipped. Other values (including null, 0, '' and false) are serialized as before. String queries are unchanged.",
+  "oracle": {
+    "approved_by": "Arshad Ahmed Shaik (delegated approval; AI technical review by Codex)",
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "query { a: undefined, b: 1 } gives /?b=1"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "query { c: [1, undefined, 2] } gives /?c=1&c=2"
+      },
+      {
+        "id": "AC-3",
+        "criterion": "an undefined value does not remove a parameter already in the url"
+      },
+      {
+        "id": "AC-4",
+        "criterion": "null, 0 and '' are still serialized as before"
+      }
+    ]
+  },
+  "suite": {
+    "dir": "LM-02",
+    "files": {
+      "undefined-query.test.js": "928e2f78c774d0554c733881163c6904926abec7f5d550a67e2f6b9b2599188f"
+    },
+    "command": [
+      "node",
+      "--test",
+      "test/hidden/*.test.js"
+    ],
+    "install_to": "test/hidden",
+    "owned_paths": [
+      "test/hidden/**"
+    ],
+    "adjudicate_checks": []
+  },
+  "qualification": {
+    "grader_sha256": "3116461e6934079a16ed5af0ae2c35e701094b699f62feeea86fe2106d4ea886",
+    "suite_sha256": "b70015e39e6efe59f1e71b71dc0fc02aed963e8970d9619dca90b2f2e84c5a7e",
+    "reference": {
+      "patch_sha256": "9d11c24a4a3afa37cff8bec7ce8fd265dd758fa85e983138de901146adbcbd79",
+      "outcome": "pass"
+    },
+    "incorrect": [
+      {
+        "label": "delete-existing",
+        "patch_sha256": "8c0004184795f73623671fa2a9e9b5a6ceb00ed0f4877f1d7c829a43ba034958",
+        "outcome": "fail"
+      },
+      {
+        "label": "empty-string",
+        "patch_sha256": "f3a9e64357b1dbc25866defd5780e52ebf9c9b2d2b12939a8e0f8fd9b304b66a",
+        "outcome": "fail"
+      },
+      {
+        "label": "top-level-only",
+        "patch_sha256": "a4d3747d110c06d432805e90eaa826bc6d0eee3d71e5addfab2377e9771d79c6",
+        "outcome": "fail"
+      }
+    ],
+    "qualified_at": "2026-10-08T15:40:33.507Z"
+  },
+  "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
+  "provenance": {
+    "author": "Claude (QB developer side; dev split only)",
+    "created_at": "2026-10-08T00:00:00Z",
+    "tuned_during_development": false,
+    "notes": "Real behaviour of light-my-request v6.6.0 (searchParams.set(key, undefined))."
+  },
+  "changelog": []
+}

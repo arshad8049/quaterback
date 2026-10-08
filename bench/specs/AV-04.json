@@ -1,0 +1,84 @@
+{
+  "schema": "qb-task-spec/1",
+  "id": "AV-04",
+  "version": 1,
+  "split": "dev",
+  "stratum": {
+    "type": "errors",
+    "repository": "avvio"
+  },
+  "repo": {
+    "source": "qb-bench:avvio",
+    "base_rev": "4c5d9176b6e4457bff6e2524e7873f4f6a5193c3",
+    "lockfiles": {
+      "package-lock.json": "40f643378825af4dd7e734a80b1f80660f74b0d9fbc790a1b363857f012b32e7"
+    }
+  },
+  "prompt": "app.after('not a function') is accepted silently and the app later fails to boot with 'func.apply is not a function'. Reject a non-function callback up front, the same way ready() and onClose() do: after(value) with a value that is not a function throws synchronously the existing AVV_ERR_CALLBACK_NOT_FN error for the 'after' hook, naming typeof value (message \"Callback for 'after' hook is not a function. Received: '<typeof>'\"). after() with no argument still returns a promise, and function callbacks are unchanged.",
+  "requirement": "Boot#after(func): when func is not undefined/null and is not a function, after throws synchronously an AVV_ERR_CALLBACK_NOT_FN error (the existing error from lib/errors.js) built with ('after', typeof func), i.e. message \"Callback for 'after' hook is not a function. Received: '<typeof>'\". after() without an argument still returns a promise; function callbacks are unchanged.",
+  "oracle": {
+    "approved_by": "Arshad Ahmed Shaik (delegated approval; AI technical review by Codex)",
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "after('x') throws synchronously with code AVV_ERR_CALLBACK_NOT_FN and message \"Callback for 'after' hook is not a function. Received: 'string'\""
+      },
+      {
+        "id": "AC-2",
+        "criterion": "after(42) reports 'number'"
+      },
+      {
+        "id": "AC-3",
+        "criterion": "after() with no argument still returns a promise that resolves"
+      },
+      {
+        "id": "AC-4",
+        "criterion": "after(fn) still runs fn"
+      }
+    ]
+  },
+  "suite": {
+    "dir": "AV-04",
+    "files": {
+      "after-callback.test.js": "be4dce986818f59beaee95c3a50935c27f28f9830d8ce39f49a3d7432de726c7"
+    },
+    "command": [
+      "node",
+      "--test",
+      "test/hidden/*.test.js"
+    ],
+    "install_to": "test/hidden",
+    "owned_paths": [
+      "test/hidden/**"
+    ],
+    "adjudicate_checks": []
+  },
+  "qualification": {
+    "grader_sha256": "3116461e6934079a16ed5af0ae2c35e701094b699f62feeea86fe2106d4ea886",
+    "suite_sha256": "15125f196c7b1ef5ef993861f15e1789510d6fbd9f2842a9a2d82fe75ef23cc9",
+    "reference": {
+      "patch_sha256": "e0a492b9e7cd6904a3e56e9e0e3a1098e30c4652733e145ba8112892fb1c16b0",
+      "outcome": "pass"
+    },
+    "incorrect": [
+      {
+        "label": "deferred-error",
+        "patch_sha256": "3920fe6c12ef74d8d004bb2bbb5bf333615fe339b387898ee073991bd3ea00a6",
+        "outcome": "fail"
+      },
+      {
+        "label": "generic-error",
+        "patch_sha256": "c711bb013e6f11ae889a40ebfcacedcc81c40f8190c604d58f998f77fdb45cb2",
+        "outcome": "fail"
+      }
+    ],
+    "qualified_at": "2026-10-08T15:15:13.390Z"
+  },
+  "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
+  "provenance": {
+    "author": "Claude (QB developer side; dev split only)",
+    "created_at": "2026-10-08T00:00:00Z",
+    "tuned_during_development": false
+  },
+  "changelog": []
+}

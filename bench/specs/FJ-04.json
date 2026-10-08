@@ -1,0 +1,85 @@
+{
+  "schema": "qb-task-spec/1",
+  "id": "FJ-04",
+  "version": 1,
+  "split": "dev",
+  "stratum": {
+    "type": "already_satisfied",
+    "repository": "fast-json-stringify"
+  },
+  "repo": {
+    "source": "qb-bench:fast-json-stringify",
+    "base_rev": "8959a794e4ba6d040577c98c97e16ab33898c3dc",
+    "lockfiles": {
+      "package-lock.json": "abde936de03de5983273c44d60b2e7fcb5302f54667e236270d96d689e805904"
+    }
+  },
+  "prompt": "Integer fields should accept BigInt values: serialize 10n as 10, and keep very large BigInts exact (no rounding through Number).",
+  "requirement": "For type integer, a BigInt value serializes as its exact decimal digits (e.g. 2n ** 64n → 18446744073709551616), negative BigInts included. (fast-json-stringify v7.0.1 already does this: the correct change is no change.)",
+  "oracle": {
+    "approved_by": "Arshad Ahmed Shaik (delegated approval; AI technical review by Codex)",
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "10n serializes as 10"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "2n ** 64n serializes exactly as 18446744073709551616"
+      },
+      {
+        "id": "AC-3",
+        "criterion": "-5n serializes as -5"
+      },
+      {
+        "id": "AC-4",
+        "criterion": "plain numbers are unchanged"
+      }
+    ]
+  },
+  "suite": {
+    "dir": "FJ-04",
+    "files": {
+      "bigint.test.js": "48a5bda80f0c6bfc0d9a87006ead3f9537f500351d8a7cb7d5ac282f327dd704"
+    },
+    "command": [
+      "node",
+      "--test",
+      "test/hidden/*.test.js"
+    ],
+    "install_to": "test/hidden",
+    "owned_paths": [
+      "test/hidden/**"
+    ],
+    "adjudicate_checks": []
+  },
+  "qualification": {
+    "grader_sha256": "3116461e6934079a16ed5af0ae2c35e701094b699f62feeea86fe2106d4ea886",
+    "suite_sha256": "c4fda40ddd303add74dd54021f930180c1eba9241c84eaa63e56e7797e209389",
+    "reference": {
+      "patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "outcome": "pass"
+    },
+    "incorrect": [
+      {
+        "label": "reject-bigint",
+        "patch_sha256": "e2c5a9bc2036b33849df808d9b7c8a6eda6f7657d7aaeb3e8896490fcb89a8ff",
+        "outcome": "fail"
+      },
+      {
+        "label": "via-number",
+        "patch_sha256": "4391a84b1b7342c1a4fa2328f8a856269c8283a3b8b30099abfdfee8bac8300b",
+        "outcome": "fail"
+      }
+    ],
+    "qualified_at": "2026-10-08T15:25:13.791Z"
+  },
+  "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
+  "provenance": {
+    "author": "Claude (QB developer side; dev split only)",
+    "created_at": "2026-10-08T00:00:00Z",
+    "tuned_during_development": false,
+    "notes": "Already satisfied at v7.0.1."
+  },
+  "changelog": []
+}

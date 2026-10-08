@@ -1,0 +1,98 @@
+{
+  "schema": "qb-task-spec/1",
+  "id": "PW-03",
+  "version": 1,
+  "split": "dev",
+  "stratum": {
+    "type": "errors",
+    "repository": "process-warning"
+  },
+  "repo": {
+    "source": "qb-bench:process-warning",
+    "base_rev": "6d4b11b9159ea2a77fe68420ec4806891c582b6f",
+    "lockfiles": {
+      "package-lock.json": "8f806ba8a79e7c69a60f587d92fd49e5c6e63c46f7838bee412af737ec671948"
+    }
+  },
+  "prompt": "createWarning crashes with an unhelpful TypeError ('code.toUpperCase is not a function') when code is not a string, and silently accepts a non-string name or message. Validate them. For each of name, code and message: a missing value (undefined), null or '' keeps throwing the existing Error 'Warning <field> must not be empty'; any other value that is not a string (numbers including 0, booleans including false, objects, arrays) throws an Error with message 'Warning <field> must be a string'. Valid strings behave as before.",
+  "requirement": "createWarning checks name, code and message in that order. A field that is undefined, null or '' throws new Error('Warning <field> must not be empty'); a field that is any other non-string value (including 0, false, NaN, objects and arrays) throws new Error('Warning <field> must be a string'). Both are plain Errors. Valid input behaves as before (code is upper-cased).",
+  "oracle": {
+    "approved_by": "Arshad Ahmed Shaik (delegated approval; AI technical review by Codex)",
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "code: 123 throws an Error with message 'Warning code must be a string'"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "name: {} throws 'Warning name must be a string'; message: 42 throws 'Warning message must be a string'; an array code is rejected the same way"
+      },
+      {
+        "id": "AC-3",
+        "criterion": "falsy non-strings are not 'empty': code: 0 and message: false throw 'must be a string'"
+      },
+      {
+        "id": "AC-4",
+        "criterion": "undefined, null and '' still throw 'Warning <field> must not be empty'"
+      },
+      {
+        "id": "AC-5",
+        "criterion": "valid string fields create a working warning"
+      }
+    ]
+  },
+  "suite": {
+    "dir": "PW-03",
+    "files": {
+      "validation.test.js": "747fe41bbf31072aeabc2100a94fb513cf30481d7b166c4e7e8cf11f776760e5"
+    },
+    "command": [
+      "node",
+      "--test",
+      "test/hidden/*.test.js"
+    ],
+    "install_to": "test/hidden",
+    "owned_paths": [
+      "test/hidden/**"
+    ],
+    "adjudicate_checks": []
+  },
+  "qualification": {
+    "grader_sha256": "3116461e6934079a16ed5af0ae2c35e701094b699f62feeea86fe2106d4ea886",
+    "suite_sha256": "e1c8d6699c56b2bdeeda1bbf9c5757848a1cd886e99ed5d2b9b8318700f318d0",
+    "reference": {
+      "patch_sha256": "5444b887625ca8c6c14dba3738341c773dec3fb6993652ae39b95b4b868e375b",
+      "outcome": "pass"
+    },
+    "incorrect": [
+      {
+        "label": "code-only",
+        "patch_sha256": "de6dc031dfa857afc29cb5358d633ff3b54ef2775f5c632ab113e74e97d53fe5",
+        "outcome": "fail"
+      },
+      {
+        "label": "coerce",
+        "patch_sha256": "9a0498a0ecd5a672af2d1c0a637150eea9ed7e635d5e97071a96640e79699dc5",
+        "outcome": "fail"
+      },
+      {
+        "label": "truthy-first",
+        "patch_sha256": "ee6416c7c17cf62a8f43e79d53f9adcac826780cad34fd2d8f505ba969d6c303",
+        "outcome": "fail"
+      },
+      {
+        "label": "typeerror-wording",
+        "patch_sha256": "24d8f29eab48bca5aacd8bc4b0e057dc34c84626a970c10a64debb177a1130b2",
+        "outcome": "fail"
+      }
+    ],
+    "qualified_at": "2026-10-08T15:56:24.305Z"
+  },
+  "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
+  "provenance": {
+    "author": "Claude (QB developer side; dev split only)",
+    "created_at": "2026-10-08T00:00:00Z",
+    "tuned_during_development": false
+  },
+  "changelog": []
+}
