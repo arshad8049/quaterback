@@ -1,6 +1,8 @@
 {
   "name": "@velora/quarterback-memory",
   "version": "0.1.0",
+  "license": "UNLICENSED",
+  "private": true,
   "description": "Quarterback Memory Layer — per-repo learning from past runs",
   "main": "index.js",
   "scripts": {

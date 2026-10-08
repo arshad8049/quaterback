@@ -1,7 +1,9 @@
 {
   "name": "@velora/quarterback",
   "version": "0.1.0",
-  "description": "Quarterback \u2014 Intent to Verified Result (root orchestrator)",
+  "license": "UNLICENSED",
+  "private": true,
+  "description": "Quarterback — Intent to Verified Result (root orchestrator)",
   "main": "qb.js",
   "bin": {
     "qb": "./qb.js"

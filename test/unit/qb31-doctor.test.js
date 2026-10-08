@@ -27,7 +27,9 @@ describe('QB-31: qb doctor', () => {
   test('a healthy machine for claude-code: every check ok, exit 0', async () => {
     const r = await doctor({ agent: 'claude-code', env: {} }, healthy());
     assert.deepEqual(r.checks.map((c) => c.id), ['runtime', 'git', 'docker', 'agent-auth', 'model', 'agent-adapter', 'check-registry']);
-    assert.deepEqual(r.checks.filter((c) => c.status !== 'ok').map((c) => c.id), []);
+    // Credentials can only be shown PRESENT here; a successful authenticated call proves them valid.
+    assert.deepEqual(r.checks.filter((c) => c.status !== 'ok').map((c) => [c.id, c.status]), [['agent-auth', 'warn']]);
+    assert.match(r.checks.find((c) => c.id === 'agent-auth').detail, /login volume present; validity not verified/);
     assert.equal(r.exitCode, 0);
     assert.match(byId(r)['agent-adapter'].detail, /claude-code.*supported.*qb-agent-adapter\/1/);
   });
@@ -49,10 +51,11 @@ describe('QB-31: qb doctor', () => {
     });
   }
 
-  test('an API key counts as signed in, without asking Docker', async () => {
+  test('an API key is reported as a credential PRESENT, not a verified login (and Docker is not asked)', async () => {
     const r = await doctor({ agent: 'claude-code', env: { ANTHROPIC_API_KEY: 'sk-x' } }, healthy({ authVolumeExists: async () => { throw new Error('not consulted'); } }));
-    assert.equal(byId(r)['agent-auth'].status, 'ok');
-    assert.match(byId(r)['agent-auth'].detail, /ANTHROPIC_API_KEY/);
+    assert.equal(byId(r)['agent-auth'].status, 'warn');
+    assert.match(byId(r)['agent-auth'].detail, /ANTHROPIC_API_KEY is set; validity not verified/);
+    assert.doesNotMatch(byId(r)['agent-auth'].detail, /signed in/);
   });
 
   test('sign-in cannot be checked while Docker is down: fail, not ok', async () => {

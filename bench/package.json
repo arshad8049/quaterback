@@ -1,6 +1,8 @@
 {
   "name": "@velora/quarterback-bench",
   "version": "0.1.0",
+  "license": "UNLICENSED",
+  "private": true,
   "description": "Quarterback benchmark harness — QB pipeline vs raw agent",
   "scripts": {
     "bench":       "node run.js",

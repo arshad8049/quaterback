@@ -47,4 +47,6 @@ A change to this contract is a new interface version.
 
 - **Release:** `0.1.0`, pre-release. Install from the repository (`docs/onboarding.md`); QB is not published to npm.
 - **Support:** supervised beta (Phase 5), best effort, no SLA. The supported surface is this page.
-- **Licence:** **not decided.** The repository has no LICENSE file, so no licence is granted. This is the owner's decision, open under QB-31.
+- **Licence: no open-source licence has been granted.** The repository has no LICENSE file, and every `package.json` declares `"license": "UNLICENSED"` and `"private": true` (it can't be published to npm by accident). The code being publicly visible is **not** permission to copy, modify, redistribute or reuse it.
+  - A public beta distribution needs an explicit, owner-approved licence or terms decision. That is a **release gate**, and nothing here grants one.
+  - This is QB's own distribution policy. It is separate from the coding agent's terms (a Claude subscription or API key) and from the licences of the repositories QB benchmarks.
