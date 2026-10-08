@@ -1,0 +1,41 @@
+{
+  "id": "FJ-05",
+  "split": "dev",
+  "stratum": {
+    "type": "errors",
+    "repository": "fast-json-stringify"
+  },
+  "repo": "qb-bench:fast-json-stringify",
+  "base_rev": "8959a794e4ba6d040577c98c97e16ab33898c3dc",
+  "prompt": "largeArraySize validation is too lax: '20000abc' and '1.5' are accepted as strings (parseInt keeps the leading digits), and negative sizes like -5 or -5n are accepted. Only accept positive whole sizes and reject anything else with the existing 'Unsupported large array size' error.",
+  "requirement": "options.largeArraySize is accepted only as a positive integer number, a positive BigInt, or a string consisting solely of decimal digits that denotes a positive integer. Anything else that is set (truthy) throws the existing error `Unsupported large array size. Expected integer-like, got <typeof> with value <value>`. Valid sizes behave as before.",
+  "oracle": {
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "'20000abc', '1.5', ' 100' and '1e3' throw 'Unsupported large array size. Expected integer-like, got string with value \u2026'"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "-5 and -5n throw the same error (with number / bigint)"
+      },
+      {
+        "id": "AC-3",
+        "criterion": "100, '100' and 100n are accepted"
+      }
+    ]
+  },
+  "suite": {
+    "command": [
+      "node",
+      "--test",
+      "test/hidden/*.test.js"
+    ]
+  },
+  "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
+  "provenance": {
+    "author": "Claude (QB developer side; dev split only)",
+    "created_at": "2026-10-08T00:00:00Z",
+    "tuned_during_development": false
+  }
+}

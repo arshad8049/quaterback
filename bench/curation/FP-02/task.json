@@ -1,0 +1,46 @@
+{
+  "id": "FP-02",
+  "split": "dev",
+  "stratum": {
+    "type": "bug_fix",
+    "repository": "fastify-plugin"
+  },
+  "repo": "qb-bench:fastify-plugin",
+  "base_rev": "87548e7878496b7b960c633bff6f860e2de40849",
+  "prompt": "The camelCase alias fastify-plugin derives from a plugin name isn't always a valid identifier: 'my--plugin' gives 'my-plugin', 'plugin-' stays 'plugin-', and '@a/b/c-d' gives 'aB/cD'. Fix lib/toCamelCase.js so hyphens and slashes never survive.",
+  "requirement": "toCamelCase(name) drops a leading '@', splits the rest on runs of '-' and '/', ignores empty pieces, keeps the first piece as is and upper-cases the first character of each following piece (other characters unchanged). Examples: '@scope/my-plugin' \u2192 'scopeMyPlugin', 'my--plugin' \u2192 'myPlugin', 'plugin-' \u2192 'plugin', '@a/b/c-d' \u2192 'aBCD', 'fooBar-baz' \u2192 'fooBarBaz', 'my_plugin' \u2192 'my_plugin'. The alias fp sets (fn[camelName]) follows the same rule.",
+  "oracle": {
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "'my--plugin' \u2192 'myPlugin' and 'plugin-' \u2192 'plugin'"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "'@a/b/c-d' \u2192 'aBCD' and '@scope/my-plugin' \u2192 'scopeMyPlugin'"
+      },
+      {
+        "id": "AC-3",
+        "criterion": "existing capitals and underscores are kept: 'fooBar-baz' \u2192 'fooBarBaz', 'my_plugin' \u2192 'my_plugin'"
+      },
+      {
+        "id": "AC-4",
+        "criterion": "fp(fn, { name: 'my--plugin' }).myPlugin === fn"
+      }
+    ]
+  },
+  "suite": {
+    "command": [
+      "node",
+      "--test",
+      "test/hidden/*.test.js"
+    ]
+  },
+  "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
+  "provenance": {
+    "author": "Claude (QB developer side; dev split only)",
+    "created_at": "2026-10-08T00:00:00Z",
+    "tuned_during_development": false,
+    "notes": "Real behaviour of fastify-plugin v6.0.0."
+  }
+}

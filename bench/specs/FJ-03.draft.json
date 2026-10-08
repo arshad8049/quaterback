@@ -1,0 +1,92 @@
+{
+  "schema": "qb-task-draft/1",
+  "spec": {
+    "schema": "qb-task-spec/1",
+    "id": "FJ-03",
+    "version": 1,
+    "split": "dev",
+    "stratum": {
+      "type": "addition",
+      "repository": "fast-json-stringify"
+    },
+    "repo": {
+      "source": "qb-bench:fast-json-stringify",
+      "base_rev": "8959a794e4ba6d040577c98c97e16ab33898c3dc",
+      "lockfiles": {
+        "package-lock.json": "abde936de03de5983273c44d60b2e7fcb5302f54667e236270d96d689e805904"
+      }
+    },
+    "prompt": "Let date-time strings accept numeric timestamps: a number given for a { type: 'string', format: 'date-time' } property should be treated as milliseconds since the epoch and serialized as an ISO date-time.",
+    "requirement": "For format date-time, a finite number n is serialized as the quoted ISO string of new Date(n) (milliseconds since the epoch). A non-finite number (NaN, ±Infinity) throws `The value \"<n>\" cannot be converted to a date-time.`. Date objects, strings and null behave as before; formats date and time are unchanged.",
+    "oracle": null,
+    "suite": {
+      "dir": "FJ-03",
+      "files": {
+        "timestamps.test.js": "1dc63ba261838cc15dc1209be37d5149383b3f2be69dc4153fb00089d38374e0"
+      },
+      "command": [
+        "node",
+        "--test",
+        "test/hidden/*.test.js"
+      ],
+      "install_to": "test/hidden",
+      "owned_paths": [
+        "test/hidden/**"
+      ],
+      "adjudicate_checks": []
+    },
+    "qualification": {
+      "grader_sha256": "3116461e6934079a16ed5af0ae2c35e701094b699f62feeea86fe2106d4ea886",
+      "suite_sha256": "221afb768d8fbee862b412fa2dab3194156e473dcd6e6e2a9185b46507b54645",
+      "reference": {
+        "patch_sha256": "1fca3f269eb017947d5adc1d371c2067ec487ce8e97fa3cc8e5aef899061943b",
+        "outcome": "pass"
+      },
+      "incorrect": [
+        {
+          "label": "seconds",
+          "patch_sha256": "70d057a824b7a245c8e00981e3cbbf67d6bea7578891565cb8d9a85c620ad3cd",
+          "outcome": "fail"
+        },
+        {
+          "label": "unguarded",
+          "patch_sha256": "672ce8468abb8cd83b0304cfaca06ffc0b81a3d11fe0c895d021cc9f8825b54e",
+          "outcome": "fail"
+        },
+        {
+          "label": "unquoted",
+          "patch_sha256": "b9d43f5113a3dceaee6af2a56c042a14411c1a40df406af859ee38552c5e3e69",
+          "outcome": "fail"
+        }
+      ],
+      "qualified_at": "2026-10-08T13:39:31.428Z"
+    },
+    "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
+    "provenance": {
+      "author": "Claude (QB developer side; dev split only)",
+      "created_at": "2026-10-08T00:00:00Z",
+      "tuned_during_development": false
+    },
+    "changelog": []
+  },
+  "oracle_draft": {
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "0 serializes as \"1970-01-01T00:00:00.000Z\""
+      },
+      {
+        "id": "AC-2",
+        "criterion": "1704164645000 serializes as \"2024-01-02T03:04:05.000Z\""
+      },
+      {
+        "id": "AC-3",
+        "criterion": "NaN and Infinity throw the usual 'cannot be converted to a date-time' error"
+      },
+      {
+        "id": "AC-4",
+        "criterion": "Date objects and strings behave as before"
+      }
+    ]
+  }
+}

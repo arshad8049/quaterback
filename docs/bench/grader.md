@@ -76,7 +76,7 @@ Attributing a load failure to the patch is sound only because the suite is quali
 
 - `bench/run.js` loads a task's `spec` (a path relative to the task file), refuses it unless `checkFrozen` passes, and scores each arm with `gradeArm`.
 - QB's L4 verdict is printed and stored as the internal verdict, never as the score.
-- Tasks without a frozen spec are `ungraded`. The current six tasks have no spec yet; writing those is the QB-30 curation work.
+- Tasks without a frozen spec are `ungraded`. The six legacy tasks still have no spec. The QB-30 dev set (`docs/bench/curation.md`) is written as frozen specs from the start, and specs name their repository as `qb-bench:<name>`, which the grader resolves to the reproducible build (`bench/repos.js`).
 - Arm budgets, ablations and memory isolation are QB-28. Experiment records and the matched report are QB-29.
 
 ## Tests

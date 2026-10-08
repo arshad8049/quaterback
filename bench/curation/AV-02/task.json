@@ -1,0 +1,45 @@
+{
+  "id": "AV-02",
+  "split": "dev",
+  "stratum": {
+    "type": "state",
+    "repository": "avvio"
+  },
+  "repo": "qb-bench:avvio",
+  "base_rev": "4c5d9176b6e4457bff6e2524e7873f4f6a5193c3",
+  "prompt": "app.toJSON() (and TimeTree#toJSON) hand out the live plugin tree: a caller that edits the returned object (e.g. relabels a node or pushes into nodes) changes what later toJSON() and prettyPrint() report. Return a copy the caller can't use to change the internal state.",
+  "requirement": "TimeTree#toJSON and Boot#toJSON return a deep copy of the tree: the same data, but no object or array shared with the internal tree at any depth. Mutating the result never affects later toJSON or prettyPrint output. An empty tree still returns {}.",
+  "oracle": {
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "the returned tree has the same structure, labels and timings"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "pushing into or editing the returned nodes at any depth does not change a later toJSON() or prettyPrint()"
+      },
+      {
+        "id": "AC-3",
+        "criterion": "TimeTree#toJSON on its own has the same guarantee"
+      },
+      {
+        "id": "AC-4",
+        "criterion": "an empty TimeTree's toJSON() returns {}"
+      }
+    ]
+  },
+  "suite": {
+    "command": [
+      "node",
+      "--test",
+      "test/hidden/*.test.js"
+    ]
+  },
+  "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
+  "provenance": {
+    "author": "Claude (QB developer side; dev split only)",
+    "created_at": "2026-10-08T00:00:00Z",
+    "tuned_during_development": false
+  }
+}

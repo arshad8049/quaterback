@@ -1,0 +1,15 @@
+'use strict'
+const { test } = require('node:test')
+const assert = require('node:assert/strict')
+const fp = require('../../index.js')
+const NAME = Symbol.for('fastify.display-name')
+const META = Symbol.for('plugin-meta')
+
+const rejects = (name, kind) => assert.throws(() => fp(function f () {}, { name }), (e) => e instanceof TypeError && e.message === `fastify-plugin expects a name string, instead got '${kind}'`)
+test('a number is rejected', () => rejects(123, 'number'))
+test('an object is rejected', () => rejects({}, 'object'))
+test('false is rejected', () => rejects(false, 'boolean'))
+test('null is rejected', () => rejects(null, 'object'))
+test('no name auto-names', () => assert.match(fp(function auto () {})[NAME], /^auto-auto-\d+$/))
+test("'' auto-names", () => assert.match(fp(function empty () {}, { name: '' })[NAME], /^empty-auto-\d+$/))
+test('string names work', () => assert.equal(fp(function s () {}, { name: 'ok' })[NAME], 'ok'))

@@ -1,0 +1,83 @@
+{
+  "schema": "qb-task-draft/1",
+  "spec": {
+    "schema": "qb-task-spec/1",
+    "id": "FJ-05",
+    "version": 1,
+    "split": "dev",
+    "stratum": {
+      "type": "errors",
+      "repository": "fast-json-stringify"
+    },
+    "repo": {
+      "source": "qb-bench:fast-json-stringify",
+      "base_rev": "8959a794e4ba6d040577c98c97e16ab33898c3dc",
+      "lockfiles": {
+        "package-lock.json": "abde936de03de5983273c44d60b2e7fcb5302f54667e236270d96d689e805904"
+      }
+    },
+    "prompt": "largeArraySize validation is too lax: '20000abc' and '1.5' are accepted as strings (parseInt keeps the leading digits), and negative sizes like -5 or -5n are accepted. Only accept positive whole sizes and reject anything else with the existing 'Unsupported large array size' error.",
+    "requirement": "options.largeArraySize is accepted only as a positive integer number, a positive BigInt, or a string consisting solely of decimal digits that denotes a positive integer. Anything else that is set (truthy) throws the existing error `Unsupported large array size. Expected integer-like, got <typeof> with value <value>`. Valid sizes behave as before.",
+    "oracle": null,
+    "suite": {
+      "dir": "FJ-05",
+      "files": {
+        "large-array-size.test.js": "dcd5de50294241bfd4dc980c940cd6f622b3720d2139111aec7fb6c32450a3ec"
+      },
+      "command": [
+        "node",
+        "--test",
+        "test/hidden/*.test.js"
+      ],
+      "install_to": "test/hidden",
+      "owned_paths": [
+        "test/hidden/**"
+      ],
+      "adjudicate_checks": []
+    },
+    "qualification": {
+      "grader_sha256": "3116461e6934079a16ed5af0ae2c35e701094b699f62feeea86fe2106d4ea886",
+      "suite_sha256": "db9891ac7c9d0adcca0c860b76619fbdc27d7504d9306b1071631f20c9d31fcb",
+      "reference": {
+        "patch_sha256": "d0bd629031964d9c81355193a091cd040b80b0bac81b55b3f3aaa74899d0ed2c",
+        "outcome": "pass"
+      },
+      "incorrect": [
+        {
+          "label": "number-coercion",
+          "patch_sha256": "989a069af7b513d7765bb758c285a2b9f84b6d6c39b3c8dc3223ea0ffb9b862a",
+          "outcome": "fail"
+        },
+        {
+          "label": "strings-only",
+          "patch_sha256": "e22dc83a9d3de3d2e3de2ba819a9a59c7e43957686cf34e2fc62342a0df58db2",
+          "outcome": "fail"
+        }
+      ],
+      "qualified_at": "2026-10-08T13:41:57.832Z"
+    },
+    "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
+    "provenance": {
+      "author": "Claude (QB developer side; dev split only)",
+      "created_at": "2026-10-08T00:00:00Z",
+      "tuned_during_development": false
+    },
+    "changelog": []
+  },
+  "oracle_draft": {
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "'20000abc', '1.5', ' 100' and '1e3' throw 'Unsupported large array size. Expected integer-like, got string with value …'"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "-5 and -5n throw the same error (with number / bigint)"
+      },
+      {
+        "id": "AC-3",
+        "criterion": "100, '100' and 100n are accepted"
+      }
+    ]
+  }
+}

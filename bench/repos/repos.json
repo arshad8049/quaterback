@@ -1,0 +1,92 @@
+{
+  "schema": "qb-bench-repos/1",
+  "note": "Public task repositories for the QB-30 dev set (and, written independently, the holdout). Built by bench/repos.js; see docs/bench/curation.md.",
+  "repos": {
+    "fast-json-stringify": {
+      "upstream": "https://github.com/fastify/fast-json-stringify.git",
+      "tag": "v7.0.1",
+      "commit": "6aa2ed4cc403cf68d7c31ee4dd14724372fea664",
+      "license": "MIT",
+      "test": [
+        "node",
+        "--test",
+        "test/*.test.js"
+      ],
+      "keep_dev_dependencies": [
+        "is-my-json-valid",
+        "typebox"
+      ],
+      "remove": [
+        "test/webpack.test.js",
+        "test/standalone-mode.test.js"
+      ],
+      "notes": "The standalone-mode test imports the package by its own name (a self devDependency that npm locks as a link: dependency, which the sandbox refuses); the webpack test needs a bundler toolchain. Both are removed from the base."
+    },
+    "light-my-request": {
+      "upstream": "https://github.com/fastify/light-my-request.git",
+      "tag": "v6.6.0",
+      "commit": "ba843523df70e057efa678b4ebf6a2bb313677b9",
+      "license": "BSD-3-Clause",
+      "test": [
+        "node",
+        "--test",
+        "test/*.test.js"
+      ],
+      "keep_dev_dependencies": [
+        "end-of-stream",
+        "express",
+        "form-auto-content",
+        "form-data",
+        "formdata-node",
+        "multer",
+        "undici"
+      ],
+      "remove": []
+    },
+    "avvio": {
+      "upstream": "https://github.com/fastify/avvio.git",
+      "tag": "v9.3.0",
+      "commit": "39a7367ba3c829acd17bbecaea3e43b72a00420d",
+      "license": "MIT",
+      "test": [
+        "node",
+        "--test",
+        "test/**/*.test.js"
+      ],
+      "keep_dev_dependencies": [],
+      "remove": []
+    },
+    "process-warning": {
+      "upstream": "https://github.com/fastify/process-warning.git",
+      "tag": "v5.1.0",
+      "commit": "2b3001a6665760157764f98e8a7e6f029808b2c8",
+      "license": "MIT",
+      "test": [
+        "node",
+        "--test",
+        "test/*.test.js"
+      ],
+      "keep_dev_dependencies": [],
+      "remove": [
+        "test/jest.test.js"
+      ]
+    },
+    "fastify-plugin": {
+      "upstream": "https://github.com/fastify/fastify-plugin.git",
+      "tag": "v6.0.0",
+      "commit": "05c1c32b3cbfc86390243a0366e3288762c43bfc",
+      "license": "MIT",
+      "test": [
+        "node",
+        "--test",
+        "test/**/*.test.js",
+        "test/test.js"
+      ],
+      "keep_dev_dependencies": [
+        "fastify",
+        "proxyquire"
+      ],
+      "remove": []
+    }
+  }
+}

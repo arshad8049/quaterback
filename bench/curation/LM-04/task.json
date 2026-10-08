@@ -1,0 +1,41 @@
+{
+  "id": "LM-04",
+  "split": "dev",
+  "stratum": {
+    "type": "errors",
+    "repository": "light-my-request"
+  },
+  "repo": "qb-bench:light-my-request",
+  "base_rev": "e02b8f2ac1290d99a2ec67649606991bb2a08db3",
+  "prompt": "A header set to null is sent as the literal string 'null' (headers: { 'x-a': null } arrives as x-a: null). Reject it the same way undefined header values are rejected.",
+  "requirement": "A header whose value is null makes inject fail with an assertion error whose message is 'invalid value \"null\" for header <name>' (the existing undefined check keeps its message 'invalid value \"undefined\" for header <name>'). Other values are converted to strings as before.",
+  "oracle": {
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "headers { 'x-a': null } fails with message 'invalid value \"null\" for header x-a'"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "headers { 'x-a': undefined } still fails with 'invalid value \"undefined\" for header x-a'"
+      },
+      {
+        "id": "AC-3",
+        "criterion": "0, false and '' header values are still sent as '0', 'false', ''"
+      }
+    ]
+  },
+  "suite": {
+    "command": [
+      "node",
+      "--test",
+      "test/hidden/*.test.js"
+    ]
+  },
+  "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
+  "provenance": {
+    "author": "Claude (QB developer side; dev split only)",
+    "created_at": "2026-10-08T00:00:00Z",
+    "tuned_during_development": false
+  }
+}

@@ -1,0 +1,92 @@
+{
+  "schema": "qb-task-draft/1",
+  "spec": {
+    "schema": "qb-task-spec/1",
+    "id": "PW-04",
+    "version": 1,
+    "split": "dev",
+    "stratum": {
+      "type": "addition",
+      "repository": "process-warning"
+    },
+    "repo": {
+      "source": "qb-bench:process-warning",
+      "base_rev": "6d4b11b9159ea2a77fe68420ec4806891c582b6f",
+      "lockfiles": {
+        "package-lock.json": "8f806ba8a79e7c69a60f587d92fd49e5c6e63c46f7838bee412af737ec671948"
+      }
+    },
+    "prompt": "Add an isWarning(value) export that tells whether a value is a warning item created by createWarning or createDeprecation.",
+    "requirement": "process-warning exports isWarning(value) (also on the default and processWarning namespace objects). It returns the boolean true for any function returned by createWarning or createDeprecation, and false for everything else: other functions, plain objects (even ones that copy a warning's name/code/message/emitted properties), null and undefined. It never throws.",
+    "oracle": null,
+    "suite": {
+      "dir": "PW-04",
+      "files": {
+        "is-warning.test.js": "aa43ddf5b9cdcd7137c6b3cc3867d4365b9ef8435a8f87f29d41a8504d7191da"
+      },
+      "command": [
+        "node",
+        "--test",
+        "test/hidden/*.test.js"
+      ],
+      "install_to": "test/hidden",
+      "owned_paths": [
+        "test/hidden/**"
+      ],
+      "adjudicate_checks": []
+    },
+    "qualification": {
+      "grader_sha256": "3116461e6934079a16ed5af0ae2c35e701094b699f62feeea86fe2106d4ea886",
+      "suite_sha256": "99d946ade8ac69e9049f65653ad3bb3ea383d5db03d39e24b586d90ec65c1fb8",
+      "reference": {
+        "patch_sha256": "45824e7c21ab2f7dab0897e3894bf1e0e9e63287db87ad56f21851cca05b57bd",
+        "outcome": "pass"
+      },
+      "incorrect": [
+        {
+          "label": "duck-typing",
+          "patch_sha256": "ba74786ec4de5f56296ea5fa043fca1e2aae315fb1675411e367a78b32351ddb",
+          "outcome": "fail"
+        },
+        {
+          "label": "throws-on-null",
+          "patch_sha256": "10892f74d4ee645f47c6e43ec96adb316a96f4ef2321a17e6a95bd42f2dcf78a",
+          "outcome": "fail"
+        },
+        {
+          "label": "truthy-not-boolean",
+          "patch_sha256": "9e1d1679c76391c408f09a686938673c8a6febdbab9415bde26f7145cd88ef5c",
+          "outcome": "fail"
+        }
+      ],
+      "qualified_at": "2026-10-08T13:33:16.669Z"
+    },
+    "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
+    "provenance": {
+      "author": "Claude (QB developer side; dev split only)",
+      "created_at": "2026-10-08T00:00:00Z",
+      "tuned_during_development": false
+    },
+    "changelog": []
+  },
+  "oracle_draft": {
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "isWarning(createWarning({...})) === true and isWarning(createDeprecation({...})) === true"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "isWarning returns false for plain functions, objects that mimic a warning's properties, null and undefined"
+      },
+      {
+        "id": "AC-3",
+        "criterion": "isWarning is available as require('process-warning').isWarning and on .default and .processWarning"
+      },
+      {
+        "id": "AC-4",
+        "criterion": "the result is a boolean"
+      }
+    ]
+  }
+}

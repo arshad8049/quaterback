@@ -1,0 +1,45 @@
+{
+  "id": "FJ-06",
+  "split": "dev",
+  "stratum": {
+    "type": "integration",
+    "repository": "fast-json-stringify"
+  },
+  "repo": "qb-bench:fast-json-stringify",
+  "base_rev": "8959a794e4ba6d040577c98c97e16ab33898c3dc",
+  "prompt": "Add a 'halfEven' option to integer rounding (banker's rounding): build(schema, { rounding: 'halfEven' }) should round values exactly halfway between two integers to the even one, and otherwise round to the nearest integer.",
+  "requirement": "options.rounding accepts 'halfEven' in addition to floor/ceil/round/trunc: a non-integer number for a type integer value is rounded to the nearest integer, and exact halves go to the even neighbour (0.5 \u2192 0, 1.5 \u2192 2, 2.5 \u2192 2, -2.5 \u2192 -2, -3.5 \u2192 -4). Non-half values round normally (2.4 \u2192 2, 2.6 \u2192 3, -2.6 \u2192 -3). Unknown methods still throw 'Unsupported integer rounding method <name>'. The other methods are unchanged.",
+  "oracle": {
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "build({ type: 'integer' }, { rounding: 'halfEven' }) is accepted"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "halves go to the even integer: 0.5\u21920, 1.5\u21922, 2.5\u21922, -2.5\u2192-2, -3.5\u2192-4"
+      },
+      {
+        "id": "AC-3",
+        "criterion": "non-halves round to nearest: 2.4\u21922, 2.6\u21923, -2.6\u2192-3"
+      },
+      {
+        "id": "AC-4",
+        "criterion": "unknown methods still throw; 'round' is unchanged"
+      }
+    ]
+  },
+  "suite": {
+    "command": [
+      "node",
+      "--test",
+      "test/hidden/*.test.js"
+    ]
+  },
+  "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
+  "provenance": {
+    "author": "Claude (QB developer side; dev split only)",
+    "created_at": "2026-10-08T00:00:00Z",
+    "tuned_during_development": false
+  }
+}

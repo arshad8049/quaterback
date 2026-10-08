@@ -1,0 +1,88 @@
+{
+  "schema": "qb-task-draft/1",
+  "spec": {
+    "schema": "qb-task-spec/1",
+    "id": "PW-05",
+    "version": 1,
+    "split": "dev",
+    "stratum": {
+      "type": "already_satisfied",
+      "repository": "process-warning"
+    },
+    "repo": {
+      "source": "qb-bench:process-warning",
+      "base_rev": "6d4b11b9159ea2a77fe68420ec4806891c582b6f",
+      "lockfiles": {
+        "package-lock.json": "8f806ba8a79e7c69a60f587d92fd49e5c6e63c46f7838bee412af737ec671948"
+      }
+    },
+    "prompt": "Tests need to re-trigger once-only warnings. Make it possible to emit a once-only warning again by setting warning.emitted = false, without making it unlimited: it must still emit only once between resets.",
+    "requirement": "For a warning created without unlimited, the first call emits and returns true, later calls return false and emit nothing; after warning.emitted = false the next call emits and returns true again, then later calls return false again. (process-warning v5.1.0 already behaves this way: the correct change is no change.)",
+    "oracle": null,
+    "suite": {
+      "dir": "PW-05",
+      "files": {
+        "reemit.test.js": "8a779c48ca6454f6d91a3317a6ac56fe92309e8b7f860374ae08cc0bd264891a"
+      },
+      "command": [
+        "node",
+        "--test",
+        "test/hidden/*.test.js"
+      ],
+      "install_to": "test/hidden",
+      "owned_paths": [
+        "test/hidden/**"
+      ],
+      "adjudicate_checks": []
+    },
+    "qualification": {
+      "grader_sha256": "3116461e6934079a16ed5af0ae2c35e701094b699f62feeea86fe2106d4ea886",
+      "suite_sha256": "95e969e832539ae8e851d3b4adb2ce7c7ea48ba6274333ef83f0035b08e36285",
+      "reference": {
+        "patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "outcome": "pass"
+      },
+      "incorrect": [
+        {
+          "label": "always-emit",
+          "patch_sha256": "db0fec6616e38507d33ace202d4a850f81b175312ba5cec7cce27e870a4783f5",
+          "outcome": "fail"
+        },
+        {
+          "label": "closure-flag",
+          "patch_sha256": "804e607052453c3126d6b73930d30d8dcb24c9efac54b8889361b5452ae63cc6",
+          "outcome": "fail"
+        }
+      ],
+      "qualified_at": "2026-10-08T13:34:17.637Z"
+    },
+    "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
+    "provenance": {
+      "author": "Claude (QB developer side; dev split only)",
+      "created_at": "2026-10-08T00:00:00Z",
+      "tuned_during_development": false,
+      "notes": "Already satisfied at v5.1.0: tests whether an agent makes an unneeded change that breaks once-only semantics."
+    },
+    "changelog": []
+  },
+  "oracle_draft": {
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "a once-only warning emits on the first call only (later calls return false)"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "after warning.emitted = false, the next call emits and returns true"
+      },
+      {
+        "id": "AC-3",
+        "criterion": "after that re-emission it is once-only again"
+      },
+      {
+        "id": "AC-4",
+        "criterion": "unlimited warnings are unaffected"
+      }
+    ]
+  }
+}

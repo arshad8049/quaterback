@@ -1,0 +1,41 @@
+{
+  "id": "AV-06",
+  "split": "dev",
+  "stratum": {
+    "type": "refactor",
+    "repository": "avvio"
+  },
+  "repo": "qb-bench:avvio",
+  "base_rev": "4c5d9176b6e4457bff6e2524e7873f4f6a5193c3",
+  "prompt": "Refactor: move the tree pretty-printer (prettyPrintTimeTree) out of lib/time-tree.js into its own module lib/pretty-print.js, exported as a named function, and have TimeTree use it. Output must not change.",
+  "requirement": "lib/pretty-print.js exports { prettyPrintTimeTree } taking a TimeTree JSON node (and optional prefix) and returning exactly the string TimeTree#prettyPrint returned before. lib/time-tree.js no longer defines its own copy and uses the new module; TimeTree#prettyPrint and app.prettyPrint output are unchanged byte for byte.",
+  "oracle": {
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "require('lib/pretty-print').prettyPrintTimeTree(tree.toJSON()) equals tree.prettyPrint() and the known output for a nested tree"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "lib/time-tree.js no longer contains its own prettyPrintTimeTree definition and requires ./pretty-print"
+      },
+      {
+        "id": "AC-3",
+        "criterion": "app.prettyPrint() output is unchanged"
+      }
+    ]
+  },
+  "suite": {
+    "command": [
+      "node",
+      "--test",
+      "test/hidden/*.test.js"
+    ]
+  },
+  "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
+  "provenance": {
+    "author": "Claude (QB developer side; dev split only)",
+    "created_at": "2026-10-08T00:00:00Z",
+    "tuned_during_development": false
+  }
+}

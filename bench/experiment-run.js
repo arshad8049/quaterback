@@ -102,7 +102,7 @@ async function runExperiment(expDir, o) {
     // external grading included; model_call_deadline_ms is the per-call limit in force.
     const budgetRun = budget.startRun({ deadlineMs: m.budget.trial_deadline_ms, agent: AGENT, modelCallMs: m.budget.model_call_deadline_ms });
     try {
-      ws = createWorkspace(spec.repo.source, { baseRev: spec.repo.base_rev, label: `${p.task_id}-${p.arm}` });
+      ws = createWorkspace(require('./repos').resolveSource(spec.repo.source), { baseRev: spec.repo.base_rev, label: `${p.task_id}-${p.arm}` });
       run = runStore.createRun({ kind: 'bench-arm', request: spec.prompt, repoPath: ws.dir, baseSha: ws.baseSha, agent: AGENT,
         config: { experiment_id: m.experiment_id, trial_id: p.trial_id, arm: p.arm, task_id: p.task_id }, runsDir: o.runsDir });
       out = await runArm({ arm: p.arm, spec, repoPath: ws.dir, run, budgetRun, baseSha: ws.baseSha, agentTimeMs: m.budget.agent_time_ms,

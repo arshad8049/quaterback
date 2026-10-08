@@ -19,9 +19,11 @@ The arms are defined in `docs/bench/arms.md` (`bench/arms.js` `ARMS`). Each one 
   - It has a prompt (the only text agents see), a human semantic requirement, a hidden check suite (qualified against a correct reference and at least two incorrect implementations), adjudication rules, the base commit and lockfile hashes.
   - It is frozen in `bench/specs.lock.json` before any arm runs.
 - **Strata:** every spec declares `stratum.type` (addition, bug_fix, integration, refactor, state, errors, already_satisfied) and `stratum.repository`.
-- **Development set:** 30–50 tasks from several repositories, used to debug the harness and choose the trial count.
+- **Repositories:** pinned public repositories, built reproducibly (`qb-bench:<name>`, `bench/repos.js`; `docs/bench/curation.md`). Every machine gets the same base commit.
+- **Development set:** 30–50 tasks from several repositories, used to debug the harness and choose the trial count. It is written on the QB side (`docs/bench/curation.md`: 30 tasks, 5 repositories) and is never used for headline claims.
   - The six legacy tasks in `bench/tasks.json` belong here only. They were tuned during development (`split: dev`, `tuned_during_development: true`) and must never appear in a holdout.
 - **Holdout set:** a separate, untouched set across repositories, covering every stratum.
+  - It is written by an author **outside QB development**, following `docs/bench/curation.md` (KAN-63).
   - Holdout specs are written and frozen before the protocol review, and the reviewer approves their exact set hash.
   - Nobody on the QB side runs, debugs or reads agent output on holdout tasks before the approved execution.
 
@@ -75,6 +77,6 @@ The reviewer's approval goes in the manifest as `approval`. Not a name alone; it
 
 ## Open items (outside the harness)
 
-1. **Task curation:** the 30–50 dev tasks and the holdout set across repositories, with qualified hidden suites.
-2. **Independent protocol review**, and the approval record above.
-3. **The evaluation run itself:** paid agent time, and a Claude Code login (`qb auth login`).
+1. **Task curation:** the dev set (KAN-62, `docs/bench/curation.md`) and the independently written holdout (KAN-63), with qualified hidden suites.
+2. **Independent protocol review**, and the approval record above (KAN-63).
+3. **The evaluation run itself:** paid agent time, and a Claude Code login (`qb auth login`) (KAN-64).

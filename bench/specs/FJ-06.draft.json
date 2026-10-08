@@ -1,0 +1,92 @@
+{
+  "schema": "qb-task-draft/1",
+  "spec": {
+    "schema": "qb-task-spec/1",
+    "id": "FJ-06",
+    "version": 1,
+    "split": "dev",
+    "stratum": {
+      "type": "integration",
+      "repository": "fast-json-stringify"
+    },
+    "repo": {
+      "source": "qb-bench:fast-json-stringify",
+      "base_rev": "8959a794e4ba6d040577c98c97e16ab33898c3dc",
+      "lockfiles": {
+        "package-lock.json": "abde936de03de5983273c44d60b2e7fcb5302f54667e236270d96d689e805904"
+      }
+    },
+    "prompt": "Add a 'halfEven' option to integer rounding (banker's rounding): build(schema, { rounding: 'halfEven' }) should round values exactly halfway between two integers to the even one, and otherwise round to the nearest integer.",
+    "requirement": "options.rounding accepts 'halfEven' in addition to floor/ceil/round/trunc: a non-integer number for a type integer value is rounded to the nearest integer, and exact halves go to the even neighbour (0.5 → 0, 1.5 → 2, 2.5 → 2, -2.5 → -2, -3.5 → -4). Non-half values round normally (2.4 → 2, 2.6 → 3, -2.6 → -3). Unknown methods still throw 'Unsupported integer rounding method <name>'. The other methods are unchanged.",
+    "oracle": null,
+    "suite": {
+      "dir": "FJ-06",
+      "files": {
+        "half-even.test.js": "a7056b6b41550b473333c978f7e1a31902d97ba3ed5c92e9036f1ea54a2292a2"
+      },
+      "command": [
+        "node",
+        "--test",
+        "test/hidden/*.test.js"
+      ],
+      "install_to": "test/hidden",
+      "owned_paths": [
+        "test/hidden/**"
+      ],
+      "adjudicate_checks": []
+    },
+    "qualification": {
+      "grader_sha256": "3116461e6934079a16ed5af0ae2c35e701094b699f62feeea86fe2106d4ea886",
+      "suite_sha256": "71adef744feae958aae4910dbb846d751ff81fed5d363f04e6302213865e3f24",
+      "reference": {
+        "patch_sha256": "d0a72ed87108249ab74001c6a7d3a3a375d5e0ffab1245efb02f604b4a6df844",
+        "outcome": "pass"
+      },
+      "incorrect": [
+        {
+          "label": "negatives-round",
+          "patch_sha256": "e93b49e6c576fcaa1f94da542d9c95cef67d1ead11979bbd1abeafe37e8ab88d",
+          "outcome": "fail"
+        },
+        {
+          "label": "plain-round",
+          "patch_sha256": "dc165da87e173bc807b9ca55348291ae332a90ffc61e07abd70083dbd87b9d42",
+          "outcome": "fail"
+        },
+        {
+          "label": "serializer-only",
+          "patch_sha256": "e23312b31ca334899be51f6d085e3ce9b2d4dfd503a8d29afe80ab0ce3552570",
+          "outcome": "fail"
+        }
+      ],
+      "qualified_at": "2026-10-08T13:43:36.978Z"
+    },
+    "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
+    "provenance": {
+      "author": "Claude (QB developer side; dev split only)",
+      "created_at": "2026-10-08T00:00:00Z",
+      "tuned_during_development": false
+    },
+    "changelog": []
+  },
+  "oracle_draft": {
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "build({ type: 'integer' }, { rounding: 'halfEven' }) is accepted"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "halves go to the even integer: 0.5→0, 1.5→2, 2.5→2, -2.5→-2, -3.5→-4"
+      },
+      {
+        "id": "AC-3",
+        "criterion": "non-halves round to nearest: 2.4→2, 2.6→3, -2.6→-3"
+      },
+      {
+        "id": "AC-4",
+        "criterion": "unknown methods still throw; 'round' is unchanged"
+      }
+    ]
+  }
+}

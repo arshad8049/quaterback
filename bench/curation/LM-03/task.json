@@ -1,0 +1,45 @@
+{
+  "id": "LM-03",
+  "split": "dev",
+  "stratum": {
+    "type": "addition",
+    "repository": "light-my-request"
+  },
+  "repo": "qb-bench:light-my-request",
+  "base_rev": "e02b8f2ac1290d99a2ec67649606991bb2a08db3",
+  "prompt": "The chainable API can't set the client address or the authority: add .remoteAddress(address) and .authority(host) to the chain returned by inject(dispatch), working like .headers() / .query().",
+  "requirement": "inject(dispatch) chains gain remoteAddress(value) and authority(value): each sets the corresponding inject option (remoteAddress \u2192 req.socket.remoteAddress; authority \u2192 the Host header when none is given) and returns the chain. Like the other chain setters, calling them after the request has been invoked throws 'The dispatch function has already been invoked'.",
+  "oracle": {
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "inject(d).get('/').remoteAddress('10.0.0.1') makes req.socket.remoteAddress '10.0.0.1'"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "inject(d).get('/').authority('example.test') makes req.headers.host 'example.test'"
+      },
+      {
+        "id": "AC-3",
+        "criterion": "both return the chain (calls can be chained)"
+      },
+      {
+        "id": "AC-4",
+        "criterion": "calling either after the request is invoked throws 'The dispatch function has already been invoked'"
+      }
+    ]
+  },
+  "suite": {
+    "command": [
+      "node",
+      "--test",
+      "test/hidden/*.test.js"
+    ]
+  },
+  "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
+  "provenance": {
+    "author": "Claude (QB developer side; dev split only)",
+    "created_at": "2026-10-08T00:00:00Z",
+    "tuned_during_development": false
+  }
+}

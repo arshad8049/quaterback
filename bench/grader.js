@@ -49,6 +49,7 @@ const { classifyTestRun } = require('../verify/tests');
 const { globToRegExp, parseDiffHeader, supportedPath } = require('../verify/policy');
 const { AGENT_IMAGE } = require('../lib/sandbox/agent');
 const S = require('./schemas');
+const { resolveSource } = require('./repos');
 
 const SUITES_ROOT = path.join(__dirname, 'suites');
 /** The grader's own code: a change here invalidates every qualification. */
@@ -137,7 +138,7 @@ function gitBlobId(buf) {
  * @returns {string|null} why the suite is not hidden
  */
 function suiteLeak(spec, suiteDir) {
-  const repo = fs.realpathSync(spec.repo.source);
+  const repo = fs.realpathSync(resolveSource(spec.repo.source));
   const suite = fs.realpathSync(suiteDir);
   if (suite === repo || suite.startsWith(repo + path.sep)) return `suite directory is inside the task repository (${spec.repo.source})`;
   for (const rel of Object.keys(spec.suite.files)) {
@@ -233,7 +234,7 @@ async function grade(o) {
   // 4. a fresh pinned checkout — trusted content only; the patch is never applied on the host
   let ws;
   try {
-    ws = createWorkspace(spec.repo.source, { baseRev: spec.repo.base_rev, label: `grade-${spec.id}` });
+    ws = createWorkspace(resolveSource(spec.repo.source), { baseRev: spec.repo.base_rev, label: `grade-${spec.id}` });
   } catch (e) { return result('grader_error', 'workspace_failed', { detail: e.message }); }
   try {
     if (ws.sourceCommit !== spec.repo.base_rev) return result('grader_error', 'base_rev_mismatch');

@@ -1,0 +1,88 @@
+{
+  "schema": "qb-task-draft/1",
+  "spec": {
+    "schema": "qb-task-spec/1",
+    "id": "FJ-02",
+    "version": 1,
+    "split": "dev",
+    "stratum": {
+      "type": "errors",
+      "repository": "fast-json-stringify"
+    },
+    "repo": {
+      "source": "qb-bench:fast-json-stringify",
+      "base_rev": "8959a794e4ba6d040577c98c97e16ab33898c3dc",
+      "lockfiles": {
+        "package-lock.json": "abde936de03de5983273c44d60b2e7fcb5302f54667e236270d96d689e805904"
+      }
+    },
+    "prompt": "Serializing an invalid Date (e.g. new Date('nope')) for a string with format date-time, date or time crashes with a bare 'RangeError: Invalid time value' from toISOString. Throw the library's usual conversion error instead.",
+    "requirement": "For format date-time, date and time, an invalid Date object (getTime() is NaN) makes the serializer throw an Error with message `The value \"Invalid Date\" cannot be converted to a <date-time|date|time>.` — the same wording used for other unconvertible values. Valid dates, strings and null serialize as before.",
+    "oracle": null,
+    "suite": {
+      "dir": "FJ-02",
+      "files": {
+        "invalid-date.test.js": "67ae0feab4f80c9e5d5cfc5cc99f0975c7b9a7d9d764503e2918de3f5e17e295"
+      },
+      "command": [
+        "node",
+        "--test",
+        "test/hidden/*.test.js"
+      ],
+      "install_to": "test/hidden",
+      "owned_paths": [
+        "test/hidden/**"
+      ],
+      "adjudicate_checks": []
+    },
+    "qualification": {
+      "grader_sha256": "3116461e6934079a16ed5af0ae2c35e701094b699f62feeea86fe2106d4ea886",
+      "suite_sha256": "210c30d039846b0efa9ad99b044e50e9806fb0cfb561183525286e9864e833e7",
+      "reference": {
+        "patch_sha256": "3b8b26ec202105ba938aaf78229a0f949fabded625703d5c202adde12e1fb2fa",
+        "outcome": "pass"
+      },
+      "incorrect": [
+        {
+          "label": "date-time-only",
+          "patch_sha256": "bbc11ab4c58b381b618a408d0648f58e41b9d0cf03fd5b94cc1049e0902e3392",
+          "outcome": "fail"
+        },
+        {
+          "label": "empty-string",
+          "patch_sha256": "6688c5c082267064756a3b0e46beeb9930ea418c96d040c4ba87b461c882598a",
+          "outcome": "fail"
+        }
+      ],
+      "qualified_at": "2026-10-08T13:37:56.698Z"
+    },
+    "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
+    "provenance": {
+      "author": "Claude (QB developer side; dev split only)",
+      "created_at": "2026-10-08T00:00:00Z",
+      "tuned_during_development": false,
+      "notes": "Real behaviour of fast-json-stringify v7.0.1 (invalid Date reaches toISOString)."
+    },
+    "changelog": []
+  },
+  "oracle_draft": {
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "date-time with new Date('nope') throws 'The value \"Invalid Date\" cannot be converted to a date-time.'"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "format date and format time throw the same wording with 'date' and 'time'"
+      },
+      {
+        "id": "AC-3",
+        "criterion": "the error is not a RangeError"
+      },
+      {
+        "id": "AC-4",
+        "criterion": "valid dates and strings still serialize"
+      }
+    ]
+  }
+}

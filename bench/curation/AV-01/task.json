@@ -1,0 +1,46 @@
+{
+  "id": "AV-01",
+  "split": "dev",
+  "stratum": {
+    "type": "bug_fix",
+    "repository": "avvio"
+  },
+  "repo": "qb-bench:avvio",
+  "base_rev": "4c5d9176b6e4457bff6e2524e7873f4f6a5193c3",
+  "prompt": "The plugin time tree attaches children to the wrong node when two plugins share a name. In lib/time-tree.js, start two nodes with the same label under root, stop the FIRST one, then start a child whose parent is that label: the child is attached to the stopped node instead of the one still running. Fix it.",
+  "requirement": "TimeTree.stop(nodeId) removes exactly that node from the label table, whatever its position among nodes sharing its label. A later start(parentLabel, \u2026) attaches to the most recently started node with that label that is still running. Stopping an unknown id is a no-op.",
+  "oracle": {
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "with two running nodes labelled 'p', stopping the first and then starting a child of 'p' attaches the child to the second"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "stopping the second instead attaches the child to the first"
+      },
+      {
+        "id": "AC-3",
+        "criterion": "stopping an unknown id changes nothing"
+      },
+      {
+        "id": "AC-4",
+        "criterion": "single-node behaviour is unchanged"
+      }
+    ]
+  },
+  "suite": {
+    "command": [
+      "node",
+      "--test",
+      "test/hidden/*.test.js"
+    ]
+  },
+  "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
+  "provenance": {
+    "author": "Claude (QB developer side; dev split only)",
+    "created_at": "2026-10-08T00:00:00Z",
+    "tuned_during_development": false,
+    "notes": "Real behaviour of avvio v9.3.0 (kUntrackNode pops the last same-label node)."
+  }
+}
