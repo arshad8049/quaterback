@@ -100,15 +100,16 @@ async function handleBetaAccess(request, env) {
 
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
   const ipHash = await sha256Hex(`qb-signup:${ip}`);
-  const recent = await env.DB.prepare('SELECT COUNT(*) AS n FROM signup_attempts WHERE ip_hash = ? AND created_at > ?').bind(ipHash, hourAgo()).first();
-  if (recent && recent.n >= MAX_SIGNUPS_PER_IP_HOUR) return json({ error: 'Too many requests' }, 429);
-  await env.DB.prepare('INSERT INTO signup_attempts (ip_hash, created_at) VALUES (?, ?)').bind(ipHash, new Date().toISOString()).run();
+  if (!(await admit(env, 'signup_attempts', 'ip_hash', ipHash, MAX_SIGNUPS_PER_IP_HOUR))) return json({ error: 'Too many requests' }, 429);
 
   const referrer = (request.headers.get('Referer') || '').slice(0, 512) || null;
   const now = new Date().toISOString();
   const welcomeKey = `welcome:${input.email}`; const ownerKey = `owner-notify:${input.email}`;
+  // A delivery that already completed (sent, or closed as dead / legacy) is never queued again,
+  // even after retention removed its row: delivery_completions outlives the delivery rows.
   const queue = `INSERT INTO email_deliveries (idempotency_key, kind, recipient, payload, status, attempts, created_at, next_attempt_at)
-    VALUES (?, ?, ?, ?, 'pending', 0, ?, ?) ON CONFLICT(idempotency_key) DO NOTHING`;
+    SELECT ?, ?, ?, ?, 'pending', 0, ?, ? WHERE NOT EXISTS (SELECT 1 FROM delivery_completions WHERE key_hash = ?)
+    ON CONFLICT(idempotency_key) DO NOTHING`;
   // QB-35 re-review: the registration and BOTH delivery intents commit atomically (one D1 batch =
   // one transaction): a failure anywhere leaves neither, and the client can simply retry. The
   // enqueues are idempotent and run for duplicates too, so a registration that is missing its
@@ -116,8 +117,8 @@ async function handleBetaAccess(request, env) {
   const [ins] = await env.DB.batch([
     env.DB.prepare('INSERT INTO submissions (email, agent, ip, referrer) VALUES (?, ?, ?, ?) ON CONFLICT(email) DO NOTHING')
       .bind(input.email, input.agent, ip === 'unknown' ? null : ip, referrer),
-    env.DB.prepare(queue).bind(welcomeKey, 'welcome', input.email, '{}', now, now),
-    env.DB.prepare(queue).bind(ownerKey, 'owner_notify', OWNER, JSON.stringify({ email: input.email, agent: input.agent, ip: ip === 'unknown' ? null : ip, referrer }), now, now),
+    env.DB.prepare(queue).bind(welcomeKey, 'welcome', input.email, '{}', now, now, await deliveryHash(welcomeKey)),
+    env.DB.prepare(queue).bind(ownerKey, 'owner_notify', OWNER, JSON.stringify({ email: input.email, agent: input.agent, ip: ip === 'unknown' ? null : ip, referrer }), now, now, await deliveryHash(ownerKey)),
   ]);
   const duplicate = !ins.meta || ins.meta.changes !== 1;
   // Sends happen outside the transaction; only pending/failed jobs are claimed, so completed
@@ -145,17 +146,31 @@ async function sendDeliveries(env, keys) {
     try { res = await deliver(d, key, env); } catch (e) { res = { ok: false, error: String(e && e.message || e) }; }
     const attempts = d.attempts + 1;
     if (res.ok) {
-      await env.DB.prepare(`UPDATE email_deliveries SET status = 'sent', attempts = ?, sent_at = ?, last_error = NULL WHERE id = ?`).bind(attempts, new Date().toISOString(), d.id).run();
+      await env.DB.batch([
+        env.DB.prepare(`UPDATE email_deliveries SET status = 'sent', attempts = ?, sent_at = ?, last_error = NULL WHERE id = ?`).bind(attempts, new Date().toISOString(), d.id),
+        await completion(env, key, 'sent'),
+      ]);
       out[key] = 'sent';
     } else {
       const dead = attempts >= MAX_DELIVERY_ATTEMPTS;
       const backoff = Math.min(6 * 3600 * 1000, 60 * 1000 * 2 ** attempts);
-      await env.DB.prepare(`UPDATE email_deliveries SET status = ?, attempts = ?, last_error = ?, next_attempt_at = ? WHERE id = ?`)
-        .bind(dead ? 'dead' : 'failed', attempts, String(res.error || 'send failed').slice(0, 300), isoIn(backoff), d.id).run();
+      const update = env.DB.prepare(`UPDATE email_deliveries SET status = ?, attempts = ?, last_error = ?, next_attempt_at = ? WHERE id = ?`)
+        .bind(dead ? 'dead' : 'failed', attempts, String(res.error || 'send failed').slice(0, 300), isoIn(backoff), d.id);
+      await env.DB.batch(dead ? [update, await completion(env, key, 'dead')] : [update]);
       out[key] = dead ? 'dead' : 'failed';
     }
   }
   return out;
+}
+
+// Durable delivery completion (QB-35 re-review 2): one row per completed delivery, keyed by a
+// sha256 of its idempotency key — no address, payload or log. It is kept after retention removes
+// the delivery row, so a completed (or legacy-suppressed) delivery is never queued again, while a
+// registration whose jobs were never enqueued is still repaired.
+const deliveryHash = (key) => sha256Hex(`qb-delivery:${key}`);
+async function completion(env, key, outcome) {
+  return env.DB.prepare('INSERT INTO delivery_completions (key_hash, outcome, completed_at) VALUES (?, ?, ?) ON CONFLICT(key_hash) DO NOTHING')
+    .bind(await deliveryHash(key), outcome, new Date().toISOString());
 }
 
 async function deliver(d, key, env) {
@@ -192,6 +207,19 @@ const MAX_CODE_REQUESTS_PER_HOUR = 3;
 const MAX_METRICS_PER_HOUR = 60;
 const MAX_METRICS_BODY_BYTES = 4096;
 const SITE = 'https://quaterback.velorallc.workers.dev';
+
+/**
+ * Quota admission atomic with its write (QB-33 re-review 2): one INSERT … SELECT … WHERE count < max.
+ * A single statement runs alone on D1 (and in SQLite), so two concurrent requests at the limit
+ * cannot both pass a separate COUNT. Returns true when the attempt was recorded (admitted).
+ * `table` and `column` are constants from this file, never request input.
+ */
+async function admit(env, table, column, value, max) {
+  const r = await env.DB.prepare(`INSERT INTO ${table} (${column}, created_at) SELECT ?, ?
+    WHERE (SELECT COUNT(*) FROM ${table} WHERE ${column} = ? AND created_at > ?) < ?`)
+    .bind(value, new Date().toISOString(), value, hourAgo(), max).run();
+  return Boolean(r.meta && r.meta.changes === 1);
+}
 
 async function sha256Hex(text) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
@@ -245,9 +273,7 @@ async function handleTelemetryRequest(request, env) {
   // same way, BEFORE registration is looked up, and gets the same answers (202, then 429).
   const accepted = json({ ok: true, message: 'If this email is registered, a one-time link has been sent.' }, 202);
   const emailHash = await sha256Hex(`qb-telemetry-request:${email}`);
-  const recent = await env.DB.prepare('SELECT COUNT(*) AS n FROM telemetry_link_requests WHERE email_hash = ? AND created_at > ?').bind(emailHash, hourAgo()).first();
-  if (recent && recent.n >= MAX_CODE_REQUESTS_PER_HOUR) return json({ error: 'Too many requests' }, 429);
-  await env.DB.prepare('INSERT INTO telemetry_link_requests (email_hash, created_at) VALUES (?, ?)').bind(emailHash, new Date().toISOString()).run();
+  if (!(await admit(env, 'telemetry_link_requests', 'email_hash', emailHash, MAX_CODE_REQUESTS_PER_HOUR))) return json({ error: 'Too many requests' }, 429);
   const registered = await env.DB.prepare('SELECT id FROM submissions WHERE email = ?').bind(email).first();
   if (!registered) return accepted;
   const code = randomHex(32);
@@ -297,7 +323,8 @@ async function handleTelemetryRevoke(request, env) {
 // A telemetry token holder can delete every metric sent with that token (and the token is
 // revoked) — no email to the owner needed. Retention (enforced by the cron handler):
 // client metrics 180 days; used/expired verification codes 7 days; signup rate-limit rows
-// 2 days; sent/dead email deliveries 30 days.
+// 2 days; sent/dead email deliveries 30 days (their completion — a hash and an outcome — is kept,
+// so retention never causes a second welcome; QB-35 re-review 2).
 
 const RETENTION = { client_metrics_days: 180, verifications_days: 7, signup_attempts_days: 2, deliveries_days: 30 };
 const daysAgo = (d) => new Date(Date.now() - d * 24 * 3600 * 1000).toISOString();
@@ -322,7 +349,14 @@ async function applyRetention(env) {
   await env.DB.prepare('DELETE FROM telemetry_verifications WHERE created_at < ?').bind(daysAgo(RETENTION.verifications_days)).run();
   await env.DB.prepare('DELETE FROM telemetry_link_requests WHERE created_at < ?').bind(daysAgo(RETENTION.verifications_days)).run();
   await env.DB.prepare('DELETE FROM signup_attempts WHERE created_at < ?').bind(daysAgo(RETENTION.signup_attempts_days)).run();
-  await env.DB.prepare("DELETE FROM email_deliveries WHERE status IN ('sent', 'dead') AND created_at < ?").bind(daysAgo(RETENTION.deliveries_days)).run();
+  // Sent/dead delivery rows (address, payload, log) are deleted, but each one's completion is
+  // recorded first, in the same transaction — including the migration's legacy markers and rows
+  // written before delivery_completions existed — so the delete never re-opens a delivery.
+  const expired = await env.DB.prepare("SELECT id, idempotency_key, status FROM email_deliveries WHERE status IN ('sent', 'dead') AND created_at < ?")
+    .bind(daysAgo(RETENTION.deliveries_days)).all();
+  for (const d of expired.results) {
+    await env.DB.batch([await completion(env, d.idempotency_key, d.status), env.DB.prepare('DELETE FROM email_deliveries WHERE id = ?').bind(d.id)]);
+  }
 }
 
 // ─── POST /api/metrics (QB-33) ────────────────────────────────────────────────
@@ -365,18 +399,24 @@ async function handleMetrics(request, env) {
   if (r.error) return json({ error: r.error }, r.status);
   const errors = metricsErrors(r.body);
   if (errors.length) return json({ error: 'Invalid metrics', details: errors }, 400);
-  const recent = await env.DB.prepare('SELECT COUNT(*) AS n FROM client_metrics WHERE token_id = ? AND created_at > ?').bind(tok.id, hourAgo()).first();
-  if (recent && recent.n >= MAX_METRICS_PER_HOUR) return json({ error: 'Too many requests' }, 429);
   const b = r.body;
   try {
-    // Atomic with revocation (QB-32/33 re-review): the row is inserted only if the token is
-    // STILL active at the moment of the insert — never on the strength of the earlier lookup.
+    // Atomic with revocation (QB-32/33 re-review) AND with the hourly quota (re-review 2): the row
+    // is inserted only if, at the moment of the insert, the token is still active and fewer than
+    // MAX_METRICS_PER_HOUR rows exist for it — one statement, so concurrent uploads at the limit
+    // cannot both pass a separate count.
     const ins = await env.DB.prepare(`INSERT INTO client_metrics
       (run_id, token_id, passed, attempts, duration_ms, repair_count, layers_used, qb_version, source, created_at)
       SELECT ?, ?, ?, ?, ?, ?, ?, ?, 'client_reported', ?
-      WHERE EXISTS (SELECT 1 FROM telemetry_tokens WHERE id = ? AND revoked_at IS NULL AND scope = 'metrics:write')`)
-      .bind(b.run_id, tok.id, b.passed ? 1 : 0, b.attempts, b.duration_ms, b.repair_count, b.layers_used ?? null, b.qb_version, new Date().toISOString(), tok.id).run();
-    if (!ins.meta || ins.meta.changes !== 1) return json({ error: 'Unauthorized: the telemetry token was revoked' }, 401);
+      WHERE EXISTS (SELECT 1 FROM telemetry_tokens WHERE id = ? AND revoked_at IS NULL AND scope = 'metrics:write')
+        AND (SELECT COUNT(*) FROM client_metrics WHERE token_id = ? AND created_at > ?) < ?`)
+      .bind(b.run_id, tok.id, b.passed ? 1 : 0, b.attempts, b.duration_ms, b.repair_count, b.layers_used ?? null, b.qb_version, new Date().toISOString(),
+        tok.id, tok.id, hourAgo(), MAX_METRICS_PER_HOUR).run();
+    if (!ins.meta || ins.meta.changes !== 1) {
+      // Nothing inserted: say why. This read only classifies the refusal; it admits nothing.
+      const active = await env.DB.prepare("SELECT 1 AS ok FROM telemetry_tokens WHERE id = ? AND revoked_at IS NULL AND scope = 'metrics:write'").bind(tok.id).first();
+      return active ? json({ error: 'Too many requests' }, 429) : json({ error: 'Unauthorized: the telemetry token was revoked' }, 401);
+    }
   } catch (e) {
     if (/UNIQUE/i.test(String(e && e.message))) return json({ error: 'Duplicate run_id' }, 409);
     throw e;

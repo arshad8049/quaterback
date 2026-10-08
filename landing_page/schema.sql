@@ -88,6 +88,15 @@ CREATE TABLE IF NOT EXISTS email_deliveries (
 );
 CREATE INDEX IF NOT EXISTS idx_ed_status_next ON email_deliveries(status, next_attempt_at);
 
+-- QB-35 re-review 2: durable delivery completion. One row per completed delivery (sent, or closed
+-- as dead / legacy), keyed by sha256('qb-delivery:' || idempotency key): no address, payload or
+-- log. Kept after retention deletes the delivery row, so a completed delivery is never re-queued.
+CREATE TABLE IF NOT EXISTS delivery_completions (
+  key_hash     TEXT PRIMARY KEY,
+  outcome      TEXT NOT NULL CHECK (outcome IN ('sent', 'dead')),
+  completed_at TEXT NOT NULL
+);
+
 -- Phase 5 re-review (also landing_page/migrations/0004_phase5_rereview.sql; its legacy backfill applies only to existing databases)
 CREATE TABLE IF NOT EXISTS telemetry_link_requests (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,

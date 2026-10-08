@@ -67,3 +67,18 @@ npx wrangler d1 execute qb-beta --remote --file=landing_page/migrations/0002_qb3
   - The test streams 1 MiB in 1 KiB chunks without `Content-Length`: at most 4 KiB is read before a 413, and the stream is cancelled. Pre-fix, all 1025 KiB were read.
   - The same helper serves signup, metrics and the link request.
 - **Atomic with revocation:** a metric insert is `INSERT … SELECT … WHERE EXISTS (token active)`, never a check-then-insert. See QB-32 in `docs/privacy/data-flows.md`.
+
+## Re-review 2: quotas are admitted atomically
+
+The senior's reproduction: with 59 metrics in the hour, two uploads paused at the INSERT after both had passed the separate `COUNT` check both returned 200, leaving 61 rows against a maximum of 60. The telemetry-link and signup limiters had the same pattern.
+
+- **Admission and write are one statement.**
+  - Link requests and signups use `admit()`: `INSERT … SELECT … WHERE (SELECT COUNT(*) …) < max`. A single statement runs alone on D1, so two concurrent requests at the limit cannot both pass.
+  - The metric insert folds the quota into its existing condition: `WHERE EXISTS (token active) AND (SELECT COUNT(*) … in the last hour) < 60`. Revocation and quota are checked atomically with the write, and replay protection (unique `run_id` → 409) is unchanged.
+  - When nothing was inserted, a read classifies the refusal (token revoked → 401, otherwise 429). That read admits nothing.
+- **The limits are now enforced maxima:** 60 metrics per token per hour, 3 link requests per address per hour, 10 signup attempts per IP per hour, including under concurrency.
+- **Regressions** (`test/unit/phase5-rereview2.test.js`; both requests are held at the INSERT until both arrive):
+  - 59 metrics + 2 concurrent uploads → exactly one 200 and one 429, 60 rows (pre-fix: 200, 200, 61 rows);
+  - 2 link requests + 2 concurrent → one 202 and one 429, 3 rows (pre-fix: 4);
+  - 9 signup attempts + 2 concurrent → one registration and one 429, 10 attempts (pre-fix: 11, both registered);
+  - a revoked token still gets 401, not 429.

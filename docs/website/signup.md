@@ -78,3 +78,19 @@ Welcome emails can only reach the account owner until a verified Resend sender d
 - **Sends stay outside the transaction:** each job carries a stable payload and its idempotency key. The owner-notification count is computed at send time.
 - **Legacy signups:** migration `0004` records them as closed (`dead`, with "legacy signup before delivery tracking; not re-sent"), so a returning legacy user doesn't get a second welcome email.
 - **Regressions:** faults injected before either enqueue and between the two (no registration, then retry → each email once); legacy repair (one welcome, never repeated); concurrent duplicates with a transient enqueue failure (1 row, 1 welcome).
+
+## Re-review 2: completion outlives retention
+
+The senior's reproduction: register, let retention delete the sent delivery rows after 30 days, register again. The repair path recreated both jobs and sent a second welcome. The legacy markers from migration `0004` expired the same way.
+
+- **Durable completion state:** `delivery_completions` (migration `0005`) holds one row per completed delivery: `sha256("qb-delivery:" + idempotency key)`, the outcome (`sent` or `dead`) and the time. It contains no address, payload or log.
+  - It is written in the same transaction that marks a delivery `sent` or `dead`.
+  - Retention records it, in the same transaction, before deleting each expired sent/dead row. That covers rows written before the table existed and the `0004` legacy markers, which SQL can't hash during the migration.
+- **Never-enqueued vs completed:** the enqueue is `INSERT … SELECT … WHERE NOT EXISTS (completion)`. A completed or legacy-suppressed delivery is never queued again; a registration whose jobs were never enqueued has no completion, so it is still repaired.
+- **Retention still deletes** the delivery rows (address, payload, error log) after 30 days.
+- **Signup quota:** the IP limiter admits atomically (see `metrics-auth.md` § Re-review 2).
+- **Regressions** (`test/unit/phase5-rereview2.test.js`):
+  - retention then repeat signup → still one welcome and one owner notice (pre-fix: 2);
+  - legacy markers expire, then a repeat signup → no welcome (pre-fix: 1);
+  - a never-enqueued registration is still repaired after retention ran, while a completed one isn't re-sent;
+  - completion rows contain no address.

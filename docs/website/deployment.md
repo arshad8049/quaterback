@@ -18,6 +18,7 @@ Apply the D1 migrations, in order:
 npx wrangler d1 execute qb-beta --remote --file=landing_page/migrations/0002_qb33_telemetry_auth.sql
 npx wrangler d1 execute qb-beta --remote --file=landing_page/migrations/0003_qb35_signup_delivery.sql
 npx wrangler d1 execute qb-beta --remote --file=landing_page/migrations/0004_phase5_rereview.sql
+npx wrangler d1 execute qb-beta --remote --file=landing_page/migrations/0005_delivery_completions.sql
 ```
 **Gate:** rotate `ADMIN_SECRET` (QB-34) with `npx wrangler secret put ADMIN_SECRET`. Refusing URL credentials can't remove URLs that already leaked into histories or logs, so the old secret must stop working.
 
