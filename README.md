@@ -344,15 +344,18 @@ Per-repo outcome store with semantic recall.
 
 > **The coding agent runs in the QB sandbox** ([design](docs/security/agent-sandbox.md)). Each run seeds a disposable workspace from a read-only copy of your checkout. The agent gets no network except the Claude API through a policy proxy, and your files and `.git` are never written. Changes are captured by trusted code and handed back as a patch (`qb patch <run_id>`) for you to apply. Requires Docker. Sign in once with `qb auth login` (subscription), or set `ANTHROPIC_API_KEY`. Validated platform: Linux x86_64 + Docker Engine; Docker Desktop on macOS works for development but is not yet validated.
 
+**Start here:** [docs/onboarding.md](docs/onboarding.md) covers install, `qb doctor`, a demo task, failure recovery and inspecting runs. [docs/support.md](docs/support.md) lists what is supported: agents (`claude-code` only; Cursor, Codex and Gemini are not supported yet), platforms and test runners. Invalid options and unsupported agents are refused before any model call.
+
 ```bash
 # From quaterback/ root:
-npm install
+npm ci
+node qb.js doctor --repo /path/to/repo   # is this machine ready?
 node qb.js "Add a getProviderName() function to src/llm.js that returns the active provider name" --repo /path/to/repo
 
 # Options:
 node qb.js "..." --repo /path --no-llm-context   # skip LLM in L2 (fast, offline)
 node qb.js "..." --repo /path --no-llm-verify    # skip LLM in L4 (DSA-only verify)
-node qb.js "..." --repo /path --max-retries 5    # up to 5 repair attempts
+node qb.js "..." --repo /path --max-retries 5    # up to 5 repair attempts (1..10)
 ```
 
 ## Tests and CI

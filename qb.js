@@ -35,6 +35,8 @@ const { formatOracle } = require('./intent/oracle-view');
 const { routeRepair } = require('./verify/routing');
 const { git: gitProc }  = require('./lib/proc');
 const { AGENT_VERSION } = require('./lib/sandbox/agent');
+const { AGENT_IDS } = require('./agent/adapters');
+const { validateRunOptions } = require('./lib/run-options');
 
 /** What the run record names as the agent (QB-38: a pinned decision trail). */
 const AGENT_IDENTITY = {
@@ -46,6 +48,14 @@ const AGENT_IDENTITY = {
 // `qb replay <run_id>` / `qb runs` — inspect stored run records.
 if (['replay', 'runs', 'show'].includes(process.argv[2])) {
   process.exit(require('./run/cli').main(process.argv.slice(2)));
+}
+// `qb doctor` — is this machine ready to run QB? (QB-31)
+if (process.argv[2] === 'doctor') {
+  require('./lib/doctor').main(process.argv.slice(3)).then((code) => process.exit(code), (e) => {
+    console.error(`qb doctor: ${e.message}`);
+    process.exit(1);
+  });
+  return;
 }
 // `qb auth login|logout|status` and `qb patch <run_id>` — sandbox commands (QB-02).
 if (['auth', 'patch'].includes(process.argv[2])) {
@@ -63,8 +73,8 @@ program
   .description('Quarterback — Intent to Verified Result')
   .argument('<request>', 'Natural-language task request')
   .option('--repo <path>',         'Path to the target repository', process.cwd())
-  .option('--agent <type>',        'Coding agent: dry-run | claude-code | manual', 'dry-run')
-  .option('--max-retries <n>',     'Max repair loop attempts', '3')
+  .option('--agent <type>',        `Coding agent: ${AGENT_IDS.join(' | ')} (support matrix: docs/support.md)`, 'dry-run')
+  .option('--max-retries <n>',     'Max repair loop attempts, 1..10', '3')
   .option('--clarify <answer>',    'Answer to the intent compiler\'s clarifying question; repeat for later rounds (noninteractive runs). Select a choice with <question>=<choice>', (v, prev) => [...prev, v], [])
   .option('--contract-file <path>', 'Use a human-reviewed contract as the test oracle instead of generating one (QB-13)')
   .option('--no-llm-context',      'Skip LLM enrichment in Layer 2 (faster)')
@@ -79,6 +89,13 @@ program
 const opts    = program.opts();
 const request = program.args[0];
 
+// QB-31: every option is checked before a run record, a model call or an agent starts.
+const checked = validateRunOptions(opts, request);
+if (checked.errors.length) {
+  console.error(`qb: invalid options:\n${checked.errors.map((e) => `  - ${e}`).join('\n')}\n(\`qb doctor\` checks this machine; supported agents and runners: docs/support.md)`);
+  process.exit(2);
+}
+
 const DIVIDER  = '─'.repeat(72);
 
 const DIVIDER2 = '═'.repeat(72);
@@ -86,8 +103,8 @@ const DIVIDER2 = '═'.repeat(72);
 let currentRun = null;
 
 async function main() {
-  const repoPath   = path.resolve(opts.repo);
-  const maxRetries = parseInt(opts.maxRetries, 10) || 3;
+  const repoPath   = checked.repoPath;
+  const maxRetries = checked.maxRetries;
 
   console.log(`\n${DIVIDER2}`);
   console.log(`  QUARTERBACK`);
@@ -116,7 +133,7 @@ async function main() {
   runStore.installSignalHandlers(run);
   log('RUN', `${run.id}  (${run.dir})`);
   // QB-21: the run's deadline and usage. Model calls each have their own deadline too.
-  const deadlineMs = opts.deadline ? Math.round(Number(opts.deadline) * 60_000) : (Number(process.env.QB_RUN_DEADLINE_MS) || 0);
+  const deadlineMs = checked.deadlineMs || (Number(process.env.QB_RUN_DEADLINE_MS) || 0);
   const budgetRun = budget.startRun({
     deadlineMs: Number.isFinite(deadlineMs) && deadlineMs > 0 ? deadlineMs : 0,
     agent: AGENT_IDENTITY[opts.agent] || { type: opts.agent, version: null },
