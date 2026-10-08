@@ -16,13 +16,13 @@
         "package-lock.json": "8f806ba8a79e7c69a60f587d92fd49e5c6e63c46f7838bee412af737ec671948"
       }
     },
-    "prompt": "createWarning crashes with an unhelpful TypeError ('code.toUpperCase is not a function') when code is not a string, and silently accepts a non-string name or message. Validate them: a present but non-string name, code or message should throw an Error saying which field must be a string.",
-    "requirement": "createWarning throws new Error(`Warning ${field} must be a string`) (field = name, code or message) when that field is present (truthy) but not a string. Missing or empty fields keep the existing 'Warning <field> must not be empty' errors. Valid input behaves as before.",
+    "prompt": "createWarning crashes with an unhelpful TypeError ('code.toUpperCase is not a function') when code is not a string, and silently accepts a non-string name or message. Validate them. For each of name, code and message: a missing value (undefined), null or '' keeps throwing the existing Error 'Warning <field> must not be empty'; any other value that is not a string (numbers including 0, booleans including false, objects, arrays) throws an Error with message 'Warning <field> must be a string'. Valid strings behave as before.",
+    "requirement": "createWarning checks name, code and message in that order. A field that is undefined, null or '' throws new Error('Warning <field> must not be empty'); a field that is any other non-string value (including 0, false, NaN, objects and arrays) throws new Error('Warning <field> must be a string'). Both are plain Errors. Valid input behaves as before (code is upper-cased).",
     "oracle": null,
     "suite": {
       "dir": "PW-03",
       "files": {
-        "validation.test.js": "ec6c7ca94645bf3184ffb5b5c427a1b32759c7320edb7568d829be855fb5fe7f"
+        "validation.test.js": "747fe41bbf31072aeabc2100a94fb513cf30481d7b166c4e7e8cf11f776760e5"
       },
       "command": [
         "node",
@@ -37,9 +37,9 @@
     },
     "qualification": {
       "grader_sha256": "3116461e6934079a16ed5af0ae2c35e701094b699f62feeea86fe2106d4ea886",
-      "suite_sha256": "24d497f2eb42b296930642496e094dba1924ba1cf0fb3a9dce452db8d39069ba",
+      "suite_sha256": "e1c8d6699c56b2bdeeda1bbf9c5757848a1cd886e99ed5d2b9b8318700f318d0",
       "reference": {
-        "patch_sha256": "ee6416c7c17cf62a8f43e79d53f9adcac826780cad34fd2d8f505ba969d6c303",
+        "patch_sha256": "5444b887625ca8c6c14dba3738341c773dec3fb6993652ae39b95b4b868e375b",
         "outcome": "pass"
       },
       "incorrect": [
@@ -54,12 +54,17 @@
           "outcome": "fail"
         },
         {
+          "label": "truthy-first",
+          "patch_sha256": "ee6416c7c17cf62a8f43e79d53f9adcac826780cad34fd2d8f505ba969d6c303",
+          "outcome": "fail"
+        },
+        {
           "label": "typeerror-wording",
           "patch_sha256": "24d8f29eab48bca5aacd8bc4b0e057dc34c84626a970c10a64debb177a1130b2",
           "outcome": "fail"
         }
       ],
-      "qualified_at": "2026-10-08T13:31:53.039Z"
+      "qualified_at": "2026-10-08T15:56:24.305Z"
     },
     "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
     "provenance": {
@@ -77,20 +82,23 @@
       },
       {
         "id": "AC-2",
-        "criterion": "name: {} throws 'Warning name must be a string'"
+        "criterion": "name: {} throws 'Warning name must be a string'; message: 42 throws 'Warning message must be a string'; an array code is rejected the same way"
       },
       {
         "id": "AC-3",
-        "criterion": "message: 42 throws 'Warning message must be a string'"
+        "criterion": "falsy non-strings are not 'empty': code: 0 and message: false throw 'must be a string'"
       },
       {
         "id": "AC-4",
-        "criterion": "empty or missing fields still throw 'Warning <field> must not be empty'"
+        "criterion": "undefined, null and '' still throw 'Warning <field> must not be empty'"
       },
       {
         "id": "AC-5",
         "criterion": "valid string fields create a working warning"
       }
     ]
+  },
+  "source": {
+    "curation_sha256": "cac5550eff33c56071c44de602badebe0cf1ec2583d15bf9a5123ae47e86d281"
   }
 }

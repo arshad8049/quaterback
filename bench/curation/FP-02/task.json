@@ -7,7 +7,7 @@
   },
   "repo": "qb-bench:fastify-plugin",
   "base_rev": "87548e7878496b7b960c633bff6f860e2de40849",
-  "prompt": "The camelCase alias fastify-plugin derives from a plugin name isn't always a valid identifier: 'my--plugin' gives 'my-plugin', 'plugin-' stays 'plugin-', and '@a/b/c-d' gives 'aB/cD'. Fix lib/toCamelCase.js so hyphens and slashes never survive.",
+  "prompt": "The camelCase alias fastify-plugin derives from a plugin name isn't always a valid identifier: 'my--plugin' gives 'my-plugin', 'plugin-' stays 'plugin-', and '@a/b/c-d' gives 'aB/cD'. Fix lib/toCamelCase.js so hyphens and slashes never survive: drop a leading '@', split the rest on runs of '-' and '/', ignore empty pieces, keep the first piece as is and upper-case only the first character of each following piece. So 'my--plugin' \u2192 'myPlugin', 'plugin-' \u2192 'plugin', '@a/b/c-d' \u2192 'aBCD', '@scope/my-plugin' \u2192 'scopeMyPlugin', 'fooBar-baz' \u2192 'fooBarBaz', 'my_plugin' \u2192 'my_plugin'. The alias fp sets on the plugin follows the same rule.",
   "requirement": "toCamelCase(name) drops a leading '@', splits the rest on runs of '-' and '/', ignores empty pieces, keeps the first piece as is and upper-cases the first character of each following piece (other characters unchanged). Examples: '@scope/my-plugin' \u2192 'scopeMyPlugin', 'my--plugin' \u2192 'myPlugin', 'plugin-' \u2192 'plugin', '@a/b/c-d' \u2192 'aBCD', 'fooBar-baz' \u2192 'fooBarBaz', 'my_plugin' \u2192 'my_plugin'. The alias fp sets (fn[camelName]) follows the same rule.",
   "oracle": {
     "acceptance_criteria": [

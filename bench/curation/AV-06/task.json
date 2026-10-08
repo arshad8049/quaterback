@@ -17,10 +17,14 @@
       },
       {
         "id": "AC-2",
-        "criterion": "lib/time-tree.js no longer contains its own prettyPrintTimeTree definition and requires ./pretty-print"
+        "criterion": "TimeTree#prettyPrint renders through lib/pretty-print (replacing that module changes its output)"
       },
       {
         "id": "AC-3",
+        "criterion": "lib/time-tree.js no longer defines its own prettyPrintTimeTree (as a declaration, function expression or arrow function)"
+      },
+      {
+        "id": "AC-4",
         "criterion": "app.prettyPrint() output is unchanged"
       }
     ]

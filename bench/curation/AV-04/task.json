@@ -7,7 +7,7 @@
   },
   "repo": "qb-bench:avvio",
   "base_rev": "4c5d9176b6e4457bff6e2524e7873f4f6a5193c3",
-  "prompt": "app.after('not a function') is accepted silently and the app later fails to boot with 'func.apply is not a function'. Reject a non-function callback up front, the same way ready() and onClose() do.",
+  "prompt": "app.after('not a function') is accepted silently and the app later fails to boot with 'func.apply is not a function'. Reject a non-function callback up front, the same way ready() and onClose() do: after(value) with a value that is not a function throws synchronously the existing AVV_ERR_CALLBACK_NOT_FN error for the 'after' hook, naming typeof value (message \"Callback for 'after' hook is not a function. Received: '<typeof>'\"). after() with no argument still returns a promise, and function callbacks are unchanged.",
   "requirement": "Boot#after(func): when func is not undefined/null and is not a function, after throws synchronously an AVV_ERR_CALLBACK_NOT_FN error (the existing error from lib/errors.js) built with ('after', typeof func), i.e. message \"Callback for 'after' hook is not a function. Received: '<typeof>'\". after() without an argument still returns a promise; function callbacks are unchanged.",
   "oracle": {
     "acceptance_criteria": [

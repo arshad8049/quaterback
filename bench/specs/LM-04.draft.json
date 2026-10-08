@@ -16,7 +16,7 @@
         "package-lock.json": "8a3f87872e50737155a56cc9d28a0e0bf40b8021a3a1430c9f5a3ec8efff2113"
       }
     },
-    "prompt": "A header set to null is sent as the literal string 'null' (headers: { 'x-a': null } arrives as x-a: null). Reject it the same way undefined header values are rejected.",
+    "prompt": "A header set to null is sent as the literal string 'null' (headers: { 'x-a': null } arrives as x-a: null). Reject it the same way undefined header values are rejected, with the message 'invalid value \"null\" for header <name>'. undefined keeps its existing message, and other values such as 0, false and '' are still sent as strings.",
     "requirement": "A header whose value is null makes inject fail with an assertion error whose message is 'invalid value \"null\" for header <name>' (the existing undefined check keeps its message 'invalid value \"undefined\" for header <name>'). Other values are converted to strings as before.",
     "oracle": null,
     "suite": {
@@ -54,7 +54,7 @@
           "outcome": "fail"
         }
       ],
-      "qualified_at": "2026-10-08T13:24:27.741Z"
+      "qualified_at": "2026-10-08T15:43:49.193Z"
     },
     "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
     "provenance": {
@@ -79,5 +79,8 @@
         "criterion": "0, false and '' header values are still sent as '0', 'false', ''"
       }
     ]
+  },
+  "source": {
+    "curation_sha256": "578358f7e7267bdaec19f33e8d8ea3719b4fd1f7c969aa72a21a72d912af7084"
   }
 }

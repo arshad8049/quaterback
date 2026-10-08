@@ -7,7 +7,7 @@
   },
   "repo": "qb-bench:fastify-plugin",
   "base_rev": "87548e7878496b7b960c633bff6f860e2de40849",
-  "prompt": "Add a getPluginMeta(fn) export that returns the metadata fastify-plugin attached to a wrapped function (its options: name, fastify version, etc.), or undefined for a function that wasn't wrapped.",
+  "prompt": "Add a getPluginMeta(value) export (require('fastify-plugin').getPluginMeta) that returns the metadata fastify-plugin attached to a wrapped function (its options: name, fastify version, etc.). Return a copy: changing the returned object must not change the plugin's metadata. For anything else (a function that wasn't wrapped, a plain object, null or undefined) return undefined, and never throw.",
   "requirement": "fastify-plugin exports getPluginMeta(value) (as require('fastify-plugin').getPluginMeta). For a function returned by fastify-plugin it returns a shallow copy of the attached metadata (fn[Symbol.for('plugin-meta')]): mutating the result does not change the plugin. For any other value (unwrapped functions, objects, null, undefined) it returns undefined and never throws.",
   "oracle": {
     "acceptance_criteria": [
@@ -21,11 +21,11 @@
       },
       {
         "id": "AC-3",
-        "criterion": "mutating the returned object does not change a later getPluginMeta result"
+        "criterion": "mutating the returned object does not change a later getPluginMeta result or the plugin's metadata"
       },
       {
         "id": "AC-4",
-        "criterion": "unwrapped functions, null and undefined give undefined without throwing"
+        "criterion": "unwrapped functions, plain objects, null and undefined give undefined without throwing"
       }
     ]
   },

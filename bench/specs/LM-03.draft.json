@@ -16,7 +16,7 @@
         "package-lock.json": "8a3f87872e50737155a56cc9d28a0e0bf40b8021a3a1430c9f5a3ec8efff2113"
       }
     },
-    "prompt": "The chainable API can't set the client address or the authority: add .remoteAddress(address) and .authority(host) to the chain returned by inject(dispatch), working like .headers() / .query().",
+    "prompt": "The chainable API can't set the client address or the authority: add .remoteAddress(address) and .authority(host) to the chain returned by inject(dispatch), working like .headers() / .query(): each sets the inject option of the same name (remoteAddress → req.socket.remoteAddress; authority → the Host header) and returns the chain, and calling either after the request has been invoked throws 'The dispatch function has already been invoked'.",
     "requirement": "inject(dispatch) chains gain remoteAddress(value) and authority(value): each sets the corresponding inject option (remoteAddress → req.socket.remoteAddress; authority → the Host header when none is given) and returns the chain. Like the other chain setters, calling them after the request has been invoked throws 'The dispatch function has already been invoked'.",
     "oracle": null,
     "suite": {
@@ -54,7 +54,7 @@
           "outcome": "fail"
         }
       ],
-      "qualified_at": "2026-10-08T13:23:26.362Z"
+      "qualified_at": "2026-10-08T15:42:09.538Z"
     },
     "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
     "provenance": {
@@ -83,5 +83,8 @@
         "criterion": "calling either after the request is invoked throws 'The dispatch function has already been invoked'"
       }
     ]
+  },
+  "source": {
+    "curation_sha256": "1a9b12631537e271f43e0500e6d752380dcaf350900dad7404eca24d9a219067"
   }
 }

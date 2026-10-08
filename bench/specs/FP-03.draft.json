@@ -16,7 +16,7 @@
         "package-lock.json": "8bf71233079f881a648b0413a626132fa80a3ebc076c65aba855d29dd75472da"
       }
     },
-    "prompt": "Passing a non-string plugin name (fp(fn, { name: 123 })) crashes with an unhelpful 'name.replace is not a function'. Validate it like the fastify version option: throw a TypeError naming what was received.",
+    "prompt": "Passing a non-string plugin name (fp(fn, { name: 123 })) crashes with an unhelpful 'name.replace is not a function'. Validate it like the fastify version option: when name is given and is not a string (including false and null), throw a TypeError with message `fastify-plugin expects a name string, instead got '<typeof name>'` (null reports 'object'). A missing name or the empty string '' keeps the automatic naming, and string names work as before.",
     "requirement": "When options.name is present (not undefined) and not a string, plugin() throws a TypeError with message `fastify-plugin expects a name string, instead got '<typeof name>'` (null reports 'object'). A missing or empty name keeps the automatic naming; string names are unchanged.",
     "oracle": null,
     "suite": {
@@ -54,7 +54,7 @@
           "outcome": "fail"
         }
       ],
-      "qualified_at": "2026-10-08T13:18:25.067Z"
+      "qualified_at": "2026-10-08T15:33:50.953Z"
     },
     "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
     "provenance": {
@@ -83,5 +83,8 @@
         "criterion": "string names work as before"
       }
     ]
+  },
+  "source": {
+    "curation_sha256": "ff1e8fd3d42e3ee3e71c9e9c82fcfce91fcb84e503dff963df741eeac4b3edf6"
   }
 }

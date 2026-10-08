@@ -16,7 +16,7 @@
         "package-lock.json": "8bf71233079f881a648b0413a626132fa80a3ebc076c65aba855d29dd75472da"
       }
     },
-    "prompt": "fastify-plugin modifies the options object it is given: wrapping two plugins with the same options object (const opts = {}; fp(a, opts); fp(b, opts)) gives the second plugin the first one's auto-generated name, and opts gains a name property. Don't touch the caller's object.",
+    "prompt": "fastify-plugin modifies the options object it is given: wrapping two plugins with the same options object (const opts = {}; fp(a, opts); fp(b, opts)) gives the second plugin the first one's auto-generated name, and opts gains a name property. Don't touch the caller's object, and keep the plugin's metadata (fn[Symbol.for('plugin-meta')]) as the plugin's own copy, so later changes the caller makes to their object don't change it. Explicit names, auto names, the display name and the camelCase alias work as before.",
     "requirement": "plugin(fn, options) never modifies the options object passed in, and the metadata it attaches (fn[Symbol.for('plugin-meta')]) is its own copy: later changes to the caller's object do not change it. Each wrapped plugin gets its own auto name when no name is given. Everything else (string shorthand, validation, display name, camelCase alias) is unchanged.",
     "oracle": null,
     "suite": {
@@ -54,7 +54,7 @@
           "outcome": "fail"
         }
       ],
-      "qualified_at": "2026-10-08T13:16:39.396Z"
+      "qualified_at": "2026-10-08T15:30:43.695Z"
     },
     "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
     "provenance": {
@@ -84,5 +84,8 @@
         "criterion": "an explicit name still sets the display name and the camelCase alias"
       }
     ]
+  },
+  "source": {
+    "curation_sha256": "23447e0c8eef0e5e68ed4bfcf2f04b897e1563d18cca9ea1b1803a679274d8eb"
   }
 }

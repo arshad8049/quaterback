@@ -16,7 +16,7 @@
         "package-lock.json": "abde936de03de5983273c44d60b2e7fcb5302f54667e236270d96d689e805904"
       }
     },
-    "prompt": "Serializing an invalid Date (e.g. new Date('nope')) for a string with format date-time, date or time crashes with a bare 'RangeError: Invalid time value' from toISOString. Throw the library's usual conversion error instead.",
+    "prompt": "Serializing an invalid Date (e.g. new Date('nope')) for a string with format date-time, date or time crashes with a bare 'RangeError: Invalid time value' from toISOString. Throw the library's usual conversion error instead, with the value as String(date) prints it: `The value \"Invalid Date\" cannot be converted to a date-time.` (and the same with date or time for those formats). Valid dates and strings serialize as before.",
     "requirement": "For format date-time, date and time, an invalid Date object (getTime() is NaN) makes the serializer throw an Error with message `The value \"Invalid Date\" cannot be converted to a <date-time|date|time>.` — the same wording used for other unconvertible values. Valid dates, strings and null serialize as before.",
     "oracle": null,
     "suite": {
@@ -54,7 +54,7 @@
           "outcome": "fail"
         }
       ],
-      "qualified_at": "2026-10-08T13:37:56.698Z"
+      "qualified_at": "2026-10-08T15:21:34.273Z"
     },
     "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
     "provenance": {
@@ -84,5 +84,8 @@
         "criterion": "valid dates and strings still serialize"
       }
     ]
+  },
+  "source": {
+    "curation_sha256": "cc62c2897a0341c002b6cca580b95287cebe283fa69fbf3f3966d6274712df36"
   }
 }

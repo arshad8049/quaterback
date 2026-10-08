@@ -63,9 +63,8 @@ module.exports = class Serializer {
       return '"' + date.toISOString() + '"'
     }
     if (typeof date === 'number') {
-      const d = new Date(date)
-      if (Number.isNaN(d.getTime())) throw new Error(`The value "${date}" cannot be converted to a date-time.`)
-      return '"' + d.toISOString() + '"'
+      if (!Number.isFinite(date)) throw new Error(`The value "${date}" cannot be converted to a date-time.`)
+      return '"' + new Date(date).toISOString() + '"'
     }
     if (typeof date === 'string') {
       return '"' + date + '"'

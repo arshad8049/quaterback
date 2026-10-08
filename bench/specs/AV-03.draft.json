@@ -16,7 +16,7 @@
         "package-lock.json": "40f643378825af4dd7e734a80b1f80660f74b0d9fbc790a1b363857f012b32e7"
       }
     },
-    "prompt": "Add app.hasPlugin(name): it should say whether a plugin with that name has been registered with this avvio instance (directly or nested).",
+    "prompt": "Add app.hasPlugin(name): it should return true or false for whether a plugin with that name has been registered with this avvio instance with use(), directly or nested inside another plugin, as soon as use() has been called (before or after ready). The name is the one avvio already gives a plugin: its fastify-plugin metadata name, the name option passed to use(), or the function's name.",
     "requirement": "Boot#hasPlugin(name) returns true once a plugin with that name (as avvio names it: fastify-plugin metadata name, options.name, or the function name) has been registered with use() on the instance, at any nesting depth, and false otherwise. It returns a boolean and is available on the avvio instance before and after ready.",
     "oracle": null,
     "suite": {
@@ -54,7 +54,7 @@
           "outcome": "fail"
         }
       ],
-      "qualified_at": "2026-10-08T13:45:10.700Z"
+      "qualified_at": "2026-10-08T15:13:54.989Z"
     },
     "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
     "provenance": {
@@ -83,5 +83,8 @@
         "criterion": "unknown names return false"
       }
     ]
+  },
+  "source": {
+    "curation_sha256": "ce98e66983fd0fcb931c9db526ea442f327db133178e424d9242c8f9b439755a"
   }
 }

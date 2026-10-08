@@ -15,7 +15,7 @@ const path = require('path');
 
 const S = require('../../bench/schemas');
 const { seededOrder, holdoutGate } = require('../../bench/plan');
-const { taskEffects, clusterBootstrap, analyze } = require('../../bench/stats');
+const { taskEffects, operationalEffects, clusterBootstrap, analyze } = require('../../bench/stats');
 const { createExperiment } = require('../../bench/experiment');
 const { runExperiment } = require('../../bench/experiment-run');
 const { ARMS } = require('../../bench/arms');
@@ -146,6 +146,31 @@ describe('QB-30: the task is the unit of analysis', () => {
     assert.deepEqual(an.strata.by_repository.map((s2) => [s2.repository, s2.tasks_matched]), [['repo-a', 1], ['repo-b', 0]]);
     assert.deepEqual([an.completion.E.completion_rate, an.completion.E.attrition], [0.5, { infra_error: 1 }]);
     assert.match(an.not_used, /McNemar/);
+  });
+});
+
+describe('QB-30: the operational endpoint counts attrition against the arm (complete-case bias)', () => {
+  const row = (task_id, repetition, arm, score, planned = true) => ({ task_id, repetition, arm, score, planned });
+  test('success per assigned repetition: an arm that errors out does not look better among its surviving runs', () => {
+    // T-1: A fails, E passes. T-2: A passes, E hits an infra error (no score).
+    const rows = [row('T-1', 1, 'A', 'fail'), row('T-1', 1, 'E', 'pass'), row('T-2', 1, 'A', 'pass'), row('T-2', 1, 'E', null)];
+    assert.deepEqual(taskEffects(rows, 'A', 'E').map((e) => [e.task_id, e.effect]), [['T-1', 1], ['T-2', null]], 'complete-case: T-2 drops out');
+    assert.deepEqual(operationalEffects(rows, 'A', 'E').map((e) => [e.task_id, e.assigned, e.success_x, e.success_y, e.effect]), [['T-1', 1, 0, 1, 1], ['T-2', 1, 1, 0, -1]]);
+  });
+  test('only repetitions assigned to both arms count; unplanned extra trials are ignored', () => {
+    const rows = [row('T-1', 1, 'A', 'fail'), row('T-1', 1, 'E', 'pass'), row('T-1', 2, 'E', 'pass', false), row('T-1', 3, 'A', 'pass')];
+    assert.deepEqual(operationalEffects(rows, 'A', 'E').map((e) => [e.assigned, e.effect]), [[1, 1]]);
+  });
+  test('analyze reports the operational endpoint next to the primary, predeclared, with the same bootstrap', () => {
+    const m = { experiment_id: 'e', tasks: [task('T-1', 'dev', 'repo-a', 'bug_fix'), task('T-2', 'dev', 'repo-b', 'addition')], arms: [{ id: 'A' }, { id: 'E' }], trial_plan: { seed: 's' } };
+    const rows = [row('T-1', 1, 'A', 'fail'), row('T-1', 1, 'E', 'pass'), row('T-2', 1, 'A', 'pass'), row('T-2', 1, 'E', null)];
+    const arms = { A: { planned: 2, scored: 2, pass: 1, attrition: {} }, E: { planned: 2, scored: 1, pass: 1, attrition: { infra_error: 1 } } };
+    const an = analyze({ primary_comparison: ['A', 'E'], rows, arms }, m);
+    assert.equal(an.primary.estimate, 1);
+    assert.equal(an.operational.role, 'operational (predeclared; attrition counts as no success)');
+    assert.equal(an.operational.estimate, 0);
+    assert.equal(an.operational.method, 'cluster bootstrap (repositories, then tasks)');
+    assert.deepEqual(an.operational.comparison, ['A', 'E']);
   });
 });
 

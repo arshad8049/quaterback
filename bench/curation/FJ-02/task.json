@@ -7,7 +7,7 @@
   },
   "repo": "qb-bench:fast-json-stringify",
   "base_rev": "8959a794e4ba6d040577c98c97e16ab33898c3dc",
-  "prompt": "Serializing an invalid Date (e.g. new Date('nope')) for a string with format date-time, date or time crashes with a bare 'RangeError: Invalid time value' from toISOString. Throw the library's usual conversion error instead.",
+  "prompt": "Serializing an invalid Date (e.g. new Date('nope')) for a string with format date-time, date or time crashes with a bare 'RangeError: Invalid time value' from toISOString. Throw the library's usual conversion error instead, with the value as String(date) prints it: `The value \"Invalid Date\" cannot be converted to a date-time.` (and the same with date or time for those formats). Valid dates and strings serialize as before.",
   "requirement": "For format date-time, date and time, an invalid Date object (getTime() is NaN) makes the serializer throw an Error with message `The value \"Invalid Date\" cannot be converted to a <date-time|date|time>.` \u2014 the same wording used for other unconvertible values. Valid dates, strings and null serialize as before.",
   "oracle": {
     "acceptance_criteria": [

@@ -7,7 +7,7 @@
   },
   "repo": "qb-bench:light-my-request",
   "base_rev": "e02b8f2ac1290d99a2ec67649606991bb2a08db3",
-  "prompt": "Falsy JSON payloads are dropped: inject(dispatch, { method: 'POST', url: '/', payload: 0 }) sends an empty body with no content-type, and so does payload: false, while payload: 1 and payload: true are sent as JSON. Send 0 and false the same way as other non-string values.",
+  "prompt": "Falsy JSON payloads are dropped: inject(dispatch, { method: 'POST', url: '/', payload: 0 }) sends an empty body with no content-type, and so does payload: false, while payload: 1 and payload: true are sent as JSON. Send 0 and false the same way as other non-string values (JSON body, content-type application/json, content-length), whether given as payload or as body. undefined and null still mean no payload, and string, buffer and object payloads are unchanged.",
   "requirement": "A payload (or body) of 0 or false is serialized like any other non-string, non-buffer, non-stream value: JSON.stringify gives '0' / 'false', content-type defaults to application/json, content-length is set. undefined and null still mean no payload; payload takes precedence over body as before; string, buffer and stream payloads are unchanged.",
   "oracle": {
     "acceptance_criteria": [

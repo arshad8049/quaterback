@@ -1,17 +1,54 @@
 {
-  "id": "PW-01", "split": "dev",
-  "stratum": { "type": "bug_fix", "repository": "process-warning" },
-  "repo": "qb-bench:process-warning", "base_rev": "6d4b11b9159ea2a77fe68420ec4806891c582b6f",
-  "prompt": "Warnings don't interpolate falsy values. With const w = createWarning({ name: 'W', code: 'C', message: 'count=%d' }), w.format(0) returns 'count=%d' instead of 'count=0', and calling w(0) emits the uninterpolated message too. Fix it so that every argument actually passed (including 0, '', false and null) is interpolated into the message.",
-  "requirement": "warning.format(a, b, c) and the emitted warning message interpolate each of a, b, c that is not undefined, in order, using util.format semantics; 0, '', false and null are interpolated. Arguments that are undefined are treated as not supplied (warning() always forwards three arguments, so trailing undefined values must never appear in the message). Behaviour for truthy arguments and for no arguments is unchanged.",
-  "oracle": { "acceptance_criteria": [
-    { "id": "AC-1", "criterion": "createWarning({ name: 'W', code: 'C', message: 'count=%d' }).format(0) returns 'count=0'" },
-    { "id": "AC-2", "criterion": "format interpolates '', false and null (e.g. message 'v=%s' with null gives 'v=null')" },
-    { "id": "AC-3", "criterion": "the message emitted by calling the warning with 0 is 'count=0' (no trailing 'undefined')" },
-    { "id": "AC-4", "criterion": "format() with no arguments returns the message unchanged, and truthy arguments interpolate as before" }
-  ] },
-  "suite": { "command": ["node", "--test", "test/hidden/*.test.js"] },
+  "id": "PW-01",
+  "split": "dev",
+  "stratum": {
+    "type": "bug_fix",
+    "repository": "process-warning"
+  },
+  "repo": "qb-bench:process-warning",
+  "base_rev": "6d4b11b9159ea2a77fe68420ec4806891c582b6f",
+  "prompt": "Warnings don't interpolate falsy values. With const w = createWarning({ name: 'W', code: 'C', message: 'count=%d' }), w.format(0) returns 'count=%d' instead of 'count=0', and calling w(0) emits the uninterpolated message too. Fix it so that every argument passed (including 0, '', false and null) is interpolated into the message, both by format() and in the emitted warning. The warning function always forwards three arguments to format, so trailing undefined arguments count as not passed and must never appear in the message; an undefined that comes before a passed argument is interpolated like any other value.",
+  "requirement": "warning.format(a, b, c) and the emitted warning message interpolate, with util.format semantics, the arguments up to and including the last one that is not undefined: trailing undefined arguments are treated as not supplied, and any argument before the last supplied one is interpolated as is (an undefined in that position prints as 'undefined'). 0, '', false and null are interpolated. With no supplied arguments the message is returned unchanged. Truthy arguments behave as before.",
+  "oracle": {
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "createWarning({ name: 'W', code: 'C', message: 'count=%d' }).format(0) returns 'count=0'"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "format interpolates '', false and null (message 'v=%s' with null gives 'v=null')"
+      },
+      {
+        "id": "AC-3",
+        "criterion": "the message emitted by calling the warning with 0 is 'count=0' (no trailing 'undefined')"
+      },
+      {
+        "id": "AC-4",
+        "criterion": "trailing undefined arguments are not supplied: format(undefined) returns the message unchanged and format(0, undefined) on 'a=%s b=%s' gives 'a=0 b=%s'"
+      },
+      {
+        "id": "AC-5",
+        "criterion": "an undefined before a supplied argument is interpolated: format('x', undefined, 'z') on '%s,%s,%s' gives 'x,undefined,z'"
+      },
+      {
+        "id": "AC-6",
+        "criterion": "format() with no arguments returns the message unchanged, and truthy arguments interpolate as before"
+      }
+    ]
+  },
+  "suite": {
+    "command": [
+      "node",
+      "--test",
+      "test/hidden/*.test.js"
+    ]
+  },
   "adjudication_rules": "Score pass only if every hidden check passes; the emitted message must match exactly.",
-  "provenance": { "author": "Claude (QB developer side, dev split)", "created_at": "2026-10-08T00:00:00Z", "tuned_during_development": false,
-    "notes": "Real behaviour of process-warning v5.1.0 (format checks arguments by truthiness)." }
+  "provenance": {
+    "author": "Claude (QB developer side, dev split)",
+    "created_at": "2026-10-08T00:00:00Z",
+    "tuned_during_development": false,
+    "notes": "Real behaviour of process-warning v5.1.0 (format checks arguments by truthiness)."
+  }
 }

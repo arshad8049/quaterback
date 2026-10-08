@@ -16,13 +16,13 @@
         "package-lock.json": "abde936de03de5983273c44d60b2e7fcb5302f54667e236270d96d689e805904"
       }
     },
-    "prompt": "largeArraySize validation is too lax: '20000abc' and '1.5' are accepted as strings (parseInt keeps the leading digits), and negative sizes like -5 or -5n are accepted. Only accept positive whole sizes and reject anything else with the existing 'Unsupported large array size' error.",
-    "requirement": "options.largeArraySize is accepted only as a positive integer number, a positive BigInt, or a string consisting solely of decimal digits that denotes a positive integer. Anything else that is set (truthy) throws the existing error `Unsupported large array size. Expected integer-like, got <typeof> with value <value>`. Valid sizes behave as before.",
+    "prompt": "largeArraySize validation is too lax: '20000abc' and '1.5' are accepted as strings (parseInt keeps the leading digits), negative sizes like -5 or -5n are accepted, and falsy values such as 0 are silently ignored. Whenever largeArraySize is given (any value other than undefined), accept only a positive whole size: a positive integer number, a positive BigInt, or a string of decimal digits only that denotes a positive integer. Reject everything else, including 0, '0', 0n, false, '', null, non-integer numbers and NaN, with the existing error `Unsupported large array size. Expected integer-like, got <typeof value> with value <value>`. Leaving the option out keeps the default size.",
+    "requirement": "If options.largeArraySize is not undefined it must be a positive integer number, a positive BigInt, or a string matching /^[0-9]+$/ whose value is positive; any other value (including 0, '0', 0n, false, '', null, 1.5, NaN, ' 100', '1e3', '20000abc', -5, -5n) throws new Error(`Unsupported large array size. Expected integer-like, got ${typeof value} with value ${value}`). An omitted (undefined) option uses the default size. Valid sizes behave as before.",
     "oracle": null,
     "suite": {
       "dir": "FJ-05",
       "files": {
-        "large-array-size.test.js": "dcd5de50294241bfd4dc980c940cd6f622b3720d2139111aec7fb6c32450a3ec"
+        "large-array-size.test.js": "aa87457c221698cd31b069d9534765310c60728b9c165f4b025ebb5a2738ebc1"
       },
       "command": [
         "node",
@@ -37,9 +37,9 @@
     },
     "qualification": {
       "grader_sha256": "3116461e6934079a16ed5af0ae2c35e701094b699f62feeea86fe2106d4ea886",
-      "suite_sha256": "db9891ac7c9d0adcca0c860b76619fbdc27d7504d9306b1071631f20c9d31fcb",
+      "suite_sha256": "6fa15f431e18c3271e478f9ea1a7315aa82621c2334e6cb77399be39c0f95b39",
       "reference": {
-        "patch_sha256": "d0bd629031964d9c81355193a091cd040b80b0bac81b55b3f3aaa74899d0ed2c",
+        "patch_sha256": "6d0c703f6533637a98d9188a79c7b0e8e1f859c3fec18a0e8a0e222b9535a5a4",
         "outcome": "pass"
       },
       "incorrect": [
@@ -52,9 +52,14 @@
           "label": "strings-only",
           "patch_sha256": "e22dc83a9d3de3d2e3de2ba819a9a59c7e43957686cf34e2fc62342a0df58db2",
           "outcome": "fail"
+        },
+        {
+          "label": "truthy-guard",
+          "patch_sha256": "d0bd629031964d9c81355193a091cd040b80b0bac81b55b3f3aaa74899d0ed2c",
+          "outcome": "fail"
         }
       ],
-      "qualified_at": "2026-10-08T13:41:57.832Z"
+      "qualified_at": "2026-10-08T15:27:16.063Z"
     },
     "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
     "provenance": {
@@ -76,8 +81,19 @@
       },
       {
         "id": "AC-3",
+        "criterion": "0, '0', 0n, false, '', null, 1.5 and NaN are given values and throw the same error (null reports 'object')"
+      },
+      {
+        "id": "AC-4",
         "criterion": "100, '100' and 100n are accepted"
+      },
+      {
+        "id": "AC-5",
+        "criterion": "an omitted largeArraySize uses the default"
       }
     ]
+  },
+  "source": {
+    "curation_sha256": "fd4045ef7e4234381cf1b4ec16699003c9235fbb24fc3e55784cf9f2d36dddba"
   }
 }

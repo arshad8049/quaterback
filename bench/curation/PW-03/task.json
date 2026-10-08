@@ -7,8 +7,8 @@
   },
   "repo": "qb-bench:process-warning",
   "base_rev": "6d4b11b9159ea2a77fe68420ec4806891c582b6f",
-  "prompt": "createWarning crashes with an unhelpful TypeError ('code.toUpperCase is not a function') when code is not a string, and silently accepts a non-string name or message. Validate them: a present but non-string name, code or message should throw an Error saying which field must be a string.",
-  "requirement": "createWarning throws new Error(`Warning ${field} must be a string`) (field = name, code or message) when that field is present (truthy) but not a string. Missing or empty fields keep the existing 'Warning <field> must not be empty' errors. Valid input behaves as before.",
+  "prompt": "createWarning crashes with an unhelpful TypeError ('code.toUpperCase is not a function') when code is not a string, and silently accepts a non-string name or message. Validate them. For each of name, code and message: a missing value (undefined), null or '' keeps throwing the existing Error 'Warning <field> must not be empty'; any other value that is not a string (numbers including 0, booleans including false, objects, arrays) throws an Error with message 'Warning <field> must be a string'. Valid strings behave as before.",
+  "requirement": "createWarning checks name, code and message in that order. A field that is undefined, null or '' throws new Error('Warning <field> must not be empty'); a field that is any other non-string value (including 0, false, NaN, objects and arrays) throws new Error('Warning <field> must be a string'). Both are plain Errors. Valid input behaves as before (code is upper-cased).",
   "oracle": {
     "acceptance_criteria": [
       {
@@ -17,15 +17,15 @@
       },
       {
         "id": "AC-2",
-        "criterion": "name: {} throws 'Warning name must be a string'"
+        "criterion": "name: {} throws 'Warning name must be a string'; message: 42 throws 'Warning message must be a string'; an array code is rejected the same way"
       },
       {
         "id": "AC-3",
-        "criterion": "message: 42 throws 'Warning message must be a string'"
+        "criterion": "falsy non-strings are not 'empty': code: 0 and message: false throw 'must be a string'"
       },
       {
         "id": "AC-4",
-        "criterion": "empty or missing fields still throw 'Warning <field> must not be empty'"
+        "criterion": "undefined, null and '' still throw 'Warning <field> must not be empty'"
       },
       {
         "id": "AC-5",

@@ -7,7 +7,7 @@
   },
   "repo": "qb-bench:avvio",
   "base_rev": "4c5d9176b6e4457bff6e2524e7873f4f6a5193c3",
-  "prompt": "app.toJSON() (and TimeTree#toJSON) hand out the live plugin tree: a caller that edits the returned object (e.g. relabels a node or pushes into nodes) changes what later toJSON() and prettyPrint() report. Return a copy the caller can't use to change the internal state.",
+  "prompt": "app.toJSON() (and TimeTree#toJSON) hand out the live plugin tree: a caller that edits the returned object (e.g. relabels a node or pushes into nodes) changes what later toJSON() and prettyPrint() report. Return a copy the caller can't use to change the internal state at any depth, with the same data as before. An empty tree still returns {}.",
   "requirement": "TimeTree#toJSON and Boot#toJSON return a deep copy of the tree: the same data, but no object or array shared with the internal tree at any depth. Mutating the result never affects later toJSON or prettyPrint output. An empty tree still returns {}.",
   "oracle": {
     "acceptance_criteria": [

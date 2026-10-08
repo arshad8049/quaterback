@@ -15,6 +15,9 @@
  *            null, plus the oracle draft. Nothing is approved or frozen here.
  *   freeze   a named PERSON approves the oracle (QB-13): spec.oracle = draft + approved_by; the
  *            spec is frozen in bench/specs.lock.json (bench/spec.js) and written to bench/specs/<ID>.json.
+ *            The reviewer reads the curation files, so freeze approves only a draft whose source
+ *            fingerprint (task.json, reference and incorrect trees) and grader still match the current
+ *            files; anything edited after qualification needs a re-qualify first.
  *
  * CLI:
  *   node bench/curate.js qualify <ID|all>
@@ -29,6 +32,7 @@ const S = require('./schemas');
 const { qualify } = require('./qualify');
 const { freeze } = require('./spec');
 const { resolveSource } = require('./repos');
+const { graderHash } = require('./grader');
 
 const DEFAULTS = {
   curation: path.join(__dirname, 'curation'),
@@ -98,6 +102,9 @@ function specOf(id, o) {
   return { spec, oracleDraft: t.oracle || null, repoDir };
 }
 
+/** Fingerprint of what a reviewer reads: the whole curation tree (task.json, reference, incorrect). */
+const sourceOf = (id, o) => ({ curation_sha256: S.treeHash(path.join(o.curation, id)) });
+
 /** Qualify one task; writes <specs>/<ID>.draft.json. Throws SuiteNotQualified when the suite is too weak. */
 async function qualifyTask(id, o = {}) {
   o = { ...DEFAULTS, ...o };
@@ -114,7 +121,7 @@ async function qualifyTask(id, o = {}) {
   const incorrect = (fs.existsSync(wrongRoot) ? fs.readdirSync(wrongRoot).sort() : [])
     .map((label) => ({ label, patch: patchFromTree(repoDir, spec.repo.base_rev, path.join(wrongRoot, label)) }));
   const qualification = await qualify({ spec, reference, incorrect, suitesRoot: o.suites, runSandboxed: o.runSandboxed, sandbox: o.sandbox, now: o.now });
-  const draft = { schema: 'qb-task-draft/1', spec: S.TaskSpec.parse({ ...spec, qualification }), oracle_draft: oracleDraft };
+  const draft = { schema: 'qb-task-draft/1', spec: S.TaskSpec.parse({ ...spec, qualification }), oracle_draft: oracleDraft, source: sourceOf(id, o) };
   fs.mkdirSync(o.specs, { recursive: true });
   fs.writeFileSync(path.join(o.specs, `${id}.draft.json`), JSON.stringify(draft, null, 2) + '\n');
   return draft;
@@ -127,6 +134,9 @@ function freezeTask(id, o = {}) {
   if (!approver) throw new Error('freeze needs --approver "<name>": the oracle is approved by a person (QB-13)');
   if (NOT_A_PERSON.test(approver)) throw new Error(`"${approver}" is not a person: an oracle is approved by a named human reviewer`);
   const draft = JSON.parse(fs.readFileSync(path.join(o.specs, `${id}.draft.json`), 'utf8'));
+  if (!draft.source) throw new Error(`${id}: the draft has no source fingerprint; re-qualify`);
+  if (draft.source.curation_sha256 !== sourceOf(id, o).curation_sha256) throw new Error(`${id}: task.json, reference or incorrect trees changed since qualification; re-qualify before approving`);
+  if (draft.spec.qualification.grader_sha256 !== graderHash()) throw new Error(`${id}: the grader changed since qualification; re-qualify before approving`);
   const spec = S.TaskSpec.parse({ ...draft.spec, oracle: { ...draft.oracle_draft, approved_by: approver } });
   freeze(spec, { lockFile: o.lockFile, suitesRoot: o.suites, now: o.now });
   fs.writeFileSync(path.join(o.specs, `${id}.json`), JSON.stringify(spec, null, 2) + '\n');

@@ -7,7 +7,7 @@
   },
   "repo": "qb-bench:fastify-plugin",
   "base_rev": "87548e7878496b7b960c633bff6f860e2de40849",
-  "prompt": "fastify-plugin modifies the options object it is given: wrapping two plugins with the same options object (const opts = {}; fp(a, opts); fp(b, opts)) gives the second plugin the first one's auto-generated name, and opts gains a name property. Don't touch the caller's object.",
+  "prompt": "fastify-plugin modifies the options object it is given: wrapping two plugins with the same options object (const opts = {}; fp(a, opts); fp(b, opts)) gives the second plugin the first one's auto-generated name, and opts gains a name property. Don't touch the caller's object, and keep the plugin's metadata (fn[Symbol.for('plugin-meta')]) as the plugin's own copy, so later changes the caller makes to their object don't change it. Explicit names, auto names, the display name and the camelCase alias work as before.",
   "requirement": "plugin(fn, options) never modifies the options object passed in, and the metadata it attaches (fn[Symbol.for('plugin-meta')]) is its own copy: later changes to the caller's object do not change it. Each wrapped plugin gets its own auto name when no name is given. Everything else (string shorthand, validation, display name, camelCase alias) is unchanged.",
   "oracle": {
     "acceptance_criteria": [

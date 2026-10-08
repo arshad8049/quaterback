@@ -12,6 +12,12 @@
  *                 tasks within each sampled repository with replacement; percentile 95% CI.
  *                 Seeded from the experiment, so the report stays byte-reproducible.
  *
+ *   operational   success per ASSIGNED repetition: over the repetitions planned for both arms,
+ *                 anything but a pass (fail, agent error, timeout, infra/grader error, missing)
+ *                 counts as no success. The complete-case primary drops a pair when either arm
+ *                 has no score, so an arm that errors out on hard tasks could look better among
+ *                 its surviving runs; this endpoint is reported next to it, with the same bootstrap.
+ *
  * Ordinary McNemar over all trial rows is deliberately NOT used: it treats repeated trials
  * of one task as independent and overstates the evidence.
  */
@@ -61,6 +67,32 @@ function taskEffects(rows, X, Y) {
 }
 
 /**
+ * Per-task operational effects of Y over X: success per repetition assigned (planned) to both arms.
+ * @returns {Array<{ task_id, assigned, success_x, success_y, effect }>}
+ */
+function operationalEffects(rows, X, Y) {
+  const reps = new Map();
+  for (const r of rows) {
+    if (!r.planned) continue;
+    const k = `${r.task_id}\0${r.repetition}`;
+    if (!reps.has(k)) reps.set(k, { task_id: r.task_id, arms: {} });
+    reps.get(k).arms[r.arm] = r;
+  }
+  const byTask = new Map();
+  for (const g of reps.values()) {
+    const x = g.arms[X]; const y = g.arms[Y];
+    if (!x || !y) continue;
+    if (!byTask.has(g.task_id)) byTask.set(g.task_id, { task_id: g.task_id, assigned: 0, success_x: 0, success_y: 0 });
+    const t = byTask.get(g.task_id);
+    t.assigned++;
+    if (x.score === 'pass') t.success_x++;
+    if (y.score === 'pass') t.success_y++;
+  }
+  return [...byTask.values()].sort((a, b) => (a.task_id < b.task_id ? -1 : a.task_id > b.task_id ? 1 : 0))
+    .map((t) => ({ ...t, effect: round((t.success_y - t.success_x) / t.assigned) }));
+}
+
+/**
  * Two-stage cluster bootstrap of the mean task effect.
  * @param {Array<{ task_id, repository, effect }>} effects  tasks with an effect (matched ≥ 1)
  */
@@ -104,6 +136,9 @@ function analyze(d, m) {
   const primary = { comparison: [X, Y], role: 'primary (predeclared)', tasks: primaryTasks,
     unmatched_tasks: primaryTasks.filter((t) => t.effect === null).map((t) => t.task_id),
     ...clusterBootstrap(primaryTasks, { seed: `${seed}\0${X}\0${Y}` }) };
+  const operationalTasks = operationalEffects(d.rows, X, Y).map((e) => ({ ...e, ...stratum(e.task_id) }));
+  const operational = { comparison: [X, Y], role: 'operational (predeclared; attrition counts as no success)', tasks: operationalTasks,
+    ...clusterBootstrap(operationalTasks, { seed: `${seed}\0operational\0${X}\0${Y}` }) };
   const secondary = m.arms.map((a) => a.id).filter((a) => a !== X && a !== Y).map((Z) => {
     const tasks = effectsFor(X, Z);
     return { comparison: [X, Z], role: 'secondary (exploratory ablation)', n_tasks: tasks.filter((t) => t.effect !== null).length,
@@ -124,8 +159,8 @@ function analyze(d, m) {
   return {
     unit: 'task (trials nested within tasks; tasks grouped by repository)',
     not_used: 'McNemar over trial rows (treats repeated trials as independent)',
-    primary, secondary, strata: { by_type: strata('type'), by_repository: strata('repository') }, completion,
+    primary, operational, secondary, strata: { by_type: strata('type'), by_repository: strata('repository') }, completion,
   };
 }
 
-module.exports = { taskEffects, clusterBootstrap, analyze, B_DEFAULT };
+module.exports = { taskEffects, operationalEffects, clusterBootstrap, analyze, B_DEFAULT };

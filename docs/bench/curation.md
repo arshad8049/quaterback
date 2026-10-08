@@ -25,7 +25,7 @@ Built checkouts live outside the QB repository (`QB_BENCH_REPOS`, default `~/.qb
 | process-warning | v5.1.0 | 24/24 |
 | fastify-plugin | v6.0.0 | 23/23 |
 
-The six legacy tasks (`bench/tasks.json`, the `cue` repository) have **no** specs. That repository is local to one machine and its license (GPL-3.0-or-later) needs the owner's decision before derived files are committed here. They stay ungraded.
+The six legacy tasks (`bench/tasks.json`, the `cue` repository) have **no** specs and stay **ungraded**: their base is local to one machine, so they cannot be reproduced. They are excluded from scored denominators and the holdout, and their historical rows are kept, labelled legacy (`docs/bench/protocol.md` §2). Grading them later would need a reproducible base and a separate provenance and licence decision.
 
 ## Writing a task
 
@@ -49,11 +49,13 @@ bench/suites/<ID>/<files>                      the hidden suite (installed at te
 
 Rules the dev set follows, which the holdout author should follow too:
 
-1. **The hidden suite tests only what the prompt determines.** When the prompt leaves a choice open (wording of a message, rounding of an edge case), either the prompt states it or the suite doesn't test it. The `requirement` spells out the full behaviour the suite checks.
+1. **The prompt states everything the hidden suite grades.** Arms A and B see only the prompt, so a behaviour the suite checks must be in it: exact error messages, boundary values, copies vs live objects, what happens to null and undefined. When the prompt leaves a choice open, either the prompt states it or the suite doesn't test it. The `requirement` and the acceptance criteria say the same thing in full, for graders and for the contract arms.
+   - **Define the boundaries explicitly.** "Truthy", "missing" and "passed" are ambiguous for `undefined`, `null`, `0`, `false`, `''` and `NaN`. Say what each does, and test the ones that differ (PW-01, PW-02, PW-03, FJ-05).
+   - **Check with a mapping, not just the qualification.** For every hidden test, find the prompt sentence that determines it. Passing two wrong implementations is a minimum, not proof that the oracle is complete.
 2. **Prefer real behaviour.** Most dev tasks are defects or gaps that exist at the pinned commit, each confirmed by a probe before the task was written. The pinned behaviour is noted in `provenance.notes`.
 3. **Incorrect implementations are plausible mistakes**, not sabotage: a partial fix (only the first argument, only one of three formats), the wrong unit (seconds vs milliseconds), a mutating shortcut, a duplicated copy left behind by a refactor. Each must fail by **tests failing** (`tests_failed`), not by a load error, so suites build inside tests, not at file load.
 4. **`already_satisfied` tasks have no `reference/` tree.** The correct change is none: the empty patch must pass, and the incorrect trees are unneeded "fixes" that break working behaviour.
-5. **Refactor tasks** may check structure (the new module exports the function; the old file no longer defines its own copy) as well as unchanged output.
+5. **Refactor tasks** check that the new module is **used**, behaviourally: the suite loads the package fresh with the new module replaced by a stub in the require cache, and the old entry point must then show the stub's behaviour (AV-06, LM-05, PW-06). A source check for a leftover definition also covers function expressions and arrow functions, not only `function Name(`. Suites must not test internal data structures the prompt doesn't name.
 6. Suites target Node 24 (the agent image) and the repository's own test style. They must not depend on wall-clock time, the network or the timezone.
 
 ## Qualify, approve, freeze
@@ -70,6 +72,7 @@ node bench/curate.js freeze  <ID|all> --approver "<name of a person>"
   - writes `bench/specs/<ID>.draft.json`: the spec with `oracle: null` plus the oracle draft. Nothing is approved or frozen.
 - **freeze:**
   - a named **person** approves the drafted oracle; the tool refuses an empty approver or one that names a tool or model;
+  - it approves exactly what was qualified. The draft records a fingerprint of the curation tree (task.json, reference and incorrect trees), and freeze refuses when that fingerprint, the suite or the grader changed since qualification. Edit, then re-qualify, then approve;
   - `spec.oracle.approved_by` records them;
   - the spec is frozen in `bench/specs.lock.json` (`bench/spec.js`; a later change needs a new version with a disclosed changelog entry) and written to `bench/specs/<ID>.json`.
 

@@ -7,8 +7,8 @@
   },
   "repo": "qb-bench:fast-json-stringify",
   "base_rev": "8959a794e4ba6d040577c98c97e16ab33898c3dc",
-  "prompt": "largeArraySize validation is too lax: '20000abc' and '1.5' are accepted as strings (parseInt keeps the leading digits), and negative sizes like -5 or -5n are accepted. Only accept positive whole sizes and reject anything else with the existing 'Unsupported large array size' error.",
-  "requirement": "options.largeArraySize is accepted only as a positive integer number, a positive BigInt, or a string consisting solely of decimal digits that denotes a positive integer. Anything else that is set (truthy) throws the existing error `Unsupported large array size. Expected integer-like, got <typeof> with value <value>`. Valid sizes behave as before.",
+  "prompt": "largeArraySize validation is too lax: '20000abc' and '1.5' are accepted as strings (parseInt keeps the leading digits), negative sizes like -5 or -5n are accepted, and falsy values such as 0 are silently ignored. Whenever largeArraySize is given (any value other than undefined), accept only a positive whole size: a positive integer number, a positive BigInt, or a string of decimal digits only that denotes a positive integer. Reject everything else, including 0, '0', 0n, false, '', null, non-integer numbers and NaN, with the existing error `Unsupported large array size. Expected integer-like, got <typeof value> with value <value>`. Leaving the option out keeps the default size.",
+  "requirement": "If options.largeArraySize is not undefined it must be a positive integer number, a positive BigInt, or a string matching /^[0-9]+$/ whose value is positive; any other value (including 0, '0', 0n, false, '', null, 1.5, NaN, ' 100', '1e3', '20000abc', -5, -5n) throws new Error(`Unsupported large array size. Expected integer-like, got ${typeof value} with value ${value}`). An omitted (undefined) option uses the default size. Valid sizes behave as before.",
   "oracle": {
     "acceptance_criteria": [
       {
@@ -21,7 +21,15 @@
       },
       {
         "id": "AC-3",
+        "criterion": "0, '0', 0n, false, '', null, 1.5 and NaN are given values and throw the same error (null reports 'object')"
+      },
+      {
+        "id": "AC-4",
         "criterion": "100, '100' and 100n are accepted"
+      },
+      {
+        "id": "AC-5",
+        "criterion": "an omitted largeArraySize uses the default"
       }
     ]
   },

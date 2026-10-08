@@ -16,7 +16,7 @@
         "package-lock.json": "8bf71233079f881a648b0413a626132fa80a3ebc076c65aba855d29dd75472da"
       }
     },
-    "prompt": "Add a getPluginMeta(fn) export that returns the metadata fastify-plugin attached to a wrapped function (its options: name, fastify version, etc.), or undefined for a function that wasn't wrapped.",
+    "prompt": "Add a getPluginMeta(value) export (require('fastify-plugin').getPluginMeta) that returns the metadata fastify-plugin attached to a wrapped function (its options: name, fastify version, etc.). Return a copy: changing the returned object must not change the plugin's metadata. For anything else (a function that wasn't wrapped, a plain object, null or undefined) return undefined, and never throw.",
     "requirement": "fastify-plugin exports getPluginMeta(value) (as require('fastify-plugin').getPluginMeta). For a function returned by fastify-plugin it returns a shallow copy of the attached metadata (fn[Symbol.for('plugin-meta')]): mutating the result does not change the plugin. For any other value (unwrapped functions, objects, null, undefined) it returns undefined and never throws.",
     "oracle": null,
     "suite": {
@@ -54,7 +54,7 @@
           "outcome": "fail"
         }
       ],
-      "qualified_at": "2026-10-08T13:19:21.282Z"
+      "qualified_at": "2026-10-08T15:35:23.392Z"
     },
     "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
     "provenance": {
@@ -76,12 +76,15 @@
       },
       {
         "id": "AC-3",
-        "criterion": "mutating the returned object does not change a later getPluginMeta result"
+        "criterion": "mutating the returned object does not change a later getPluginMeta result or the plugin's metadata"
       },
       {
         "id": "AC-4",
-        "criterion": "unwrapped functions, null and undefined give undefined without throwing"
+        "criterion": "unwrapped functions, plain objects, null and undefined give undefined without throwing"
       }
     ]
+  },
+  "source": {
+    "curation_sha256": "473f2d197cee09fb00a2934e79f6434a63191202b0885beac5c743a16e08d87a"
   }
 }

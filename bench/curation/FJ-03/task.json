@@ -7,8 +7,8 @@
   },
   "repo": "qb-bench:fast-json-stringify",
   "base_rev": "8959a794e4ba6d040577c98c97e16ab33898c3dc",
-  "prompt": "Let date-time strings accept numeric timestamps: a number given for a { type: 'string', format: 'date-time' } property should be treated as milliseconds since the epoch and serialized as an ISO date-time.",
-  "requirement": "For format date-time, a finite number n is serialized as the quoted ISO string of new Date(n) (milliseconds since the epoch). A non-finite number (NaN, \u00b1Infinity) throws `The value \"<n>\" cannot be converted to a date-time.`. Date objects, strings and null behave as before; formats date and time are unchanged.",
+  "prompt": "Let date-time strings accept numeric timestamps: a number given for a { type: 'string', format: 'date-time' } property should be treated as milliseconds since the epoch and serialized as the ISO date-time string of new Date(n). A number that is not a valid timestamp (NaN, Infinity, -Infinity, or outside the range a JavaScript Date can represent, \u00b18.64e15 ms) must throw the library's usual conversion error, `The value \"<n>\" cannot be converted to a date-time.` with the number as JavaScript prints it. Date objects, strings and the date and time formats are unchanged.",
+  "requirement": "For format date-time, a number n for which new Date(n) is a valid date (finite and |n| \u2264 8.64e15) is serialized as the quoted string new Date(n).toISOString(). Any other number (NaN, \u00b1Infinity, |n| > 8.64e15) throws an Error with message `The value \"${n}\" cannot be converted to a date-time.` (String(n) formatting), never a RangeError. Date objects, strings and null behave as before; formats date and time are unchanged.",
   "oracle": {
     "acceptance_criteria": [
       {
@@ -17,14 +17,18 @@
       },
       {
         "id": "AC-2",
-        "criterion": "1704164645000 serializes as \"2024-01-02T03:04:05.000Z\""
+        "criterion": "1704164645000 serializes as \"2024-01-02T03:04:05.000Z\" (milliseconds, not seconds)"
       },
       {
         "id": "AC-3",
-        "criterion": "NaN and Infinity throw the usual 'cannot be converted to a date-time' error"
+        "criterion": "NaN and Infinity throw 'The value \"NaN\" / \"Infinity\" cannot be converted to a date-time.'"
       },
       {
         "id": "AC-4",
+        "criterion": "the largest representable timestamp 8.64e15 serializes as \"+275760-09-13T00:00:00.000Z\"; 8640000000000001 throws 'The value \"8640000000000001\" cannot be converted to a date-time.'"
+      },
+      {
+        "id": "AC-5",
         "criterion": "Date objects and strings behave as before"
       }
     ]

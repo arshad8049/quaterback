@@ -7,7 +7,7 @@
   },
   "repo": "qb-bench:fast-json-stringify",
   "base_rev": "8959a794e4ba6d040577c98c97e16ab33898c3dc",
-  "prompt": "Serializer options leak between builds: after building one serializer with { largeArraySize: 2, largeArrayMechanism: 'json-stringify' }, a serializer built later WITHOUT options still uses JSON.stringify for arrays (so integer items like 1.5 come out unrounded). Each build should use only its own options.",
+  "prompt": "Serializer options leak between builds: after building one serializer with { largeArraySize: 2, largeArrayMechanism: 'json-stringify' }, a serializer built later WITHOUT options still uses JSON.stringify for arrays (so integer items like 1.5 come out unrounded). Each build should use only its own options: an option a build doesn't set takes the library default (mechanism 'default', size 20000), whatever earlier builds used, and serializers already built keep the behaviour they were built with.",
   "requirement": "largeArrayMechanism and largeArraySize given to build() affect only the serializer built in that call. A build without them uses the defaults (mechanism 'default', size 20000), whatever earlier builds used; a build that sets only one of them gets the default for the other. Serializers already built keep the behaviour they were built with.",
   "oracle": {
     "acceptance_criteria": [

@@ -22,7 +22,7 @@
     "suite": {
       "dir": "AV-06",
       "files": {
-        "pretty-print-module.test.js": "71e862897a638a088a559cedddcc2e784feddc1d04df2c35458c71587c15fb1a"
+        "pretty-print-module.test.js": "f1423d0e04041659a93484e103eec87dbd3fc10e71e7cb080febb44761bd2b55"
       },
       "command": [
         "node",
@@ -37,12 +37,17 @@
     },
     "qualification": {
       "grader_sha256": "3116461e6934079a16ed5af0ae2c35e701094b699f62feeea86fe2106d4ea886",
-      "suite_sha256": "fedf38d6ba1f43e4c8fa76d68a04f5e71bf463d3ee3f56147938ac52e3dff90d",
+      "suite_sha256": "287f08d07b82f8a3955427f899dcb8bac4b4ce2a58a93b5a842ddbb6154d84c5",
       "reference": {
         "patch_sha256": "81db6f252b1c13c4d12b5f1d286b9117cdfd61e101ae5339e684bc575327f4b7",
         "outcome": "pass"
       },
       "incorrect": [
+        {
+          "label": "arrow-copy-kept",
+          "patch_sha256": "301f7b1457f772ce9b942c26a2c8235300a9cbec46f2d8a5b513408cbc0b40ee",
+          "outcome": "fail"
+        },
         {
           "label": "copy-kept",
           "patch_sha256": "087b13efb56d2e56da4bf4d647afb9abd657b0c1351c333746aab9c75934bf91",
@@ -59,7 +64,7 @@
           "outcome": "fail"
         }
       ],
-      "qualified_at": "2026-10-08T13:14:58.544Z"
+      "qualified_at": "2026-10-08T15:18:48.199Z"
     },
     "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
     "provenance": {
@@ -77,12 +82,19 @@
       },
       {
         "id": "AC-2",
-        "criterion": "lib/time-tree.js no longer contains its own prettyPrintTimeTree definition and requires ./pretty-print"
+        "criterion": "TimeTree#prettyPrint renders through lib/pretty-print (replacing that module changes its output)"
       },
       {
         "id": "AC-3",
+        "criterion": "lib/time-tree.js no longer defines its own prettyPrintTimeTree (as a declaration, function expression or arrow function)"
+      },
+      {
+        "id": "AC-4",
         "criterion": "app.prettyPrint() output is unchanged"
       }
     ]
+  },
+  "source": {
+    "curation_sha256": "d44b9aa393c121baf44e83b58300d970e606ea24a837dcc4109c5f72464d9842"
   }
 }

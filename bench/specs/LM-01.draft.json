@@ -16,7 +16,7 @@
         "package-lock.json": "8a3f87872e50737155a56cc9d28a0e0bf40b8021a3a1430c9f5a3ec8efff2113"
       }
     },
-    "prompt": "Falsy JSON payloads are dropped: inject(dispatch, { method: 'POST', url: '/', payload: 0 }) sends an empty body with no content-type, and so does payload: false, while payload: 1 and payload: true are sent as JSON. Send 0 and false the same way as other non-string values.",
+    "prompt": "Falsy JSON payloads are dropped: inject(dispatch, { method: 'POST', url: '/', payload: 0 }) sends an empty body with no content-type, and so does payload: false, while payload: 1 and payload: true are sent as JSON. Send 0 and false the same way as other non-string values (JSON body, content-type application/json, content-length), whether given as payload or as body. undefined and null still mean no payload, and string, buffer and object payloads are unchanged.",
     "requirement": "A payload (or body) of 0 or false is serialized like any other non-string, non-buffer, non-stream value: JSON.stringify gives '0' / 'false', content-type defaults to application/json, content-length is set. undefined and null still mean no payload; payload takes precedence over body as before; string, buffer and stream payloads are unchanged.",
     "oracle": null,
     "suite": {
@@ -54,7 +54,7 @@
           "outcome": "fail"
         }
       ],
-      "qualified_at": "2026-10-08T13:21:12.724Z"
+      "qualified_at": "2026-10-08T15:38:31.270Z"
     },
     "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
     "provenance": {
@@ -88,5 +88,8 @@
         "criterion": "payload: 1 and object payloads are unchanged"
       }
     ]
+  },
+  "source": {
+    "curation_sha256": "19a8344008cb1037a4818458ce01530e3ec3ea66b661777820490c8784706555"
   }
 }

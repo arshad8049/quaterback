@@ -16,7 +16,7 @@
         "package-lock.json": "8f806ba8a79e7c69a60f587d92fd49e5c6e63c46f7838bee412af737ec671948"
       }
     },
-    "prompt": "Add an isWarning(value) export that tells whether a value is a warning item created by createWarning or createDeprecation.",
+    "prompt": "Add an isWarning(value) export (also on the default and processWarning namespace objects) that returns true for a warning item created by createWarning or createDeprecation and false for anything else, including other functions, objects that merely copy a warning's properties, null and undefined. It returns a boolean and never throws.",
     "requirement": "process-warning exports isWarning(value) (also on the default and processWarning namespace objects). It returns the boolean true for any function returned by createWarning or createDeprecation, and false for everything else: other functions, plain objects (even ones that copy a warning's name/code/message/emitted properties), null and undefined. It never throws.",
     "oracle": null,
     "suite": {
@@ -59,7 +59,7 @@
           "outcome": "fail"
         }
       ],
-      "qualified_at": "2026-10-08T13:33:16.669Z"
+      "qualified_at": "2026-10-08T15:58:35.341Z"
     },
     "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
     "provenance": {
@@ -88,5 +88,8 @@
         "criterion": "the result is a boolean"
       }
     ]
+  },
+  "source": {
+    "curation_sha256": "f6b94212b4adfa5d75008a4369b70ee3638ff889d4d456c3c5839638c784d9c1"
   }
 }

@@ -17,6 +17,8 @@ test('format(null) interpolates null', () => assert.equal(make('v=%s').format(nu
 test('a falsy second argument is interpolated', () => assert.equal(make('%s and %d').format('x', 0), 'x and 0'))
 test('falsy second and third arguments are interpolated', () => assert.equal(make('%d/%d/%d').format(1, 0, 0), '1/0/0'))
 test('no arguments: the message is unchanged', () => assert.equal(make('plain %s').format(), 'plain %s'))
+test('trailing undefined is not supplied', () => { assert.equal(make('plain %s').format(undefined), 'plain %s'); assert.equal(make('a=%s b=%s').format(0, undefined), 'a=0 b=%s') })
+test('an undefined before a supplied argument is interpolated', () => assert.equal(make('%s,%s,%s').format('x', undefined, 'z'), 'x,undefined,z'))
 test('truthy arguments interpolate as before', () => assert.equal(make('%s-%s').format('a', 'b'), 'a-b'))
 test('the emitted message interpolates 0 and has no trailing undefined', async () => {
   assert.equal(await emitted(make('count=%d'), 0), 'count=0')

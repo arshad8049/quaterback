@@ -16,7 +16,7 @@
         "package-lock.json": "8bf71233079f881a648b0413a626132fa80a3ebc076c65aba855d29dd75472da"
       }
     },
-    "prompt": "The camelCase alias fastify-plugin derives from a plugin name isn't always a valid identifier: 'my--plugin' gives 'my-plugin', 'plugin-' stays 'plugin-', and '@a/b/c-d' gives 'aB/cD'. Fix lib/toCamelCase.js so hyphens and slashes never survive.",
+    "prompt": "The camelCase alias fastify-plugin derives from a plugin name isn't always a valid identifier: 'my--plugin' gives 'my-plugin', 'plugin-' stays 'plugin-', and '@a/b/c-d' gives 'aB/cD'. Fix lib/toCamelCase.js so hyphens and slashes never survive: drop a leading '@', split the rest on runs of '-' and '/', ignore empty pieces, keep the first piece as is and upper-case only the first character of each following piece. So 'my--plugin' → 'myPlugin', 'plugin-' → 'plugin', '@a/b/c-d' → 'aBCD', '@scope/my-plugin' → 'scopeMyPlugin', 'fooBar-baz' → 'fooBarBaz', 'my_plugin' → 'my_plugin'. The alias fp sets on the plugin follows the same rule.",
     "requirement": "toCamelCase(name) drops a leading '@', splits the rest on runs of '-' and '/', ignores empty pieces, keeps the first piece as is and upper-cases the first character of each following piece (other characters unchanged). Examples: '@scope/my-plugin' → 'scopeMyPlugin', 'my--plugin' → 'myPlugin', 'plugin-' → 'plugin', '@a/b/c-d' → 'aBCD', 'fooBar-baz' → 'fooBarBaz', 'my_plugin' → 'my_plugin'. The alias fp sets (fn[camelName]) follows the same rule.",
     "oracle": null,
     "suite": {
@@ -54,7 +54,7 @@
           "outcome": "fail"
         }
       ],
-      "qualified_at": "2026-10-08T13:17:30.502Z"
+      "qualified_at": "2026-10-08T15:32:14.983Z"
     },
     "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
     "provenance": {
@@ -84,5 +84,8 @@
         "criterion": "fp(fn, { name: 'my--plugin' }).myPlugin === fn"
       }
     ]
+  },
+  "source": {
+    "curation_sha256": "efd486e80ee72b9714cad9ad4801dbfda4ad3fdb1d6f769181a862a43c42e8e9"
   }
 }

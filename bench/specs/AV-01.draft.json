@@ -16,13 +16,13 @@
         "package-lock.json": "40f643378825af4dd7e734a80b1f80660f74b0d9fbc790a1b363857f012b32e7"
       }
     },
-    "prompt": "The plugin time tree attaches children to the wrong node when two plugins share a name. In lib/time-tree.js, start two nodes with the same label under root, stop the FIRST one, then start a child whose parent is that label: the child is attached to the stopped node instead of the one still running. Fix it.",
-    "requirement": "TimeTree.stop(nodeId) removes exactly that node from the label table, whatever its position among nodes sharing its label. A later start(parentLabel, …) attaches to the most recently started node with that label that is still running. Stopping an unknown id is a no-op.",
+    "prompt": "The plugin time tree attaches children to the wrong node when two plugins share a name. In lib/time-tree.js, start two nodes with the same label under root, stop the FIRST one, then start a child whose parent is that label: the child is attached to the stopped node instead of the one still running. Fix it: stop(id) must stop exactly the node with that id, and start(parentLabel, …) must attach the child to the most recently started node with that label that is still running. Stopping an id that doesn't exist does nothing.",
+    "requirement": "TimeTree.stop(nodeId) removes exactly that node from the label table, whatever its position among nodes sharing its label. A later start(parentLabel, …) attaches to the most recently started node with that label that is still running. Stopping an unknown id is a no-op. Only behaviour observable through start/stop and the tree (root.nodes) is graded.",
     "oracle": null,
     "suite": {
       "dir": "AV-01",
       "files": {
-        "time-tree-labels.test.js": "d0bf2e568362735aec97b3740931dab653d1345337b7407ffbfad0d1f06840ba"
+        "time-tree-labels.test.js": "6d1e8582dca0b9e8fec2cbe54705c9a624e294d81afa13c82dfc5d5df9694f43"
       },
       "command": [
         "node",
@@ -37,7 +37,7 @@
     },
     "qualification": {
       "grader_sha256": "3116461e6934079a16ed5af0ae2c35e701094b699f62feeea86fe2106d4ea886",
-      "suite_sha256": "3f51e231b4d4c82073c9aeb5742269b160c70d06f3d31e713be196bd722a2093",
+      "suite_sha256": "c006b517a10018952424c225ca71b47a642b21c5813b0dc90aabae6c7a51f6b7",
       "reference": {
         "patch_sha256": "e73370fc3d38044cd0a3fff3c06af3e32936157d3cb6f5f96354f517b77a3828",
         "outcome": "pass"
@@ -54,7 +54,7 @@
           "outcome": "fail"
         }
       ],
-      "qualified_at": "2026-10-08T13:10:36.683Z"
+      "qualified_at": "2026-10-08T15:11:18.722Z"
     },
     "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
     "provenance": {
@@ -77,12 +77,19 @@
       },
       {
         "id": "AC-3",
-        "criterion": "stopping an unknown id changes nothing"
+        "criterion": "with both running, a child of 'p' goes under the most recently started one"
       },
       {
         "id": "AC-4",
+        "criterion": "stopping an unknown id changes nothing: a child still goes under the most recent 'p'"
+      },
+      {
+        "id": "AC-5",
         "criterion": "single-node behaviour is unchanged"
       }
     ]
+  },
+  "source": {
+    "curation_sha256": "248d8de05376fc7c48122637bafd863572d453ca2ee0fb9f022335ddef636dc7"
   }
 }

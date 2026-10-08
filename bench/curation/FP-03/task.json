@@ -7,7 +7,7 @@
   },
   "repo": "qb-bench:fastify-plugin",
   "base_rev": "87548e7878496b7b960c633bff6f860e2de40849",
-  "prompt": "Passing a non-string plugin name (fp(fn, { name: 123 })) crashes with an unhelpful 'name.replace is not a function'. Validate it like the fastify version option: throw a TypeError naming what was received.",
+  "prompt": "Passing a non-string plugin name (fp(fn, { name: 123 })) crashes with an unhelpful 'name.replace is not a function'. Validate it like the fastify version option: when name is given and is not a string (including false and null), throw a TypeError with message `fastify-plugin expects a name string, instead got '<typeof name>'` (null reports 'object'). A missing name or the empty string '' keeps the automatic naming, and string names work as before.",
   "requirement": "When options.name is present (not undefined) and not a string, plugin() throws a TypeError with message `fastify-plugin expects a name string, instead got '<typeof name>'` (null reports 'object'). A missing or empty name keeps the automatic naming; string names are unchanged.",
   "oracle": {
     "acceptance_criteria": [

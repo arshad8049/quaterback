@@ -7,7 +7,7 @@
   },
   "repo": "qb-bench:light-my-request",
   "base_rev": "e02b8f2ac1290d99a2ec67649606991bb2a08db3",
-  "prompt": "A header set to null is sent as the literal string 'null' (headers: { 'x-a': null } arrives as x-a: null). Reject it the same way undefined header values are rejected.",
+  "prompt": "A header set to null is sent as the literal string 'null' (headers: { 'x-a': null } arrives as x-a: null). Reject it the same way undefined header values are rejected, with the message 'invalid value \"null\" for header <name>'. undefined keeps its existing message, and other values such as 0, false and '' are still sent as strings.",
   "requirement": "A header whose value is null makes inject fail with an assertion error whose message is 'invalid value \"null\" for header <name>' (the existing undefined check keeps its message 'invalid value \"undefined\" for header <name>'). Other values are converted to strings as before.",
   "oracle": {
     "acceptance_criteria": [

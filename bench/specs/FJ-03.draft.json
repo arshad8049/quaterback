@@ -16,13 +16,13 @@
         "package-lock.json": "abde936de03de5983273c44d60b2e7fcb5302f54667e236270d96d689e805904"
       }
     },
-    "prompt": "Let date-time strings accept numeric timestamps: a number given for a { type: 'string', format: 'date-time' } property should be treated as milliseconds since the epoch and serialized as an ISO date-time.",
-    "requirement": "For format date-time, a finite number n is serialized as the quoted ISO string of new Date(n) (milliseconds since the epoch). A non-finite number (NaN, ±Infinity) throws `The value \"<n>\" cannot be converted to a date-time.`. Date objects, strings and null behave as before; formats date and time are unchanged.",
+    "prompt": "Let date-time strings accept numeric timestamps: a number given for a { type: 'string', format: 'date-time' } property should be treated as milliseconds since the epoch and serialized as the ISO date-time string of new Date(n). A number that is not a valid timestamp (NaN, Infinity, -Infinity, or outside the range a JavaScript Date can represent, ±8.64e15 ms) must throw the library's usual conversion error, `The value \"<n>\" cannot be converted to a date-time.` with the number as JavaScript prints it. Date objects, strings and the date and time formats are unchanged.",
+    "requirement": "For format date-time, a number n for which new Date(n) is a valid date (finite and |n| ≤ 8.64e15) is serialized as the quoted string new Date(n).toISOString(). Any other number (NaN, ±Infinity, |n| > 8.64e15) throws an Error with message `The value \"${n}\" cannot be converted to a date-time.` (String(n) formatting), never a RangeError. Date objects, strings and null behave as before; formats date and time are unchanged.",
     "oracle": null,
     "suite": {
       "dir": "FJ-03",
       "files": {
-        "timestamps.test.js": "1dc63ba261838cc15dc1209be37d5149383b3f2be69dc4153fb00089d38374e0"
+        "timestamps.test.js": "ea6d442f10668d8265998077c0cb02bd122ddca55eac933d9da2aba5eaf98608"
       },
       "command": [
         "node",
@@ -37,12 +37,17 @@
     },
     "qualification": {
       "grader_sha256": "3116461e6934079a16ed5af0ae2c35e701094b699f62feeea86fe2106d4ea886",
-      "suite_sha256": "221afb768d8fbee862b412fa2dab3194156e473dcd6e6e2a9185b46507b54645",
+      "suite_sha256": "c8485c97c8c52a366a1ece32158e18c0308db6913c4dc0bff54aa0a713114b90",
       "reference": {
-        "patch_sha256": "1fca3f269eb017947d5adc1d371c2067ec487ce8e97fa3cc8e5aef899061943b",
+        "patch_sha256": "a8b7b10c6f3634b34a8496cc2d1972be7fac7f9fd2884e5b3bf8acab9b46bf77",
         "outcome": "pass"
       },
       "incorrect": [
+        {
+          "label": "finite-only",
+          "patch_sha256": "1fca3f269eb017947d5adc1d371c2067ec487ce8e97fa3cc8e5aef899061943b",
+          "outcome": "fail"
+        },
         {
           "label": "seconds",
           "patch_sha256": "70d057a824b7a245c8e00981e3cbbf67d6bea7578891565cb8d9a85c620ad3cd",
@@ -59,7 +64,7 @@
           "outcome": "fail"
         }
       ],
-      "qualified_at": "2026-10-08T13:39:31.428Z"
+      "qualified_at": "2026-10-08T15:23:51.435Z"
     },
     "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
     "provenance": {
@@ -77,16 +82,23 @@
       },
       {
         "id": "AC-2",
-        "criterion": "1704164645000 serializes as \"2024-01-02T03:04:05.000Z\""
+        "criterion": "1704164645000 serializes as \"2024-01-02T03:04:05.000Z\" (milliseconds, not seconds)"
       },
       {
         "id": "AC-3",
-        "criterion": "NaN and Infinity throw the usual 'cannot be converted to a date-time' error"
+        "criterion": "NaN and Infinity throw 'The value \"NaN\" / \"Infinity\" cannot be converted to a date-time.'"
       },
       {
         "id": "AC-4",
+        "criterion": "the largest representable timestamp 8.64e15 serializes as \"+275760-09-13T00:00:00.000Z\"; 8640000000000001 throws 'The value \"8640000000000001\" cannot be converted to a date-time.'"
+      },
+      {
+        "id": "AC-5",
         "criterion": "Date objects and strings behave as before"
       }
     ]
+  },
+  "source": {
+    "curation_sha256": "20aeae867390db2371ce3c192ff69dcf5c18d743f205a8b7b2835b7af4961703"
   }
 }

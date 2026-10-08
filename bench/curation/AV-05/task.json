@@ -7,7 +7,7 @@
   },
   "repo": "qb-bench:avvio",
   "base_rev": "4c5d9176b6e4457bff6e2524e7873f4f6a5193c3",
-  "prompt": "app.use([]) should fail immediately with avvio's invalid-plugin error and say that it received an array (not 'object'), so people passing an array of plugins understand the mistake.",
+  "prompt": "app.use([]) should fail immediately with avvio's invalid-plugin error (AVV_ERR_PLUGIN_NOT_VALID, \"Plugin must be a function or a promise. Received: '<kind>'\") and say that it received an array (not 'object'), so people passing an array of plugins understand the mistake. Other values keep their current reporting (null as 'null', other values by typeof), and functions and promises are still accepted.",
   "requirement": "use(value) for a non-function, non-promise value throws AVV_ERR_PLUGIN_NOT_VALID synchronously; for an array the message is \"Plugin must be a function or a promise. Received: 'array'\", for null it names 'null', otherwise typeof. (avvio v9.3.0 already does this: the correct change is no change.)",
   "oracle": {
     "acceptance_criteria": [

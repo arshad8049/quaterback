@@ -7,7 +7,7 @@
   },
   "repo": "qb-bench:process-warning",
   "base_rev": "6d4b11b9159ea2a77fe68420ec4806891c582b6f",
-  "prompt": "Add an isWarning(value) export that tells whether a value is a warning item created by createWarning or createDeprecation.",
+  "prompt": "Add an isWarning(value) export (also on the default and processWarning namespace objects) that returns true for a warning item created by createWarning or createDeprecation and false for anything else, including other functions, objects that merely copy a warning's properties, null and undefined. It returns a boolean and never throws.",
   "requirement": "process-warning exports isWarning(value) (also on the default and processWarning namespace objects). It returns the boolean true for any function returned by createWarning or createDeprecation, and false for everything else: other functions, plain objects (even ones that copy a warning's name/code/message/emitted properties), null and undefined. It never throws.",
   "oracle": {
     "acceptance_criteria": [

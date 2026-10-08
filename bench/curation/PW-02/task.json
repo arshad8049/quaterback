@@ -7,8 +7,8 @@
   },
   "repo": "qb-bench:process-warning",
   "base_rev": "6d4b11b9159ea2a77fe68420ec4806891c582b6f",
-  "prompt": "spyWarning loses falsy arguments: after const spy = spyWarning(w), calling w('a', 0) records spy.calls[0].arguments as ['a'] instead of ['a', 0], and w(0) records []. Make the spy record every argument the warning was actually called with.",
-  "requirement": "spyWarning records, for each call, the arguments the warning was called with: only trailing undefined values are dropped (warning() always receives three parameters). Any other value, including 0, '', false and null, is kept in position; an undefined value before a supplied one is kept as undefined.",
+  "prompt": "spyWarning loses falsy arguments: after const spy = spyWarning(w), calling w('a', 0) records spy.calls[0].arguments as ['a'] instead of ['a', 0], and w(0) records []. Make the spy record the arguments the warning was called with, including 0, '', false and null. The warning function always receives three parameters, so trailing undefined arguments are not recorded (they cannot be told apart from omitted ones); an undefined that comes before a recorded argument is kept in its position.",
+  "requirement": "spyWarning records, for each call, the arguments up to and including the last one that is not undefined: trailing undefined values are dropped (warning() always receives three parameters). Every earlier value, including 0, '', false, null and undefined, is kept in position. callCount counts every call.",
   "oracle": {
     "acceptance_criteria": [
       {
@@ -17,15 +17,19 @@
       },
       {
         "id": "AC-2",
-        "criterion": "w(0) records [0] and w(null) records [null]"
+        "criterion": "w(0) records [0], w('') records [''], w(false) records [false] and w(null) records [null]"
       },
       {
         "id": "AC-3",
-        "criterion": "w() records []"
+        "criterion": "w() and w(undefined) record []; w('a', undefined) records ['a']"
       },
       {
         "id": "AC-4",
         "criterion": "w('a', undefined, 'c') records ['a', undefined, 'c']"
+      },
+      {
+        "id": "AC-5",
+        "criterion": "callCount still counts every call"
       }
     ]
   },

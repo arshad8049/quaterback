@@ -7,8 +7,8 @@
   },
   "repo": "qb-bench:avvio",
   "base_rev": "4c5d9176b6e4457bff6e2524e7873f4f6a5193c3",
-  "prompt": "The plugin time tree attaches children to the wrong node when two plugins share a name. In lib/time-tree.js, start two nodes with the same label under root, stop the FIRST one, then start a child whose parent is that label: the child is attached to the stopped node instead of the one still running. Fix it.",
-  "requirement": "TimeTree.stop(nodeId) removes exactly that node from the label table, whatever its position among nodes sharing its label. A later start(parentLabel, \u2026) attaches to the most recently started node with that label that is still running. Stopping an unknown id is a no-op.",
+  "prompt": "The plugin time tree attaches children to the wrong node when two plugins share a name. In lib/time-tree.js, start two nodes with the same label under root, stop the FIRST one, then start a child whose parent is that label: the child is attached to the stopped node instead of the one still running. Fix it: stop(id) must stop exactly the node with that id, and start(parentLabel, \u2026) must attach the child to the most recently started node with that label that is still running. Stopping an id that doesn't exist does nothing.",
+  "requirement": "TimeTree.stop(nodeId) removes exactly that node from the label table, whatever its position among nodes sharing its label. A later start(parentLabel, \u2026) attaches to the most recently started node with that label that is still running. Stopping an unknown id is a no-op. Only behaviour observable through start/stop and the tree (root.nodes) is graded.",
   "oracle": {
     "acceptance_criteria": [
       {
@@ -21,10 +21,14 @@
       },
       {
         "id": "AC-3",
-        "criterion": "stopping an unknown id changes nothing"
+        "criterion": "with both running, a child of 'p' goes under the most recently started one"
       },
       {
         "id": "AC-4",
+        "criterion": "stopping an unknown id changes nothing: a child still goes under the most recent 'p'"
+      },
+      {
+        "id": "AC-5",
         "criterion": "single-node behaviour is unchanged"
       }
     ]

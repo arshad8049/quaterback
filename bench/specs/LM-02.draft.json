@@ -16,7 +16,7 @@
         "package-lock.json": "8a3f87872e50737155a56cc9d28a0e0bf40b8021a3a1430c9f5a3ec8efff2113"
       }
     },
-    "prompt": "query values that are undefined end up in the URL as the text 'undefined': inject(dispatch, { url: '/', query: { a: undefined, b: 1 } }) requests /?a=undefined&b=1. Leave undefined values out of the query string, including undefined entries inside array values.",
+    "prompt": "query values that are undefined end up in the URL as the text 'undefined': inject(dispatch, { url: '/', query: { a: undefined, b: 1 } }) requests /?a=undefined&b=1. Leave undefined values out of the query string, including undefined entries inside array values; an undefined value must not add, replace or remove a parameter (a parameter already in the url stays). Other values, including null, 0 and '', are serialized as before, and string queries are unchanged.",
     "requirement": "When query is an object, keys whose value is undefined are omitted from the request URL (they neither add nor replace a parameter), and undefined elements of an array value are skipped. Other values (including null, 0, '' and false) are serialized as before. String queries are unchanged.",
     "oracle": null,
     "suite": {
@@ -59,7 +59,7 @@
           "outcome": "fail"
         }
       ],
-      "qualified_at": "2026-10-08T13:22:26.844Z"
+      "qualified_at": "2026-10-08T15:40:33.507Z"
     },
     "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
     "provenance": {
@@ -89,5 +89,8 @@
         "criterion": "null, 0 and '' are still serialized as before"
       }
     ]
+  },
+  "source": {
+    "curation_sha256": "95f992d74f18a67204248110f9cbff7dc012f77ac6ebc3660cb64599d4c807c6"
   }
 }

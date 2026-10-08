@@ -16,13 +16,13 @@
         "package-lock.json": "8a3f87872e50737155a56cc9d28a0e0bf40b8021a3a1430c9f5a3ec8efff2113"
       }
     },
-    "prompt": "Refactor: move the chainable request builder (Chain and its methods) out of index.js into lib/chain.js, exported as a named export Chain. inject() keeps the same behaviour.",
+    "prompt": "Refactor: move the chainable request builder (Chain and its methods) out of index.js into lib/chain.js, exported as a named export Chain, and have index.js use it (inject() returns a Chain from lib/chain.js). inject() keeps the same behaviour.",
     "requirement": "lib/chain.js exports { Chain } (a constructor). index.js no longer defines Chain and uses the module; inject(dispatch[, options]) without a callback returns a Chain instance from lib/chain.js. All chain behaviour is unchanged: HTTP-method and option setters, autostart, end(callback), the promise interface, and the 'The dispatch function has already been invoked' error.",
     "oracle": null,
     "suite": {
       "dir": "LM-05",
       "files": {
-        "chain-module.test.js": "342cd688d30283dd2cf6b2af46da04c8720397d049ca74d9686b36aade575b72"
+        "chain-module.test.js": "9c9a86441f39f73923161a6268aed21069dcfde428f17ef8288d493ac4bda568"
       },
       "command": [
         "node",
@@ -37,7 +37,7 @@
     },
     "qualification": {
       "grader_sha256": "3116461e6934079a16ed5af0ae2c35e701094b699f62feeea86fe2106d4ea886",
-      "suite_sha256": "fcd10786d5cbaf34db181f7a6d844546e5886d04bdf3e124a73b6d3a4af7b820",
+      "suite_sha256": "d422c3a3b045ca285bd65d19f6fe943b3a99ee091a8b80078b10311f05595701",
       "reference": {
         "patch_sha256": "e9d9e9021628451ea2efdfe194f63263c23a818cda343a1f0c7e78bfd0511267",
         "outcome": "pass"
@@ -59,7 +59,7 @@
           "outcome": "fail"
         }
       ],
-      "qualified_at": "2026-10-08T13:25:49.087Z"
+      "qualified_at": "2026-10-08T15:46:11.411Z"
     },
     "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
     "provenance": {
@@ -77,16 +77,23 @@
       },
       {
         "id": "AC-2",
-        "criterion": "index.js no longer defines function Chain"
+        "criterion": "inject builds its chain from lib/chain (replacing that module changes what inject returns)"
       },
       {
         "id": "AC-3",
-        "criterion": "chain setters, end(cb), await and autostart behave as before"
+        "criterion": "index.js no longer defines Chain (as a declaration, function expression or arrow function)"
       },
       {
         "id": "AC-4",
+        "criterion": "chain setters, end(cb), await and autostart behave as before"
+      },
+      {
+        "id": "AC-5",
         "criterion": "re-invoking still throws 'The dispatch function has already been invoked'"
       }
     ]
+  },
+  "source": {
+    "curation_sha256": "49ffcf07026992b4b1297f623de15eac5c14d1ed00bd7fa74c4a1bc85869bdc1"
   }
 }

@@ -16,13 +16,13 @@
         "package-lock.json": "8f806ba8a79e7c69a60f587d92fd49e5c6e63c46f7838bee412af737ec671948"
       }
     },
-    "prompt": "spyWarning loses falsy arguments: after const spy = spyWarning(w), calling w('a', 0) records spy.calls[0].arguments as ['a'] instead of ['a', 0], and w(0) records []. Make the spy record every argument the warning was actually called with.",
-    "requirement": "spyWarning records, for each call, the arguments the warning was called with: only trailing undefined values are dropped (warning() always receives three parameters). Any other value, including 0, '', false and null, is kept in position; an undefined value before a supplied one is kept as undefined.",
+    "prompt": "spyWarning loses falsy arguments: after const spy = spyWarning(w), calling w('a', 0) records spy.calls[0].arguments as ['a'] instead of ['a', 0], and w(0) records []. Make the spy record the arguments the warning was called with, including 0, '', false and null. The warning function always receives three parameters, so trailing undefined arguments are not recorded (they cannot be told apart from omitted ones); an undefined that comes before a recorded argument is kept in its position.",
+    "requirement": "spyWarning records, for each call, the arguments up to and including the last one that is not undefined: trailing undefined values are dropped (warning() always receives three parameters). Every earlier value, including 0, '', false, null and undefined, is kept in position. callCount counts every call.",
     "oracle": null,
     "suite": {
       "dir": "PW-02",
       "files": {
-        "spy-arguments.test.js": "a434662456065bb662b7358564ba421807ff4cc1d495c6cdc5bac2d13f502cea"
+        "spy-arguments.test.js": "394f4425c1c87bc44fff033c3eae4455144dd9c11183b86e38027ff6ad75dace"
       },
       "command": [
         "node",
@@ -37,7 +37,7 @@
     },
     "qualification": {
       "grader_sha256": "3116461e6934079a16ed5af0ae2c35e701094b699f62feeea86fe2106d4ea886",
-      "suite_sha256": "fde0da4d3d2415e4d32954e2972dc344bb203593585add57bb2dc3bfeec76b91",
+      "suite_sha256": "cf3898521bfbb1b668ee4cc316514599339f1a48b3c0550ac08a0b36f0127bbf",
       "reference": {
         "patch_sha256": "30a907535e11913713e865d6cca498a0763f6f6c2262ad0edf19ee31a08427fe",
         "outcome": "pass"
@@ -59,7 +59,7 @@
           "outcome": "fail"
         }
       ],
-      "qualified_at": "2026-10-08T13:30:31.647Z"
+      "qualified_at": "2026-10-08T15:53:45.344Z"
     },
     "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
     "provenance": {
@@ -78,16 +78,23 @@
       },
       {
         "id": "AC-2",
-        "criterion": "w(0) records [0] and w(null) records [null]"
+        "criterion": "w(0) records [0], w('') records [''], w(false) records [false] and w(null) records [null]"
       },
       {
         "id": "AC-3",
-        "criterion": "w() records []"
+        "criterion": "w() and w(undefined) record []; w('a', undefined) records ['a']"
       },
       {
         "id": "AC-4",
         "criterion": "w('a', undefined, 'c') records ['a', undefined, 'c']"
+      },
+      {
+        "id": "AC-5",
+        "criterion": "callCount still counts every call"
       }
     ]
+  },
+  "source": {
+    "curation_sha256": "634bc88b2af7c856c02335390db98328c0ff189bb3700377a04340de4b6821f4"
   }
 }

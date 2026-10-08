@@ -4,7 +4,9 @@
  *   - the suite is qualified with the real grader before anything is written;
  *   - the draft carries NO approved oracle: only a named person approves it at freeze time,
  *     and freezing without an approver is refused (QB-13: an oracle is human-approved);
- *   - a suite that cannot tell a wrong implementation from the reference is refused.
+ *   - a suite that cannot tell a wrong implementation from the reference is refused;
+ *   - freeze approves exactly what was qualified: a task.json, reference or incorrect tree, or
+ *     grader that changed after qualification is refused (the reviewer reads the current files).
  */
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
@@ -67,6 +69,30 @@ describe('QB-30: curation', () => {
   test('freeze without a named approver is refused', () => {
     assert.throws(() => C.freezeTask('DUR-1', { ...opts(), approver: '' }), /approver/);
     assert.throws(() => C.freezeTask('DUR-1', { ...opts(), approver: 'qb' }), /person/);
+  });
+
+  test('freeze refuses a draft whose task, reference, incorrect tree or grader changed since qualification', LIVE, () => {
+    const task = path.join(dirs.curation, 'DUR-1/task.json');
+    const ref = path.join(dirs.curation, 'DUR-1/reference/src/duration.js');
+    const wrong = path.join(dirs.curation, 'DUR-1/incorrect/five-minutes/src/duration.js');
+    const draftFile = path.join(dirs.specs, 'DUR-1.draft.json');
+    for (const [file, edit] of [[task, (s) => s.replace('should show', 'must show')], [ref, (s) => s + '// edited\n'], [wrong, (s) => s + '// edited\n']]) {
+      const before = fs.readFileSync(file, 'utf8');
+      fs.writeFileSync(file, edit(before));
+      try { assert.throws(() => C.freezeTask('DUR-1', { ...opts(), approver: 'Arshad Ahmed Shaik' }), /changed since qualification/); }
+      finally { fs.writeFileSync(file, before); }
+    }
+    const draft = fs.readFileSync(draftFile, 'utf8');
+    const d = JSON.parse(draft);
+    d.spec.qualification.grader_sha256 = '0'.repeat(64);
+    fs.writeFileSync(draftFile, JSON.stringify(d));
+    try { assert.throws(() => C.freezeTask('DUR-1', { ...opts(), approver: 'Arshad Ahmed Shaik' }), /grader changed/); }
+    finally { fs.writeFileSync(draftFile, draft); }
+    delete d.source; d.spec.qualification.grader_sha256 = JSON.parse(draft).spec.qualification.grader_sha256;
+    fs.writeFileSync(draftFile, JSON.stringify(d));
+    try { assert.throws(() => C.freezeTask('DUR-1', { ...opts(), approver: 'Arshad Ahmed Shaik' }), /no source fingerprint/); }
+    finally { fs.writeFileSync(draftFile, draft); }
+    assert.equal(fs.existsSync(dirs.lockFile), false, 'nothing was frozen');
   });
 
   test('freeze with an approver: the oracle names them, the spec is frozen in the lock', LIVE, () => {

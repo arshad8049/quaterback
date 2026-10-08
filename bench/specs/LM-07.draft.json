@@ -16,7 +16,7 @@
         "package-lock.json": "8a3f87872e50737155a56cc9d28a0e0bf40b8021a3a1430c9f5a3ec8efff2113"
       }
     },
-    "prompt": "Chained setters replace instead of adding up: inject(d).get('/').headers({ a: '1' }).headers({ b: '2' }) only sends header b, and the same happens with .query() and .cookies(). Make repeated object calls merge (later keys win), including with values given in the initial inject options.",
+    "prompt": "Chained setters replace instead of adding up: inject(d).get('/').headers({ a: '1' }).headers({ b: '2' }) only sends header b, and the same happens with .query() and .cookies(). Make repeated object calls merge (later keys win), including with values given in the initial inject options. A non-object value, such as a string query, still replaces. Never modify the objects the caller passed in.",
     "requirement": "For the chain setters headers, query and cookies: when the value already set (from an earlier call or the initial options) and the new value are both plain objects, the result is a new object with the earlier keys plus the new ones (new values win). A string query, or any non-object value, replaces as before. The caller's objects are never modified. body and payload still replace.",
     "oracle": null,
     "suite": {
@@ -54,7 +54,7 @@
           "outcome": "fail"
         }
       ],
-      "qualified_at": "2026-10-08T13:27:52.557Z"
+      "qualified_at": "2026-10-08T15:49:28.556Z"
     },
     "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
     "provenance": {
@@ -87,5 +87,8 @@
         "criterion": "the caller's original headers object is not modified"
       }
     ]
+  },
+  "source": {
+    "curation_sha256": "d426850f7db9be1e546161cbd0c1e655ab6fe22d6a8c34a18eda48d933bd600e"
   }
 }

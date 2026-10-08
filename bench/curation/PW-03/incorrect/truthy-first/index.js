@@ -117,10 +117,12 @@ function createDeprecation (params) {
  * @throws {Error} Throws an error if name, code, or message is empty, or if opts.unlimited is not a boolean.
  */
 function createWarning ({ name, code, message, unlimited = false } = {}) {
-  for (const [field, value] of [['name', name], ['code', code], ['message', message]]) {
-    if (value === undefined || value === null || value === '') throw new Error(`Warning ${field} must not be empty`)
-    if (typeof value !== 'string') throw new Error(`Warning ${field} must be a string`)
-  }
+  if (!name) throw new Error('Warning name must not be empty')
+  if (!code) throw new Error('Warning code must not be empty')
+  if (!message) throw new Error('Warning message must not be empty')
+  if (typeof name !== 'string') throw new Error('Warning name must be a string')
+  if (typeof code !== 'string') throw new Error('Warning code must be a string')
+  if (typeof message !== 'string') throw new Error('Warning message must be a string')
   if (typeof unlimited !== 'boolean') throw new Error('Warning opts.unlimited must be a boolean')
 
   code = code.toUpperCase()

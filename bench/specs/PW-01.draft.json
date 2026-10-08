@@ -16,13 +16,13 @@
         "package-lock.json": "8f806ba8a79e7c69a60f587d92fd49e5c6e63c46f7838bee412af737ec671948"
       }
     },
-    "prompt": "Warnings don't interpolate falsy values. With const w = createWarning({ name: 'W', code: 'C', message: 'count=%d' }), w.format(0) returns 'count=%d' instead of 'count=0', and calling w(0) emits the uninterpolated message too. Fix it so that every argument actually passed (including 0, '', false and null) is interpolated into the message.",
-    "requirement": "warning.format(a, b, c) and the emitted warning message interpolate each of a, b, c that is not undefined, in order, using util.format semantics; 0, '', false and null are interpolated. Arguments that are undefined are treated as not supplied (warning() always forwards three arguments, so trailing undefined values must never appear in the message). Behaviour for truthy arguments and for no arguments is unchanged.",
+    "prompt": "Warnings don't interpolate falsy values. With const w = createWarning({ name: 'W', code: 'C', message: 'count=%d' }), w.format(0) returns 'count=%d' instead of 'count=0', and calling w(0) emits the uninterpolated message too. Fix it so that every argument passed (including 0, '', false and null) is interpolated into the message, both by format() and in the emitted warning. The warning function always forwards three arguments to format, so trailing undefined arguments count as not passed and must never appear in the message; an undefined that comes before a passed argument is interpolated like any other value.",
+    "requirement": "warning.format(a, b, c) and the emitted warning message interpolate, with util.format semantics, the arguments up to and including the last one that is not undefined: trailing undefined arguments are treated as not supplied, and any argument before the last supplied one is interpolated as is (an undefined in that position prints as 'undefined'). 0, '', false and null are interpolated. With no supplied arguments the message is returned unchanged. Truthy arguments behave as before.",
     "oracle": null,
     "suite": {
       "dir": "PW-01",
       "files": {
-        "format-falsy.test.js": "cd9024951416d2926e2c586a49cb57c44ee5070bfd7448dec9e1829808ec7ab7"
+        "format-falsy.test.js": "5399dfda171a1f2c4461ef3ff55d9d408b1d5fd7bc7eb4c0d7ad0c8a6d6c5320"
       },
       "command": [
         "node",
@@ -37,7 +37,7 @@
     },
     "qualification": {
       "grader_sha256": "3116461e6934079a16ed5af0ae2c35e701094b699f62feeea86fe2106d4ea886",
-      "suite_sha256": "b768f809edc6b75521092936858be119d3206aef5a9cd8109332fbc5c8770ae8",
+      "suite_sha256": "533e9480ab852311b0d0741b87f9f7f2638542d6ebeb9be211168f56fbddc157",
       "reference": {
         "patch_sha256": "67dece64f02a2678189ce43a53a8bd0d15a1ef8858758bed91a055981c4aad34",
         "outcome": "pass"
@@ -59,7 +59,7 @@
           "outcome": "fail"
         }
       ],
-      "qualified_at": "2026-10-08T13:29:11.123Z"
+      "qualified_at": "2026-10-08T15:51:36.817Z"
     },
     "adjudication_rules": "Score pass only if every hidden check passes; the emitted message must match exactly.",
     "provenance": {
@@ -78,7 +78,7 @@
       },
       {
         "id": "AC-2",
-        "criterion": "format interpolates '', false and null (e.g. message 'v=%s' with null gives 'v=null')"
+        "criterion": "format interpolates '', false and null (message 'v=%s' with null gives 'v=null')"
       },
       {
         "id": "AC-3",
@@ -86,8 +86,19 @@
       },
       {
         "id": "AC-4",
+        "criterion": "trailing undefined arguments are not supplied: format(undefined) returns the message unchanged and format(0, undefined) on 'a=%s b=%s' gives 'a=0 b=%s'"
+      },
+      {
+        "id": "AC-5",
+        "criterion": "an undefined before a supplied argument is interpolated: format('x', undefined, 'z') on '%s,%s,%s' gives 'x,undefined,z'"
+      },
+      {
+        "id": "AC-6",
         "criterion": "format() with no arguments returns the message unchanged, and truthy arguments interpolate as before"
       }
     ]
+  },
+  "source": {
+    "curation_sha256": "8454813ac26c085ed6f9718008e6c9839594b79ce20fb266eb089064cd70634c"
   }
 }

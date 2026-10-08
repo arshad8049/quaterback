@@ -7,7 +7,7 @@
   },
   "repo": "qb-bench:light-my-request",
   "base_rev": "e02b8f2ac1290d99a2ec67649606991bb2a08db3",
-  "prompt": "The chainable API can't set the client address or the authority: add .remoteAddress(address) and .authority(host) to the chain returned by inject(dispatch), working like .headers() / .query().",
+  "prompt": "The chainable API can't set the client address or the authority: add .remoteAddress(address) and .authority(host) to the chain returned by inject(dispatch), working like .headers() / .query(): each sets the inject option of the same name (remoteAddress \u2192 req.socket.remoteAddress; authority \u2192 the Host header) and returns the chain, and calling either after the request has been invoked throws 'The dispatch function has already been invoked'.",
   "requirement": "inject(dispatch) chains gain remoteAddress(value) and authority(value): each sets the corresponding inject option (remoteAddress \u2192 req.socket.remoteAddress; authority \u2192 the Host header when none is given) and returns the chain. Like the other chain setters, calling them after the request has been invoked throws 'The dispatch function has already been invoked'.",
   "oracle": {
     "acceptance_criteria": [

@@ -16,7 +16,7 @@
         "package-lock.json": "abde936de03de5983273c44d60b2e7fcb5302f54667e236270d96d689e805904"
       }
     },
-    "prompt": "Serializer options leak between builds: after building one serializer with { largeArraySize: 2, largeArrayMechanism: 'json-stringify' }, a serializer built later WITHOUT options still uses JSON.stringify for arrays (so integer items like 1.5 come out unrounded). Each build should use only its own options.",
+    "prompt": "Serializer options leak between builds: after building one serializer with { largeArraySize: 2, largeArrayMechanism: 'json-stringify' }, a serializer built later WITHOUT options still uses JSON.stringify for arrays (so integer items like 1.5 come out unrounded). Each build should use only its own options: an option a build doesn't set takes the library default (mechanism 'default', size 20000), whatever earlier builds used, and serializers already built keep the behaviour they were built with.",
     "requirement": "largeArrayMechanism and largeArraySize given to build() affect only the serializer built in that call. A build without them uses the defaults (mechanism 'default', size 20000), whatever earlier builds used; a build that sets only one of them gets the default for the other. Serializers already built keep the behaviour they were built with.",
     "oracle": null,
     "suite": {
@@ -54,7 +54,7 @@
           "outcome": "fail"
         }
       ],
-      "qualified_at": "2026-10-08T13:36:47.275Z"
+      "qualified_at": "2026-10-08T15:20:10.814Z"
     },
     "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
     "provenance": {
@@ -84,5 +84,8 @@
         "criterion": "the serializer built with json-stringify keeps that behaviour"
       }
     ]
+  },
+  "source": {
+    "curation_sha256": "7d9849affdc4d40cdd7223cd77851ba31f599d4b80e97be1c9a1cdf3c458121a"
   }
 }

@@ -16,7 +16,7 @@
         "package-lock.json": "40f643378825af4dd7e734a80b1f80660f74b0d9fbc790a1b363857f012b32e7"
       }
     },
-    "prompt": "app.after('not a function') is accepted silently and the app later fails to boot with 'func.apply is not a function'. Reject a non-function callback up front, the same way ready() and onClose() do.",
+    "prompt": "app.after('not a function') is accepted silently and the app later fails to boot with 'func.apply is not a function'. Reject a non-function callback up front, the same way ready() and onClose() do: after(value) with a value that is not a function throws synchronously the existing AVV_ERR_CALLBACK_NOT_FN error for the 'after' hook, naming typeof value (message \"Callback for 'after' hook is not a function. Received: '<typeof>'\"). after() with no argument still returns a promise, and function callbacks are unchanged.",
     "requirement": "Boot#after(func): when func is not undefined/null and is not a function, after throws synchronously an AVV_ERR_CALLBACK_NOT_FN error (the existing error from lib/errors.js) built with ('after', typeof func), i.e. message \"Callback for 'after' hook is not a function. Received: '<typeof>'\". after() without an argument still returns a promise; function callbacks are unchanged.",
     "oracle": null,
     "suite": {
@@ -54,7 +54,7 @@
           "outcome": "fail"
         }
       ],
-      "qualified_at": "2026-10-08T13:13:06.410Z"
+      "qualified_at": "2026-10-08T15:15:13.390Z"
     },
     "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
     "provenance": {
@@ -83,5 +83,8 @@
         "criterion": "after(fn) still runs fn"
       }
     ]
+  },
+  "source": {
+    "curation_sha256": "761d863882d2b043ee6363deed73c12744bf2a670f4e4bdec8d7520a3a72be96"
   }
 }

@@ -7,7 +7,7 @@
   },
   "repo": "qb-bench:avvio",
   "base_rev": "4c5d9176b6e4457bff6e2524e7873f4f6a5193c3",
-  "prompt": "Add app.hasPlugin(name): it should say whether a plugin with that name has been registered with this avvio instance (directly or nested).",
+  "prompt": "Add app.hasPlugin(name): it should return true or false for whether a plugin with that name has been registered with this avvio instance with use(), directly or nested inside another plugin, as soon as use() has been called (before or after ready). The name is the one avvio already gives a plugin: its fastify-plugin metadata name, the name option passed to use(), or the function's name.",
   "requirement": "Boot#hasPlugin(name) returns true once a plugin with that name (as avvio names it: fastify-plugin metadata name, options.name, or the function name) has been registered with use() on the instance, at any nesting depth, and false otherwise. It returns a boolean and is available on the avvio instance before and after ready.",
   "oracle": {
     "acceptance_criteria": [

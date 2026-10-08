@@ -59,7 +59,7 @@
           "outcome": "fail"
         }
       ],
-      "qualified_at": "2026-10-08T13:43:36.978Z"
+      "qualified_at": "2026-10-08T15:29:14.699Z"
     },
     "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
     "provenance": {
@@ -88,5 +88,8 @@
         "criterion": "unknown methods still throw; 'round' is unchanged"
       }
     ]
+  },
+  "source": {
+    "curation_sha256": "dbefc5122375168079824a22b167b4f4bc4c46379930faaa10a4e4763a3863d2"
   }
 }

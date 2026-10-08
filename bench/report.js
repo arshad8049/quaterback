@@ -235,6 +235,7 @@ function lines(d, md) {
   const fmtCI = (c) => (c.estimate === null ? `no estimate (${c.note || 'no matched task'})` : `mean task effect ${c.estimate} (95% CI ${c.ci95[0]} to ${c.ci95[1]}; ${c.method}, B=${c.B}; ${c.n_tasks} task(s), ${c.n_repositories} repositor${c.n_repositories === 1 ? 'y' : 'ies'})${c.note ? ` — ${c.note}` : ''}`);
   L.push(`Primary ${an.primary.comparison.join(' vs ')} (predeclared): ${fmtCI(an.primary)}.`);
   L.push(`Tasks without a matched pair (no effect, not counted as 0): ${an.primary.unmatched_tasks.length ? an.primary.unmatched_tasks.join(', ') : 'none'}.`);
+  L.push(`Operational ${an.operational.comparison.join(' vs ')} (predeclared; success per assigned repetition, attrition counts as no success): ${fmtCI(an.operational)}.`);
   for (const s2 of an.secondary) L.push(`Secondary ${s2.comparison.join(' vs ')} (exploratory ablation): ${fmtCI(s2)}.`);
   L.push(`Not used: ${an.not_used}.`);
   L.push('Completion and attrition per arm (completion = scored / planned):');

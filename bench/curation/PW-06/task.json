@@ -7,24 +7,28 @@
   },
   "repo": "qb-bench:process-warning",
   "base_rev": "6d4b11b9159ea2a77fe68420ec4806891c582b6f",
-  "prompt": "Refactor: move spyWarning out of index.js into lib/spy.js (named export spyWarning), with the internal symbols it shares with createWarning in lib/symbols.js. The public API must behave exactly as before.",
-  "requirement": "lib/spy.js exports { spyWarning }; index.js no longer defines spyWarning and re-exports the one from lib/spy.js (require('process-warning').spyWarning === require('process-warning/lib/spy').spyWarning). The spy keeps working on warnings created by createWarning: calls, callCount, reset and restore behave as before, and spying twice returns the same spy data.",
+  "prompt": "Refactor: move spyWarning out of index.js into lib/spy.js (named export spyWarning), and move the internal symbols it shares with createWarning into lib/symbols.js, which exports them; index.js and lib/spy.js both take the symbols from lib/symbols.js. index.js re-exports spyWarning from lib/spy.js. The public API must behave exactly as before.",
+  "requirement": "lib/spy.js exports { spyWarning }; index.js no longer defines spyWarning and re-exports the one from lib/spy.js (require('process-warning').spyWarning === require('process-warning/lib/spy').spyWarning). lib/symbols.js exports the shared symbols (only symbols); the warnings createWarning builds are keyed by those exported symbols, and lib/spy.js uses the same ones. The spy keeps working on warnings created by createWarning: calls, callCount, reset and restore behave as before, and spying twice returns the same spy data.",
   "oracle": {
     "acceptance_criteria": [
       {
         "id": "AC-1",
-        "criterion": "require('lib/spy').spyWarning is the function exported by index.js"
+        "criterion": "require('lib/spy').spyWarning is the function exported by index.js, and index.js takes it from lib/spy"
       },
       {
         "id": "AC-2",
-        "criterion": "index.js does not define function spyWarning"
+        "criterion": "index.js does not define spyWarning (as a declaration, function expression or arrow function)"
       },
       {
         "id": "AC-3",
-        "criterion": "spying records calls and callCount; reset clears calls and emitted; restore detaches the spy"
+        "criterion": "lib/symbols.js exports the shared symbols; createWarning and lib/spy.js both use them"
       },
       {
         "id": "AC-4",
+        "criterion": "spying records calls and callCount; reset clears calls and emitted; restore detaches the spy"
+      },
+      {
+        "id": "AC-5",
         "criterion": "spying the same warning twice returns the same spy data"
       }
     ]
