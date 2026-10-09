@@ -43,3 +43,7 @@ ci-evidence*.json
 
 # Local agent worktrees (never part of the repository)
 .claude/worktrees/
+
+# Local VM install media (never commit)
+*.iso
+sandbox/QB31_testRun/

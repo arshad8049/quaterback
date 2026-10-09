@@ -1,0 +1,1165 @@
+> @velora/quarterback@0.1.0 test
+> node --test test/unit/*.test.js
+
+✔ hashOf is key-order independent; treeHash covers names and bytes and refuses symlinks (9.593361ms)
+✔ only pass/fail are scored outcomes; usage accepts unknown but never a coerced value of the wrong type (7.59223ms)
+✔ an approval must name the protocol and holdout-set hashes; holdoutSetHash ignores dev specs and order (1.310712ms)
+✔ a manifest must state total compute is not controlled, pin a full commit, and use digests or unknown for images (1.126628ms)
+✔ the host-side capture that executed agent git config no longer exists (0.777419ms)
+✔ capture uses only trusted git configuration and never the agent .git (0.472877ms)
+✔ the integration regression for both attacks exists (0.146001ms)
+✔ no shell-string subprocess calls outside lib/proc.js (14.22004ms)
+◇ injected env (0) from intent/.env
+◇ injected env (0) from context/.env
+✔ QB-08 Recipe A: clarification-only contract never reaches PASS (84.800574ms)
+✔ QB-07 Recipe B: negative prose is never parsed as a positive vote (3.573593ms)
+✔ QB-06 Recipe C: test command exiting 2 cannot produce PASS (17.503217ms)
+✔ a dry-run invocation produces a complete, replayable run record (453.817583ms)
+✔ an interrupted invocation still leaves a terminal run record (189.047746ms)
+✖ a sandboxed (claude-code) run records base commit, pinned agent version and structured checks (295.838842ms)
+✔ git context treats hostile filenames as literal paths (58.668833ms)
+✔ paths outside the repository are rejected, not queried (18.424344ms)
+✔ the runner starts no processes and has no command override (0.956878ms)
+✔ no shipped code reads QB_AGENT_COMMAND (12.193118ms)
+✔ the host-side capture module is gone and nothing imports it (7.740397ms)
+✔ the verifier never runs repository tests on the host (0.260875ms)
+✔ with the pipeline injected, claude-code goes through it (and only it) (76.540634ms)
+✔ a late OOM event (seen on the 2nd inspect) is not missed: the stage is classified oom (11.311324ms)
+✔ no OOM: settles after a bounded number of re-inspects and stays completed (15.970629ms)
+✔ already OOMKilled, still running, or no state: no extra inspects (0.286501ms)
+✔ rendered policy has exactly the access rules E3 tested (same allowlist → identical rules) (2.053797ms)
+✔ INFERENCE allows only api.anthropic.com; DEPS only the npm registry (0.597668ms)
+✔ rejects allowlist entry ".anthropic.com" (0.857753ms)
+✔ rejects allowlist entry "*.anthropic.com" (0.101959ms)
+✔ rejects allowlist entry "1.1.1.1" (0.386002ms)
+✔ rejects allowlist entry "localhost" (2.565174ms)
+✔ rejects allowlist entry "api.anthropic.com\nhttp_access allow all" (0.545377ms)
+✔ rejects allowlist entry "api.anthropic.com all" (0.311459ms)
+✔ rejects allowlist entry "API.Anthropic.com" (0.558835ms)
+✔ rejects allowlist entry "exa mple.com" (0.507668ms)
+✔ rejects allowlist entry "" (0.156459ms)
+✔ rejects allowlist entry "a..b.com" (0.349042ms)
+▶ classifyStage precedence (§8.4)
+  ✔ clean exit (2.288424ms)
+  ✔ nonzero exit (0.093667ms)
+  ✔ OOMKilled with nonzero exit (0.506835ms)
+  ✔ OOMKilled with exit 0 (E2) (0.070292ms)
+  ✔ deadline kill beats OOM (0.095708ms)
+  ✔ cancel beats OOM and exit (0.059792ms)
+  ✔ deadline beats cancel (0.75096ms)
+  ✔ infra error beats everything (0.069959ms)
+  ✔ no state is infra_error (0.502335ms)
+  ✔ still running is infra_error (0.128209ms)
+  ✔ oom reports the exit-0 case explicitly (0.15075ms)
+✔ classifyStage precedence (§8.4) (5.913642ms)
+▶ BoundedBuffer
+  ✔ keeps everything under the limit (0.187251ms)
+  ✔ keeps head and tail, reports the dropped middle (1.265962ms)
+✔ BoundedBuffer (1.544963ms)
+▶ runBounded
+  ✔ a child flooding both streams (20 MiB each) finishes without blocking; output is bounded (99.316866ms)
+  ✔ timeout kills the child and is reported (307.757292ms)
+  ✔ stdin is delivered and argv is never shell-interpreted (32.905011ms)
+  ✔ a missing executable is an error, not a hang (3.749177ms)
+✔ runBounded (444.058347ms)
+▶ process identity
+  ✔ this process is alive; a wrong start time or dead pid is not (1.192045ms)
+✔ process identity (2.277257ms)
+▶ single terminal writer
+  ✔ second commit loses; the file keeps the first state (3.227009ms)
+  ✔ two processes racing 40 times: exactly one winner each round (5071.805132ms)
+✔ single terminal writer (5075.408934ms)
+▶ supervisor protocol (real detached supervisor)
+  ✔ readiness handshake: start() resolves only once the supervisor is ready (311.960345ms)
+  ✔ a supervisor that never becomes ready: start() throws, it is killed, infra_error committed (1511.598631ms)
+  ✔ stage deadline is enforced even while the lease keeps renewing; renewals cannot extend it (1921.253087ms)
+  ✔ lease expiry (CLI gone) → ABANDONED by the supervisor (2324.558858ms)
+  ✔ a completed proposal is committed by the supervisor, which then exits (520.922898ms)
+  ✔ supervisor killed → onSupervisorLost fires once (1813.735781ms)
+✔ supervisor protocol (real detached supervisor) (8404.815561ms)
+▶ T-LIFE wall-clock jump (§11.2): only monotonic time bounds the protocol
+  ✔ CLI: a forward jump while waiting for readiness neither fails nor hangs start() (919.672156ms)
+  ✔ CLI: a backward jump while waiting for readiness neither fails nor hangs start() (921.107827ms)
+  ✔ CLI: a backward jump does not stretch the readiness timeout (1525.050543ms)
+  ✔ supervisor: a forward jump does not fire a stage deadline early (3023.753342ms)
+  ✔ supervisor: a backward jump does not delay a stage deadline (1926.7196ms)
+✔ T-LIFE wall-clock jump (§11.2): only monotonic time bounds the protocol (8316.865802ms)
+▶ reaper
+  ✔ owners dead → ABANDONED; owners alive (pid + start time) → left alone; PID reuse does not count (34.09168ms)
+✔ reaper (34.233138ms)
+▶ admission (§8.1)
+  ✔ one run per installation; released slot can be retaken (4.971723ms)
+  ✔ a lock left by a dead owner is reclaimed (2.693424ms)
+  ✔ insufficient memory → refused with the numbers, and the slot is released (3.127342ms)
+  ✔ default per-run peak fits a 16 GB host; stage limits cover writes + working set (0.632835ms)
+✔ admission (§8.1) (12.09741ms)
+✔ reads regular files and skips directories (1.78813ms)
+✔ rejects a symlink entry (0.294417ms)
+✔ rejects a hardlink entry (0.283959ms)
+✔ rejects a pax header entry (0.097251ms)
+✔ rejects a gnu longname entry (0.092917ms)
+✔ rejects a fifo entry (0.097583ms)
+✔ rejects escaping paths (0.157751ms)
+✔ rejects truncated entries (0.109584ms)
+◇ injected env (0) from intent/.env
+◇ injected env (0) from context/.env
+▶ QB-22 execution states (sandbox results)
+  ✔ nonzero exit is execution_error, and partial edits stay inspectable (10.830072ms)
+  ✔ timeout keeps its own state and its partial edits (1.487713ms)
+  ✔ oom is an error verdict, never judged (11.25874ms)
+  ✔ infra_error is an error verdict, never judged (2.826758ms)
+  ✔ setup_failed is an error verdict, never judged (0.648294ms)
+  ✔ blocked can never be approved (6.142601ms)
+  ✔ unresolved can never be approved (2.086131ms)
+  ✔ success without edits is no_change; a genuine dry-run is dry_run (1.045295ms)
+✔ QB-22 execution states (sandbox results) (37.858107ms)
+▶ QB-03: no partial or unverifiable capture can PASS
+  ✔ unsupported changes (e.g. unsafe symlink, rejected entries, .git paths) block PASS (2.952966ms)
+  ✔ tests that failed in the sandbox verification fail the task even when the judge says met (3.271092ms)
+  ✔ verification not run because dependencies changed → cannot pass (0.918502ms)
+  ✔ verification killed (oom/timeout) → cannot pass (2.030297ms)
+  ✔ a clean capture with passing sandbox tests and a met criterion can pass (0.992503ms)
+✔ QB-03: no partial or unverifiable capture can PASS (10.441946ms)
+◇ injected env (0) from intent/.env
+✔ compiler keeps trusted metadata and drops unknown model fields (77.621096ms)
+✔ artifact paths cannot escape their directory (1.097753ms)
+▶ lib/workspace
+  ✔ a workspace is built from the pinned commit and leaves the source untouched (62.593511ms)
+  ✔ two workspaces from the same revision start from the same tree, even after an agent commit in one (101.475664ms)
+  ✔ a repository subdirectory materialises deterministically (archive mode) (69.893574ms)
+  ✔ setup errors throw instead of being swallowed (16.528547ms)
+✔ lib/workspace (251.410757ms)
+▶ bench/run.js
+  ✔ preserves a dirty source checkout byte-for-byte across both arms (480.136782ms)
+✔ bench/run.js (480.248658ms)
+◇ injected env (0) from intent/.env
+◇ injected env (0) from context/.env
+▶ real node:test reports (node 24, the sandbox runtime)
+  ✔ pass (exit 0) → passed / tests_passed (1.822921ms)
+  ✔ fail (exit 1) → failed / tests_failed (0.757085ms)
+  ✔ timeout (exit 1) → error / cancelled_tests (0.159126ms)
+  ✔ skiponly (exit 0) → error / zero_tests (0.54121ms)
+  ✔ loadfail (exit 1) → error / collection_failure (0.668377ms)
+  ✔ nofiles (exit 0) → error / zero_tests (0.636543ms)
+  ✔ a repo script with its own --test-reporter writes no QB report → error, never pass (0.316251ms)
+  ✔ counts come from the validated summary (0.209792ms)
+✔ real node:test reports (node 24, the sandbox runtime) (6.091642ms)
+▶ senior review reproductions (KAN-6 sent back at 90c4921)
+  ✔ console only — "Tests: 1 passed, 0 total", exit 0 → error (console never decides) (0.678919ms)
+  ✔ console only — node TAP with a cancelled test, exit 0 → error (console never decides) (0.494127ms)
+  ✔ console only — node TAP without a total, exit 0 → error (console never decides) (0.055417ms)
+  ✔ report — passed 1 of 0 total, exit 0 → error / inconsistent_counts (0.405418ms)
+  ✔ report — a cancelled test, exit 0 → error / cancelled_tests (0.145417ms)
+  ✔ report — summary without a total, exit 0 → error / incomplete_report (0.054917ms)
+  ✔ verify(): all six never PASS with an affirmative judge (101.681748ms)
+✔ senior review reproductions (KAN-6 sent back at 90c4921) (103.761629ms)
+▶ report contract: incomplete, malformed or contradictory evidence is rejected
+  ✔ truncated (no qb:end) → incomplete_report (0.158209ms)
+  ✔ truncated mid-line → incomplete_report (0.188918ms)
+  ✔ no qb:start → malformed_report (0.037792ms)
+  ✔ wrong format version → malformed_report (0.092459ms)
+  ✔ a non-JSON line → malformed_report (0.285917ms)
+  ✔ an array line → malformed_report (0.125626ms)
+  ✔ no run-level summary → incomplete_report (0.320626ms)
+  ✔ two run-level summaries → ambiguous_report (0.038126ms)
+  ✔ negative count → incomplete_report (0.032083ms)
+  ✔ success contradicts failures → inconsistent_counts (0.036375ms)
+  ✔ events contradict the summary → inconsistent_counts (0.034792ms)
+  ✔ fewer events than tests → inconsistent_counts (0.245542ms)
+  ✔ per-file sums disagree → inconsistent_counts (0.333334ms)
+  ✔ data after qb:end → incomplete_report (0.032709ms)
+  ✔ a complete, consistent report validates (0.043125ms)
+✔ report contract: incomplete, malformed or contradictory evidence is rejected (2.296757ms)
+▶ process evidence
+  ✔ exit 2 with a passing report → error / exit_2_without_test_failures (0.111417ms)
+  ✔ failures but exit 0 → error / inconsistent_exit (0.040667ms)
+  ✔ timeout (deadline kill) → error / timeout (0.0245ms)
+  ✔ oom → error / oom (0.0345ms)
+  ✔ missing executable (127) → error / missing_executable (0.023875ms)
+  ✔ not executable (126) → error / missing_executable (0.022666ms)
+  ✔ report too large to read → error / report_too_large (0.022917ms)
+  ✔ no test command → not_run / no_tests (0.023084ms)
+  ✔ dependency change → not_run / dependency_change_required (0.021792ms)
+  ✔ no sandbox verification → not_run / no_test_evidence (0.023458ms)
+  ✔ exit 137 is recorded as an exit code, not inferred as a signal (0.039125ms)
+✔ process evidence (0.749294ms)
+▶ aggregate (rules 2) and verify()
+  ✔ passed → pass (0.133125ms)
+  ✔ a real failing test → fail (0.062334ms)
+  ✔ a broken run → unresolved (0.059209ms)
+  ✔ no evidence → unresolved (0.11875ms)
+  ✔ legacy inputs (no rules field) replay with the old rules (0.110334ms)
+  ✔ run records store the current rules (6) and the classified outcome (0.144833ms)
+  ✔ verify(): passing report → pass; judge fields survive the report schema (1.672047ms)
+✔ aggregate (rules 2) and verify() (2.847966ms)
+▶ live: the real reporter on this Node
+  ✔ passing → passed (103.171211ms)
+  ✔ failing → failed (105.957134ms)
+  ✔ timed out → error / cancelled_tests (398.919135ms)
+✔ live: the real reporter on this Node (608.183646ms)
+◇ injected env (0) from intent/.env
+◇ injected env (0) from context/.env
+▶ QB-07: strict judgment parsing
+  ✔ negative prose → invalid_judgment, never a positive vote (3.694969ms)
+  ✔ positive-sounding prose → invalid_judgment, never a positive vote (2.457799ms)
+  ✔ fenced garbage → invalid_judgment, never a positive vote (0.658919ms)
+  ✔ array → invalid_judgment, never a positive vote (0.591586ms)
+  ✔ array of objects → invalid_judgment, never a positive vote (0.420126ms)
+  ✔ null JSON → invalid_judgment, never a positive vote (0.798002ms)
+  ✔ met as string → invalid_judgment, never a positive vote (1.070461ms)
+  ✔ met as number → invalid_judgment, never a positive vote (1.670713ms)
+  ✔ missing met → invalid_judgment, never a positive vote (0.515834ms)
+  ✔ missing evidence → invalid_judgment, never a positive vote (0.605127ms)
+  ✔ empty evidence → invalid_judgment, never a positive vote (0.338751ms)
+  ✔ evidence wrong type → invalid_judgment, never a positive vote (0.308917ms)
+  ✔ repair wrong type → invalid_judgment, never a positive vote (0.340625ms)
+  ✔ refs wrong type → invalid_judgment, never a positive vote (0.491793ms)
+  ✔ a strict object is accepted; <think> blocks and a json fence around valid JSON are tolerated (0.860669ms)
+  ✔ one bounded format retry per vote; a valid retry counts, garbage is never retried twice (1.56263ms)
+  ✔ the keyword fallback is gone from the judge (0.396459ms)
+✔ QB-07: strict judgment parsing (18.519178ms)
+◇ injected env (0) from intent/.env
+◇ injected env (0) from intent/.env
+◇ injected env (0) from context/.env
+▶ contractState
+  ✔ a complete contract is finalized (2.563632ms)
+  ✔ empty ACs is not finalized (0.53146ms)
+  ✔ missing ACs is not finalized (0.145875ms)
+  ✔ missing goal is not finalized (0.0685ms)
+  ✔ duplicate IDs is not finalized (0.069167ms)
+  ✔ blank criterion is not finalized (0.058375ms)
+  ✔ clarification only is not finalized (0.060792ms)
+  ✔ clarification + ACs is not finalized (0.176542ms)
+  ✔ not an object is not finalized (0.470584ms)
+✔ contractState (6.203684ms)
+▶ library boundaries
+  ✔ verify(): empty ACs → unresolved, judge never called (15.409419ms)
+  ✔ execute(): empty ACs → blocked, the agent never starts (10.156654ms)
+  ✔ verify(): missing ACs → unresolved, judge never called (0.349376ms)
+  ✔ execute(): missing ACs → blocked, the agent never starts (0.124292ms)
+  ✔ verify(): missing goal → unresolved, judge never called (0.082876ms)
+  ✔ execute(): missing goal → blocked, the agent never starts (0.073166ms)
+  ✔ verify(): duplicate IDs → unresolved, judge never called (0.064541ms)
+  ✔ execute(): duplicate IDs → blocked, the agent never starts (0.064126ms)
+  ✔ verify(): blank criterion → unresolved, judge never called (0.158084ms)
+  ✔ execute(): blank criterion → blocked, the agent never starts (0.306793ms)
+  ✔ verify(): clarification only → unresolved, judge never called (0.065125ms)
+  ✔ execute(): clarification only → blocked, the agent never starts (0.059875ms)
+  ✔ verify(): clarification + ACs → unresolved, judge never called (0.058001ms)
+  ✔ execute(): clarification + ACs → blocked, the agent never starts (0.1615ms)
+  ✔ verify(): not an object → unresolved, judge never called (0.060001ms)
+  ✔ execute(): not an object → blocked, the agent never starts (0.069125ms)
+  ✔ aggregate: an empty criteria list can never pass (0.389959ms)
+✔ library boundaries (28.385581ms)
+▶ entry points
+  ✔ CLI, noninteractive: a first clarification ends BLOCKED needs_clarification without prompting or running the agent (212.606271ms)
+  ✔ CLI: a second clarification after --clarify ends BLOCKED, agent never runs (173.871786ms)
+  ✔ CLI: duplicate AC IDs end BLOCKED invalid_contract, agent never runs (172.069531ms)
+  ✔ CLI: empty ACs never run the agent or verify (180.360138ms)
+  ✔ benchmark: a clarification blocks the task in both arms; no agent runs (202.289992ms)
+✔ entry points (941.435844ms)
+▶ compiler → gate: malformed criteria and real questions are never finalized
+  ✔ criterion {} (was serialized to "{}") → invalid, cannot verify (4.849556ms)
+  ✔ criterion with only an id (was "AC-1") → invalid, cannot verify (1.822172ms)
+  ✔ criterion text under another key → invalid, cannot verify (0.307668ms)
+  ✔ criterion as a non-string → invalid, cannot verify (0.580085ms)
+  ✔ criterion as a bare string → invalid, cannot verify (0.315334ms)
+  ✔ short real question (was dropped: <=10 chars) → needs_clarification, question preserved (1.163545ms)
+  ✔ question starting "No" (was dropped by prefix) → needs_clarification, question preserved (0.444292ms)
+  ✔ question starting "None" → needs_clarification, question preserved (0.261251ms)
+  ✔ question starting "N/A" → needs_clarification, question preserved (0.757961ms)
+  ✔ only exact documented sentinels mean "no question" (4.835806ms)
+✔ compiler → gate: malformed criteria and real questions are never finalized (15.588711ms)
+▶ compiler bypasses at the entry points: the agent never runs
+  ✔ CLI: criterion {} (was serialized to "{}") → BLOCKED, no attempt, agent never runs (168.066311ms)
+  ✔ CLI: criterion with only an id (was "AC-1") → BLOCKED, no attempt, agent never runs (182.221893ms)
+  ✔ CLI: criterion text under another key → BLOCKED, no attempt, agent never runs (180.598388ms)
+  ✔ CLI: criterion as a non-string → BLOCKED, no attempt, agent never runs (190.939627ms)
+  ✔ CLI: criterion as a bare string → BLOCKED, no attempt, agent never runs (202.498618ms)
+  ✔ CLI: short real question → BLOCKED, no attempt, agent never runs (213.669066ms)
+  ✔ benchmark: criterion {} and a short question block the task; no agent runs (507.920903ms)
+✔ compiler bypasses at the entry points: the agent never runs (1646.244473ms)
+◇ injected env (0) from intent/.env
+◇ injected env (0) from context/.env
+▶ scope: forbidden and unauthorized changes
+  ✔ in scope, every vote positive, tests pass → PASS (the baseline for the cases below) (18.600928ms)
+  ✔ a protected path changed → FAIL even though every judge vote is positive (6.480352ms)
+  ✔ a newly relevant file outside allowed_changes is not silently authorized → unresolved (1.586588ms)
+  ✔ widening the scope after approval voids the approval (an explicit policy update needs a new approval) (2.425132ms)
+  ✔ no declared scope: any change is unauthorized (relevance is never an allowlist) (0.91967ms)
+  ✔ changed files come from the captured changes AND the diff (both sides of a rename) (0.142042ms)
+✔ scope: forbidden and unauthorized changes (30.940838ms)
+▶ constraints: evidence or an explicit unresolved item
+  ✔ each constraint is enforced by the scope, by a check, or explicitly advisory (0.660043ms)
+  ✔ a constraint without enforcement is an explicit unresolved item and blocks PASS (1.424046ms)
+  ✔ a violated constraint fails the task with a repair hint (2.525507ms)
+✔ constraints: evidence or an explicit unresolved item (4.813222ms)
+▶ the policy is validated before anything runs
+  ✔ escaping glob → the contract is invalid (0.172167ms)
+  ✔ absolute glob → the contract is invalid (0.057292ms)
+  ✔ not an array → the contract is invalid (0.04175ms)
+  ✔ policy for no constraint → the contract is invalid (0.052084ms)
+  ✔ enforced by nothing → the contract is invalid (0.383542ms)
+  ✔ unknown check → the contract is invalid (0.036417ms)
+  ✔ undeclared protected path → the contract is invalid (0.037875ms)
+  ✔ unknown enforcement → the contract is invalid (0.032167ms)
+  ✔ duplicate entries → the contract is invalid (0.096209ms)
+✔ the policy is validated before anything runs (1.081128ms)
+▶ agent briefing, replay
+  ✔ the agent is told the enforced scope (0.595418ms)
+  ✔ rules 4 is stored and replays; older inputs replay without the policy rule (1.086254ms)
+✔ agent briefing, replay (1.742921ms)
+▶ QB-09 re-review: one exact path semantics for every captured name
+  ✔ newline in a changed filename: overlapping allow "src/*" / protect "src/**" → protected wins (FAIL) (0.156709ms)
+  ✔ newline in a changed filename that is only allowed (not protected) → never ok: unsupported, unresolved (0.079375ms)
+  ✔ cr in a changed filename: overlapping allow "src/*" / protect "src/**" → protected wins (FAIL) (0.042417ms)
+  ✔ cr in a changed filename that is only allowed (not protected) → never ok: unsupported, unresolved (0.058583ms)
+  ✔ crlf in a changed filename: overlapping allow "src/*" / protect "src/**" → protected wins (FAIL) (0.037167ms)
+  ✔ crlf in a changed filename that is only allowed (not protected) → never ok: unsupported, unresolved (0.036625ms)
+  ✔ ls in a changed filename: overlapping allow "src/*" / protect "src/**" → protected wins (FAIL) (0.077667ms)
+  ✔ ls in a changed filename that is only allowed (not protected) → never ok: unsupported, unresolved (0.278376ms)
+  ✔ ps in a changed filename: overlapping allow "src/*" / protect "src/**" → protected wins (FAIL) (0.03825ms)
+  ✔ ps in a changed filename that is only allowed (not protected) → never ok: unsupported, unresolved (0.035459ms)
+  ✔ tab in a changed filename: overlapping allow "src/*" / protect "src/**" → protected wins (FAIL) (0.035917ms)
+  ✔ tab in a changed filename that is only allowed (not protected) → never ok: unsupported, unresolved (0.035375ms)
+  ✔ esc in a changed filename: overlapping allow "src/*" / protect "src/**" → protected wins (FAIL) (0.035042ms)
+  ✔ esc in a changed filename that is only allowed (not protected) → never ok: unsupported, unresolved (0.035833ms)
+  ✔ every wildcard matches line terminators the same way (whole-string, no partial-line match) (0.886877ms)
+  ✔ git-quoted diff headers are decoded, so a quoted protected path is still seen (0.399001ms)
+  ✔ verifier: affirmative AC votes and passing tests cannot approve the newline bypass (1.794547ms)
+✔ QB-09 re-review: one exact path semantics for every captured name (4.327512ms)
+◇ injected env (0) from intent/.env
+◇ injected env (0) from context/.env
+▶ base vs candidate test evidence
+  ✔ a new failure (passes on base) is a regression with its evidence (2.030756ms)
+  ✔ a failure that also happens on the base stays visible as pre-existing, not as a regression (0.633127ms)
+  ✔ mixed: only the new failure is a regression (0.506835ms)
+  ✔ no usable base run: every failure counts as a regression (conservative), with the reason (0.557835ms)
+✔ base vs candidate test evidence (4.752638ms)
+▶ verdict and repair actions
+  ✔ every AC met but a test newly fails → FAIL with a concrete repair action and its evidence (pre-fix: no hints, loop stopped) (16.009712ms)
+  ✔ unknown ACs cannot hide a definite failure (5.519308ms)
+  ✔ only pre-existing failures: they stay listed, are not blamed on the change, and no test repair is invented (1.982214ms)
+  ✔ rules 5 is stored and replays; the same evidence under rules 4 replays as it was decided then (1.172878ms)
+✔ verdict and repair actions (24.953071ms)
+▶ routing
+  ✔ pass → done (0.52896ms)
+  ✔ agent execution failure → environment, not code repair (0.129167ms)
+  ✔ unusable test run (timeout) → environment, not code repair (0.076584ms)
+  ✔ unusable test run (oom) → environment, not code repair (0.048251ms)
+  ✔ unusable test run (infra) → environment, not code repair (0.036958ms)
+  ✔ unusable test run (no_machine_readable_report) → environment, not code repair (0.034792ms)
+  ✔ unusable test run (collection_failure) → environment, not code repair (0.034084ms)
+  ✔ unusable test run (cancelled_tests) → environment, not code repair (0.032542ms)
+  ✔ nothing concrete to repair → stop (0.041417ms)
+  ✔ an unchanged patch does not restart repairs (0.262626ms)
+✔ routing (1.454671ms)
+▶ QB-10 re-review: pre-existing status needs complete, trustworthy, unambiguous evidence
+  ✔ senior repro 1: 50 base failures, the same 50 + a new 51st on the candidate → the 51st is a regression (classify + aggregate) (5.438432ms)
+  ✔ reordered >50-failure sets: the new failure is found wherever it sits (5.693099ms)
+  ✔ senior repro 2: a baseline that timed out / crashed cannot establish pre-existing status, even with a matching report (0.382126ms)
+  ✔ the same leaf name in another suite is not the same test (full identity: file + suite path + name) (0.419501ms)
+  ✔ the same test failing for a new reason is a regression, not pre-existing (0.117667ms)
+  ✔ ambiguous identity never enables PASS: missing suite path, duplicate identities (0.148084ms)
+  ✔ waiving pre-existing failures is an explicit approved policy — not the default (3.963136ms)
+  ✔ display bounds are separate from the decision: every failure compared, the report lists a bounded set with totals (5.973725ms)
+✔ QB-10 re-review: pre-existing status needs complete, trustworthy, unambiguous evidence (22.39973ms)
+✔ live: the reporter records the assertion message of a failing test (102.820626ms)
+✔ live: the reporter records each failing test's suite path, so same-named tests in two suites stay distinct (106.375553ms)
+◇ injected env (0) from intent/.env
+◇ injected env (0) from context/.env
+▶ a defect after character 6,000 is visible
+  ✔ a README defect after a 7,000-character source hunk reaches the judge → FAIL citing it (pre-fix: truncated → PASS) (36.586354ms)
+  ✔ the hunk most relevant to the criterion is shown first, whole (never cut mid-hunk) (1.244879ms)
+✔ a defect after character 6,000 is visible (38.980277ms)
+▶ a defect inside an unchanged helper is visible through retrieval
+  ✔ the unchanged fmt() definition (another file, imported) is shown with blob, range and hash → FAIL citing it (pre-fix: never shown → PASS) (8.75065ms)
+  ✔ missing material evidence → unresolved, naming the missing artifact (the judge's "met" is not accepted) (4.163554ms)
+  ✔ a candidate snapshot that failed is itself named as missing evidence (1.645629ms)
+✔ a defect inside an unchanged helper is visible through retrieval (14.744751ms)
+▶ truncation is explicit; partial input is never presented as complete
+  ✔ hunks that do not fit the budget are named as NOT shown, and the criterion cannot be met (26.127282ms)
+✔ truncation is explicit; partial input is never presented as complete (26.287158ms)
+▶ provenance: immutable evidence IDs, refs must name shown evidence
+  ✔ IDs are content-addressed: identical evidence → identical IDs; a changed helper → a new ID for it only (3.26451ms)
+  ✔ a vote citing an evidence ID that was not shown is an invalid judgment (never counted) (3.603718ms)
+  ✔ the report carries an evidence manifest (no file contents), and each criterion the IDs it was judged on (1.541546ms)
+  ✔ check results for the criterion are evidence items too (0.91846ms)
+✔ provenance: immutable evidence IDs, refs must name shown evidence (9.528861ms)
+▶ no-change judgments use the same evidence (no 6,000-character cut)
+  ✔ a requirement after character 6,000 of the current files is visible (2.882841ms)
+✔ no-change judgments use the same evidence (no 6,000-character cut) (2.943133ms)
+✔ rules 6 is stored; the same missing-evidence result under rules 5 replays as it was decided then (partial) (5.558225ms)
+✔ every sandbox stage has a deadline (a missing one reached the supervisor as null = already due → killed after the grace period) (5.146014ms)
+▶ QB-11 re-review: the exported binding is resolved — never the first declaration
+  ✔ senior repro: CommonJS callable export with a decoy first → the actual export is shown, the decoy is not (pre-fix: decoy, missing []) (3.690927ms)
+  ✔ ESM default export with a decoy first → the actual export is shown (1.079253ms)
+  ✔ positive guards: inline default / module function, named exports and object properties bind to the right definition (3.040092ms)
+  ✔ an export binding QB cannot resolve is named as missing material, never substituted (2.101631ms)
+✔ QB-11 re-review: the exported binding is resolved — never the first declaration (10.086154ms)
+▶ QB-11 re-review: unavailable source of a changed file is named, never silently skipped
+  ✔ senior repro: the changed file was too large to export → missing source named, unresolved (pre-fix: missing [], PASS) (2.144006ms)
+  ✔ beyond the export cap (not_requested), a parse failure, and an absent snapshot are each named (4.392429ms)
+  ✔ guards: calls defined in the hunk itself, or to built-ins, need no source; an available file resolves same-file helpers (2.203965ms)
+✔ QB-11 re-review: unavailable source of a changed file is named, never silently skipped (8.862983ms)
+✔ QB-11 re-review: the judge is told, every time, what retrieval does not cover (callers, dynamic dispatch, package imports) (1.032962ms)
+▶ QB-11 re-review 2: CommonJS export order — a replaced export object drops earlier named exports
+  ✔ senior repro: module.exports = {fmt}; then module.exports = {} → fmt is NOT exported: missing, never shown (pre-fix: shown, missing []) (2.814842ms)
+  ✔ exports alias detachment: module.exports replaced, then exports.fmt = … does not export fmt (0.621876ms)
+  ✔ export changes QB cannot follow (inside a function, Object.assign, reassigning exports) → unresolved, never guessed (2.159881ms)
+  ✔ positive guards: the final export object wins; named exports added after a replacement count; exports.x before replacement-free code counts (1.725046ms)
+✔ QB-11 re-review 2: CommonJS export order — a replaced export object drops earlier named exports (7.556646ms)
+▶ QB-11 re-review 3: every export mutation is interpreted or fails closed
+  ✔ senior repros: module.exports['fmt'] = null and delete module.exports.fmt → no stale definition, unresolved via verify() (pre-fix: fmt shown, missing []) (4.536722ms)
+  ✔ the mutation audit: computed keys, compound assignment, update, destructuring targets, aliases and escapes all fail closed (6.546852ms)
+  ✔ positive guards: reads of the export object, and interpreted literal-key forms, stay resolved (1.773714ms)
+✔ QB-11 re-review 3: every export mutation is interpreted or fails closed (12.96987ms)
+✔ QB-11 re-review 3: common read idioms (require.main === module, typeof module) do not make exports unresolved (0.376293ms)
+◇ injected env (0) from intent/.env
+◇ injected env (0) from context/.env
+▶ symbol hints: correct classifications
+  ✔ a comment mentioning the name is not a definition (5.015639ms)
+  ✔ a commented-out export is not an export (2.638383ms)
+  ✔ a string containing the name is not a definition (0.342251ms)
+  ✔ deleted lines are never read (0.48846ms)
+  ✔ a multiline module.exports is an export (2.126381ms)
+  ✔ a return in another function does not count as this one returning (1.11642ms)
+  ✔ a pre-existing function in unchanged context is classified as pre-existing (0.801419ms)
+  ✔ a function only in unchanged code (not in the diff) is UNKNOWN, never reported absent (0.255501ms)
+  ✔ an unparseable hunk yields a labelled heuristic hint, never a confirmation (1.871921ms)
+  ✔ arrow functions, exports.x and ESM exports are understood (2.646924ms)
+✔ symbol hints: correct classifications (18.78897ms)
+▶ keyword hints
+  ✔ only added lines are searched (0.792419ms)
+✔ keyword hints (0.875461ms)
+▶ the judge prompt labels hints as hints
+  ✔ no "confirmed"/"Deterministic" claims; absence is labelled as not evidence (3.184009ms)
+✔ the judge prompt labels hints as hints (3.242801ms)
+▶ heuristic signals alone cannot satisfy a behavioural criterion
+  ✔ approved contract, scope covers the file, behavioural AC with no check, affirmative judge → not pass (16.882298ms)
+✔ heuristic signals alone cannot satisfy a behavioural criterion (16.949257ms)
+▶ CommonJS exports resolve module/exports in scope
+  ✔ a parameter named exports is not the module (senior reproduction) (0.691502ms)
+  ✔ a local named module is not the module (0.306918ms)
+  ✔ const exports = {} at the top is not the module (0.382417ms)
+  ✔ a catch parameter and a hoisted var shadow exports (1.938172ms)
+  ✔ exports rebound to a fresh object is not the module (0.163126ms)
+  ✔ an export inside a function in the hunk only runs if called: hint, never confirmed (0.214459ms)
+  ✔ the unshadowed module still counts (0.807586ms)
+✔ CommonJS exports resolve module/exports in scope (4.665097ms)
+▶ hunk-only context: an unseen enclosing scope downgrades to hint
+  ✔ an indented export in a hunk that starts mid-file may be inside an unseen function (0.698335ms)
+  ✔ a top-level (unindented) export mid-file is still confirmed (0.138793ms)
+✔ hunk-only context: an unseen enclosing scope downgrades to hint (1.055878ms)
+▶ exported names are distinguished from local bindings
+  ✔ ESM alias: clamp is the local binding, other is the exported name (senior reproduction) (1.646588ms)
+  ✔ CommonJS alias: exports.other = clamp (0.556543ms)
+  ✔ CommonJS alias: module.exports = { other: clamp } (0.411001ms)
+  ✔ export default and module.exports = name export the module, not the name (0.540293ms)
+  ✔ a re-export names its source and is not a local definition (0.455793ms)
+✔ exported names are distinguished from local bindings (3.740844ms)
+▶ the judge sees the exported name apart from the local binding
+  ✔ an aliased export is rendered as an alias, not as an export of clamp (0.905878ms)
+✔ the judge sees the exported name apart from the local binding (0.952919ms)
+▶ computed keys are not literal names
+  ✔ exports[clamp] and { [clamp]: … } do not export a name "clamp" (1.128545ms)
+  ✔ a string-literal key is resolved: exports["clamp"] (0.161167ms)
+✔ computed keys are not literal names (1.979172ms)
+◇ injected env (0) from intent/.env
+◇ injected env (0) from context/.env
+◇ injected env (0) from intent/.env
+▶ trusted arithmetic for computable examples
+  ✔ the saved T-002 contract: all three errors are rejected, with the correct values (4.234137ms)
+  ✔ through the real compiler: the T-002 model output is never finalized (11.181573ms)
+  ✔ a unit-conversion fixture is checked by trusted calculation (criteria and checks) (2.140798ms)
+  ✔ a wrong expected value in a check is caught too (0.405043ms)
+  ✔ duration arithmetic (0.106251ms)
+✔ trusted arithmetic for computable examples (19.753473ms)
+▶ a PASS needs a human-approved, frozen oracle
+  ✔ model-generated (unapproved) contract → unresolved, even with passing evidence (9.885819ms)
+  ✔ approved by a human → pass; the report names the frozen hash (1.55238ms)
+  ✔ changed after approval (a criterion reworded) → not approved, cannot pass (1.249296ms)
+  ✔ changed after approval (a check expectation changed) → not approved, cannot pass (0.879002ms)
+  ✔ changed after approval (a criterion re-kinded) → not approved, cannot pass (3.922011ms)
+  ✔ changed after approval (a check removed) → not approved, cannot pass (0.848294ms)
+  ✔ an approval not made by a human does not count (0.101125ms)
+  ✔ rules 3 gate; older records replay unchanged (0.074125ms)
+✔ a PASS needs a human-approved, frozen oracle (19.190137ms)
+▶ entry points: the human approves before anything runs
+  ✔ noninteractive, no contract file → BLOCKED needs_contract_approval; the proposal is saved; the agent never runs (200.857988ms)
+  ✔ the reviewed file is the oracle: it runs, approved via contract-file and frozen; the model is not asked (328.691185ms)
+  ✔ a contract file with an arithmetic error is rejected; the agent never runs (197.306228ms)
+  ✔ benchmark: a task with a human-written oracle is approved; without one it cannot pass (330.34719ms)
+✔ entry points: the human approves before anything runs (1057.424549ms)
+▶ shared execution boundary: no agent without a current human approval
+  ✔ a finalized but unapproved contract never reaches the sandbox (2.166089ms)
+  ✔ approved, then the goal changed → blocked before the sandbox (0.596419ms)
+  ✔ the manual agent is gated too; a dry run needs no oracle (0.315043ms)
+  ✔ approved → runs; the explicit exploration mode is the only unapproved path (0.624585ms)
+  ✔ benchmark baseline: same gate, and the same approved checks (0.357418ms)
+✔ shared execution boundary: no agent without a current human approval (4.213053ms)
+▶ the approval view shows everything the approval covers
+  ✔ goal, required behaviour, constraints, criteria, plan and checks are all shown (0.932919ms)
+✔ the approval view shows everything the approval covers (0.988378ms)
+▶ standalone agent CLI and benchmark honour the boundary
+  ✔ agent/cli.js: unapproved → exit 2, the agent never runs (143.982368ms)
+  ✔ agent/cli.js: an approval written into the file is ignored (130.714914ms)
+  ✔ agent/cli.js: --approve-contract (shown the full oracle first) → runs (190.218458ms)
+  ✔ benchmark without an oracle: blocked (needs_oracle), no agent in either arm (223.239551ms)
+  ✔ benchmark --explore: an explicit, recorded mode that runs but can never PASS (456.525507ms)
+✔ standalone agent CLI and benchmark honour the boundary (1145.191798ms)
+◇ injected env (0) from intent/.env
+◇ injected env (0) from context/.env
+▶ every request clause has a traceable disposition
+  ✔ the saved T-005 contract traces nothing to the request → not executable (pre-fix: finalized) (3.235676ms)
+  ✔ a traced contract: every clause quoted verbatim, every requirement covered (2.504966ms)
+  ✔ a dropped clause (the "tracked since" part) → not executable (0.458626ms)
+  ✔ a quote not in the request → not executable (0.628169ms)
+  ✔ an uncovered requirement → not executable (0.760919ms)
+  ✔ an unsupported addition → not executable (0.188001ms)
+  ✔ an unknown requirement → not executable (0.165459ms)
+  ✔ a duplicate AC → not executable (2.979008ms)
+  ✔ an implied requirement without a reason → not executable (0.761294ms)
+  ✔ a location clause may be marked context with a reason; an implied requirement with a reason is allowed (and shown) (1.986422ms)
+✔ every request clause has a traceable disposition (15.022668ms)
+▶ QB-14 re-review: coverage is by source span — negation, repeats, numbers and operators count
+  ✔ senior repro: "Do not enable caching for" is untraced → invalid (pre-fix: finalized) (0.554127ms)
+  ✔ senior repro through the execution entry point: an approved contract is blocked, the agent never runs (4.688888ms)
+  ✔ the fixed contract: the prohibition is its own requirement, covered by its own criterion (0.120875ms)
+  ✔ negation is never a stop word (0.199333ms)
+  ✔ numeric thresholds, units, short tokens and operators are never dropped (0.405001ms)
+  ✔ a repeated clause: one quote covers one occurrence only; repeats must say which occurrence (0.114292ms)
+  ✔ senior repro 2: an omitted symbolic negation "!" is untraced → invalid, and the approved contract is blocked before the agent runs (0.736794ms)
+  ✔ positive guard: the complete "!isAdmin" span traces cleanly (0.073875ms)
+  ✔ symbolic operators and code punctuation are never exempt (fail closed) (0.276418ms)
+  ✔ senior repro 3: "value?? fallback." — an operator glued to a word is never trimmed; blocked before the agent runs (0.187292ms)
+  ✔ whitespace matrix: every operator, spaces before / after / neither / both — omitted blocks, quoted-complete is valid (1.494463ms)
+  ✔ no punctuation exemption at all: sentence punctuation outside quotes is reported too (quote whole clauses) (0.067417ms)
+  ✔ context exclusions refer to the full excluded span and show their reason to the human (0.139084ms)
+✔ QB-14 re-review: coverage is by source span — negation, repeats, numbers and operators count (9.326401ms)
+▶ call_sequence: behaviour over time (qb-checks/2)
+  ✔ the registry accepts the sequences and rejects malformed ones (3.763511ms)
+  ✔ correct VAD → pass/pass/pass (171.175195ms)
+  ✔ constantZero VAD → fail/pass/fail (156.838071ms)
+  ✔ sharedGlobal VAD → pass/fail/fail (187.121365ms)
+  ✔ lastOnly VAD → fail/pass/pass (169.921567ms)
+  ✔ through verify(): constant-zero FAILS, the correct VAD passes (299.036934ms)
+✔ call_sequence: behaviour over time (qb-checks/2) (988.119268ms)
+◇ injected env (0) from intent/.env
+◇ injected env (0) from context/.env
+▶ an unchanged patch is not approved by resampling alone
+  ✔ re-verifying the same patch reuses the cached judgment: still not PASS (pre-fix: the 2nd run resampled into PASS) (20.506392ms)
+  ✔ a changed patch (new evidence IDs) is judged afresh (6.330685ms)
+  ✔ a judge outage is not cached (infrastructure, not a judgment); a corrupt cache entry is ignored (5.658975ms)
+✔ an unchanged patch is not approved by resampling alone (33.18147ms)
+▶ preservation claims are bounded to named tests
+  ✔ an unbound preservation criterion makes the contract invalid (pre-fix: finalized, then null forever) (0.263793ms)
+  ✔ malformed bindings are rejected (0.401126ms)
+  ✔ named tests all ran and passed → met (decided by the test report, not the judge) (1.509921ms)
+  ✔ a named test failing, or a named test file that did not run → not met (3.680385ms)
+  ✔ an unusable test run decides nothing: unresolved, never preserved (1.116336ms)
+  ✔ no rule treats null as proof of preservation (0.306918ms)
+✔ preservation claims are bounded to named tests (8.513649ms)
+▶ calibration: false acceptance, false rejection and abstention are measured separately
+  ✔ score(): each kind of error is counted on its own, with rates over the right denominator (0.235293ms)
+  ✔ calibrate(): one judge vs majority-of-3 from the same sampled calls, with their real call cost (0.639877ms)
+✔ calibration: false acceptance, false rejection and abstention are measured separately (1.274712ms)
+▶ QB-15 re-review: one authoritative judgment per evidence, across concurrent runs and processes
+  ✔ senior repro: two overlapping identical judgments → one sampling, one decision (pre-fix: 6 calls, null vs true) (22.166272ms)
+  ✔ a separate process holding the claim: this run waits and returns ITS published decision, with no model calls (436.153324ms)
+  ✔ a crashed owner (dead pid on this host, or a silent heartbeat) is recovered safely, and the evidence is judged once (29.512792ms)
+  ✔ waiting is bounded: a live claim that never publishes → unresolved (not cached, no model calls) (309.571005ms)
+  ✔ the first published decision is authoritative: a competing writer gets it back, never its own (0.968003ms)
+✔ QB-15 re-review: one authoritative judgment per evidence, across concurrent runs and processes (798.85098ms)
+✔ QB-15 follow-up: two DIFFERENT patches with no text hunks (binary / mode-only) never share a cached judgment (2.852924ms)
+◇ injected env (0) from intent/.env
+◇ injected env (0) from context/.env
+◇ injected env (0) from intent/.env
+▶ registry: only approved adapters with typed parameters
+  ✔ valid checks of every adapter are accepted (4.488638ms)
+  ✔ a shell command adapter → rejected, never run (0.608835ms)
+  ✔ shell text smuggled as a param → rejected, never run (0.205376ms)
+  ✔ an unknown top-level field → rejected, never run (0.157501ms)
+  ✔ module escaping the repo → rejected, never run (0.335335ms)
+  ✔ absolute module path → rejected, never run (0.309585ms)
+  ✔ module that is not JS → rejected, never run (0.133375ms)
+  ✔ export that is an expression → rejected, never run (0.780461ms)
+  ✔ args not an array → rejected, never run (0.374043ms)
+  ✔ expect not plain JSON (NaN) → rejected, never run (0.173042ms)
+  ✔ args larger than 4 KiB → rejected, never run (0.375834ms)
+  ✔ unknown criterion → rejected, never run (0.063625ms)
+  ✔ bad check id → rejected, never run (0.098625ms)
+  ✔ duplicate ids and too many checks are rejected (1.889422ms)
+  ✔ checks that are not an array are rejected as a whole (0.072292ms)
+✔ registry: only approved adapters with typed parameters (11.147531ms)
+▶ compiler: checks are validated data on the contract
+  ✔ accepted checks are kept, a shell check is rejected with its reason; kind defaults to behavioral (6.42606ms)
+✔ compiler: checks are validated data on the contract (8.674691ms)
+▶ results: complete, one per requested check, in order
+  ✔ valid results are accepted (0.185251ms)
+  ✔ missing file → no_check_results (0.054417ms)
+  ✔ not JSON → malformed_check_results (0.053166ms)
+  ✔ not complete → incomplete_check_results (0.034417ms)
+  ✔ wrong format → incomplete_check_results (0.0325ms)
+  ✔ a result missing → check_results_mismatch (0.033583ms)
+  ✔ an extra result → check_results_mismatch (0.097459ms)
+  ✔ out of order → check_results_mismatch (0.0325ms)
+  ✔ unknown status → check_results_mismatch (0.034583ms)
+✔ results: complete, one per requested check, in order (0.914545ms)
+▶ verify(): every behavioural criterion has an executed check or an explicit unresolved status
+  ✔ passing check + passing tests → PASS, decided by the check (judge not consulted) (8.912317ms)
+  ✔ a failing check → FAIL with a repair hint, even though the judge would say met (1.937589ms)
+  ✔ a check that errored → cannot pass (0.615919ms)
+  ✔ no check for a behavioural criterion → explicit unresolved, judge never asked (0.539044ms)
+  ✔ checks never ran → cannot pass (0.69396ms)
+  ✔ runner failed → cannot pass (1.417212ms)
+  ✔ results missing → cannot pass (0.963211ms)
+  ✔ results incomplete → cannot pass (0.847586ms)
+  ✔ checks ran on another tree → cannot pass (0.770127ms)
+  ✔ a non_behavioral criterion is still judged (2.956509ms)
+✔ verify(): every behavioural criterion has an executed check or an explicit unresolved status (20.060848ms)
+▶ verification plan: complete only through executed checks
+  ✔ a mapped plan item that passed is passed; an unmapped one is not_executed (1.02567ms)
+  ✔ an agent claiming it ran the plan changes nothing (0.375751ms)
+  ✔ the checks (and their expected values) are not in the agent briefing (0.500001ms)
+✔ verification plan: complete only through executed checks (2.03288ms)
+▶ the real check runner (sandbox/agent/qb-check-runner.mjs)
+  ✔ adapters, a spoofed result line, an escape, a hang and a missing module (1751.906648ms)
+✔ the real check runner (sandbox/agent/qb-check-runner.mjs) (1751.976523ms)
+▶ check results are bound to the executed definitions, not just reused ids
+  ✔ a result produced for different params under the same id cannot satisfy this contract (0.853711ms)
+  ✔ the runner's own hash of what it received must match (0.619793ms)
+  ✔ checks that ran on any tree other than the captured candidate are not used (1.392754ms)
+  ✔ the real runner reports the same hash QB computes (74.208502ms)
+✔ check results are bound to the executed definitions, not just reused ids (77.226219ms)
+◇ injected env (0) from intent/.env
+▶ root and standalone compilation receive equivalent grounding
+  ✔ qb.js compiles with a repository survey (pre-fix: no repo context at all) (247.242953ms)
+  ✔ qb.js and intent/cli.js send the same grounded compiler input for the same repo and request (470.676214ms)
+✔ root and standalone compilation receive equivalent grounding (718.775835ms)
+▶ ambiguity rules respect what the request already says
+  ✔ a fully specified "cleaner" request reaches the compiler instead of a redundant question (pre-fix: DSA asks) (30.688921ms)
+  ✔ the vague request still asks, with machine-readable choices (17.340882ms)
+✔ ambiguity rules respect what the request already says (48.234262ms)
+▶ bounded clarification with a machine-readable handoff state
+  ✔ a still-ambiguous answer stays blocked with its unresolved choice (pre-fix: any answer skipped the rule) (19.533222ms)
+  ✔ after the maximum rounds it is blocked — never finalized (16.460547ms)
+  ✔ an answer that picks a concrete choice resolves the rule and compilation proceeds, grounded (19.017096ms)
+  ✔ qb.js: a vague --clarify answer ends BLOCKED needs_clarification with a handoff file naming the open choice (165.042095ms)
+  ✔ qb.js: repeated --clarify answers are used round by round; still vague after the last round → BLOCKED (161.21ms)
+✔ bounded clarification with a machine-readable handoff state (381.939711ms)
+▶ explicit, inferred and proposed defaults are distinct; defaults need approval
+  ✔ a criterion may trace to a proposed default; the view shows the three kinds separately (pre-fix: D-1 unknown → invalid) (19.026345ms)
+  ✔ a default is part of the approved oracle: changing it voids the approval (16.321296ms)
+  ✔ malformed defaults are rejected: no reason, bad id, unknown D-id, a default no criterion uses (15.96617ms)
+✔ explicit, inferred and proposed defaults are distinct; defaults need approval (51.767272ms)
+▶ incomplete compiler output is rejected, never filled
+  ✔ missing required_behavior / verification_plan → invalid, naming the fields (pre-fix: generic fallback text → finalized) (17.049882ms)
+  ✔ an unreadable list entry is not stringified into the contract (16.636214ms)
+✔ incomplete compiler output is rejected, never filled (33.807387ms)
+▶ QB-17 re-review: an answer resolves only on an affirmative selection, bound to its question
+  ✔ senior repro: "cannot decide between naming and duplication" leaves the choice open (pre-fix: resolved → finalized) (15.722003ms)
+  ✔ senior repro through the CLI handoffs: qb.js --clarify → BLOCKED (agent never runs); intent/cli.js --clarify → exit 2, needs_clarification (282.952222ms)
+  ✔ negated choices, several unselected alternatives and deferrals stay open (16.280629ms)
+  ✔ positive guards: a structured selection and a single affirmative free-text choice resolve it (268.77439ms)
+  ✔ the handoff lists stable choice ids for structured selection (22.152854ms)
+  ✔ each answer is bound to its question: answering one vague term never resolves another (17.5808ms)
+✔ QB-17 re-review: an answer resolves only on an affirmative selection, bound to its question (623.747232ms)
+◇ injected env (0) from intent/.env
+▶ QB-17 re-review 2: a parameterized choice needs its value
+  ✔ senior repro: selecting numeric_target without a target stays open with a follow-up question (pre-fix: resolved → finalized) (30.899088ms)
+  ✔ senior repro through the CLI handoffs: no target → qb.js BLOCKED (agent never runs); intent/cli.js exit 2, model never called (301.703274ms)
+  ✔ invalid or uncertain targets stay open (string, object, free text, follow-up round) (20.609975ms)
+  ✔ positive guards: a concrete target (string, object, follow-up answer, free text) finalizes, carried into compiler input and the approved contract (289.237989ms)
+  ✔ contractState rejects a clarification whose parameterized choice lacks a valid value (17.169841ms)
+  ✔ audit: numeric_target is the only parameterized choice (the others name a complete aspect) (15.479836ms)
+✔ QB-17 re-review 2: a parameterized choice needs its value (676.753133ms)
+◇ injected env (0) from context/.env
+▶ retrieval in a 200+ file repository
+  ✔ the symbol in a generically named file is retrieved, ranked first, with a symbol-match reason (pre-fix: not retrieved) (0.819086ms)
+  ✔ a two-hop dependency (seed → units → constants) and a caller (cli/main) are present, with their edges and depths (1.187045ms)
+  ✔ irrelevant files do not dominate: noise is excluded, distractors are below the relevance cut and recorded as omitted (0.394752ms)
+  ✔ the retrieval budget and depth are explicit in the package (0.125042ms)
+  ✔ depth is configurable and enforced (depth 1 excludes the two-hop file, recording why) (37.219231ms)
+  ✔ the file budget is enforced: what does not fit is omitted with dropped "max_files" (35.96831ms)
+✔ retrieval in a 200+ file repository (248.659415ms)
+▶ refresh after each patch (through qb.js)
+  ✔ a file created by attempt 1 (and its neighbours) is in attempt 2's context (pre-fix: retries reused the original context) (371.426806ms)
+✔ refresh after each patch (through qb.js) (389.084648ms)
+▶ QB-18 re-review: shortest depth across seeds; stale refreshed files never briefed as current
+  ✔ converging graph with unequal seed priorities: leaf.js is reached at depth 2 through the weaker seed (pre-fix: omitted as depth 3) (57.555747ms)
+  ✔ refresh without the candidate bytes: the file's old symbols leave the context, it is marked stale, and the BRIEFING says so (pre-fix: briefed as current) (28.30508ms)
+  ✔ through qb.js: attempt 2's briefing flags a file attempt 1 changed but whose bytes were not captured (443.932721ms)
+✔ QB-18 re-review: shortest depth across seeds; stale refreshed files never briefed as current (530.03709ms)
+◇ injected env (0) from context/.env
+▶ exports are indexed by parser
+  ✔ module.exports = { alpha, beta } indexes BOTH (pre-fix: only alpha) (1.126337ms)
+  ✔ a single export and a trailing (multi-line, trailing-comma) export object (0.110042ms)
+  ✔ an alias is exported under its public name and resolves to the local declaration (0.125668ms)
+  ✔ class methods are qualified by their class (0.078375ms)
+  ✔ ESM: named, const, aliased and default exports (0.092125ms)
+✔ exports are indexed by parser (2.332506ms)
+▶ locations are real declarations, never comments; names never overwrite
+  ✔ duplicate names in two files get two qualified IDs (pre-fix: the second overwrote the first) (0.110583ms)
+  ✔ a name mentioned in a comment is not the location (pre-fix: the comment line) (0.092083ms)
+  ✔ an export after byte 8,000 is indexed with its real span (pre-fix: truncated away) (0.123792ms)
+✔ locations are real declarations, never comments; names never overwrite (0.785835ms)
+▶ limits are explicit; the package stays valid
+  ✔ a file over the index cap is recorded as such, not silently dropped or truncated (34.701974ms)
+  ✔ prompt content is a bounded snippet, flagged when cut (0.124417ms)
+  ✔ the package validates and the agent briefing renders qualified symbols (1.956589ms)
+✔ limits are explicit; the package stays valid (37.029647ms)
+▶ QB-19 re-review: no valid static JavaScript is silently lost
+  ✔ senior repro: same-named static and instance methods keep distinct identities and spans (pre-fix: one overwrote the other) (1.492213ms)
+  ✔ getter/setter pairs keep both roles and spans; static accessors are separate too (0.373501ms)
+  ✔ senior repro: destructured top-level exports are indexed (pre-fix: status parsed, symbols []) (0.743586ms)
+  ✔ binding patterns: aliases, defaults, rest, arrays and nesting — exported and plain declarations (1.308754ms)
+  ✔ a destructured require() is an import, not a declaration: the importer does not get the imported name (0.774877ms)
+  ✔ other forms are indexed: generators, async functions, private methods, class fields, anonymous default class (0.875169ms)
+  ✔ anything QB visits but cannot name is reported, never a silent success (0.333667ms)
+  ✔ through buildContext: distinct static/instance IDs, destructured exports in the package, partial status recorded in index_limits (41.606368ms)
+✔ QB-19 re-review: no valid static JavaScript is silently lost (47.754969ms)
+◇ injected env (0) from context/.env
+◇ injected env (0) from intent/.env
+◇ injected env (0) from context/.env
+▶ conventional test names are discovered as associations
+  ✔ Python: tests/test_auth.py and auth_test.py (pre-fix: not discovered) (109.261728ms)
+  ✔ Go: auth_test.go in the same package directory (pre-fix: not discovered) (27.901246ms)
+  ✔ JavaScript: test/ and tests/ mirrors, __tests__, .spec (50.83352ms)
+  ✔ Java: src/test/java mirror with FooTest.java (26.999576ms)
+✔ conventional test names are discovered as associations (216.056323ms)
+▶ associations are not coverage
+  ✔ the package field is test_associations (pre-fix: test_coverage with covered_files) (35.1601ms)
+  ✔ the briefing never claims coverage because a test file exists (pre-fix: "## Test coverage") (34.096846ms)
+  ✔ real coverage data, when the repo has it, is reported separately with its source (lcov / istanbul) (57.769247ms)
+✔ associations are not coverage (127.343196ms)
+▶ only validated runners verify; explicit project config
+  ✔ an explicit .quarterback.json node-test config runs its command (18.131218ms)
+  ✔ a configured unsupported runner is rejected with a clear reason, never run (45.939339ms)
+  ✔ a heuristically detected unsupported runner (jest in package.json, pytest.ini, go.mod) is rejected (66.563023ms)
+  ✔ node:test via the package.json test script runs npm test; no test command → no_test_command; bad config → invalid_test_config (113.434281ms)
+  ✔ the briefing states that an unsupported runner is not used for verification (28.284622ms)
+  ✔ verification with an unsupported runner is not run and can never PASS (12.972496ms)
+✔ only validated runners verify; explicit project config (285.996689ms)
+▶ QB-20 re-review 1: coverage reports are validated, never trusted blindly
+  ✔ a malformed istanbul entry (s: null) does not crash L2; the valid entry is kept (pre-fix: "Cannot convert undefined or null to object") (28.860415ms)
+  ✔ a report whose top level is not an object is unavailable with a diagnostic, not a crash (147.094501ms)
+  ✔ istanbul: negative / fractional / non-numeric counters and a statementMap mismatch are rejected (187.784325ms)
+  ✔ lcov: impossible counts are rejected, never reported or clamped (pre-fix: LF:2 LH:5 → lines_pct 250) (245.798157ms)
+  ✔ foreign report paths are never attributed to this repository (pre-fix: SF:/another-project/src/clamp.js → 100% for local src/clamp.js) (179.954386ms)
+  ✔ exact in-repo paths are attributed: relative, ./relative, and absolute under this checkout (real or symlinked path) (31.545965ms)
+  ✔ a report generated elsewhere is attributed only through an explicit coverage.source_root mapping (62.190385ms)
+  ✔ two records for the same file are ambiguous: neither is reported (32.0023ms)
+  ✔ an oversized or truncated report is reported as such, not silently treated as absent or complete (128.072364ms)
+  ✔ the briefing shows only validated figures and states what was not used (31.807799ms)
+✔ QB-20 re-review 1: coverage reports are validated, never trusted blindly (1076.441019ms)
+▶ QB-20 re-review 2: the test section is optional in a valid project config
+  ✔ no config → the package.json node:test plan runs (14.352499ms)
+  ✔ coverage-only config → the same run plan, plus mapped coverage (pre-fix: not_run / invalid_test_config) (41.722869ms)
+  ✔ coverage-only config keeps runner detection: a detected unsupported runner is still refused (17.242383ms)
+  ✔ test + coverage config → the configured argv, and coverage is still mapped (28.05858ms)
+  ✔ an explicitly present but invalid test section, or an invalid top level, is still rejected (216.938491ms)
+✔ QB-20 re-review 2: the test section is optional in a valid project config (319.098241ms)
+◇ injected env (0) from intent/.env
+◇ injected env (0) from context/.env
+▶ per-call deadlines on model calls
+  ✔ a hung model (honours abort) → each judge call ends at its deadline; the criterion is unresolved (pre-fix: hangs) (215.736697ms)
+◇ injected env (0) from intent/.env
+  ✔ a hung model (ignores abort) → each judge call ends at its deadline; the criterion is unresolved (pre-fix: hangs) (201.965824ms)
+  ✔ the intent compiler and the context enricher are bounded too (pre-fix: hang) (259.124153ms)
+✔ per-call deadlines on model calls (678.500137ms)
+▶ total-run deadline and cancellation
+  ✔ the run budget aborts in-flight model calls, names the interrupted stage, and releases the judge-cache claim (303.834863ms)
+  ✔ qb.js end-to-end: a hung model under QB_RUN_DEADLINE_MS ends CANCELLED, naming the stage; the run record survives (pre-fix: hangs) (1766.241313ms)
+✔ total-run deadline and cancellation (2070.74747ms)
+▶ telemetry is bounded and non-blocking
+  ✔ a stalled metrics endpoint is abandoned at its deadline (pre-fix: awaited with no deadline) (313.482641ms)
+✔ telemetry is bounded and non-blocking (313.893059ms)
+▶ child process trees
+  ✔ a timed-out command is killed with its whole process tree (pre-fix: only the direct child; the grandchild kept the pipe open) (404.883401ms)
+  ✔ cancellation by signal kills the tree too (305.0007ms)
+✔ child process trees (710.483811ms)
+▶ bounded concurrency and usage
+  ✔ judge votes run concurrently, never more than QB_MODEL_CONCURRENCY at once (pre-fix: strictly sequential) (205.083583ms)
+  ✔ stage time, model calls and tokens are recorded (1.13092ms)
+✔ bounded concurrency and usage (206.348462ms)
+▶ QB-21 re-review: the run deadline also bounds the judge-cache claim wait
+  ✔ senior repro: a waiter on a live claim returns at the run deadline, not after its own waitMs (pre-fix: 450 ms, timedOut) (41.382826ms)
+  ✔ verifier path: judgeAll behind a live claim ends at the run deadline — no model call, nothing cached, the claim kept (150.863554ms)
+  ✔ qb.js end-to-end: run B waits on run A's live claim; B ends CANCELLED during L4 at its deadline, A's claim intact (pre-fix: B waits 15 min) (2914.651534ms)
+✔ QB-21 re-review: the run deadline also bounds the judge-cache claim wait (3107.973875ms)
+▶ QB-21 re-review: usage is honest — unknown is never zero
+  ✔ no token counts reported → tokens unknown (null), not 0; attempted/completed counted (pre-fix: 0 tokens) (1.29717ms)
+  ✔ mixed known/unknown → partial: known sums are labelled as covering only the reporting calls (0.728794ms)
+  ✔ failures, timeouts and cancellations are counted as attempted, not hidden (401.242474ms)
+  ✔ agent usage is explicitly unknown with a reason; deadlines, versions and cost carry provenance (0.562293ms)
+✔ QB-21 re-review: usage is honest — unknown is never zero (404.367024ms)
+◇ injected env (0) from intent/.env
+◇ injected env (0) from context/.env
+▶ already-satisfied requirement (agent changed nothing)
+  ✔ passing tests + every criterion met in the tested snapshot → PASS, with no fabricated change (44.015584ms)
+  ✔ KAN-22 review: a host edit after seeding is never judged — the snapshot without clamp is (20.475308ms)
+  ✔ a criterion judged unmet → fail (the task is not done) (19.34093ms)
+  ✔ the judge cannot tell → unresolved (19.882182ms)
+  ✔ failing tests → fail even when the judge says met (18.303052ms)
+  ✔ no tests → unresolved even when the judge says met (16.472464ms)
+  ✔ broken test run → unresolved even when the judge says met (18.184177ms)
+  ✔ no snapshot (the live checkout is never a fallback) → unresolved, judge not called (20.136266ms)
+  ✔ snapshot export failed → unresolved, judge not called (18.20301ms)
+  ✔ snapshot of a different tree than was tested → unresolved, judge not called (20.175433ms)
+  ✔ tests ran on a different tree → unresolved, judge not called (16.357963ms)
+  ✔ captured candidate differs from the snapshot → unresolved, judge not called (15.958754ms)
+  ✔ a requested file was too large (never truncated) → unresolved, judge not called (18.767803ms)
+  ✔ a requested path is a symlink or directory → unresolved, judge not called (18.006718ms)
+  ✔ only missing files → unresolved, judge not called (18.753429ms)
+  ✔ a missing file next to judged files is fine (not withheld) (21.285894ms)
+  ✔ the stored input replays to the same verdict (rules 2) (23.148233ms)
+  ✔ legacy inputs (no rules field) keep no_change unresolved (14.579375ms)
+  ✔ the verifier no longer reads the host checkout (18.013259ms)
+✔ already-satisfied requirement (agent changed nothing) (383.884591ms)
+▶ execution states stay distinct (done-when)
+  ✔ timeout, authentication failure, nonzero exit and a genuine dry run (20.658017ms)
+✔ execution states stay distinct (done-when) (20.744851ms)
+▶ snapshot export: one entry per requested path, never a substitute
+  ✔ the reviewer's substitution: one path requested, two other files returned → rejected (18.370261ms)
+  ✔ missing entry → rejected (18.080927ms)
+  ✔ extra entry → rejected (21.316269ms)
+  ✔ duplicate entry → rejected (18.340594ms)
+  ✔ wrong order → rejected (19.161846ms)
+  ✔ unknown entry type → rejected (18.498052ms)
+  ✔ content/hash mismatch → rejected (19.097138ms)
+  ✔ no end marker → rejected (17.988218ms)
+  ✔ an exact answer is accepted (files and explicit skips) (17.357508ms)
+  ✔ only plain paths without control characters are requested (17.462175ms)
+  ✔ an unsupported requested path makes the judgment unresolved (16.826714ms)
+✔ snapshot export: one entry per requested path, never a substitute (203.004494ms)
+◇ injected env (0) from intent/.env
+◇ injected env (0) from context/.env
+▶ a failed AC repaired on attempt two creates one traceable resolved repair
+  ✔ pre-fix shape: remember() with only the final PASS report saves zero repairs; with the attempt history it saves exactly one, proven (56.014284ms)
+✔ a failed AC repaired on attempt two creates one traceable resolved repair (57.318288ms)
+▶ nothing else labels a hint as proven
+  ✔ an unchanged patch: the hint is unresolved (unchanged_patch), even if the vote flipped (3.030508ms)
+  ✔ an abandoned task (no later attempt): not_attempted (1.926672ms)
+  ✔ an unrelated later success: a different criterion fixed does not prove the hint; the hint that did fix it is the one proven (11.953492ms)
+  ✔ a criterion that flips to met but the run does not end in an approved PASS: observed, unconfirmed — never proven (3.826386ms)
+  ✔ a hint for something that was not a failing criterion (test / policy / not failing) is not tracked as resolved (0.154084ms)
+✔ nothing else labels a hint as proven (21.449311ms)
+▶ recall distinguishes proven repairs from suggestions
+  ✔ resolved → proven; observed → unconfirmed; unresolved / not_attempted are not recalled; legacy records are labeled unverified (10.420029ms)
+✔ recall distinguishes proven repairs from suggestions (10.532697ms)
+▶ through qb.js: the real run loop links the repair to the patch that followed it
+  ✔ fail on attempt 1, criterion met on attempt 2 (no sandbox tests → not an approved PASS): one repair, observed and unconfirmed, with both patch hashes from the run record (pre-fix: zero) (469.043542ms)
+✔ through qb.js: the real run loop links the repair to the patch that followed it (494.544322ms)
+▶ collision-resistant repository identity
+  ✔ /x/a/b and /x/a_b never share records (pre-fix: both mapped to "x_a_b") (9.207401ms)
+  ✔ the namespace carries the schema version and the repository identity it belongs to (1.511546ms)
+  ✔ a namespace whose identity file names another repository is refused, not merged (5.847474ms)
+  ✔ a pre-QB-24 path-sanitized namespace is ignored and reported, never read or merged (0.950586ms)
+✔ collision-resistant repository identity (18.637428ms)
+▶ negation and intent are preserved
+  ✔ opposite requests are not similarity 1 and are flagged conflicting (pre-fix: "not" was a stop word → 1.0) (0.809711ms)
+  ✔ an opposite-intent repair is never reused automatically; it is reported as conflicting (pre-fix: recalled at score 1) (1.38342ms)
+  ✔ a repair whose intent cannot be established (no criterion text recorded) is not reused automatically (1.392879ms)
+  ✔ recallPrior labels an opposite-intent past run and never ranks it as identical (0.982836ms)
+✔ negation and intent are preserved (5.255724ms)
+▶ file hints, revisions and failed runs
+  ✔ traversal, absolute and missing file hints are rejected with a reason; real files pass (pre-fix: passed through) (24.44157ms)
+  ✔ records carry their base revision; a repair from an incompatible revision is stale and not reused; an ancestor is fine (63.155429ms)
+  ✔ remember() records the base revision it is given on outcomes and repairs (2.083631ms)
+  ✔ file hints from failed runs are ranked and labelled apart from resolved ones, never mixed (18.578594ms)
+✔ file hints, revisions and failed runs (110.150355ms)
+▶ QB-24 re-review: intent is per clause; compound ambiguity is never actionable
+  ✔ senior repro: two independent reversals no longer cancel out (pre-fix: score 1, not conflicting) (0.22075ms)
+  ✔ changed action/target association is conflicting: enable A + disable B vs disable A + enable B (0.081084ms)
+  ✔ a partly negated compound ("… but not for guests") is ambiguous, never "same" (0.075958ms)
+  ✔ guards: identical, double-negated and harmlessly extended requests stay actionable (0.102083ms)
+  ✔ real store: a proven repair is never reused across reversed or ambiguous compound criteria (pre-fix: proven:true, usable) (1.608338ms)
+  ✔ qb.js end-to-end: the agent briefing carries a proven fix only for the same intent, never for the reversed one (633.780926ms)
+✔ QB-24 re-review: intent is per clause; compound ambiguity is never actionable (636.165059ms)
+▶ QB-24 re-review: a stale-revision record cannot re-enter through the churn fallback
+  ✔ senior repro through remember(): app.js from a run on an unknown revision is rejected and NOT a churn hint (pre-fix: both) (25.258905ms)
+  ✔ guard: churn is recomputed from compatible records only — a compatible run still contributes (27.60237ms)
+✔ QB-24 re-review: a stale-revision record cannot re-enter through the churn fallback (53.068192ms)
+▶ QB-24 re-review 2: restriction operators (except / unless / only) and their scope are preserved
+  ✔ senior repro: "Enable caching except for guests" is not the same intent as "Enable caching" (pre-fix: partial, actionable) (0.188292ms)
+  ✔ senior repro: "Allow uploads only for admins" vs "Allow uploads for guests" is not actionable (pre-fix: same) (0.155709ms)
+  ✔ unless / excluding / other than are restrictions too (0.280793ms)
+  ✔ positive controls: the same restriction is the same intent; an unrestricted identical request stays same (0.214876ms)
+  ✔ real store: the unrestricted repair is excluded for a restricted criterion; the same restriction reuses its own repair (1.518921ms)
+  ✔ qb.js end-to-end: the briefing never carries the unrestricted fix for a restricted criterion; the same-restriction fix is briefed (551.417984ms)
+✔ QB-24 re-review 2: restriction operators (except / unless / only) and their scope are preserved (554.239451ms)
+▶ the store path is resolved when used, not captured at import
+  ✔ QB_MEMORY_DIR changed after require() is honoured (pre-fix: writes went to the import-time dir) (95.89019ms)
+  ✔ createMemory({ root }) injects the path at construction (54.947615ms)
+  ✔ the demo writes only beneath its own temporary directory (pre-fix: it wrote to ~/.quarterback/memory) (99.834367ms)
+✔ the store path is resolved when used, not captured at import (253.112886ms)
+▶ concurrency: per-repository lock and atomic stats
+  ✔ 6 processes × 30 remember() on one repository: every outcome and every file-stat count is kept (pre-fix: lost updates) (596.943197ms)
+✔ concurrency: per-repository lock and atomic stats (597.682783ms)
+▶ corruption is reported, valid data is kept
+  ✔ a truncated record is reported with its line and byte offset; valid records survive; the next append is not glued onto it (pre-fix: silently dropped, next record lost) (10.074904ms)
+  ✔ an unparsable middle line is reported (not silently skipped) and a warning is emitted (3.974469ms)
+  ✔ a corrupt file_stats.json is quarantined and reported, not silently reset (3.626552ms)
+✔ corruption is reported, valid data is kept (18.083384ms)
+▶ retention, compaction and bounded recall
+  ✔ outcomes are compacted to the newest N; proven repairs are always kept; corrupt lines are quarantined, not lost (107.619264ms)
+  ✔ recall latency at the supported history size (10,000 outcomes) is bounded (332.667904ms)
+  ℹ recallPrior + recallFiles over 10000 outcomes: 278.9 ms
+✔ retention, compaction and bounded recall (441.237212ms)
+▶ QB-25 re-review 1: no lock theft from a live owner; dead-owner recovery is race-safe
+  ✔ a paused live owner whose lock is old is NOT robbed; after it is killed, the waiter recovers (pre-fix: entered by age) (1625.340911ms)
+  ✔ a lock held from another host is never stolen by age: unsupported cross-host sharing is refused with a clear error (103.062584ms)
+  ✔ many waiters recovering one dead owner: exactly one at a time, no lost increments (207.80209ms)
+✔ QB-25 re-review 1: no lock theft from a live owner; dead-owner recovery is race-safe (1937.06788ms)
+▶ QB-25 re-review 1: recall work is bounded by the window, not by the history size
+  ✔ parseJsonl with a limit parses only the window (pre-fix: 100 parses for limit 2) (0.990753ms)
+  ✔ 100,000 outcomes, window 1,000: readOutcomes reads and parses ~the window only (pre-fix: the whole file) (116.012954ms)
+  ✔ appends do not rescan the history: per-append disk reads stay small (pre-fix: the whole file per append) (1145.744089ms)
+  ✔ pinned (proven) repairs are bounded too: the newest stay recallable, older ones are archived — never deleted, never scanned by recall (68.999362ms)
+  ✔ corruption is still reported with line and offset by the full audit (health), separate from bounded recall (12.654536ms)
+✔ QB-25 re-review 1: recall work is bounded by the window, not by the history size (1345.052155ms)
+▶ QB-25 re-review 2: every lock wait honours its deadline; takeovers back off and recover
+  ✔ senior repro: dead lock owner + takeover held by a LIVE process → MEMORY_LOCK_TIMEOUT near the deadline, no entry (pre-fix: spun until killed) (105.850051ms)
+  ✔ two processes: a live process genuinely holding the takeover claim → the waiter times out, never enters (161.068333ms)
+  ✔ incomplete takeover file: fresh or old, a bounded timeout naming the file for manual recovery — never reclaimed by age (339.839716ms)
+  ✔ a takeover file left by a dead taker is not cleared automatically: bounded timeout with manual-recovery instructions (347.017361ms)
+  ✔ an unreadable lock that is never old enough cannot keep a waiter past its deadline (75.907049ms)
+✔ QB-25 re-review 2: every lock wait honours its deadline; takeovers back off and recover (1030.016302ms)
+▶ QB-25 re-review 3: claims are published atomically; nothing unidentifiable is ever reclaimed
+  ✔ senior repro: A paused between creating its claim and publishing its owner, claim aged 31 s; B runs; A resumes → never two in the critical section (pre-fix: both inside) (1229.090451ms)
+  ✔ a genuinely dead initializer (killed before publishing its owner) does not block the next process (pre-fix: an empty claim blocked it) (91.996095ms)
+  ✔ an unidentifiable (unreadable) lock is never reclaimed by age: bounded timeout with manual-recovery instructions (pre-fix: removed after 30 s) (152.806726ms)
+  ✔ a published claim is complete (owner metadata present) the moment it exists; no temporary files are left behind (0.648585ms)
+✔ QB-25 re-review 3: claims are published atomically; nothing unidentifiable is ever reclaimed (1474.806149ms)
+✔ parseTap reads the totals and names every TODO (known defect) (1.849714ms)
+✖ the record states models called, cost and timeouts (177.12917ms)
+✔ a model credential in the CI environment is reported and fails the job (94.68206ms)
+✔ failing tests are named (published as annotations, readable without a login) (0.888836ms)
+▶ QB-27: grading is independent of QB's contract
+  ✔ the review example: a correct 30s patch passes and the invented 5m patch fails, whatever the contract says (1446.643611ms)
+  ✔ grader spy: no contract, criteria, briefing or checks reach the grading run (754.261394ms)
+  ✔ the grade record is a valid qb-grade/1 bound to spec, patch and grader hashes; no network, no credentials (719.651504ms)
+✔ QB-27: grading is independent of QB's contract (2922.950181ms)
+▶ QB-27: the benchmark scores arms only through the grader
+  ✔ gradeArm: the score comes from the grader for every arm; the internal verdict and contract are never consulted (1009.41616ms)
+  ✔ no frozen spec, or a blocked arm, is ungraded — never a pass or a fail (17.033923ms)
+✔ QB-27: the benchmark scores arms only through the grader (1026.678792ms)
+▶ QB-27: precise grading outcomes
+  ✔ a syntax error, a patch that does not apply, and an empty (no-change) patch all FAIL (1259.873497ms)
+  ✔ a patch touching a grader-owned path fails before anything runs (725.067144ms)
+  ✔ grader faults are grader_error, never a fail: unqualified suite, changed suite, changed grader, missing suite command (1590.797644ms)
+  ✔ an unavailable sandbox is infra_error, recorded separately from pass/fail (866.681212ms)
+  ✔ needs_adjudication only for checks the frozen spec reserves — never as a catch-all (1608.504611ms)
+✔ QB-27: precise grading outcomes (6051.445359ms)
+▶ QB-27: the hidden suite stays hidden
+  ✔ a suite inside the task repository is refused (suite_leaked) (975.026437ms)
+  ✔ a suite file present anywhere in the task repository history is refused (suite_leaked) (819.71562ms)
+  ✔ the agent-visible workspace (pinned checkout) never contains the suite or the grader test plan (64.14989ms)
+  ✔ patchPaths reads both sides of renames and refuses an unparseable header (0.143043ms)
+✔ QB-27: the hidden suite stays hidden (1859.509574ms)
+▶ QB-27: qualification and freezing
+  ✔ a suite is qualified only if the reference passes and every incorrect implementation fails its tests (1923.907047ms)
+  ✔ freezing needs qualification; a frozen spec cannot be edited; a new version needs a disclosed changelog entry (671.964533ms)
+✔ QB-27: qualification and freezing (2596.74925ms)
+▶ QB-27: blinded adjudication
+  ✔ packets carry no arm, trial, or internal verdict; order is seeded; verdicts are never overwritten; disagreement stays visible (1522.690949ms)
+✔ QB-27: blinded adjudication (1522.796533ms)
+▶ QB-27 re-review 1: no host write follows a path an untrusted patch or base tree controls
+  ✔ the reviewer's repro: a patch adding symlink `test` → an outside dir writes nothing there and never reaches the sandbox (43.069539ms)
+  ✔ a case variant (`Test`) of an owned ancestor is caught too — a host filesystem may be case-insensitive (44.915544ms)
+  ✔ a symlinked ancestor in the BASE tree fails closed (grader_error), with no write outside and no sandbox run (95.69623ms)
+  ✔ the patch is never applied on the host: the sandbox receives it, the host checkout holds only base + suite (152.4931ms)
+  ✔ defence in depth: an owned path or ancestor in the CAPTURED change list fails, even if the patch text looked clean (115.289703ms)
+  ✔ safeInstall: a deeper symlinked ancestor, an existing file, and an escape are all refused (1.648838ms)
+✔ QB-27 re-review 1: no host write follows a path an untrusted patch or base tree controls (453.436496ms)
+◇ injected env (0) from context/.env
+◇ injected env (0) from intent/.env
+◇ injected env (0) from intent/.env
+◇ injected env (0) from context/.env
+▶ QB-28: the arm table
+  ✔ six arms, each adding exactly one thing over the previous; A vs E is the primary comparison (1.359004ms)
+✔ QB-28: the arm table (1.734297ms)
+▶ QB-28: equal agent-time budgets
+  ✔ pre-fix: the baseline got one 8-minute invocation while the QB arm got up to 3 invocations of its default agent deadline (11.958951ms)
+  ✔ every arm gets the same total agent time: each invocation receives what remains; none starts once it is spent (740.014186ms)
+  ✔ a manifest cannot give arms different agent time: the budget is one value, and extra per-arm fields are refused (0.798419ms)
+✔ QB-28: equal agent-time budgets (753.223515ms)
+▶ QB-28: feedback per arm
+  ✔ B retries on the repository's own visible test output and stops when the visible tests pass (never the hidden grader) (38.621818ms)
+  ✔ A sees only the prompt; C sees the approved contract; D adds QB context (114.91616ms)
+✔ QB-28: feedback per arm (153.995395ms)
+▶ QB-28: memory isolation
+  ✔ memory OFF (E) reads and writes nothing — not even the default store (135.321593ms)
+  ✔ memory ON (F): L5 is actually called; each trial gets its own copy of the frozen start; the start never changes (360.923109ms)
+✔ QB-28: memory isolation (496.484077ms)
+▶ QB-28: one experiment, every arm graded by the same external grader
+  ✔ A, E and F run through runArm; every completed arm is graded (spy); results are recorded and reported (693.748513ms)
+  ✔ bench/run.js no longer carries its own copy of the attempt loop: it runs lib/qb-pipeline.js (1.229336ms)
+✔ QB-28: one experiment, every arm graded by the same external grader (695.10385ms)
+▶ QB-28 re-review: memory-on retrieves the frozen source experience in fresh checkouts
+  ✔ F (not E) gets the source repository's file and proven repair hints in a fresh checkout; two F trials see the same start; the start never changes (452.616869ms)
+✔ QB-28 re-review: memory-on retrieves the frozen source experience in fresh checkouts (452.708536ms)
+▶ QB-28 re-review: the equal agent-time budget debits the agent stage only
+  ✔ large setup/test delays are not debited: each retry gets the budget minus the agent stages so far (B and E) (900.921476ms)
+  ✔ the sandbox reports the agent stage's own duration (0.530793ms)
+✔ QB-28 re-review: the equal agent-time budget debits the agent stage only (902.882191ms)
+▶ QB-28 re-review: the manifest's deadlines are the ones enforced
+  ✔ model_call_deadline_ms is the per-call limit in force: a slower model call times out, and usage.json reports the manifest value (863.242703ms)
+  ✔ trial_deadline_ms covers external grading: a grading run past the deadline is cancelled and the trial is a timeout (3241.442958ms)
+✔ QB-28 re-review: the manifest's deadlines are the ones enforced (4105.400663ms)
+▶ QB-28 re-review: scope label
+  ✔ E/F are labelled as production orchestration AFTER L1 from a human-approved oracle — not end-to-end QB (0.514543ms)
+✔ QB-28 re-review: scope label (1.01467ms)
+▶ QB-29 re-review 2: runtime identity is checked and recorded per arm-trial
+  ✔ an image identity change after the first arm stops the experiment before the second arm runs (454.044165ms)
+  ✔ each trial records its own preflight and its launches; the image binding is released after every trial (0.275459ms)
+✔ QB-29 re-review 2: runtime identity is checked and recorded per arm-trial (454.444499ms)
+▶ QB-28 golden: ordinary qb.js behaviour is unchanged by the orchestration extraction
+  ✔ three failing attempts with progress: repair routing, context refresh, max retries, run record and memory (662.688258ms)
+  ✔ an unchanged patch stops the loop (no progress) after the second attempt (465.975074ms)
+  ✔ memory hand-off: a second run recalls the first run (similar run + file hint); an unresolved repair is not offered as a hint (869.88843ms)
+✔ QB-28 golden: ordinary qb.js behaviour is unchanged by the orchestration extraction (1999.801974ms)
+◇ injected env (0) from context/.env
+◇ injected env (0) from intent/.env
+◇ injected env (0) from intent/.env
+◇ injected env (0) from context/.env
+▶ QB-29: immutable, pinned experiments
+  ✔ a re-run never overwrites a recorded trial (pre-fix: results were loose files, any rerun replaced the reported row) (45.570046ms)
+  ✔ a tampered or missing artifact is refused, naming the file (pre-fix: nothing was hashed) (7.357771ms)
+  ✔ an official experiment refuses a dirty QB checkout; an exploratory one archives and hashes the diff (42.627288ms)
+  ✔ recording refuses a trial outside the plan or a grade that disagrees with its spec, grader, patch or outcome (3.520469ms)
+✔ QB-29: immutable, pinned experiments (100.299827ms)
+▶ QB-29: the report
+  ✔ mixed versions are refused by default and labelled MIXED with --allow-mixed (pre-fix: byTask merged runs with different contracts) (18.836179ms)
+  ✔ legacy results are shown per file, labelled not comparable, never deduplicated or aggregated (pre-fix: --legacy unknown; byTask kept only the latest) (257.829899ms)
+  ✔ a missing arm is attrition, never a win or a loss (pre-fix: a T-006 without baseline was folded into the totals) (7.870731ms)
+  ✔ only external pass/fail are scores: grader/infra errors, adjudication, ungraded and failed trials are attrition; internal verdicts are never scored (6.002767ms)
+  ✔ every score links to its patch and grade; the report is byte-identical across runs and processes (724.031306ms)
+✔ QB-29: the report (1015.325051ms)
+▶ QB-29 re-review 1: scores need their patch; pins are enforced at run time
+  ✔ a graded trial without patch bytes is refused (pre-fix: recorded, and reported as score pass with patch: null) (7.133646ms)
+  ✔ an empty patch (no change) is valid evidence for a graded trial, and the score links to it (6.894978ms)
+  ✔ a loaded grade whose patch artifact is missing is refused (no score without its patch) (5.9611ms)
+  ✔ an official experiment refuses unknown essential identities (pre-fix: accepted an agent digest of unknown) (3.165009ms)
+  ✔ drift on resume is refused before any agent work: checkout, dirty state, image identity, requested model (66.893648ms)
+  ✔ the report verifies each trial's recorded runtime fingerprint, not just the experiment id (7.593813ms)
+✔ QB-29 re-review 1: scores need their patch; pins are enforced at run time (98.385279ms)
+▶ QB-30: curation
+  ✔ qualify → a draft spec with qualification and NO approved oracle (860.474028ms)
+  ✔ freeze without a named approver is refused (0.855503ms)
+  ✔ freeze refuses a draft whose task, reference, incorrect tree or grader changed since qualification (6.574727ms)
+  ✔ freeze with an approver: the oracle names them, the spec is frozen in the lock (3.43151ms)
+  ✔ a suite that passes a wrong implementation is refused (not qualified, no draft) (775.940288ms)
+  ✔ already_satisfied: no reference tree means the correct change is NO change (empty patch passes) (869.671387ms)
+✔ QB-30: curation (2518.124779ms)
+◇ injected env (0) from context/.env
+◇ injected env (0) from intent/.env
+◇ injected env (0) from intent/.env
+◇ injected env (0) from context/.env
+▶ QB-30: the holdout gate
+  ✔ dev-only experiments need no approval (2.012756ms)
+  ✔ holdout without an approval, in an exploratory experiment, or without a pinned protocol is refused (10.192695ms)
+  ✔ an approver name alone is not an approval: the record must name both hashes (schema) (1.766463ms)
+  ✔ an approval of another protocol version or another holdout set is refused (0.979919ms)
+  ✔ a protocol edited after approval is refused; the exact approved protocol and set pass (2.129131ms)
+  ✔ the runner refuses an unapproved holdout before any preflight or agent work (10.27703ms)
+✔ QB-30: the holdout gate (29.570167ms)
+▶ QB-30: randomized, paired, reproducible order
+  ✔ the same seed gives the same order; a different seed a different one; every (task, rep, arm) appears once (1.183587ms)
+  ✔ the arms of one trial run back to back (paired), in a seeded order that varies between trials (0.322251ms)
+✔ QB-30: randomized, paired, reproducible order (1.93788ms)
+▶ QB-30: the task is the unit of analysis
+  ✔ repeated trials do not count as independent tasks: each task weighs the same (7.581147ms)
+  ✔ a task with no matched pair has no effect (listed), never 0; the bootstrap is seeded and resamples repositories (9.669152ms)
+  ✔ analyze: primary + exploratory secondaries, strata by type and repository, completion and attrition per arm; no McNemar (2.221089ms)
+✔ QB-30: the task is the unit of analysis (20.483349ms)
+▶ QB-30: the operational endpoint counts attrition against the arm (complete-case bias)
+  ✔ success per assigned repetition: an arm that errors out does not look better among its surviving runs (0.406418ms)
+  ✔ only repetitions assigned to both arms count; unplanned extra trials are ignored (0.075376ms)
+  ✔ analyze reports the operational endpoint next to the primary, predeclared, with the same bootstrap (1.36242ms)
+✔ QB-30: the operational endpoint counts attrition against the arm (complete-case bias) (2.011256ms)
+▶ QB-30: the legacy tasks are labelled for what they are
+  ✔ the six legacy tasks are dev-only and marked as tuned during development (0.351251ms)
+  ✔ the protocol document exists, is marked as an unreviewed draft, and predeclares A vs E with the task as the unit (0.158126ms)
+✔ QB-30: the legacy tasks are labelled for what they are (0.603502ms)
+▶ QB-30: reproducible task repositories
+  ✔ two independent builds of the same pin give the same base_rev (100.517452ms)
+  ✔ the base commit: pinned lockfile, node:test command, test-only dev deps, no install scripts (65.194519ms)
+  ✔ a pin that does not match the upstream tag is refused (23.488317ms)
+  ✔ a local upstream without a tag is pinned by commit alone (and an unknown commit is refused) (182.069517ms)
+  ✔ a pinned lockfile with link:/file:/git dependencies is refused at build (the sandbox would refuse it later) (22.131688ms)
+  ✔ resolveSource: qb-bench:<name> → the built checkout; a plain path is unchanged; an unknown name is refused (44.563293ms)
+  ✔ the grader grades a spec whose repository is qb-bench:<name> (248.52058ms)
+✔ QB-30: reproducible task repositories (688.512455ms)
+✔ the legacy compile proxy and its routing are gone (1.285378ms)
+✔ no deployed code forwards requests to the Anthropic API (14.858501ms)
+▶ run store
+  ✔ a completed run links request, contract, patch, checks, report and outcome (95.113479ms)
+  ✔ artifacts are content-addressed and checksum-verified on read (17.351424ms)
+  ✔ artifact names and run ids cannot traverse out of the run directory (11.448032ms)
+  ✔ secrets are redacted from config, events and artifacts (23.341733ms)
+  ✔ replay recomputes each verdict from stored evidence (75.308881ms)
+  ✔ replay detects a recorded verdict the evidence does not support (42.304537ms)
+  ✔ replay rejects a final outcome the evidence does not support (VERIFIED over a failing attempt) (28.825123ms)
+  ✔ replay rejects VERIFIED with no replayable evidence (38.103733ms)
+  ✔ replay rejects a recorded legacy verdict that differs from the final attempt (26.443367ms)
+  ✔ replay accepts consistent FAILED and BLOCKED runs (45.054003ms)
+  ✔ checksFor maps sandbox verification to structured check results (0.769044ms)
+  ✔ a committed v1 manifest still loads (schema compatibility) (2.831008ms)
+✔ run store (408.885495ms)
+▶ interrupted runs
+  ✔ SIGINT closes the run as CANCELLED with a terminal event (134.272507ms)
+  ✔ a hard-killed run is marked ABANDONED on the next start (109.169435ms)
+✔ interrupted runs (243.954734ms)
+✔ a process that exits mid-run closes the record as ERROR (112.346153ms)
+ℹ tests 757
+ℹ suites 149
+ℹ pass 755
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 34471.005134
+
+✖ failing tests:
+
+test at test/unit/qb-cli.test.js:93:1
+✖ a sandboxed (claude-code) run records base commit, pinned agent version and structured checks (295.838842ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /^claude-code@\d+\.\d+\.\d+ \(qb-sandbox-agent:c-[0-9a-f]{16}\)$/. Input:
+  
+  'claude-code@2.1.288 (sha256:c3352fc97ab4603680fb7b9d5539bf5c1fdfdcc97149fa6ef1a72c0ea1c199d7)'
+  
+      at TestContext.<anonymous> (/home/vboxuser/qb-testing/quaterback/test/unit/qb-cli.test.js:108:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'claude-code@2.1.288 (sha256:c3352fc97ab4603680fb7b9d5539bf5c1fdfdcc97149fa6ef1a72c0ea1c199d7)',
+    expected: /^claude-code@\d+\.\d+\.\d+ \(qb-sandbox-agent:c-[0-9a-f]{16}\)$/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test/unit/qb26-ci-evidence.test.js:38:1
+✖ the record states models called, cost and timeouts (177.12917ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /^claude-code@\d+\.\d+\.\d+ \(qb-sandbox-agent:c-[0-9a-f]{16}\)$/. Input:
+  
+  'claude-code@2.1.288 (sha256:c3352fc97ab4603680fb7b9d5539bf5c1fdfdcc97149fa6ef1a72c0ea1c199d7)'
+  
+      at TestContext.<anonymous> (/home/vboxuser/qb-testing/quaterback/test/unit/qb26-ci-evidence.test.js:45:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'claude-code@2.1.288 (sha256:c3352fc97ab4603680fb7b9d5539bf5c1fdfdcc97149fa6ef1a72c0ea1c199d7)',
+    expected: /^claude-code@\d+\.\d+\.\d+ \(qb-sandbox-agent:c-[0-9a-f]{16}\)$/,
+    operator: 'match',
+    diff: 'simple'
+  }

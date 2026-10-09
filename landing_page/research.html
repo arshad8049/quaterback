@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Quarterback — Benchmark Results</title>
+  <title>Quarterback — Evaluation Status</title>
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="./favicon.png">
@@ -124,65 +124,71 @@
     </a>
     <div style="display: flex; align-items: center; gap: 28px;">
       <a href="./index.html" style="font-size: 14px; color: #8A948F; text-decoration: none;">← Product</a>
-      <span style="font-size: 14px; color: #6FBF9F; font-family: 'IBM Plex Mono', monospace;">Benchmark</span>
+      <span style="font-size: 14px; color: #6FBF9F; font-family: 'IBM Plex Mono', monospace;">Evaluation</span>
       <a href="./index.html#beta" style="display: inline-flex; align-items: center; height: 36px; padding: 0 18px; background: #E08A4C; border-radius: 8px; font-size: 14px; font-weight: 600; color: #0D100F; text-decoration: none;">Join beta</a>
     </div>
   </nav>
 
   <!-- HERO -->
-  <div style="padding: 96px 80px 80px;">
+  <div style="padding: 96px 80px 56px;">
     <div style="max-width: 1180px; margin: 0 auto;">
-      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #E08A4C; margin-bottom: 24px;">Benchmark results · Sep 2026</div>
-      <h1 style="margin: 0 0 24px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 72px; line-height: 1.05; font-weight: 400; letter-spacing: -0.02em; color: #F4F1EA;">Real numbers.<br>Real code. Real repo.</h1>
-      <p style="margin: 0; max-width: 780px; font-size: 20px; line-height: 1.6; color: #9AA5A0;">Every metric on this page is measured — not a target or projection — but treat them as an early signal: see the note below. 6 tasks. 1 production JavaScript repo. QB full pipeline vs raw Claude Code with no pipeline. Same L4 contract verifies both.</p>
+      <div style="font-family:'IBM Plex Mono',monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #E08A4C; margin-bottom: 24px;">Evaluation status · Oct 2026</div>
+      <h1 style="margin: 0 0 24px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 72px; line-height: 1.05; font-weight: 400; letter-spacing: -0.02em; color: #F4F1EA;">Evaluation status</h1>
+      <p style="margin: 0; max-width: 820px; font-size: 20px; line-height: 1.6; color: #9AA5A0;">Quarterback’s evaluation infrastructure is implemented, with 30 frozen development tasks across five repositories. A local Ubuntu ARM64 checkpoint passed 757 unit tests and two Docker image-pinning checks. The paired sandbox integration test was blocked by resource admission before grading completed. Controlled performance results and independent holdout evaluation remain pending.</p>
     </div>
   </div>
 
-  <!-- CAVEAT (engineering review, 2026-10) -->
-  <div style="max-width: 1180px; margin: 0 auto 40px auto; padding: 0 80px;">
-    <div style="padding: 22px 28px; background: #12100E; border-left: 2px solid #E08A4C; border-radius: 4px; font-size: 16px; line-height: 1.65; color: #9AA5A0;">
-      <strong style="color: #C6CFCB;">Read this first.</strong> These are early results from a small internal suite (6 tasks, one repo). Our own engineering review then found that this setup can favour QB: QB writes the acceptance contract that grades both sides, only QB's agent sees it, the baseline got less time, and the table mixes runs from different versions. We're keeping the numbers up as a record, and re-running the evaluation with frozen, independent checks before treating them as proof. <a href="https://github.com/arshad8049/quaterback/blob/main/docs/review/issue-register.md" style="color: #6FBF9F; text-decoration: none; border-bottom: 1px solid rgba(111,191,159,0.4);">See review findings QB-27 to QB-30 →</a>
-    </div>
-  </div>
-
-  <!-- HEADLINE METRICS -->
+  <!-- EVALUATION STATUS -->
   <div style="padding: 0 80px 88px;">
     <div style="max-width: 1180px; margin: 0 auto;">
-      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">
-
-        <div class="metric-card">
-          <div class="value" style="color: #6FBF9F;">6/6</div>
-          <div class="label">QB pipeline pass rate after bug fix — all 6 tasks accepted</div>
-          <div class="sub">Initial benchmark: 4/6 (67%) vs baseline 2/6 (33%)</div>
+      <div style="background: #0A0D0C; border: 1px solid #262E2B; border-radius: 6px; overflow: hidden;">
+        <div class="qb-table-wrap" style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+        <table>
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="color:#F4F1EA; font-weight:600; white-space:nowrap;">Unit tests</td>
+              <td><a href="./evidence/2026-10-08-ubuntu-arm64.html" style="color: #6FBF9F; text-decoration: none; border-bottom: 1px solid rgba(111,191,159,0.4);">757 passed, 0 failed in the default-image configuration</a></td>
+            </tr>
+            <tr>
+              <td style="color:#F4F1EA; font-weight:600; white-space:nowrap;">Docker image-pinning checks</td>
+              <td><a href="./evidence/2026-10-08-ubuntu-arm64.html" style="color: #6FBF9F; text-decoration: none; border-bottom: 1px solid rgba(111,191,159,0.4);">2 passed using real Docker containers</a></td>
+            </tr>
+            <tr>
+              <td style="color:#F4F1EA; font-weight:600; white-space:nowrap;">Paired sandbox integration</td>
+              <td><a href="./evidence/2026-10-08-ubuntu-arm64.html" style="color: #6FBF9F; text-decoration: none; border-bottom: 1px solid rgba(111,191,159,0.4);">Blocked by resource admission before grading completed</a></td>
+            </tr>
+            <tr>
+              <td style="color:#F4F1EA; font-weight:600; white-space:nowrap;">Development task set</td>
+              <td><a href="https://github.com/arshad8049/quaterback/tree/phase-4-evaluation/bench/specs" style="color: #6FBF9F; text-decoration: none; border-bottom: 1px solid rgba(111,191,159,0.4);">30 frozen tasks across 5 repositories, linked to the frozen specs</a></td>
+            </tr>
+            <tr>
+              <td style="color:#F4F1EA; font-weight:600; white-space:nowrap;">Controlled performance results</td>
+              <td>Not yet available</td>
+            </tr>
+            <tr>
+              <td style="color:#F4F1EA; font-weight:600; white-space:nowrap;">Independent holdout</td>
+              <td>Authoring and protocol review pending</td>
+            </tr>
+          </tbody>
+        </table>
         </div>
-
-        <div class="metric-card">
-          <div class="value" style="color: #E08A4C;">+34pp</div>
-          <div class="label">Lift over raw baseline in head-to-head run — same coding agent, no QB layers</div>
-          <div class="sub">67% QB vs 33% baseline (4 tasks, both sides run)</div>
-        </div>
-
-        <div class="metric-card">
-          <div class="value" style="color: #F4F1EA;">0</div>
-          <div class="label">Anthropic API keys used across all pipeline executions</div>
-          <div class="sub">All LLM calls via local Ollama (DeepSeek-R1:7b)</div>
-        </div>
-
-        <div class="metric-card">
-          <div class="value" style="color: #6FBF9F;">4/4</div>
-          <div class="label">Repair loop recovery rate — all first-attempt failures resolved automatically</div>
-          <div class="sub">T-001, T-004, T-005, T-006 — no human intervention</div>
-        </div>
-
       </div>
+      <p style="margin: 20px 0 0 0; font-size: 14px; line-height: 1.6; color: #8A948F;">The test results come from a founder-run engineering checkpoint on October 8, 2026 (commit <code style="font-family:'IBM Plex Mono',monospace; font-size:12px;">99682a6</code>), reviewed from supplied logs. It is not independent validation. Its integration tests use a scripted agent and mocked model responses; no live paid agent evaluation has been run. <a href="./evidence/2026-10-08-ubuntu-arm64.html" style="color: #6FBF9F; text-decoration: none; border-bottom: 1px solid rgba(111,191,159,0.4);">Evidence, commands and logs →</a></p>
     </div>
   </div>
 
   <!-- BENCHMARK TABLE -->
   <div style="padding: 0 80px 88px; border-top: 1px solid #222A27;">
     <div style="max-width: 1180px; margin: 0 auto; padding-top: 72px;">
-      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #6FBF9F; margin-bottom: 20px;">Task-by-task results</div>
-      <h2 style="margin: 0 0 12px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 42px; font-weight: 400; color: #F4F1EA;">6 tasks. All real functions on a real codebase.</h2>
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #8A948F; margin-bottom: 20px;">Legacy record · Sep 2026</div>
+      <h2 style="margin: 0 0 12px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 42px; font-weight: 400; color: #F4F1EA;">Legacy record (tuned during development, ungraded)</h2>
+      <div style="margin: 0 0 24px 0; padding: 22px 28px; background: #12100E; border-left: 2px solid #E08A4C; border-radius: 4px; font-size: 16px; line-height: 1.65; color: #9AA5A0; max-width: 900px;"><strong style="color: #C6CFCB;">Not a performance result.</strong> These six tasks were tuned during development and are excluded from the controlled evaluation. Our own engineering review found this setup can favour QB: QB wrote the acceptance contract that graded both sides, only QB's agent saw it, the baseline got less time, and this table mixes runs from different versions. We keep it as a record, not as evidence. <a href="https://github.com/arshad8049/quaterback/blob/main/docs/review/issue-register.md" style="color: #6FBF9F; text-decoration: none; border-bottom: 1px solid rgba(111,191,159,0.4);">Review findings QB-27 to QB-30 →</a></div>
       <p style="margin: 0 0 44px 0; font-size: 17px; color: #9AA5A0; max-width: 740px;">Tested against <code style="font-family:'IBM Plex Mono',monospace; font-size:14px; background:#121615; padding:2px 6px; border-radius:3px; color:#C6CFCB;">cue</code> — an Electron desktop AI interview assistant, JS/CJS, 27 tests. Tasks range from single-file utilities to multi-file exports requiring coordinated changes.</p>
 
       <div style="background: #0A0D0C; border: 1px solid #262E2B; border-radius: 6px; overflow: hidden;">
@@ -261,7 +267,7 @@
 
       <div style="margin-top: 20px; padding: 18px 22px; background: #0A0D0C; border: 1px solid #2E4F44; border-radius: 5px; display: flex; gap: 14px; align-items: flex-start;">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#6FBF9F" stroke-width="1.5" style="flex-shrink:0; margin-top:2px;" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="M8 5v3.5M8 11h.01"/></svg>
-        <span style="font-size: 14px; line-height: 1.6; color: #8A948F;">All tasks run with a full git reset (<code style="font-family:'IBM Plex Mono',monospace; font-size:12px;">git checkout -- .</code> + <code style="font-family:'IBM Plex Mono',monospace; font-size:12px;">git clean -fd</code>) between every execution. QB and baseline use the same L4 contract so verdicts are directly comparable.</span>
+        <span style="font-size: 14px; line-height: 1.6; color: #8A948F;">All tasks run with a full git reset (<code style="font-family:'IBM Plex Mono',monospace; font-size:12px;">git checkout -- .</code> + <code style="font-family:'IBM Plex Mono',monospace; font-size:12px;">git clean -fd</code>) between every execution. Both sides were judged against the contract QB generated, so the verdicts are not independent.</span>
       </div>
     </div>
   </div>
@@ -270,12 +276,12 @@
   <div style="padding: 72px 80px 88px; border-top: 1px solid #222A27; background: #0A0D0C;">
     <div style="max-width: 1180px; margin: 0 auto;">
       <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #E08A4C; margin-bottom: 20px;">Methodology</div>
-      <h2 style="margin: 0 0 44px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 42px; font-weight: 400; color: #F4F1EA;">How we measure</h2>
+      <h2 style="margin: 0 0 44px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 42px; font-weight: 400; color: #F4F1EA;">How the legacy runs were measured</h2>
 
       <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;">
         <div style="padding: 28px; background: #0D100F; border: 1px solid #262E2B; border-radius: 5px;">
           <div style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#E08A4C; margin-bottom:14px;">01 — Contract</div>
-          <div style="font-size:15px; line-height:1.65; color:#9AA5A0;">L1 produces a Task Contract with explicit acceptance criteria before any code is written. The same contract is used to verify both the QB run and the raw baseline — making comparisons fair.</div>
+          <div style="font-size:15px; line-height:1.65; color:#9AA5A0;">L1 produces a Task Contract with explicit acceptance criteria before any code is written. The same contract was used to verify both the QB run and the raw baseline; because QB wrote it, the comparison can favour QB.</div>
         </div>
         <div style="padding: 28px; background: #0D100F; border: 1px solid #262E2B; border-radius: 5px;">
           <div style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#E08A4C; margin-bottom:14px;">02 — Execution</div>
@@ -307,48 +313,6 @@
     </div>
   </div>
 
-  <!-- WHAT THE DATA SHOWS -->
-  <div style="padding: 72px 80px 88px; border-top: 1px solid #222A27;">
-    <div style="max-width: 1180px; margin: 0 auto;">
-      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #6FBF9F; margin-bottom: 20px;">What the data shows</div>
-      <h2 style="margin: 0 0 24px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 42px; font-weight: 400; color: #F4F1EA;">Three things we proved on real code</h2>
-      <p style="margin: 0 0 44px 0; max-width: 780px; font-size: 18px; line-height: 1.65; color: #9AA5A0;">Every claim below is backed by the task-by-task data above — same codebase, same coding agent, same verdict layer. No cherry-picking.</p>
-
-      <div style="display: flex; flex-direction: column; gap: 20px;">
-
-        <div style="padding: 30px 34px; background: #0A0D0C; border: 1px solid #262E2B; border-radius: 6px; display: flex; gap: 28px; align-items: flex-start;">
-          <div style="font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:700; color:#6FBF9F; flex-shrink:0; width:48px;">01</div>
-          <div>
-            <div style="font-size:18px; font-weight:600; color:#F4F1EA; margin-bottom:8px;">A structured task contract doubles pass rate</div>
-            <div style="font-size:15px; line-height:1.65; color:#9AA5A0;">Same coding agent. Same underlying model. With QB's structured contract and context package: 67% pass rate. Without it: 33%. +34 percentage points on 6 real tasks. Both sides were graded by the same L4 verdict layer — but against the contract QB generated, which only QB's agent saw, so this comparison can favour QB.</div>
-          </div>
-        </div>
-
-        <div style="padding: 30px 34px; background: #0A0D0C; border: 1px solid #262E2B; border-radius: 6px; display: flex; gap: 28px; align-items: flex-start;">
-          <div style="font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:700; color:#6FBF9F; flex-shrink:0; width:48px;">02</div>
-          <div>
-            <div style="font-size:18px; font-weight:600; color:#F4F1EA; margin-bottom:8px;">The repair loop recovers failures without you</div>
-            <div style="font-size:15px; line-height:1.65; color:#9AA5A0;">4 tasks failed on attempt 1 (T-001, T-004, T-005, T-006). All 4 recovered on attempt 2 via structured repair hints — no human intervention. The baseline had no repair loop; T-004 stayed failed. That's the difference between a pipeline and a prompt.</div>
-          </div>
-        </div>
-
-        <div style="padding: 30px 34px; background: #0A0D0C; border: 1px solid #262E2B; border-radius: 6px; display: flex; gap: 28px; align-items: flex-start;">
-          <div style="font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:700; color:#6FBF9F; flex-shrink:0; width:48px;">03</div>
-          <div>
-            <div style="font-size:18px; font-weight:600; color:#F4F1EA; margin-bottom:8px;">Explicit acceptance criteria catch edge cases raw prompts miss</div>
-            <div style="font-size:15px; line-height:1.65; color:#9AA5A0;">T-002: QB's contract specified 6 explicit ACs — including invalid input, negative ms, and hours formatting. The baseline passed the basic case but missed 3 of 6 ACs. Edge cases aren't discovered post-hoc; they're specified up front, or they're missed.</div>
-          </div>
-        </div>
-
-      </div>
-
-      <div style="margin-top: 36px; padding: 24px 28px; border: 1px solid #3A4441; border-radius: 5px; display: flex; gap: 14px;">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8A948F" stroke-width="1.5" style="flex-shrink:0; margin-top:3px;" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="M8 5v3.5M8 11h.01"/></svg>
-        <div style="font-size:14px; line-height:1.65; color:#8A948F;"><strong style="color:#C6CFCB;">Scope:</strong> 6 tasks on one JS repo. Enough to show the pattern is real — not enough to claim it holds everywhere. The beta cohort expands this to your codebase, your tasks, your numbers.</div>
-      </div>
-    </div>
-  </div>
-
   <!-- LIMITATIONS -->
   <div style="padding: 72px 80px 88px; border-top: 1px solid #222A27; background: #0A0D0C;">
     <div style="max-width: 1180px; margin: 0 auto;">
@@ -365,8 +329,8 @@
           <div style="font-size:14px; line-height:1.65; color:#9AA5A0;">The same diff can receive different verdicts across L4 calls — a 7B model at the judgment boundary. Manifested in T-001 (fail on attempt 1, same code passes on attempt 2). A model router or deterministic post-processing step is the mitigation.</div>
         </div>
         <div style="padding: 26px 28px; border: 1px solid #262E2B; border-radius: 5px;">
-          <div style="font-size:16px; font-weight:600; color:#F4F1EA; margin-bottom:8px;">Single-repo benchmark</div>
-          <div style="font-size:14px; line-height:1.65; color:#9AA5A0;">All 6 tasks test the same JavaScript repo. Results on Python, Go, TypeScript, or larger codebases are unknown. The architecture is language-agnostic — the context engine has Go/Python detection — but the benchmark does not yet cover them.</div>
+          <div style="font-size:16px; font-weight:600; color:#F4F1EA; margin-bottom:8px;">Single-repo legacy record</div>
+          <div style="font-size:14px; line-height:1.65; color:#9AA5A0;">All 6 legacy tasks test the same JavaScript repo. The frozen development set now spans 5 repositories, all JavaScript; other languages are not yet covered.</div>
         </div>
         <div style="padding: 26px 28px; border: 1px solid #262E2B; border-radius: 5px;">
           <div style="font-size:16px; font-weight:600; color:#F4F1EA; margin-bottom:8px;">Scope drift on repair</div>
@@ -428,23 +392,23 @@
           <div class="timeline-dot dot-done"></div>
           <div>
             <div style="font-size:16px; font-weight:600; color:#F4F1EA; margin-bottom:4px;">Repair loop — LIVE</div>
-            <div style="font-size:14px; line-height:1.6; color:#9AA5A0;">L4 failures generate structured repair hints → fed back to L3 for automatic re-execution. Max retries configurable. Recovered 2/2 failed tasks in benchmark. No human intervention required.</div>
+            <div style="font-size:14px; line-height:1.6; color:#9AA5A0;">L4 failures generate structured repair hints → fed back to L3 for automatic re-execution. Max retries configurable (1–10).</div>
           </div>
         </div>
 
         <div class="timeline-item">
           <div class="timeline-dot dot-done"></div>
           <div>
-            <div style="font-size:16px; font-weight:600; color:#F4F1EA; margin-bottom:4px;">Benchmark harness — DONE</div>
-            <div style="font-size:14px; line-height:1.6; color:#9AA5A0;">6-task suite against real production JS repo. QB vs raw baseline comparison. Git reset (<code style="font-family:'IBM Plex Mono',monospace; font-size:12px;">checkout + clean -fd</code>) between every run. Table, markdown, and CSV report output.</div>
+            <div style="font-size:16px; font-weight:600; color:#F4F1EA; margin-bottom:4px;">Evaluation harness — BUILT</div>
+            <div style="font-size:14px; line-height:1.6; color:#9AA5A0;">External grader with hidden test suites, equal agent-time budgets per arm, pinned images and immutable, hash-checked experiment records (review findings QB-27 to QB-29, accepted). 30 development tasks across 5 repositories frozen.</div>
           </div>
         </div>
 
         <div class="timeline-item" style="border-bottom: none;">
           <div class="timeline-dot dot-next"></div>
           <div>
-            <div style="font-size:16px; font-weight:600; color:#8A948F; margin-bottom:4px;">Next: scale the benchmark</div>
-            <div style="font-size:14px; line-height:1.6; color:#4A5450;">50–100 tasks across 3–5 repos. Python, TypeScript, Go coverage. Independent replication. Beta cohort instrumentation — real developer workflows, real before/after numbers.</div>
+            <div style="font-size:16px; font-weight:600; color:#8A948F; margin-bottom:4px;">Next: controlled evaluation</div>
+            <div style="font-size:14px; line-height:1.6; color:#4A5450;">A capped development pilot on a Linux host with enough memory for the sandbox (about 11 GiB free per run), then an independently authored and reviewed holdout set. No performance results until then.</div>
           </div>
         </div>
 

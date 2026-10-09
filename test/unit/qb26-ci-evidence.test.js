@@ -10,6 +10,10 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+// These tests assert the default content-tagged image names; an operator's image-ID overrides
+// (QB_SANDBOX_*_IMAGE, e.g. from a manual docker build) must not leak in (2026-10-08 ARM VM run).
+for (const v of ['QB_SANDBOX_TOOLS_IMAGE', 'QB_SANDBOX_AGENT_IMAGE', 'QB_SANDBOX_PROXY_IMAGE']) delete process.env[v];
+
 const ev = require('../../scripts/ci-evidence');
 
 const TAP = `TAP version 13
