@@ -115,39 +115,51 @@
 <main>
   <div class="overline">Legal</div>
   <h1>Privacy Policy</h1>
-  <p class="updated">Last updated: September 28, 2026</p>
+  <p class="updated">Last updated: October 8, 2026</p>
 
-  <p>This policy describes how Velora ("we", "us", "our") handles information in connection with the Quarterback website at <a href="https://quaterback.velorallc.workers.dev/">quaterback.velorallc.workers.dev</a> and the Quarterback software runtime.</p>
+  <p>This policy describes how Velora ("we", "us", "our") handles information in connection with the Quarterback website at <a href="https://quaterback.velorallc.workers.dev/">quaterback.velorallc.workers.dev</a> and the Quarterback software. It describes what actually happens; where something leaves your machine, it says so.</p>
 
-  <h2>What we collect</h2>
-  <p>When you submit the beta access form, we collect:</p>
+  <h2>Beta signup (this website)</h2>
+  <p>When you submit the beta access form we store, in <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener noreferrer">Cloudflare D1</a>: your email address, the optional agent you name, the submission time, your IP address and the referring page. For abuse control we also keep a one-way hash of your IP for two days. Your email address is sent to <a href="https://resend.com/legal/privacy-policy" target="_blank" rel="noopener noreferrer">Resend</a> to deliver the confirmation email, and the signup is emailed to the site owner.</p>
+
+  <h2>The Quarterback software: what leaves your machine</h2>
   <ul>
-    <li>Your email address</li>
-    <li>The AI coding agent you use most (optional free-text field)</li>
+    <li><strong>Quarterback's own model calls</strong> (intent, context, verification) go to the Ollama endpoint you configure — by default <code>127.0.0.1</code>, on your machine. If you point <code>QB_OLLAMA_URL</code> elsewhere, your task text, code excerpts and diffs go there.</li>
+    <li><strong>The coding agent.</strong> With <code>--agent claude-code</code>, Claude Code runs (in a sandbox) under your own Claude account: your task, the briefing and the code it reads are sent to <a href="https://www.anthropic.com/legal/privacy" target="_blank" rel="noopener noreferrer">Anthropic</a>. Your source code therefore does leave your machine on that path. The sandbox allows network access only to Anthropic's inference endpoint during the agent stage.</li>
+    <li><strong>Dependency installation</strong> in the sandbox contacts the npm registry (package names and versions from your lockfile).</li>
+    <li><strong>Nothing is sent to us</strong> unless you turn telemetry on (below).</li>
   </ul>
-  <p>Form submissions are processed and stored using <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener noreferrer">Cloudflare D1</a> (serverless SQLite hosted in Cloudflare's network). We store your email, optional agent preference, submission timestamp, and IP address.</p>
 
-  <h2>What we do not collect</h2>
+  <h2>What stays on your machine — and may contain your code</h2>
+  <p>Quarterback keeps local records so runs can be inspected and replayed: run records in <code>~/.qb/runs</code> (your request, the contract, patches, the agent briefing and evidence), memory in <code>~/.quarterback/memory</code> (goals, changed file paths, repair hints) and a judge cache in <code>~/.qb/judge-cache</code>. These can contain task text and source code. Known secret patterns are redacted in run records; other content is stored as is. Delete these directories to remove them.</p>
+
+  <h2>Telemetry (off by default)</h2>
+  <p>Telemetry is sent only when you pass <code>--telemetry</code> with a telemetry token, which you obtain by confirming your email through a one-time link. Each run then sends: a random run id, pass/fail, attempts, duration, repair count, layers used and the Quarterback version — no task text, no code, no file names. It is <strong>not anonymous</strong>: it is tied to your token, which is linked to your email. <code>--telemetry-dry-run</code> prints the exact payload without sending it. You can delete everything you sent (and revoke the token) with <code>POST /api/telemetry/delete</code> using your token. Telemetry records are kept for at most 180 days. They are reported as client-reported outcomes, never as verified results.</p>
+
+  <h2>What we do not do</h2>
   <ul>
     <li>We do not use cookies for tracking or advertising</li>
     <li>We do not run third-party analytics scripts on this site</li>
     <li>We do not sell or share your information with advertisers</li>
-    <li>The Quarterback software runtime is local-first — your source code never leaves your machine during the beta</li>
   </ul>
 
   <h2>How we use your information</h2>
-  <p>Email addresses submitted through the beta form are used solely to contact you about the Quarterback private beta. We will not send unsolicited marketing email. You can opt out at any time by replying to any email from us.</p>
+  <p>Email addresses submitted through the beta form are used to contact you about the Quarterback private beta. We will not send unsolicited marketing email. You can opt out at any time by replying to any email from us.</p>
+
+  <h2>Retention</h2>
+  <p>Telemetry: 180 days. Unused or expired email-confirmation links: 7 days. Signup abuse-control records: 2 days. Email delivery records: 30 days after sending (afterwards we keep only a one-way hash marking that the email was already sent, so it is never sent twice). Beta signups: until you ask us to delete them or the beta ends.</p>
 
   <h2>Data hosting</h2>
-  <p>This website is hosted on <a href="https://www.cloudflare.com/" target="_blank" rel="noopener noreferrer">Cloudflare Pages</a>. Form data is stored in Cloudflare D1. Cloudflare operates globally; data may be processed in the United States and other regions. By submitting the form you consent to your data being processed under <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener noreferrer">Cloudflare's terms</a>.</p>
+  <p>This website runs on <a href="https://www.cloudflare.com/" target="_blank" rel="noopener noreferrer">Cloudflare Workers</a>. Form data and telemetry are stored in Cloudflare D1. Cloudflare operates globally; data may be processed in the United States and other regions.</p>
 
   <h2>Your rights</h2>
-  <p>You may request access to, correction of, or deletion of personal data we hold about you. Email <a href="mailto:ashaik8.us@gmail.com">ashaik8.us@gmail.com</a> and we will respond within 30 days.</p>
+  <p>You may request access to, correction of, or deletion of personal data we hold about you. Telemetry can be deleted yourself (above); for anything else email <a href="mailto:ashaik8.us@gmail.com">ashaik8.us@gmail.com</a> and we will respond within 30 days.</p>
 
   <h2>Third-party services</h2>
   <ul>
-    <li><strong>Cloudflare</strong> — hosting (Pages) and form data storage (D1). <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener noreferrer">Cloudflare privacy policy</a></li>
-    <li><strong>Resend</strong> — transactional email delivery (beta signup confirmation). <a href="https://resend.com/legal/privacy-policy" target="_blank" rel="noopener noreferrer">Resend privacy policy</a></li>
+    <li><strong>Cloudflare</strong> — hosting (Workers) and data storage (D1). <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener noreferrer">Cloudflare privacy policy</a></li>
+    <li><strong>Resend</strong> — transactional email (signup confirmation, telemetry links). <a href="https://resend.com/legal/privacy-policy" target="_blank" rel="noopener noreferrer">Resend privacy policy</a></li>
+    <li><strong>Anthropic</strong> — only when you run the Claude Code agent, under your own account. <a href="https://www.anthropic.com/legal/privacy" target="_blank" rel="noopener noreferrer">Anthropic privacy policy</a></li>
     <li><strong>GitHub API</strong> — the star count shown in the nav is fetched client-side from <code>api.github.com</code>. No personal data is sent; this is a public, unauthenticated read.</li>
   </ul>
 

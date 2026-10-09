@@ -8,7 +8,7 @@ Quarterback is a 5-layer AI reliability runtime for software teams. It sits betw
 
 ## Status
 
-- 25 of the original 38 engineering findings are fixed and accepted in internal review: all 21 from Phases 0–2 (merged into `main`, tag `phase-0-2-accepted`) and four from Phase 3 (accepted on branch `phase-3-context-memory`, not yet merged).
+- 35 of the original 38 engineering findings are fixed and accepted in internal review. Phases 0–3 and the Phase 5 beta-readiness work are on `main`; the accepted evaluation harness (QB-27 to QB-29) is on branch `phase-4-evaluation`. Open: the controlled evaluation (QB-30), the fresh-machine onboarding walkthrough (QB-31) and public claims (QB-37).
 - Coding-agent runs require an approved contract. Changing the contract requires approval again ([test oracle](docs/verify/test-oracle.md)).
 - Requirement tracing catches omitted instructions, including missing negation, before execution ([traceability](docs/verify/traceability.md)).
 - Behavioral requirements are checked through executable tests in the sandbox. Protected-file edits fail scope checks ([executable checks](docs/verify/executable-checks.md), [scope policy](docs/verify/scope-policy.md)).
@@ -17,11 +17,11 @@ Quarterback is a 5-layer AI reliability runtime for software teams. It sits betw
 - Requests are grounded in repository context. Unresolved choices and incomplete numeric targets stay blocked ([grounding](docs/intent/grounding.md)).
 - Accepted work has regression coverage and CI across Node 20, 22 and 24, plus Docker integration tests.
 - Initial judge calibration covers 13 human-labeled patches. It measures false approvals, false rejections and abstentions separately; it does not establish production accuracy.
-- Every model call and every run has a deadline. A cancelled run stops its sandbox and records the stage it interrupted. Usage records mark unreported tokens and agent cost as unknown, never as zero ([deadlines](https://github.com/arshad8049/quaterback/blob/phase-3-context-memory/docs/verify/deadlines.md), QB-21, Phase 3 branch).
-- A repair is recorded as proven only when the hinted criterion passes on a changed patch and the run ends in an approved PASS ([repairs](https://github.com/arshad8049/quaterback/blob/phase-3-context-memory/docs/memory/repairs.md), QB-23, Phase 3 branch).
-- JavaScript symbols are indexed with a parser, with qualified IDs and real source spans. Syntax it cannot index is reported, not dropped ([symbols](https://github.com/arshad8049/quaterback/blob/phase-3-context-memory/docs/context/symbols.md), QB-19, Phase 3 branch).
-- Context retrieval ranks files by symbols and content, follows imports and callers to a bounded depth, refreshes after each attempt, and records what it left out ([retrieval](https://github.com/arshad8049/quaterback/blob/phase-3-context-memory/docs/context/retrieval.md), QB-18, Phase 3 branch).
-- Phase 3 (context and memory) is underway: four of seven findings are accepted on the `phase-3-context-memory` branch; memory identity and store safety are in rework after review, and test associations are next. Quarterback is still in development, with an independent-oracle benchmark rerun and supervised beta ahead.
+- Every model call and every run has a deadline. A cancelled run stops its sandbox and records the stage it interrupted. Usage records mark unreported tokens and agent cost as unknown, never as zero ([deadlines](docs/verify/deadlines.md), QB-21).
+- A repair is recorded as proven only when the hinted criterion passes on a changed patch and the run ends in an approved PASS ([repairs](docs/memory/repairs.md), QB-23).
+- JavaScript symbols are indexed with a parser, with qualified IDs and real source spans. Syntax it cannot index is reported, not dropped ([symbols](docs/context/symbols.md), QB-19).
+- Context retrieval ranks files by symbols and content, follows imports and callers to a bounded depth, refreshes after each attempt, and records what it left out ([retrieval](docs/context/retrieval.md), QB-18).
+- Evaluation status: 30 frozen development tasks across five repositories. A founder-run Ubuntu ARM64 checkpoint (2026-10-08, commit `99682a6`) passed 757 unit tests and two Docker image-pinning checks; the paired sandbox integration test was blocked by resource admission before grading completed ([evidence](https://quaterback.velorallc.workers.dev/evidence/2026-10-08-ubuntu-arm64.html)). Controlled performance results and independent holdout evaluation remain pending. Quarterback is still in development.
 
 ---
 
@@ -89,40 +89,20 @@ Developer Request
 
 ---
 
-## Benchmark Results
+## Evaluation status
 
-> These are early, pre-review results. They will be re-run with an independent oracle in Phase 4 of the hardening plan (QB-27 to QB-30).
+| Item | Status |
+|---|---|
+| Unit tests | 757 passed, 0 failed in the default-image configuration |
+| Docker image-pinning checks | 2 passed using real Docker containers |
+| Paired sandbox integration | Blocked by resource admission before grading completed |
+| Development task set | 30 frozen tasks across 5 repositories, linked to the [frozen specs](https://github.com/arshad8049/quaterback/tree/phase-4-evaluation/bench/specs) |
+| Controlled performance results | Not yet available |
+| Independent holdout | Authoring and protocol review pending |
 
-Evaluated on 6 curated tasks against the `cue` repo (Electron JS, 27 tests, real production codebase). Compared QB full pipeline vs raw `claude --print` baseline with no pipeline. Same L4 contract applied to both.
+The test results come from a founder-run engineering checkpoint on 2026-10-08 (Ubuntu ARM64, commit `99682a6`), reviewed from supplied logs; it is not independent validation. Its integration tests use a scripted agent and mocked model responses, and no live paid agent evaluation has been run. [Evidence, commands and logs](https://quaterback.velorallc.workers.dev/evidence/2026-10-08-ubuntu-arm64.html).
 
-| | QB Pipeline | Raw Baseline | Lift |
-|---|---|---|---|
-| **Pass rate** | 4/6 (67%) | 2/6 (33%) | **+34pp** |
-| First-attempt pass rate | 2/6 (33%) | — | — |
-| Avg attempts (QB) | 1.33 | — | — |
-| Avg time (QB) | ~253s | — | — |
-| API keys required | **0** | 0 | — |
-
-**Key findings:**
-- Repair loop recovered 2 failed tasks (T-001, T-004) — baseline failed T-004 completely
-- QB's structured contract caught edge-case ACs that baseline missed entirely (T-002: invalid input, negative numbers, hours formatting)
-- All LLM calls (L1/L2/L4) run via local Ollama — zero per-call cost across 30 pipeline executions
-- Memory layer active by run 3: `src/llm.js` recalled at sim=1.00, prepended to L2 context automatically
-
-**Task breakdown:**
-
-| ID | Difficulty | QB Result | Attempts | Baseline |
-|---|---|---|---|---|
-| T-001 | easy | PASS | 2 | PASS |
-| T-002 | easy | PASS | 1 | FAIL (3/6 ACs missed) |
-| T-003 | easy | PASS | 1 | PASS |
-| T-004 | medium | PASS | 2 | FAIL |
-| T-005 | medium | PASS | 2 | — |
-| T-006 | hard | PASS | 2 | — |
-
-*Full benchmark logs: `docs/test-runs.md`*
-
-> **Note:** T-005 and T-006 initially failed due to a bug in `bench/run.js` `resetRepo()` — `git checkout -- .` doesn't remove untracked files. Fixed by adding `git clean -fd`. Both tasks pass after the fix. The +34pp lift figure is from the initial 4-task comparison where baseline also ran.
+**Legacy record (tuned during development, ungraded).** An earlier six-task suite on one repository (`cue`, Sep 2026) is kept as a record, not as evidence: QB wrote the contract that graded both sides, only QB's agent saw it, the baseline got less time, and the reported table mixed runs from different versions (review findings QB-27 to QB-30). Those tasks are excluded from the controlled evaluation. Details: [research page](https://quaterback.velorallc.workers.dev/research.html), logs in `docs/test-runs.md`.
 
 ---
 
@@ -344,15 +324,18 @@ Per-repo outcome store with semantic recall.
 
 > **The coding agent runs in the QB sandbox** ([design](docs/security/agent-sandbox.md)). Each run seeds a disposable workspace from a read-only copy of your checkout. The agent gets no network except the Claude API through a policy proxy, and your files and `.git` are never written. Changes are captured by trusted code and handed back as a patch (`qb patch <run_id>`) for you to apply. Requires Docker. Sign in once with `qb auth login` (subscription), or set `ANTHROPIC_API_KEY`. Validated platform: Linux x86_64 + Docker Engine; Docker Desktop on macOS works for development but is not yet validated.
 
+**Start here:** [docs/onboarding.md](docs/onboarding.md) covers install, `qb doctor`, a demo task, failure recovery and inspecting runs. [docs/support.md](docs/support.md) lists what is supported: agents (`claude-code` only; Cursor, Codex and Gemini are not supported yet), platforms and test runners. Invalid options and unsupported agents are refused before any model call.
+
 ```bash
 # From quaterback/ root:
-npm install
+npm ci
+node qb.js doctor --repo /path/to/repo   # is this machine ready?
 node qb.js "Add a getProviderName() function to src/llm.js that returns the active provider name" --repo /path/to/repo
 
 # Options:
 node qb.js "..." --repo /path --no-llm-context   # skip LLM in L2 (fast, offline)
 node qb.js "..." --repo /path --no-llm-verify    # skip LLM in L4 (DSA-only verify)
-node qb.js "..." --repo /path --max-retries 5    # up to 5 repair attempts
+node qb.js "..." --repo /path --max-retries 5    # up to 5 repair attempts (1..10)
 ```
 
 ## Tests and CI

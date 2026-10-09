@@ -1,6 +1,8 @@
 {
   "name": "@velora/quarterback-verify",
   "version": "0.1.0",
+  "license": "UNLICENSED",
+  "private": true,
   "description": "Quarterback Verification Engine — checks implementation against contract acceptance criteria",
   "main": "verifier.js",
   "scripts": {

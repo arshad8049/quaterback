@@ -1,6 +1,8 @@
 {
   "name": "@velora/quarterback-context",
   "version": "0.1.0",
+  "license": "UNLICENSED",
+  "private": true,
   "description": "Quarterback Context Engine — grounds a Task Contract in the actual codebase",
   "main": "builder.js",
   "scripts": {

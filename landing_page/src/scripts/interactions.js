@@ -198,26 +198,33 @@
       btn.textContent = 'Sending…';
       btn.disabled = true;
 
-      let sent = false;
+      // QB-35: the server says what actually happened (registered; welcome email sent or
+      // pending retry; invalid input; rate limited) — show exactly that.
+      let res = null, data = null;
       try {
-        const res = await fetch('/api/beta-access', {
+        res = await fetch('/api/beta-access', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: emailVal, agent: agentVal }),
+          body: JSON.stringify({ email: emailVal, agent: agentVal.slice(0, 80) }),
         });
-        sent = res.ok;
+        try { data = await res.json(); } catch (_) {}
       } catch (_) {}
 
-      if (sent) {
+      if (res && res.ok && data && data.registered) {
+        const note = data.duplicate ? 'you were already on the list'
+          : data.welcome_email === 'sent' ? 'confirmation email sent'
+            : 'you are registered — the confirmation email is delayed and will be retried';
         betaForm.innerHTML =
-          '<div style="text-align:center;padding:48px 0;font-family:\'IBM Plex Mono\',monospace;font-size:15px;color:#6FBF9F;letter-spacing:0.06em;">✓ request received<br><span style="font-size:13px;color:#8A948F;letter-spacing:0.04em;display:block;margin-top:12px;">we\'ll be in touch</span></div>';
+          '<div style="text-align:center;padding:48px 0;font-family:\'IBM Plex Mono\',monospace;font-size:15px;color:#6FBF9F;letter-spacing:0.06em;">✓ request received<br><span style="font-size:13px;color:#8A948F;letter-spacing:0.04em;display:block;margin-top:12px;">' + note + '</span></div>';
         return;
       }
 
-      // Fallback: show inline message with direct email link — no OS dialog
       btn.textContent = originalText;
       btn.disabled = false;
       const fb = document.getElementById('form-feedback');
+      if (fb && res && res.status === 400) { fb.textContent = 'Please check the email address (and keep the agent field under 80 characters).'; return; }
+      if (fb && res && res.status === 429) { fb.textContent = 'Too many attempts from this network. Please try again in an hour.'; return; }
+      // Fallback: show inline message with direct email link — no OS dialog
       if (fb) {
         fb.innerHTML = 'Something went wrong on our end. Email us directly at <a href="mailto:ashaik8.us@gmail.com?subject=QB%20Beta%20Access&body=Email%3A%20' + encodeURIComponent(emailVal) + '" style="color:#6FBF9F;">ashaik8.us@gmail.com</a> and we\'ll get you in.';
       }

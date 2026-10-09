@@ -1,0 +1,84 @@
+# Telemetry metrics authentication (QB-33)
+
+**Problem (review, QB-33):** `POST /api/metrics` used a registered email as its only authorization. A request with nobody's credentials, just a known email, inserted metrics. The string `"false"` was stored as `passed = 1`, and negative attempts and durations were accepted. The unused Pages function `landing_page/functions/api/metrics.js` had the same flaw.
+
+## Credentials
+
+1. `POST /api/telemetry/request {"email": …}`:
+   - **Always 202,** with the same answer for unregistered emails, so registrations can't be enumerated.
+   - **For a registered email,** it mails a one-time link that expires in 30 minutes.
+   - **Limits and storage:** at most 3 requests per email per hour (then 429). Only the sha256 of the code is stored.
+2. `GET /api/telemetry/verify?code=…`:
+   - **Single use:** a conditional `UPDATE … WHERE used_at IS NULL`, so a second click gets nothing.
+   - **Issues a token:** `qbt_<64 hex>`, scope `metrics:write`, shown **once** with `Cache-Control: no-store`. Only its sha256 is stored.
+3. `POST /api/telemetry/revoke` with `Authorization: Bearer <token>` revokes the token. The owner can also set `revoked_at` in D1.
+
+## `POST /api/metrics`
+
+- **Authorization:** `Authorization: Bearer <unrevoked metrics:write token>`, or **401**. An email is never a credential.
+- **Body:** at most 4096 bytes (else **413**). It must be a JSON object containing only these fields, each of the exact type and in range (else **400**, listing every problem):
+
+| Field | Rule |
+|---|---|
+| `run_id` | UUID; **unique**: a replay is **409** |
+| `passed` | boolean; the strings "true"/"false" and the numbers 0/1 are rejected |
+| `attempts` | integer 1–20 |
+| `duration_ms` | integer 0 to 24 h |
+| `repair_count` | integer, 0 to `attempts − 1` |
+| `layers_used` | optional, `L1..L5` comma list, no repeats |
+| `qb_version` | 1–32 characters `[0-9A-Za-z.+-]` |
+
+  Unknown fields (including `email` and `task_hash`) are rejected.
+- **Rate limit:** at most 60 records per token per hour (**429**).
+- **Storage:** rows go to `client_metrics` with `source = 'client_reported'`, with database `CHECK`s backing the bounds. `GET /api/report` returns them under `client_reported`, labelled "authenticated, schema-validated, NOT independently verified. Not benchmark evidence."
+  - The legacy `metrics` table is no longer written or reported.
+
+## Client
+
+`qb --telemetry` sends only with `--telemetry-token` / `QB_TELEMETRY_TOKEN`; with no token, nothing is sent and the CLI says so. The payload is `run_id` (the run record's random UUID), `passed`, `attempts`, `duration_ms`, `repair_count`, `layers_used` and `qb_version`. **No email and no task hash** are sent. The `--beta-email` option is gone.
+
+## Deploying
+
+The worker deploys from `main`. **Apply the migration first:**
+
+```
+npx wrangler d1 execute qb-beta --remote --file=landing_page/migrations/0002_qb33_telemetry_auth.sql
+```
+
+`schema.sql` includes the same tables for new databases. `migrations/` and `schema.sql` are now excluded from the public static assets (`.assetsignore`); before this change `schema.sql` was publicly served.
+
+## Tests
+
+`test/unit/qb33-metrics-auth.test.js` runs the real worker against a real SQLite D1 (`node:sqlite`, so Node 22+; it runs on CI Node 22/24 and is skipped on Node 20). Before the fix, a known email alone got 200 and a stored row.
+
+## Limits
+
+- Delivering the verification email depends on Resend. With the current `onboarding@resend.dev` sender, Resend only delivers to the account owner, so other users can't receive links until a verified sender domain is set up (a known open item).
+- A token proves control of an email inbox, not honest reporting: records are client-reported by design and labelled so.
+
+## Re-review 1
+
+- **No enumeration under repeated requests.**
+  - Every `POST /api/telemetry/request`, for any address, is first counted in `telemetry_link_requests` (sha256 of the address, kept 7 days) and limited to 3 per hour. This happens **before** registration is looked up.
+  - Registered and unregistered addresses therefore get identical status sequences: `[202, 202, 202, 429, …]`. Pre-fix, unregistered addresses never hit the limit.
+  - **Remaining side channel:** response timing still differs, because only registered addresses cause a code insert and an email send.
+- **A hard body limit.**
+  - `boundedJson` now reads the request body as a stream, counting bytes, and **cancels the read** as soon as the limit is passed (413). A chunked body without `Content-Length` is never buffered beyond the limit.
+  - The test streams 1 MiB in 1 KiB chunks without `Content-Length`: at most 4 KiB is read before a 413, and the stream is cancelled. Pre-fix, all 1025 KiB were read.
+  - The same helper serves signup, metrics and the link request.
+- **Atomic with revocation:** a metric insert is `INSERT … SELECT … WHERE EXISTS (token active)`, never a check-then-insert. See QB-32 in `docs/privacy/data-flows.md`.
+
+## Re-review 2: quotas are admitted atomically
+
+The senior's reproduction: with 59 metrics in the hour, two uploads paused at the INSERT after both had passed the separate `COUNT` check both returned 200, leaving 61 rows against a maximum of 60. The telemetry-link and signup limiters had the same pattern.
+
+- **Admission and write are one statement.**
+  - Link requests and signups use `admit()`: `INSERT … SELECT … WHERE (SELECT COUNT(*) …) < max`. A single statement runs alone on D1, so two concurrent requests at the limit cannot both pass.
+  - The metric insert folds the quota into its existing condition: `WHERE EXISTS (token active) AND (SELECT COUNT(*) … in the last hour) < 60`. Revocation and quota are checked atomically with the write, and replay protection (unique `run_id` → 409) is unchanged.
+  - When nothing was inserted, a read classifies the refusal (token revoked → 401, otherwise 429). That read admits nothing.
+- **The limits are now enforced maxima:** 60 metrics per token per hour, 3 link requests per address per hour, 10 signup attempts per IP per hour, including under concurrency.
+- **Regressions** (`test/unit/phase5-rereview2.test.js`; both requests are held at the INSERT until both arrive):
+  - 59 metrics + 2 concurrent uploads → exactly one 200 and one 429, 60 rows (pre-fix: 200, 200, 61 rows);
+  - 2 link requests + 2 concurrent → one 202 and one 429, 3 rows (pre-fix: 4);
+  - 9 signup attempts + 2 concurrent → one registration and one 429, 10 attempts (pre-fix: 11, both registered);
+  - a revoked token still gets 401, not 429.

@@ -1,6 +1,8 @@
 {
   "name": "@velora/quarterback-agent",
   "version": "0.1.0",
+  "license": "UNLICENSED",
+  "private": true,
   "description": "Quarterback Agent Orchestrator — builds agent briefings and executes coding tasks",
   "main": "orchestrator.js",
   "scripts": {
