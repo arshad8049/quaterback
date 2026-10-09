@@ -27,8 +27,12 @@ function assetsBinding() {
       const rel = p.replace(/^\/+/, '');
       if (ignore.some((g) => rel === g || rel.startsWith(`${g}/`)) || rel.split('/').includes('..')) return new Response('Not found', { status: 404 });
       const file = path.join(LP, rel);
-      if (!fs.existsSync(file) || !fs.statSync(file).isFile()) return new Response('Not found', { status: 404 });
-      return new Response(fs.readFileSync(file), { status: 200 });
+      // Cloudflare's default html_handling: /page.html redirects to /page, and /page serves page.html.
+      if (rel.endsWith('.html') && !rel.endsWith('index.html')) return new Response(null, { status: 307, headers: { location: `/${rel.slice(0, -5)}` } });
+      const isFile = (f) => fs.existsSync(f) && fs.statSync(f).isFile();
+      const served = isFile(file) ? file : (isFile(`${file}.html`) ? `${file}.html` : null);
+      if (!served) return new Response('Not found', { status: 404 });
+      return new Response(fs.readFileSync(served), { status: 200 });
     },
   };
 }
