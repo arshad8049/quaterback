@@ -6,7 +6,9 @@ The acceptance evidence for QB-31: a person follows [docs/onboarding.md](../onbo
 
 ## Machine
 
-A clean **Ubuntu 24.04 LTS x86_64** VM: no previous QB state, auth volume, cached project dependencies or prebuilt QB images.
+A clean **Ubuntu 24.04 LTS x86_64** VM with **at least 16 GB RAM** (the sandbox admits a run only with about 11.1 GiB free): no previous QB state, auth volume, cached project dependencies or prebuilt QB images.
+
+`scripts/qb31-walkthrough.sh` runs these steps in order and writes this record (machine table, step table, run ids, redacted logs) to `~/qb31-evidence/`.
 
 | | Value |
 |---|---|
@@ -28,7 +30,7 @@ A clean **Ubuntu 24.04 LTS x86_64** VM: no previous QB state, auth volume, cache
 | 2 | QB install at the given SHA, `npm ci` (§1) | succeeds | | |
 | 3 | `ollama pull deepseek-r1:7b` (§1) | model listed by `ollama list` | | |
 | 4 | `qb auth login` (§1) | signed in; `qb auth status` shows an expiry | | |
-| 5 | `qb doctor` (§2) | exit 0; `agent-auth` "validity not verified" (!) | | |
+| 5 | `qb doctor` (§2) | exit 0; `memory` ✓; `agent-auth` "validity not verified" (!) | | |
 | 6 | Demo repo + `qb doctor --repo qb-demo` (§3) | repository ✓, test-runner ✓ node-test | | |
 | 7 | Demo run with the reviewed contract (§3) | authenticated agent call succeeds; checks lower/upper/in-range/at-bounds pass; verdict `pass`; run id printed | | |
 | 8 | `git -C qb-demo status --porcelain` (§3) | empty: checkout unchanged | | |
