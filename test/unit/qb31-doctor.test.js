@@ -13,12 +13,14 @@ const proc = require('../../lib/proc');
 const { makeRepo } = require('../helpers/tmprepo');
 const { doctor, formatDoctor } = require('../../lib/doctor');
 
+const GiB = 1024 ** 3;
 const healthy = (over = {}) => ({
   nodeVersion: 'v24.1.0',
   gitVersion: async () => 'git version 2.45.0',
   dockerVersion: async () => '28.1.1',
   authVolumeExists: async () => true,
   modelTags: async () => ['deepseek-r1:7b', 'llama3:latest'],
+  memAvailable: async () => 14 * GiB,
   ...over,
 });
 const byId = (r) => Object.fromEntries(r.checks.map((c) => [c.id, c]));
@@ -26,7 +28,7 @@ const byId = (r) => Object.fromEntries(r.checks.map((c) => [c.id, c]));
 describe('QB-31: qb doctor', () => {
   test('a healthy machine for claude-code: every check ok, exit 0', async () => {
     const r = await doctor({ agent: 'claude-code', env: {} }, healthy());
-    assert.deepEqual(r.checks.map((c) => c.id), ['runtime', 'git', 'docker', 'agent-auth', 'model', 'agent-adapter', 'check-registry']);
+    assert.deepEqual(r.checks.map((c) => c.id), ['runtime', 'git', 'docker', 'memory', 'agent-auth', 'model', 'agent-adapter', 'check-registry']);
     // Credentials can only be shown PRESENT here; a successful authenticated call proves them valid.
     assert.deepEqual(r.checks.filter((c) => c.status !== 'ok').map((c) => [c.id, c.status]), [['agent-auth', 'warn']]);
     assert.match(r.checks.find((c) => c.id === 'agent-auth').detail, /login volume present; validity not verified/);
@@ -50,6 +52,37 @@ describe('QB-31: qb doctor', () => {
       assert.equal(r.exitCode, 1);
     });
   }
+
+  // The sandbox admits a claude-code run only with MemAvailable >= per-run peak + 2 GiB reserve
+  // (lib/sandbox/admission.js). The 2026-10-08 VM (7.7 GiB) passed doctor's other checks and
+  // could never run; doctor must say so before a run is attempted.
+  test('memory: below the sandbox admission need → fail with the numbers and a sizing fix', async () => {
+    const r = await doctor({ agent: 'claude-code', env: {} }, healthy({ memAvailable: async () => 5.9 * GiB }));
+    const c = byId(r).memory;
+    assert.equal(c.status, 'fail');
+    assert.match(c.detail, /5\.9 GiB available; a sandboxed run needs 11\.1 GiB/);
+    assert.match(c.fix, /16 GB/);
+    assert.equal(r.exitCode, 1);
+  });
+  test('memory: enough available → ok, naming both numbers', async () => {
+    const r = await doctor({ agent: 'claude-code', env: {} }, healthy({ memAvailable: async () => 12 * GiB }));
+    assert.equal(byId(r).memory.status, 'ok');
+    assert.match(byId(r).memory.detail, /12\.0 GiB available; a sandboxed run needs 11\.1 GiB/);
+  });
+  test('memory: not measurable on this OS (no /proc/meminfo) → warn, never ok', async () => {
+    const r = await doctor({ agent: 'claude-code', env: {} }, healthy({ memAvailable: async () => null }));
+    assert.equal(byId(r).memory.status, 'warn');
+    assert.match(byId(r).memory.detail, /not measured/);
+  });
+  test('memory: dry-run needs no sandbox → skipped', async () => {
+    const r = await doctor({ agent: 'dry-run', env: {} }, healthy({ memAvailable: async () => 1 * GiB }));
+    assert.equal(byId(r).memory.status, 'skip');
+    assert.equal(r.exitCode, 0);
+  });
+  test('memory: the need is the admission gate number itself, not a copy', () => {
+    const { perRunPeak } = require('../../lib/sandbox/admission');
+    assert.equal(require('../../lib/doctor').SANDBOX_MEMORY_NEED, perRunPeak() + 2 * GiB);
+  });
 
   test('an API key is reported as a credential PRESENT, not a verified login (and Docker is not asked)', async () => {
     const r = await doctor({ agent: 'claude-code', env: { ANTHROPIC_API_KEY: 'sk-x' } }, healthy({ authVolumeExists: async () => { throw new Error('not consulted'); } }));

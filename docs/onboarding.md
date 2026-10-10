@@ -9,7 +9,9 @@ From a fresh machine to an inspected run:
 
 Supported setups are listed in [support.md](support.md).
 
-**Validated profile:** Ubuntu 24.04 LTS on x86_64, Node 24, Docker Engine. macOS + Docker Desktop works for development but is not validated, and Windows is not supported.
+**Validated profile:** Ubuntu 24.04 LTS on x86_64, Node 24, Docker Engine, **at least 16 GB RAM**. A `--agent claude-code` run is admitted only with about 11.1 GiB of memory free (the sandbox's per-run peak plus a 2 GiB reserve), so an 8 GB machine cannot run it. macOS + Docker Desktop works for development but is not validated, and Windows is not supported.
+
+A guided script for the fresh-machine walkthrough, which records the evidence as it goes, is in [`scripts/qb31-walkthrough.sh`](../scripts/qb31-walkthrough.sh).
 
 ## 1. Install
 
@@ -69,6 +71,7 @@ Each check prints `✓` ok, `!` warning, `✗` problem or `–` skipped, with a 
 | `runtime` | Node 20 or newer |
 | `git` | git on PATH |
 | `docker` | the Docker daemon answers (required for `claude-code`) |
+| `memory` | free memory covers the sandbox admission need, about 11.1 GiB (only for `claude-code`; Linux; elsewhere it shows `!` not measured) |
 | `agent-auth` | a credential is **present**: the `qb auth login` volume or `ANTHROPIC_API_KEY` (only for `claude-code`). Doctor makes no API call, so it can't tell whether the credential is valid; it always shows `!` "validity not verified". The first authenticated call of a real run is the proof. |
 | `model` | Ollama at `QB_OLLAMA_URL` with `QB_MODEL` pulled |
 | `agent-adapter` | a supported agent (`qb-agent-adapter/1`) |

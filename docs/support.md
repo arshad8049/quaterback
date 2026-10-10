@@ -26,6 +26,7 @@ A change to this contract is a new interface version.
 |---|---|
 | Node | **20 or newer** (`engines`). CI runs Node 20, 22 and 24. The agent image uses Node 24. |
 | OS | **Linux x86_64 + Docker Engine: validated.** macOS + Docker Desktop works for development but is not validated. Windows is not supported. |
+| Memory | **At least 16 GB RAM** for `--agent claude-code`: a run is admitted only with about 11.1 GiB free (per-run peak plus a 2 GiB reserve, `lib/sandbox/admission.js`). `qb doctor` checks it. |
 | git | Required. With `--agent claude-code` the target repository must be a git work tree (the sandbox captures changes as git trees). |
 | Local model | An Ollama server (`QB_OLLAMA_URL`, default `http://127.0.0.1:11434`) with `QB_MODEL` (default `deepseek-r1:7b`). Used by the intent, context and judge stages. |
 
