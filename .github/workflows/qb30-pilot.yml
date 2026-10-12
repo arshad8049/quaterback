@@ -111,6 +111,13 @@ jobs:
         run: |
           sudo apt-get install -y -qq zstd > /dev/null
           { curl -fsSL https://ollama.com/install.sh | sh; } > "$RUNNER_TEMP/ollama.log" 2>&1 || { echo "::error title=ollama install failed::$(tail -15 "$RUNNER_TEMP/ollama.log" | sed 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}')"; exit 1; }
+          # The installer does not always leave the server running (as in scripts/qb31-walkthrough.sh):
+          # start it (service, else a background `ollama serve` that lives until the job ends) and wait.
+          if ! ollama list > /dev/null 2>&1; then
+            sudo systemctl start ollama 2> /dev/null || (nohup ollama serve > "$RUNNER_TEMP/ollama-serve.log" 2>&1 &)
+            for i in $(seq 1 60); do ollama list > /dev/null 2>&1 && break; sleep 1; done
+          fi
+          ollama list > /dev/null 2>&1 || { echo "::error title=ollama server did not start::$(tail -15 "$RUNNER_TEMP/ollama-serve.log" 2>/dev/null | sed 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}')"; exit 1; }
           ollama pull deepseek-r1:7b > "$RUNNER_TEMP/pull.log" 2>&1 || { echo "::error title=model pull failed::$(tail -15 "$RUNNER_TEMP/pull.log" | sed 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}')"; exit 1; }
           ollama list
       - name: Run shard ${{ matrix.shard }}/${{ inputs.shards }}
