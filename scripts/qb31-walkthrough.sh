@@ -11,6 +11,8 @@
 #   bash qb31.sh --ref <ref>                 # the commit SHA you were given
 #   bash qb31.sh --ref <ref> --from 4        # resume at step 4 (e.g. after re-login for docker)
 #   bash qb31.sh --ref <ref> --with-checkpoint   # also rerun the Phase 4 Docker checkpoint
+#   bash qb31.sh --ref <ref> --no-agent          # rehearsal: no sign-in, no paid agent task
+#                                                #   (steps 4, 7, 8, 10, 11 SKIPPED; 9 without the rerun)
 #
 # You act in three places: the sudo password (step 1), re-login after joining the docker group,
 # and `qb auth login` (step 4: open the URL, sign in, paste the code). That step is NOT recorded.
@@ -21,13 +23,14 @@
 
 set -uo pipefail
 
-REF=""; FROM=1; WITH_CHECKPOINT=0
+REF=""; FROM=1; WITH_CHECKPOINT=0; NO_AGENT=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --ref) REF="${2:-}"; shift 2 ;;
     --from) FROM="${2:-1}"; shift 2 ;;
     --with-checkpoint) WITH_CHECKPOINT=1; shift ;;
-    -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
+    --no-agent) NO_AGENT=1; shift ;;
+    -h|--help) sed -n '2,24p' "$0"; exit 0 ;;
     *) echo "unknown option: $1 (see --help)"; exit 2 ;;
   esac
 done
@@ -65,18 +68,27 @@ outcome_of() { (cd "$WORK" && qb show "$1" 2>/dev/null) | node -e "let s='';proc
 s1() {
   bold "1/11 Prerequisites: git, Node 24, Docker Engine, Ollama (needs sudo)"
   local t=$SECONDS
+  local have=""
+  [ "$(node --version 2>/dev/null | sed -E 's/^v([0-9]+).*/\1/')" = 24 ] && have="$have node24"
+  command -v docker >/dev/null && have="$have docker"
+  command -v ollama >/dev/null && have="$have ollama"
+  [ -n "$have" ] && echo "  already installed, skipped:$have"
   rec 01-prereqs "set -e
     sudo apt-get update && sudo apt-get install -y git curl ca-certificates
-    curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
-    sudo apt-get install -y nodejs
-    sudo install -m 0755 -d /etc/apt/keyrings
-    sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-    sudo chmod a+r /etc/apt/keyrings/docker.asc
-    echo \"deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \$(. /etc/os-release && echo \"\$VERSION_CODENAME\") stable\" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-    sudo apt-get update && sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin
-    sudo systemctl enable --now docker
-    sudo usermod -aG docker \"\$USER\"
-    curl -fsSL https://ollama.com/install.sh | sh"
+    if ! echo '$have' | grep -q node24; then
+      curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+      sudo apt-get install -y nodejs
+    fi
+    if ! echo '$have' | grep -q docker; then
+      sudo install -m 0755 -d /etc/apt/keyrings
+      sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+      sudo chmod a+r /etc/apt/keyrings/docker.asc
+      echo \"deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \$(. /etc/os-release && echo \"\$VERSION_CODENAME\") stable\" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+      sudo apt-get update && sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin
+      sudo systemctl enable --now docker
+      sudo usermod -aG docker \"\$USER\"
+    fi
+    if ! echo '$have' | grep -q ollama; then curl -fsSL https://ollama.com/install.sh | sh; fi"
   local rc=$?
   if [ $rc -ne 0 ]; then step 1 "Prerequisites (§1)" "all installed" "install failed (exit $rc; logs/01-prereqs.log)" FAIL $((SECONDS-t)); exit 1; fi
   if ! docker info >/dev/null 2>&1; then
@@ -84,7 +96,7 @@ s1() {
     bold "Log out and back in (so 'docker' works without sudo), then run:  bash $0 --ref $REF --from 2"
     exit 0
   fi
-  step 1 "Prerequisites (§1)" "git, Node 24, Docker, Ollama installed; docker works without sudo after re-login" "installed; $(node --version); docker without sudo OK" PASS $((SECONDS-t))
+  step 1 "Prerequisites (§1)" "git, Node 24, Docker, Ollama installed; docker works without sudo after re-login" "installed; $(node --version); docker without sudo OK${have:+; preinstalled:$have}" PASS $((SECONDS-t))
 }
 
 # ── 2. QB at the given ref (§1) ──────────────────────────────────────────────
@@ -111,6 +123,7 @@ s3() {
 
 # ── 4. Sign-in (§1) — interactive, NOT recorded ──────────────────────────────
 s4() {
+  if [ $NO_AGENT -eq 1 ]; then step 4 "qb auth login (§1)" "signed in; qb auth status shows an expiry" "rehearsal (--no-agent): not signed in" SKIPPED 0; return; fi
   bold "4/11 qb auth login: open the URL it prints, sign in, paste the code back. This step is not recorded."
   local t=$SECONDS
   (cd "$QBDIR" && qb auth login); local rc=$?
@@ -124,7 +137,15 @@ s5() {
   local t=$SECONDS
   rec 05-doctor "cd '$QBDIR' && node qb.js doctor"; local rc=$?
   local mem; mem=$(grep -o 'memory.*' "$LOGS/05-doctor.log" | head -1 | tr -s ' ')
-  step 5 "qb doctor (§2)" "exit 0; memory ✓; agent-auth validity not verified (!)" "exit $rc; $mem" "$([ $rc -eq 0 ] && echo PASS || echo FAIL)" $((SECONDS-t))
+  local ok=FAIL fails; fails=$(grep -o '✗ [a-z-]*' "$LOGS/05-doctor.log" | tr '\n' ' ')
+  if [ $NO_AGENT -eq 1 ]; then
+    # Not signed in by design: the only acceptable problem is agent-auth; memory must be ✓.
+    [ "$fails" = "✗ agent-auth " ] && grep -q '✓ memory' "$LOGS/05-doctor.log" && ok=PASS
+    step 5 "qb doctor (§2)" "rehearsal: memory ✓; only agent-auth ✗ (not signed in)" "exit $rc; ${fails:-no problems}; $mem" $ok $((SECONDS-t))
+  else
+    [ $rc -eq 0 ] && ok=PASS
+    step 5 "qb doctor (§2)" "exit 0; memory ✓; agent-auth validity not verified (!)" "exit $rc; $mem" $ok $((SECONDS-t))
+  fi
 }
 
 # ── 6. Demo repository (§3) ──────────────────────────────────────────────────
@@ -151,6 +172,7 @@ demo_run() {  # demo_run <log name> → prints the new run id, or "none" if no r
 
 # ── 7. Demo run (§3) ─────────────────────────────────────────────────────────
 s7() {
+  if [ $NO_AGENT -eq 1 ]; then step 7 "Demo run with the reviewed contract (§3)" "verdict pass" "rehearsal (--no-agent): needs a real agent run" SKIPPED 0; return; fi
   bold "7/11 Demo run with the reviewed contract (one real Claude Code task)"
   local t=$SECONDS id outcome
   id=$(demo_run 07-demo-run); echo "demo: $id" >> "$RUNS"
@@ -160,6 +182,7 @@ s7() {
 
 # ── 8. Checkout unchanged (§3) ───────────────────────────────────────────────
 s8() {
+  if [ $NO_AGENT -eq 1 ]; then step 8 "git -C qb-demo status --porcelain (§3)" "empty: checkout unchanged" "rehearsal (--no-agent): needs a real agent run" SKIPPED 0; return; fi
   bold "8/11 git status --porcelain on the demo checkout"
   local t=$SECONDS out; out=$(git -C "$DEMO" status --porcelain); printf '%s\n' "$out" > "$LOGS/08-status.log"
   step 8 "git -C qb-demo status --porcelain (§3)" "empty: checkout unchanged" "$([ -z "$out" ] && echo empty || echo "changed: $(echo "$out" | wc -l) entries")" "$([ -z "$out" ] && echo PASS || echo FAIL)" $((SECONDS-t))
@@ -173,6 +196,10 @@ s9() {
   rec 09a-doctor-docker-down "cd '$QBDIR' && node qb.js doctor"; local down=$?
   sudo systemctl start docker
   rec 09b-doctor-docker-up "cd '$QBDIR' && node qb.js doctor"; local up=$?
+  if [ $NO_AGENT -eq 1 ]; then
+    local ok=FAIL; grep -q '✗ docker' "$LOGS/09a-doctor-docker-down.log" && grep -q '✓ docker' "$LOGS/09b-doctor-docker-up.log" && ok=PASS
+    step 9 "Docker stop → doctor → start → doctor (§4)" "✗ docker, then ✓ docker (rehearsal: no rerun)" "doctor exit $down then $up" $ok $((SECONDS-t)); return
+  fi
   local id outcome; id=$(demo_run 09c-demo-rerun); echo "rerun after recovery: $id" >> "$RUNS"
   outcome=$(outcome_of "$id")
   local ok=FAIL; [ $down -ne 0 ] && grep -q '✗ docker' "$LOGS/09a-doctor-docker-down.log" && [ $up -eq 0 ] && [ "$id" != none ] && ok=PASS
@@ -181,6 +208,7 @@ s9() {
 
 # ── 10. Inspect (§5) ─────────────────────────────────────────────────────────
 s10() {
+  if [ $NO_AGENT -eq 1 ]; then step 10 "qb runs, qb show, qb replay (§5)" "replay reproduces the verdict" "rehearsal (--no-agent): needs a real agent run" SKIPPED 0; return; fi
   bold "10/11 qb runs, qb show, qb replay"
   local t=$SECONDS id; id=$(head -1 "$RUNS" | awk '{print $2}')
   rec 10-inspect "cd '$WORK' && node '$QBDIR/qb.js' runs && node '$QBDIR/qb.js' show '$id' && node '$QBDIR/qb.js' replay '$id'"; local rc=$?
@@ -190,6 +218,7 @@ s10() {
 
 # ── 11. Patch, apply to the demo, behaviour check (§5) ───────────────────────
 s11() {
+  if [ $NO_AGENT -eq 1 ]; then step 11 "qb patch --out, apply to qb-demo, behaviour check (§5)" "prints 0 10 7" "rehearsal (--no-agent): needs a real agent run" SKIPPED 0; return; fi
   bold "11/11 qb patch → apply to qb-demo → behaviour check"
   local t=$SECONDS id; id=$(head -1 "$RUNS" | awk '{print $2}')
   rec 11-patch "set -e; cd '$WORK'; node '$QBDIR/qb.js' patch '$id' --out clamp.patch; git -C qb-demo apply --check ../clamp.patch; git -C qb-demo apply ../clamp.patch; node -e \"const { clamp } = require('./qb-demo/src/utils'); console.log(clamp(-5, 0, 10), clamp(50, 0, 10), clamp(7, 0, 10))\""
@@ -228,6 +257,7 @@ write_evidence() {
   {
     echo "# QB-31 fresh-machine walkthrough: evidence (generated by scripts/qb31-walkthrough.sh)"
     echo; echo "Logs are redacted automatically; review them before sharing. The sign-in step was not recorded."
+    [ $NO_AGENT -eq 1 ] && { echo; echo "**Rehearsal (--no-agent):** no sign-in and no agent task; this is not the QB-31 acceptance walkthrough."; }
     echo; echo "## Machine"; echo; machine_table
     echo; echo "## Steps (expected vs actual)"; echo
     echo "| # | Step (onboarding §) | Expected | Actual | Result | Elapsed |"; echo "|---|---|---|---|---|---|"
