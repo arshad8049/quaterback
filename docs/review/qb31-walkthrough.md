@@ -77,3 +77,31 @@ So on a 16 GB host, the local model and the sandbox didn't fit together. Nothing
 - **Kit:** steps 10 and 11 now use the latest demo run.
 
 **Next:** attempt 2 on the same setup after the fix is merged.
+
+## Attempt 2 — 2026-10-12, same Codespace, `main` bac5956 (with the model release): BLOCKED at sign-in, product fix made
+
+**Raw record:** [`qb31-walkthrough/attempt-2-2026-10-12-codespaces/`](qb31-walkthrough/attempt-2-2026-10-12-codespaces/evidence.md)
+
+**The model release worked.** Both runs passed sandbox admission:
+- doctor read 12.5 GiB free after the Docker restart;
+- L3 now ran for 11 s, where it was 0.05 s before.
+
+**New failure.** Both runs ended `BLOCKED auth_refresh_failed: pre-run refresh failed: Not logged in · Please run /login`. That is the first time a run reached the credential stage.
+
+**What the evidence shows.**
+- Earlier signs it was not signed in:
+  - `qb auth login` exited 0;
+  - `qb auth status` printed "logged in (expiry unknown)";
+  - doctor showed "login volume present".
+- In fact the QB login volume held **no stored credential**. "Expiry unknown" means `.credentials.json` was absent.
+- Why the sign-in stored nothing isn't known: the sign-in step is deliberately not recorded.
+- Ruled out by inspecting Claude Code 2.1.288:
+  - it writes `.credentials.json` under `CLAUDE_CONFIG_DIR` (the volume);
+  - its token exchange (`platform.claude.com/v1/oauth/token`) is on the AUTH allowlist.
+
+**Fix (QB never reports a sign-in it doesn't have).**
+- `qb auth login` fails with "sign-in did not complete: no credential was stored" unless a credential was stored.
+- `qb auth status` says "not signed in: the QB login holds no stored credential".
+- `qb doctor`'s `agent-auth` check requires a stored credential.
+- The kit stops at step 4 with re-sign-in instructions instead of running blocked demos.
+- Step 9 now requires the rerun to complete (attempt 2's step 9 was wrongly marked PASS while its rerun was BLOCKED).

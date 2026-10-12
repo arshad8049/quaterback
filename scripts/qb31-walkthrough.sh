@@ -150,8 +150,14 @@ s4() {
   bold "4/11 qb auth login: open the URL it prints, sign in, paste the code back. This step is not recorded."
   local t=$SECONDS
   (cd "$QBDIR" && qb auth login); local rc=$?
-  rec 04-auth-status "cd '$QBDIR' && node qb.js auth status"
-  step 4 "qb auth login (§1)" "signed in; qb auth status shows an expiry" "login exit $rc; status in logs/04-auth-status.log" "$([ $rc -eq 0 ] && echo PASS || echo FAIL)" $((SECONDS-t))
+  rec 04-auth-status "cd '$QBDIR' && node qb.js auth status"; local st=$?
+  local said; said=$(grep -m1 -E 'signed in|not signed in' "$LOGS/04-auth-status.log")
+  if [ $rc -ne 0 ] || [ $st -ne 0 ]; then
+    step 4 "qb auth login (§1)" "signed in; qb auth status shows an expiry" "login exit $rc; status exit $st: $said" FAIL $((SECONDS-t))
+    bold "Sign-in did not complete, so a demo run cannot authenticate. Rerun from step 4 and, after signing in in the browser, paste the code into this terminal and press Enter:  bash $0 --ref $REF --from 4"
+    write_evidence; exit 1
+  fi
+  step 4 "qb auth login (§1)" "signed in; qb auth status shows an expiry" "login exit $rc; $said" PASS $((SECONDS-t))
 }
 
 # ── 5. qb doctor (§2) ────────────────────────────────────────────────────────
@@ -225,8 +231,8 @@ s9() {
   fi
   local id outcome; id=$(demo_run 09c-demo-rerun); echo "rerun after recovery: $id" >> "$RUNS"
   outcome=$(outcome_of "$id")
-  local ok=FAIL; [ $down -ne 0 ] && grep -q '✗ docker' "$LOGS/09a-doctor-docker-down.log" && [ $up -eq 0 ] && [ "$id" != none ] && ok=PASS
-  step 9 "Docker stop → doctor → start → doctor → rerun (§4)" "✗ docker, then ✓; the rerun completes" "doctor exit $down then $up; rerun $id ${outcome:-unknown}" $ok $((SECONDS-t))
+  local ok=FAIL; [ $down -ne 0 ] && grep -q '✗ docker' "$LOGS/09a-doctor-docker-down.log" && [ $up -eq 0 ] && { [ "$outcome" = VERIFIED ] || [ "$outcome" = FAILED ]; } && ok=PASS   # the rerun must complete, not be BLOCKED
+  step 9 "Docker stop → doctor → start → doctor → rerun (§4)" "✗ docker, then ✓; the rerun completes (VERIFIED or FAILED, not BLOCKED)" "doctor exit $down then $up; rerun $id ${outcome:-unknown}" $ok $((SECONDS-t))
 }
 
 # ── 10. Inspect (§5) ─────────────────────────────────────────────────────────

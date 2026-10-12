@@ -1,0 +1,11 @@
+1	Prerequisites (§1)	git, Node 24, Docker, Ollama installed; docker works without sudo after re-login	installed; v24.21.0; docker without sudo OK; preinstalled: node24 docker ollama	PASS	4s
+2	QB install at the given SHA, npm ci (§1)	succeeds	HEAD bac59569f1dfc65349d7863debb905618cac10d7; npm ci exit 0	PASS	2s
+3	ollama pull deepseek-r1:7b (§1)	model listed by ollama list	listed	PASS	1s
+4	qb auth login (§1)	signed in; qb auth status shows an expiry	login exit 0; status in logs/04-auth-status.log	PASS	36s
+5	qb doctor (§2)	exit 0; memory ✓; agent-auth validity not verified (!)	exit 1; memory 7.0 GiB available; a sandboxed run needs 11.1 GiB free at admission, so the run would end BLOCKED insufficient_host_resources	FAIL	1s
+6	Demo repo + qb doctor --repo qb-demo (§3)	repository ✓, test-runner ✓ node-test	doctor exit 1	PASS	1s
+7	Demo run with the reviewed contract (§3)	authenticated agent call succeeds; checks pass; verdict pass; run id printed	run fcfb7b18-f935-40c6-add8-f226a332dfd6; outcome BLOCKED	FAIL	167s
+8	git -C qb-demo status --porcelain (§3)	empty: checkout unchanged	empty	PASS	0s
+9	Docker stop → doctor → start → doctor → rerun (§4)	✗ docker, then ✓; the rerun completes	doctor exit 1 then 0; rerun c7971f81-2568-4494-81d8-43281ed97666 BLOCKED	PASS	195s
+10	qb runs, qb show, qb replay (§5)	run listed; replay reproduces the verdict	exit 0 for run fcfb7b18-f935-40c6-add8-f226a332dfd6; outcome=BLOCKED  reproduced	PASS	0s
+11	qb patch --out, apply to qb-demo, behaviour check (§5)	applies cleanly; prints 0 10 7	Script done on 2026-10-12 05:49:02+00:00 [COMMAND_EXIT_CODE="1"]	FAIL	1s

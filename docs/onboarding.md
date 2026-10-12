@@ -54,7 +54,7 @@ npm link                               # optional: puts `qb` on your PATH (other
 qb auth login                          # sign the sandboxed Claude Code in with your Claude subscription
 ```
 
-`qb auth login` prints a URL. Open it, sign in, and paste the code back. It uses a QB-scoped login: your own `~/.claude` login is neither used nor changed. An `ANTHROPIC_API_KEY` works too, but isn't required.
+`qb auth login` prints a URL. Open it, sign in, and paste the code the page shows back into the terminal, then press Enter. It finishes with `signed in; access token expires …`; if it says `sign-in did not complete`, run it again. It uses a QB-scoped login: your own `~/.claude` login is neither used nor changed. An `ANTHROPIC_API_KEY` works too, but isn't required.
 
 ## 2. Check the machine: `qb doctor`
 
@@ -72,7 +72,7 @@ Each check prints `✓` ok, `!` warning, `✗` problem or `–` skipped, with a 
 | `git` | git on PATH |
 | `docker` | the Docker daemon answers (required for `claude-code`) |
 | `memory` | free memory covers the sandbox admission need, about 11.1 GiB (only for `claude-code`; Linux; elsewhere it shows `!` not measured) |
-| `agent-auth` | a credential is **present**: the `qb auth login` volume or `ANTHROPIC_API_KEY` (only for `claude-code`). Doctor makes no API call, so it can't tell whether the credential is valid; it always shows `!` "validity not verified". The first authenticated call of a real run is the proof. |
+| `agent-auth` | a credential is **stored**: one saved by `qb auth login` (an empty login volume counts as not signed in), or `ANTHROPIC_API_KEY` (only for `claude-code`). Doctor makes no API call, so it can't tell whether the credential is valid; it always shows `!` "validity not verified". The first authenticated call of a real run is the proof. |
 | `model` | Ollama at `QB_OLLAMA_URL` with `QB_MODEL` pulled |
 | `agent-adapter` | a supported agent (`qb-agent-adapter/1`) |
 | `check-registry` | the executable-check registry loads |

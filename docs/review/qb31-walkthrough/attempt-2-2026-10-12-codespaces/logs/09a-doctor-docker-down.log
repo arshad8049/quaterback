@@ -1,0 +1,22 @@
+Script started on 2026-10-12 05:45:48+00:00 [COMMAND="cd '/home/vscode/qb31/quaterback' && node qb.js doctor" TERM="xterm-256color" TTY="/dev/pts/1" COLUMNS="107" LINES="18"]
+◇ injected env (0) from intent/.env
+◇ injected env (0) from intent/.env
+◇ injected env (0) from context/.env
+◇ injected env (0) from intent/.env
+◇ injected env (0) from context/.env
+qb doctor (--agent claude-code)
+
+  ✓ runtime         Node 24.21.0
+  ✓ git             git version 2.51.1
+  ✗ docker          Docker is not running or not reachable; claude-code runs only in the QB sandbox
+                    fix: start Docker (Docker Engine on Linux, Docker Desktop on macOS)
+  ✓ memory          12.5 GiB available; a sandboxed run needs 11.1 GiB free at admission
+  ✗ agent-auth      cannot check the QB sign-in while Docker is unavailable
+                    fix: start Docker, then run `qb doctor` again
+  ✓ model           deepseek-r1:7b at http://127.0.0.1:11434
+  ✓ agent-adapter   claude-code (supported, qb-agent-adapter/1)
+  ✓ check-registry  qb-checks/2: module_exports, call_returns, call_sequence, call_throws
+
+2 problems to fix before running QB.
+
+Script done on 2026-10-12 05:45:48+00:00 [COMMAND_EXIT_CODE="1"]
