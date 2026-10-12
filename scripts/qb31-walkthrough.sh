@@ -39,7 +39,7 @@ done
 REPO_URL="https://github.com/arshad8049/quaterback.git"
 CHECKPOINT_REF="99682a6e83dc61ddcc4fbef99942b4ecde890970"
 WORK="$HOME/qb31"; QBDIR="$WORK/quaterback"; DEMO="$WORK/qb-demo"
-EV="$HOME/qb31-evidence"; LOGS="$EV/logs"; STEPS="$EV/steps.tsv"; RUNS="$EV/run-ids.txt"
+EV="${QB31_EVIDENCE:-$HOME/qb31-evidence}"; LOGS="$EV/logs"; STEPS="$EV/steps.tsv"; RUNS="$EV/run-ids.txt"
 QB_MODEL="${QB_MODEL:-deepseek-r1:7b}"
 mkdir -p "$WORK" "$LOGS"; touch "$STEPS" "$RUNS"
 
@@ -62,6 +62,23 @@ rec() { local name="$1"; shift; script -qefc "$*" "$LOGS/$name.log"; local rc=$?
 
 # step <n> <name> <expected> <actual> <status> <seconds>
 step() { sed -i "/^$1\t/d" "$STEPS"; printf '%s\t%s\t%s\t%s\t%s\t%ss\n' "$@" >> "$STEPS"; printf '  → %s: %s (%s)\n' "$2" "$5" "$4"; }
+# Containers (e.g. GitHub Codespaces) have no systemd: services are started directly there.
+has_systemd() { [ -d /run/systemd/system ]; }
+wait_for() { local i; for i in $(seq 1 "$1"); do eval "$2" >/dev/null 2>&1 && return 0; sleep 1; done; return 1; }
+ensure_ollama() {
+  ollama list >/dev/null 2>&1 && return 0
+  if has_systemd; then sudo systemctl start ollama; else nohup ollama serve > "$LOGS/ollama-serve.log" 2>&1 & fi
+  wait_for 30 "ollama list"
+}
+docker_stop() {
+  if has_systemd; then sudo systemctl stop docker docker.socket
+  else sudo pkill -x dockerd; wait_for 30 "! docker info"; fi
+}
+docker_start() {
+  if has_systemd; then sudo systemctl start docker
+  else sudo sh -c 'nohup dockerd > /tmp/dockerd.log 2>&1 &'; fi
+  wait_for 60 "docker info"
+}
 newest_run() { ls -t "${QB_RUNS_DIR:-$HOME/.qb/runs}" 2>/dev/null | head -1; }
 # The run's final outcome, from the manifest `qb show` prints (VERIFIED, FAILED, …).
 outcome_of() { (cd "$WORK" && qb show "$1" 2>/dev/null) | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{console.log(JSON.parse(s.slice(0,s.lastIndexOf('}')+1)).outcome)}catch{console.log('unknown')}})"; }
@@ -118,6 +135,7 @@ s2() {
 s3() {
   bold "3/11 Local model: ollama pull $QB_MODEL"
   local t=$SECONDS
+  ensure_ollama
   rec 03-model "set -e; ollama pull '$QB_MODEL'; ollama list"
   if grep -q "${QB_MODEL%%:*}" "$LOGS/03-model.log"; then step 3 "ollama pull $QB_MODEL (§1)" "model listed by ollama list" "listed" PASS $((SECONDS-t))
   else step 3 "ollama pull $QB_MODEL (§1)" "model listed by ollama list" "not listed (logs/03-model.log)" FAIL $((SECONDS-t)); fi
@@ -194,9 +212,9 @@ s8() {
 s9() {
   bold "9/11 Recovery drill: stop Docker → qb doctor → start → qb doctor → rerun the demo (needs sudo)"
   local t=$SECONDS
-  sudo systemctl stop docker docker.socket
+  docker_stop
   rec 09a-doctor-docker-down "cd '$QBDIR' && node qb.js doctor"; local down=$?
-  sudo systemctl start docker
+  docker_start
   rec 09b-doctor-docker-up "cd '$QBDIR' && node qb.js doctor"; local up=$?
   if [ $NO_AGENT -eq 1 ]; then
     local ok=FAIL; grep -q '✗ docker' "$LOGS/09a-doctor-docker-down.log" && grep -q '✓ docker' "$LOGS/09b-doctor-docker-up.log" && ok=PASS

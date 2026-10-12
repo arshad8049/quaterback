@@ -1,7 +1,7 @@
 {
   "name": "@velora/quarterback",
   "version": "0.1.0",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "private": true,
   "description": "Quarterback — Intent to Verified Result (root orchestrator)",
   "main": "qb.js",

@@ -397,3 +397,9 @@ node build.js  # regenerates index.html
 ## Company
 
 Built by **Velora LLC** — [velorallc.netlify.app](https://velorallc.netlify.app)
+
+---
+
+## License
+
+[MIT](LICENSE) © 2026 Arshad Ahmed Shaik. QB is not published to npm; install it from this repository ([onboarding](docs/onboarding.md)).

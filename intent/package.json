@@ -1,7 +1,7 @@
 {
   "name": "@velora/quarterback-intent",
   "version": "0.1.0",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "private": true,
   "description": "Quarterback Intent Compiler — turns developer requests into executable Task Contracts",
   "main": "compiler.js",

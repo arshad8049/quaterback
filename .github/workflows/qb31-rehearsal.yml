@@ -10,7 +10,7 @@ name: qb31-rehearsal
 on:
   push:
     branches: [qb31-walkthrough-kit]
-    paths: [scripts/qb31-walkthrough.sh, .github/workflows/qb31-rehearsal.yml]
+    paths: [scripts/qb31-walkthrough.sh, .github/workflows/qb31-rehearsal.yml, .devcontainer/qb31-walkthrough/**]
   workflow_dispatch:
     inputs:
       checkpoint:
@@ -68,4 +68,40 @@ jobs:
         with:
           name: qb31-evidence
           path: ~/qb31-evidence
+          retention-days: 30
+
+  # The same kit inside the Codespaces definition (.devcontainer/qb31-walkthrough): Ubuntu 24.04,
+  # docker-in-docker, no systemd. Rehearses exactly what an owner run in Codespaces will do.
+  codespace:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL; df -h /
+      - name: Walkthrough rehearsal inside the Codespaces container
+        uses: devcontainers/ci@v0.3
+        with:
+          configFile: .devcontainer/qb31-walkthrough/devcontainer.json
+          push: never
+          runCmd: |
+            git config --global --add safe.directory '*'
+            uname -m; . /etc/os-release; echo "$PRETTY_NAME"; [ -d /run/systemd/system ] && echo systemd || echo "no systemd"
+            QB31_EVIDENCE="$PWD/qb31-evidence-codespace" bash scripts/qb31-walkthrough.sh --ref "$(git rev-parse HEAD)" --no-agent
+      - name: Publish results as annotations (readable without a token)
+        if: always()
+        run: |
+          enc() { sed -e 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}'; }
+          st=qb31-evidence-codespace/steps.tsv
+          [ -f "$st" ] && echo "::notice title=Codespace rehearsal steps::$(sort -t$'\t' -k1,1n "$st" | awk -F'\t' '{print $1". "$2" | "$5" | "$4" | "$6}' | enc)"
+          for l in qb31-evidence-codespace/logs/*.log; do
+            [ -f "$l" ] || continue
+            grep -qiE 'error|fail|✗' "$l" && echo "::notice title=Codespace log $(basename "$l")::$(grep -iE 'error|fail|✗|warn|!' "$l" | head -15 | enc)"
+          done
+          true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qb31-evidence-codespace
+          path: qb31-evidence-codespace
           retention-days: 30
