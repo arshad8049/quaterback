@@ -1,0 +1,21 @@
+Script started on 2026-10-12 15:01:13+00:00 [COMMAND="cd '/home/vscode/qb31/quaterback' && node qb.js doctor" TERM="xterm-256color" TTY="/dev/pts/1" COLUMNS="61" LINES="18"]
+◇ injected env (0) from intent/.env
+◇ injected env (0) from intent/.env
+◇ injected env (0) from context/.env
+◇ injected env (0) from intent/.env
+◇ injected env (0) from context/.env
+qb doctor (--agent claude-code)
+
+  ✓ runtime         Node 24.21.0
+  ✓ git             git version 2.51.1
+  ✓ docker          Docker Engine 29.8.2-1
+  ✓ memory          13.6 GiB available; a sandboxed run needs 11.1 GiB free at admission
+  ! agent-auth      QB login credential stored; validity not verified (it may be expired or revoked; doctor makes no API call)
+                    fix: `qb auth status` shows the token expiry; if a run fails to authenticate, run `qb auth login` again
+  ✓ model           deepseek-r1:7b at http://127.0.0.1:11434
+  ✓ agent-adapter   claude-code (supported, qb-agent-adapter/1)
+  ✓ check-registry  qb-checks/2: module_exports, call_returns, call_sequence, call_throws
+
+Ready (1 warning).
+
+Script done on 2026-10-12 15:01:14+00:00 [COMMAND_EXIT_CODE="0"]
