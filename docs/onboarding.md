@@ -11,7 +11,7 @@ Supported setups are listed in [support.md](support.md).
 
 **Validated profile:** Ubuntu 24.04 LTS on x86_64, Node 24, Docker Engine, **at least 16 GB RAM**. A `--agent claude-code` run is admitted only with about 11.1 GiB of memory free (the sandbox's per-run peak plus a 2 GiB reserve), so an 8 GB machine cannot run it. macOS + Docker Desktop works for development but is not validated, and Windows is not supported.
 
-A guided script for the fresh-machine walkthrough, which records the evidence as it goes, is in [`scripts/qb31-walkthrough.sh`](../scripts/qb31-walkthrough.sh).
+A guided script for the fresh-machine walkthrough, which records the evidence as it goes, is in [`scripts/qb31-walkthrough.sh`](../scripts/qb31-walkthrough.sh). No 16 GB machine? It runs in a free GitHub Codespace: [docs/review/qb31-codespaces.md](review/qb31-codespaces.md).
 
 ## 1. Install
 

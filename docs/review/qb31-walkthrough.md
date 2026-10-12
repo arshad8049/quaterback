@@ -8,7 +8,7 @@ The acceptance evidence for QB-31: a person follows [docs/onboarding.md](../onbo
 
 A clean **Ubuntu 24.04 LTS x86_64** VM with **at least 16 GB RAM** (the sandbox admits a run only with about 11.1 GiB free): no previous QB state, auth volume, cached project dependencies or prebuilt QB images.
 
-`scripts/qb31-walkthrough.sh` runs these steps in order and writes this record (machine table, step table, run ids, redacted logs) to `~/qb31-evidence/`.
+`scripts/qb31-walkthrough.sh` runs these steps in order and writes this record (machine table, step table, run ids, redacted logs) to `~/qb31-evidence/`. Free option without a VM: [GitHub Codespaces](qb31-codespaces.md).
 
 | | Value |
 |---|---|
