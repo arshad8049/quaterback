@@ -62,8 +62,22 @@ const MAX_FEEDBACK = 4000;
 /** The spec's human-approved oracle as a QB contract (QB-13 path); null if the spec has none. */
 function oracleContract(spec) {
   if (!spec.oracle) return null;
-  return approve(contractFromObject({ goal: spec.prompt, ...spec.oracle, clarifying_question: null }, spec.prompt),
-    { via: 'benchmark-oracle', note: `approved_by: ${spec.oracle.approved_by}` });
+  // QB-30 (dev pilot smoke, 2026-10-12): a frozen oracle holds acceptance criteria only, which the
+  // production gate refuses (QB-17 incomplete output, QB-14 untraced request). The missing fields
+  // are DERIVED from the frozen, human-approved spec, inventing nothing: the requirement text is
+  // the required behaviour; one requirement quotes the whole approved prompt verbatim (every clause
+  // traced by construction) and every criterion traces to it; the plan is the approved criteria.
+  // The criteria are unchanged; nothing from the hidden suite is used.
+  const acs = spec.oracle.acceptance_criteria || [];
+  return approve(contractFromObject({
+    goal: spec.prompt,
+    ...spec.oracle,
+    required_behavior: spec.oracle.required_behavior || [spec.requirement],
+    requirements: spec.oracle.requirements || [{ id: 'R-1', quote: spec.prompt }],
+    acceptance_criteria: acs.map((a) => (a.requirement_ids ? a : { ...a, requirement_ids: ['R-1'] })),
+    verification_plan: spec.oracle.verification_plan || acs.map((a) => `${a.id}: ${a.criterion}`),
+    clarifying_question: null,
+  }, spec.prompt), { via: 'benchmark-oracle', note: `approved_by: ${spec.oracle.approved_by}` });
 }
 
 /** Visible-test feedback from the sandbox's own run of the repository's tests (stage ⑤). */
