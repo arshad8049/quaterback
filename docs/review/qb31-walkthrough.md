@@ -105,3 +105,28 @@ So on a 16 GB host, the local model and the sandbox didn't fit together. Nothing
 - `qb doctor`'s `agent-auth` check requires a stored credential.
 - The kit stops at step 4 with re-sign-in instructions instead of running blocked demos.
 - Step 9 now requires the rerun to complete (attempt 2's step 9 was wrongly marked PASS while its rerun was BLOCKED).
+
+### Attempt 3 — sign-in diagnosis (same Codespace, `main` 9341049)
+
+**What happened.** The kit stopped at step 4 with the new check: "sign-in did not complete". A direct `qb auth login` then showed:
+- the sign-in page and the code paste worked, ending in `Login successful.` (the browser terminal delivers a long paste in pieces, so the CLI first printed "Invalid code" for each partial piece);
+- QB still found **no stored credential**.
+
+**Cause.** Listing the QB login volume showed it was **empty and owned by `root:root`, mode 0755**. The login container runs as uid 10001, so it could not write `.credentials.json`.
+
+Why the volume ended up root-owned:
+1. On a fresh machine, `login()` created the volume and ran `chown 10001:10001` with the agent image **before building it**. The build happens later, in `authContainer`.
+2. That `chown` failed, and its result was ignored.
+3. Every later login skipped the `chown` because the volume already existed.
+
+The volume was created at 04:32, during the very first sign-in on that fresh Codespace.
+
+**Fix (`prepareAuthVolume`).**
+- Build the agent image first.
+- Check that the volume is created.
+- Run the `chown` on **every** login. It is idempotent, so it also repairs a volume left root-owned by the old order.
+- Stop the login with the reason if the `chown` fails.
+
+**Verification.**
+- 3 tests written first; all failed before the fix.
+- With real Docker, a root-owned volume becomes `10001:10001` and writable by uid 10001.
