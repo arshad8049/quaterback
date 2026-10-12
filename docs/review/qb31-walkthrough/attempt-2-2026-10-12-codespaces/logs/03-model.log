@@ -1,0 +1,15 @@
+Script started on 2026-10-12 05:42:19+00:00 [COMMAND="set -e; ollama pull 'deepseek-r1:7b'; ollama list" TERM="xterm-256color" TTY="/dev/pts/1" COLUMNS="107" LINES="18"]
+]11;?\pulling manifest ⠋ pulling manifest ⠙ pulling manifest ⠹ pulling manifest 
+pulling 96c415656d37: 100% ▕█████████████████████████████████████████████▏ 4.7 GB                         
+pulling c5ad996bda6e: 100% ▕█████████████████████████████████████████████▏  556 B                         
+pulling 6e4c38e1172f: 100% ▕█████████████████████████████████████████████▏ 1.1 KB                         
+pulling f4d24e9138dd: 100% ▕█████████████████████████████████████████████▏  148 B                         
+pulling 40fb844194b2: 100% ▕█████████████████████████████████████████████▏  487 B                         
+verifying sha256 digest 
+writing manifest 
+removing unused layers 
+success 
+]11;?\NAME              ID              SIZE      MODIFIED               
+deepseek-r1:7b    755ced02ce7b    4.7 GB    Less than a second ago    
+
+Script done on 2026-10-12 05:42:20+00:00 [COMMAND_EXIT_CODE="0"]

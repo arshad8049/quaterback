@@ -31,7 +31,7 @@ describe('QB-31: qb doctor', () => {
     assert.deepEqual(r.checks.map((c) => c.id), ['runtime', 'git', 'docker', 'memory', 'agent-auth', 'model', 'agent-adapter', 'check-registry']);
     // Credentials can only be shown PRESENT here; a successful authenticated call proves them valid.
     assert.deepEqual(r.checks.filter((c) => c.status !== 'ok').map((c) => [c.id, c.status]), [['agent-auth', 'warn']]);
-    assert.match(r.checks.find((c) => c.id === 'agent-auth').detail, /login volume present; validity not verified/);
+    assert.match(r.checks.find((c) => c.id === 'agent-auth').detail, /login credential stored; validity not verified/);
     assert.equal(r.exitCode, 0);
     assert.match(byId(r)['agent-adapter'].detail, /claude-code.*supported.*qb-agent-adapter\/1/);
   });
