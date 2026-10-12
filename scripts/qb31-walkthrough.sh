@@ -72,11 +72,14 @@ ensure_ollama() {
 }
 docker_stop() {
   if has_systemd; then sudo systemctl stop docker docker.socket
-  else sudo pkill -x dockerd; wait_for 30 "! docker info"; fi
+  else sudo pkill -x dockerd; wait_for 30 "! docker info"; sudo pkill -x containerd; sleep 2; fi
 }
 docker_start() {
   if has_systemd; then sudo systemctl start docker
-  else sudo sh -c 'nohup dockerd > /tmp/dockerd.log 2>&1 &'; fi
+  elif [ -x /usr/local/share/docker-init.sh ]; then
+    # docker-in-docker (e.g. Codespaces): its own init script restarts dockerd the way the container did at start
+    sudo sh -c "nohup /usr/local/share/docker-init.sh sleep infinity > '$LOGS/dockerd-restart.log' 2>&1 &"
+  else sudo sh -c "nohup dockerd > '$LOGS/dockerd-restart.log' 2>&1 &"; fi
   wait_for 60 "docker info"
 }
 newest_run() { ls -t "${QB_RUNS_DIR:-$HOME/.qb/runs}" 2>/dev/null | head -1; }
