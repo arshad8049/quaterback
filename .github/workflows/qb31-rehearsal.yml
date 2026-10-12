@@ -48,6 +48,21 @@ jobs:
             [ -f "$f" ] && { echo; echo "### $(basename "$f")"; echo '```'; grep -E '^ℹ (tests|pass|fail|skipped)|^✖ ' "$f" | head -20; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           done
           true
+      - name: Publish results as annotations (readable without a token)
+        if: always()
+        run: |
+          enc() { sed -e 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}'; }
+          st=~/qb31-evidence/steps.tsv
+          [ -f "$st" ] && echo "::notice title=QB-31 rehearsal steps::$(sort -t$'\t' -k1,1n "$st" | awk -F'\t' '{print $1". "$2" | "$5" | "$4" | "$6}' | enc)"
+          for f in cp-unit cp-integration; do
+            l=~/qb31-evidence/logs/$f.log
+            [ -f "$l" ] && echo "::notice title=Checkpoint $f::$( { grep -m1 -E '^v[0-9]+\.' "$l"; grep -E '^ℹ (tests|pass|fail|skipped)|^✖ |Error: |code: ' "$l" | head -25; } | enc)"
+          done
+          for l in ~/qb31-evidence/logs/*.log; do
+            case "$(basename "$l")" in cp-*) continue;; esac
+            grep -qiE 'error|fail|✗' "$l" && echo "::notice title=Log $(basename "$l")::$(grep -iE 'error|fail|✗|warn|!' "$l" | head -15 | enc)"
+          done
+          true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
