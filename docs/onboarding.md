@@ -18,8 +18,8 @@ A guided script for the fresh-machine walkthrough, which records the evidence as
 ### Prerequisites (Ubuntu 24.04)
 
 ```bash
-# git, curl
-sudo apt-get update && sudo apt-get install -y git curl ca-certificates
+# git, curl; zstd is needed by the Ollama installer
+sudo apt-get update && sudo apt-get install -y git curl ca-certificates zstd
 
 # Node 24 (NodeSource)
 curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -

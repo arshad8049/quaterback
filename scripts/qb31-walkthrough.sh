@@ -93,7 +93,7 @@ s1() {
   command -v ollama >/dev/null && have="$have ollama"
   [ -n "$have" ] && echo "  already installed, skipped:$have"
   rec 01-prereqs "set -e
-    sudo apt-get update && sudo apt-get install -y git curl ca-certificates
+    sudo apt-get update && sudo apt-get install -y git curl ca-certificates zstd
     if ! echo '$have' | grep -q node24; then
       curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
       sudo apt-get install -y nodejs
