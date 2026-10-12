@@ -10,7 +10,7 @@ name: qb31-rehearsal
 on:
   push:
     branches: [qb31-walkthrough-kit]
-    paths: [scripts/qb31-walkthrough.sh, .github/workflows/qb31-rehearsal.yml, .devcontainer/qb31-walkthrough/**]
+    paths: [scripts/qb31-walkthrough.sh, .github/workflows/qb31-rehearsal.yml, .devcontainer/qb31-walkthrough/**, lib/model-release.js, lib/sandbox/pipeline.js]
   workflow_dispatch:
     inputs:
       checkpoint:
@@ -40,6 +40,19 @@ jobs:
           flag=--with-checkpoint
           [ "${{ github.event_name }}" = workflow_dispatch ] && [ "${{ inputs.checkpoint }}" != true ] && flag=
           bash scripts/qb31-walkthrough.sh --ref "$GITHUB_SHA" --no-agent $flag
+      - name: Model memory is released before admission (real Ollama, 16 GB)
+        run: |
+          cd ~/qb31/quaterback
+          mem() { awk '/MemAvailable/{printf "%.1f GiB", $2/1048576}' /proc/meminfo; }
+          before=$(mem)
+          curl -s http://127.0.0.1:11434/api/generate -d '{"model":"deepseek-r1:7b","prompt":"Reply OK.","stream":false,"options":{"num_predict":4}}' >/dev/null
+          loaded=$(mem); ps=$(curl -s http://127.0.0.1:11434/api/ps | head -c 200)
+          rel=$(node -e "require('./lib/model-release').releaseLocalModel().then(r=>console.log(JSON.stringify(r)))")
+          after=$(mem)
+          admit=$(node -e "const a=require('./lib/sandbox/admission');const r=a.admit(require('os').tmpdir()+'/qb-admit-check',{runId:'check'});if(r.release)r.release();console.log(JSON.stringify({ok:r.ok,reason:r.reason,mem_available:r.mem_available,needed:r.needed}))")
+          msg="idle: $before | model loaded: $loaded | release: $rel | after release: $after | admission: $admit | ps while loaded: $ps"
+          echo "$msg"; echo "::notice title=Model release before admission::$msg"
+          echo "$admit" | grep -q '"ok":true'
       - name: Summary
         if: always()
         run: |
