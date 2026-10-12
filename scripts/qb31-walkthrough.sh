@@ -46,9 +46,11 @@ mkdir -p "$WORK" "$LOGS"; touch "$STEPS" "$RUNS"
 bold() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 qb() { node "$QBDIR/qb.js" "$@"; }
 
-# Remove anything credential-shaped from a log, in place.
+# Remove anything credential-shaped from a log, in place; also terminal colour codes and CRs
+# (logs are recorded through a pty), so the log reads as plain text.
 redact() {
   sed -i -E \
+    -e 's/\x1b\[[0-9;?]*[A-Za-z]//g' -e 's/\r$//' -e 's/\r/\n/g' \
     -e 's/sk-ant-[A-Za-z0-9_-]+/[REDACTED-KEY]/g' \
     -e 's/((code|token|key|secret|state)=)[A-Za-z0-9._~%-]+/\1[REDACTED]/Ig' \
     -e 's/((bearer|oauth)[[:space:]:]+)[A-Za-z0-9._-]{12,}/\1[REDACTED]/Ig' \
