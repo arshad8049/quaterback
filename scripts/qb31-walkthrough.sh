@@ -233,7 +233,7 @@ s9() {
 s10() {
   if [ $NO_AGENT -eq 1 ]; then step 10 "qb runs, qb show, qb replay (§5)" "replay reproduces the verdict" "rehearsal (--no-agent): needs a real agent run" SKIPPED 0; return; fi
   bold "10/11 qb runs, qb show, qb replay"
-  local t=$SECONDS id; id=$(head -1 "$RUNS" | awk '{print $2}')
+  local t=$SECONDS id; id=$(grep '^demo:' "$RUNS" | tail -1 | awk '{print $2}')   # the latest demo run (a resume may have recorded earlier ones)
   rec 10-inspect "cd '$WORK' && node '$QBDIR/qb.js' runs && node '$QBDIR/qb.js' show '$id' && node '$QBDIR/qb.js' replay '$id'"; local rc=$?
   local ok=FAIL; [ $rc -eq 0 ] && grep -q 'outcome=.* reproduced' "$LOGS/10-inspect.log" && ! grep -q 'NOT reproduced' "$LOGS/10-inspect.log" && ok=PASS
   step 10 "qb runs, qb show, qb replay (§5)" "run listed; replay reproduces the verdict" "exit $rc for run $id; $(grep -o 'outcome=[A-Z_]* *[A-Za-z ]*reproduced' "$LOGS/10-inspect.log" | tail -1)" $ok $((SECONDS-t))
@@ -243,7 +243,7 @@ s10() {
 s11() {
   if [ $NO_AGENT -eq 1 ]; then step 11 "qb patch --out, apply to qb-demo, behaviour check (§5)" "prints 0 10 7" "rehearsal (--no-agent): needs a real agent run" SKIPPED 0; return; fi
   bold "11/11 qb patch → apply to qb-demo → behaviour check"
-  local t=$SECONDS id; id=$(head -1 "$RUNS" | awk '{print $2}')
+  local t=$SECONDS id; id=$(grep '^demo:' "$RUNS" | tail -1 | awk '{print $2}')   # the latest demo run (a resume may have recorded earlier ones)
   rec 11-patch "set -e; cd '$WORK'; node '$QBDIR/qb.js' patch '$id' --out clamp.patch; git -C qb-demo apply --check ../clamp.patch; git -C qb-demo apply ../clamp.patch; node -e \"const { clamp } = require('./qb-demo/src/utils'); console.log(clamp(-5, 0, 10), clamp(50, 0, 10), clamp(7, 0, 10))\""
   local ok=FAIL; grep -q '^0 10 7' "$LOGS/11-patch.log" && ok=PASS
   step 11 "qb patch --out, apply to qb-demo, behaviour check (§5)" "applies cleanly; prints 0 10 7" "$(tail -1 "$LOGS/11-patch.log" | tr -d '\r')" $ok $((SECONDS-t))

@@ -50,3 +50,4 @@ sandbox/QB31_testRun/
 
 # QB-31 walkthrough evidence written inside a Codespace (download it, don't commit it)
 qb31-evidence*/
+qb31-evidence*.tgz
