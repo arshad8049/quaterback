@@ -66,7 +66,8 @@ function oracleContract(spec) {
   // production gate refuses (QB-17 incomplete output, QB-14 untraced request). The missing fields
   // are DERIVED from the frozen, human-approved spec, inventing nothing: the requirement text is
   // the required behaviour; one requirement quotes the whole approved prompt verbatim (every clause
-  // traced by construction) and every criterion traces to it; the plan is the approved criteria.
+  // traced by construction) and every criterion traces to it; the plan is the approved criteria;
+  // the scope is the whole repository.
   // The criteria are unchanged; nothing from the hidden suite is used.
   const acs = spec.oracle.acceptance_criteria || [];
   return approve(contractFromObject({
@@ -76,6 +77,10 @@ function oracleContract(spec) {
     requirements: spec.oracle.requirements || [{ id: 'R-1', quote: spec.prompt }],
     acceptance_criteria: acs.map((a) => (a.requirement_ids ? a : { ...a, requirement_ids: ['R-1'] })),
     verification_plan: spec.oracle.verification_plan || acs.map((a) => `${a.id}: ${a.criterion}`),
+    // QB-30 (dev pilot smoke 2): without a declared scope QB-09 treats EVERY change as unauthorized,
+    // so E was told to revert its own fix and submitted an empty patch. Any repository change is in
+    // scope, as for arm A; the grader alone guards the hidden suite's paths, for every arm alike.
+    scope: spec.oracle.scope || { allowed_changes: ['**'] },
     clarifying_question: null,
   }, spec.prompt), { via: 'benchmark-oracle', note: `approved_by: ${spec.oracle.approved_by}` });
 }
