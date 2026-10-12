@@ -16,7 +16,8 @@ const DEFAULT_BASE = 'https://quaterback.velorallc.workers.dev';
 
 const CHECKS = [
   ['GET / serves the landing page', 'GET', '/', {}, (r, t) => r.status === 200 && /<html/i.test(t) && /Quarterback/.test(t)],
-  ['GET /privacy.html serves the privacy page', 'GET', '/privacy.html', {}, (r, t) => r.status === 200 && /Privacy Policy/.test(t)],
+  ['GET /privacy serves the privacy page', 'GET', '/privacy', {}, (r, t) => r.status === 200 && /Privacy Policy/.test(t)],
+  ['GET /privacy.html redirects to the clean URL', 'GET', '/privacy.html', {}, (r) => r.status >= 301 && r.status <= 308 && /\/privacy$/.test(r.headers.get('location') || '')],
   ['GET /robots.txt', 'GET', '/robots.txt', {}, (r) => r.status === 200],
   ['the worker source is not served', 'GET', '/_worker.js', {}, (r) => r.status === 404],
   ['the database schema is not served', 'GET', '/schema.sql', {}, (r) => r.status === 404],
