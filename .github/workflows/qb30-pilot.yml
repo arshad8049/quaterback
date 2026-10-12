@@ -1,0 +1,157 @@
+name: qb30-pilot
+
+# QB-30 step 2 — the exploratory DEV pilot (dev split only; never evidence of effectiveness).
+# Manual only (workflow_dispatch), and it uses the owner's Claude subscription token:
+#   repository secret CLAUDE_CODE_OAUTH_TOKEN  (created with `claude setup-token`)
+#
+#   pin     build the three sandbox images ONCE, push them to GHCR, and pin ONE experiment
+#           (manifest) against the pushed digests — no trials run here, no token used.
+#   run     shard i/n: pull the exact pinned images by digest, build the task repositories,
+#           start Ollama, then `experiment-run --resume <exp> --shard i/n` (whole tasks per
+#           shard; every arm-trial re-checks the pins). Uploads that shard's recorded trials.
+#   report  merge every shard's trials into the one experiment, verify it, and publish the
+#           exploratory summary (completion, attrition, outcomes per arm and task).
+#
+# Re-running the workflow is NOT a resume: it pins a new experiment. A shard that fails part-way
+# keeps its recorded trials in the artifact; missing trials are attrition, never dropped.
+
+on:
+  workflow_dispatch:
+    inputs:
+      config:
+        description: 'Experiment config'
+        type: choice
+        options: [bench/pilot/smoke.json, bench/pilot/dev-pilot.json]
+        default: bench/pilot/smoke.json
+      shards:
+        description: 'Number of shards (whole tasks each)'
+        type: choice
+        options: ['1', '2', '5', '10']
+        default: '1'
+      max_parallel:
+        description: 'Shards running at once (subscription concurrency)'
+        type: choice
+        options: ['1', '2', '3', '5']
+        default: '3'
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  NODE_VERSION: '24.21.0'
+  REGISTRY: ghcr.io/${{ github.repository_owner }}
+
+jobs:
+  pin:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    outputs:
+      exp: ${{ steps.pin.outputs.exp }}
+      shards: ${{ steps.shards.outputs.list }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '${{ env.NODE_VERSION }}' }
+      - run: npm ci
+      - uses: docker/login-action@v3
+        with: { registry: ghcr.io, username: '${{ github.actor }}', password: '${{ secrets.GITHUB_TOKEN }}' }
+      - name: Build the sandbox images and push them (pins use the registry digests)
+        run: |
+          node -e "(async()=>{await require('./lib/sandbox/agent').ensureAgentImage();await require('./lib/sandbox/egress').ensureProxyImage();await require('./lib/sandbox/workspace').ensureToolsImage();})()"
+          for ref in $(node -e "console.log([require('./lib/sandbox/agent').AGENT_IMAGE,require('./lib/sandbox/egress').PROXY_IMAGE,require('./lib/sandbox/workspace').TOOLS_IMAGE].join(' '))"); do
+            remote="$REGISTRY/$ref"; docker tag "$ref" "$remote"; docker push -q "$remote"
+            # outside the QB checkout: an untracked file would pin the experiment as "dirty"
+            echo "$ref $(docker image inspect "$ref" --format '{{index .RepoDigests 0}}')" | tee -a "$RUNNER_TEMP/images.txt"
+          done
+      - name: Pin the experiment (no trials)
+        id: pin
+        run: |
+          git status --porcelain | grep . && { echo "::error::the QB checkout is dirty; the pin would not be reproducible on the shards"; exit 1; } || true
+          node bench/experiment-run.js --config "${{ inputs.config }}" --out "$RUNNER_TEMP/exp" --pin-only | tee "$RUNNER_TEMP/pin.log"
+          exp=$(sed -n 's/^experiment //p' "$RUNNER_TEMP/pin.log" | head -1); echo "exp=$(basename "$exp")" >> "$GITHUB_OUTPUT"
+          cp "$RUNNER_TEMP/images.txt" "$RUNNER_TEMP/exp/images.txt"     # beside the experiment, never inside it
+      - name: Shard list
+        id: shards
+        run: echo "list=$(node -e "console.log(JSON.stringify(Array.from({length:${{ inputs.shards }}},(_, i)=>i+1)))")" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with: { name: experiment, path: '${{ runner.temp }}/exp', retention-days: 30 }
+
+  run:
+    needs: pin
+    runs-on: ubuntu-24.04
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      max-parallel: ${{ fromJSON(inputs.max_parallel) }}
+      matrix:
+        shard: ${{ fromJSON(needs.pin.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '${{ env.NODE_VERSION }}' }
+      - name: Free disk
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL; df -h /
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with: { name: experiment, path: '${{ runner.temp }}/exp' }
+      - uses: docker/login-action@v3
+        with: { registry: ghcr.io, username: '${{ github.actor }}', password: '${{ secrets.GITHUB_TOKEN }}' }
+      - name: Pull the pinned images by digest
+        run: |
+          while read -r ref digestref; do
+            docker pull -q "$digestref" && docker tag "$digestref" "$ref"
+          done < "$RUNNER_TEMP/exp/images.txt"
+      - name: Task repositories and the local model
+        run: |
+          node bench/repos.js build all
+          curl -fsSL https://ollama.com/install.sh | sh
+          ollama pull deepseek-r1:7b
+      - name: Run shard ${{ matrix.shard }}/${{ inputs.shards }}
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          [ -n "$CLAUDE_CODE_OAUTH_TOKEN" ] || { echo "::error::repository secret CLAUDE_CODE_OAUTH_TOKEN is not set"; exit 1; }
+          node bench/experiment-run.js --config "${{ inputs.config }}" --resume "$RUNNER_TEMP/exp/${{ needs.pin.outputs.exp }}" --shard "${{ matrix.shard }}/${{ inputs.shards }}"
+      - name: Upload this shard's trials
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trials-shard-${{ matrix.shard }}
+          path: ${{ runner.temp }}/exp/${{ needs.pin.outputs.exp }}/trials
+          if-no-files-found: warn
+          retention-days: 30
+
+  report:
+    needs: [pin, run]
+    if: always() && needs.pin.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '${{ env.NODE_VERSION }}' }
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with: { name: experiment, path: '${{ runner.temp }}/exp' }
+      - uses: actions/download-artifact@v4
+        with: { pattern: 'trials-shard-*', path: '${{ runner.temp }}/shards' }
+      - name: Merge the shards into the one experiment
+        run: |
+          E="$RUNNER_TEMP/exp/${{ needs.pin.outputs.exp }}"; mkdir -p "$E/trials"
+          for d in "$RUNNER_TEMP"/shards/trials-shard-*; do [ -d "$d" ] && cp -Rn "$d"/. "$E/trials/"; done
+          echo "recorded arm-trials: $(find "$E/trials" -name result.json | wc -l)"
+      - name: Report (exploratory)
+        run: |
+          E="$RUNNER_TEMP/exp/${{ needs.pin.outputs.exp }}"
+          node bench/report.js "$E" > report.txt 2>&1 || true
+          cat report.txt
+          enc() { sed -e 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}'; }
+          echo "::notice title=QB-30 dev pilot (exploratory; not evidence of effectiveness)::$(head -120 report.txt | enc)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: experiment-merged
+          path: |
+            ${{ runner.temp }}/exp
+            report.txt
+          retention-days: 90
