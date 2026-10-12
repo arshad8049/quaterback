@@ -143,20 +143,36 @@ function freezeTask(id, o = {}) {
   return spec;
 }
 
-module.exports = { qualifyTask, freezeTask, patchFromTree, specOf, DEFAULTS };
+/**
+ * The directories of a task set. `dev` is the frozen dev set (bench/curation, suites, specs,
+ * specs.lock.json); `screen` holds harder candidates under bench/screen/ with their OWN lock, so
+ * curating them never touches the dev set or its lock (QB-30 harder-task screen).
+ */
+function curateDirs(set = 'dev') {
+  if (set === 'dev') return DEFAULTS;
+  if (set === 'screen') {
+    const root = path.join(__dirname, 'screen');
+    return { curation: path.join(root, 'curation'), suites: path.join(root, 'suites'), specs: path.join(root, 'specs'), lockFile: path.join(root, 'specs.lock.json') };
+  }
+  throw new Error(`unknown task set ${JSON.stringify(set)} (dev | screen)`);
+}
+
+module.exports = { qualifyTask, freezeTask, patchFromTree, specOf, DEFAULTS, curateDirs };
 
 if (require.main === module) {
   (async () => {
     const args = process.argv.slice(2);
     const [cmd, which] = args;
     const ai = args.indexOf('--approver');
-    const ids = which === 'all' ? fs.readdirSync(DEFAULTS.curation).filter((d) => fs.existsSync(path.join(DEFAULTS.curation, d, 'task.json'))).sort() : [which];
-    if (!which || !['qualify', 'freeze'].includes(cmd)) { console.error('usage: node bench/curate.js qualify|freeze <ID|all> [--approver "<name>"]'); process.exit(2); }
+    const si = args.indexOf('--set');
+    const dirs = curateDirs(si >= 0 ? args[si + 1] : 'dev');
+    if (!which || !['qualify', 'freeze'].includes(cmd)) { console.error('usage: node bench/curate.js qualify|freeze <ID|all> [--approver "<name>"] [--set dev|screen]'); process.exit(2); }
+    const ids = which === 'all' ? fs.readdirSync(dirs.curation).filter((d) => fs.existsSync(path.join(dirs.curation, d, 'task.json'))).sort() : [which];
     let failed = 0;
     for (const id of ids) {
       try {
-        if (cmd === 'qualify') { await qualifyTask(id); console.log(`${id}\tqualified`); }
-        else { freezeTask(id, { approver: ai >= 0 ? args[ai + 1] : '' }); console.log(`${id}\tfrozen`); }
+        if (cmd === 'qualify') { await qualifyTask(id, dirs); console.log(`${id}\tqualified`); }
+        else { freezeTask(id, { ...dirs, approver: ai >= 0 ? args[ai + 1] : '' }); console.log(`${id}\tfrozen`); }
       } catch (e) { failed++; console.log(`${id}\tFAILED\t${e.message.replace(/\s+/g, ' ').slice(0, 600)}`); }
     }
     process.exit(failed ? 1 : 0);

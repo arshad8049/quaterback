@@ -32,7 +32,7 @@ const { ARMS, SCOPE, runArm } = require('./arms');
 const D = require('../lib/sandbox/docker');
 const { seededOrder, holdoutGate } = require('./plan');
 const { grade, GRADER_FILES } = require('./grader');
-const { checkFrozen } = require('./spec');
+const { checkFrozen, readLock, LOCK_FILE } = require('./spec');
 const S = require('./schemas');
 
 const AGENT = { type: 'claude-code', version: AGENT_VERSION, isolation: 'sandbox' };
@@ -46,6 +46,15 @@ function taskEntries(specs) {
 /** The exact arm definitions (bench/arms.js) — a manifest cannot redefine an arm. */
 function armDefinitions(ids) {
   return ids.map((id) => { if (!ARMS[id]) throw new Error(`unknown arm ${id}`); return { ...ARMS[id] }; });
+}
+
+/**
+ * The task set an experiment config uses: `lock` (its spec lock) and `suites` (its hidden suites),
+ * relative to the config file. Defaults: the dev set's lock and the grader's default suites.
+ */
+function configPaths(cfg, cfgFile) {
+  const rel = (p) => path.resolve(path.dirname(cfgFile), p);
+  return { lockFile: cfg.lock ? rel(cfg.lock) : LOCK_FILE, suitesRoot: cfg.suites ? rel(cfg.suites) : null };
 }
 
 /** "i/n" with 1 ≤ i ≤ n → { index, count }. */
@@ -185,13 +194,16 @@ async function main(argv) {
   const cfgFile = path.resolve(opts.config);
   const cfg = JSON.parse(fs.readFileSync(cfgFile, 'utf8'));
   const specs = (cfg.specs || []).map((f) => JSON.parse(fs.readFileSync(path.resolve(path.dirname(cfgFile), f), 'utf8')));
-  for (const s of specs) checkFrozen(s);
+  const sets = configPaths(cfg, cfgFile);
+  const lock = readLock(sets.lockFile);
+  for (const s of specs) checkFrozen(s, lock);
+  const grader = sets.suitesRoot ? { suitesRoot: sets.suitesRoot } : undefined;
   const protocol = cfg.protocol ? { path: cfg.protocol.path, sha256: S.sha256File(path.resolve(path.dirname(cfgFile), cfg.protocol.path)) } : null;
   const memoryStart = cfg.memory_start ? path.resolve(path.dirname(cfgFile), cfg.memory_start) : null;
   if (opts.resume) {
     const dir = path.resolve(opts.resume);
     console.log(`experiment ${dir} (resume${shard ? `, shard ${shard.index}/${shard.count}` : ''})`);
-    await runExperiment(dir, { specs: Object.fromEntries(specs.map((s) => [s.id, s])), memoryStart, shard });
+    await runExperiment(dir, { specs: Object.fromEntries(specs.map((s) => [s.id, s])), memoryStart, shard, grader });
     console.log(`done — report: node bench/report.js ${dir}`);
     return;
   }
@@ -206,10 +218,10 @@ async function main(argv) {
   });
   console.log(`experiment ${dir}`);
   if (opts.pinOnly) return;
-  await runExperiment(dir, { specs: Object.fromEntries(specs.map((s) => [s.id, s])), memoryStart, shard });
+  await runExperiment(dir, { specs: Object.fromEntries(specs.map((s) => [s.id, s])), memoryStart, shard, grader });
   console.log(`done — report: node bench/report.js ${dir}`);
 }
 
 if (require.main === module) main(process.argv).catch((e) => { console.error(`experiment-run: ${e.message}`); process.exit(1); });
 
-module.exports = { runExperiment, taskEntries, armDefinitions, trialUsage, parseShard, taskShards };
+module.exports = { runExperiment, taskEntries, armDefinitions, trialUsage, parseShard, taskShards, configPaths };
