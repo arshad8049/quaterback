@@ -47,3 +47,33 @@ Each gap, with the fix commit:
 ## Redacted transcript
 
 (attached or linked)
+
+## Attempt 1 — 2026-10-12, GitHub Codespaces (owner run): BLOCKED, product fix made
+
+**Raw record, unedited:** [`qb31-walkthrough/attempt-1-2026-10-12-codespaces/`](qb31-walkthrough/attempt-1-2026-10-12-codespaces/evidence.md), with its redacted logs.
+
+**Setup:**
+- Operator: the owner. Provider: GitHub Codespaces, 4-core.
+- Ubuntu 24.04.3 x86_64, 15.6 GiB RAM, Node 24.21.0, Docker 29.8.2, Ollama 0.40.3.
+- QB at `main` 8b3e582. Agent `claude-code@2.1.288`.
+
+| Step | Result |
+|---|---|
+| 1–6: install, model, `qb auth login`, `qb doctor` (memory ✓ 13.5 GiB), demo repo | PASS |
+| 7: demo run | **BLOCKED** `insufficient_host_resources` at sandbox admission. No agent call was made. |
+| 8: demo checkout unchanged | PASS |
+| 9: Docker stop → doctor ✗ docker → start | Docker restarted, but doctor then showed ✗ memory at 7.9 GiB, and the rerun was BLOCKED the same way |
+| 10–11 | Inspected an earlier cancelled run (a kit bug, now fixed); no patch to export |
+
+**Cause.**
+1. Doctor measured 13.5 GiB free before any model call.
+2. L2 then loaded `deepseek-r1:7b`, about 5.6 GiB on CPU, and Ollama keeps a model resident after use.
+3. At admission only 7.9 GiB was free, against the 11.1 GiB the sandbox needs.
+
+So on a 16 GB host, the local model and the sandbox didn't fit together. Nothing needs the model while the sandbox runs.
+
+**Fix.**
+- **Code:** QB now asks a *local* Ollama to unload the model just before admission and waits until it is gone (`lib/model-release.js`, called from `lib/sandbox/pipeline.js`). The result is recorded as `sandbox.model_release`.
+- **Kit:** steps 10 and 11 now use the latest demo run.
+
+**Next:** attempt 2 on the same setup after the fix is merged.

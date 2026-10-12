@@ -1,0 +1,11 @@
+1	Prerequisites (§1)	git, Node 24, Docker, Ollama installed; docker works without sudo after re-login	installed; v24.21.0; docker without sudo OK; preinstalled: node24 docker ollama	PASS	3s
+2	QB install at the given SHA, npm ci (§1)	succeeds	HEAD 8b3e582bfef7dd3a63b38ff08c6280e33b6202d5; npm ci exit 0	PASS	1s
+3	ollama pull deepseek-r1:7b (§1)	model listed by ollama list	listed	PASS	1s
+4	qb auth login (§1)	signed in; qb auth status shows an expiry	login exit 0; status in logs/04-auth-status.log	PASS	57s
+5	qb doctor (§2)	exit 0; memory ✓; agent-auth validity not verified (!)	exit 0; memory 13.5 GiB available; a sandboxed run needs 11.1 GiB free at admission	PASS	0s
+6	Demo repo + qb doctor --repo qb-demo (§3)	repository ✓, test-runner ✓ node-test	doctor exit 0	PASS	1s
+7	Demo run with the reviewed contract (§3)	authenticated agent call succeeds; checks pass; verdict pass; run id printed	run 20b67c4e-cfa4-4ebb-8323-dbac5d2d0ff2; outcome BLOCKED	FAIL	180s
+8	git -C qb-demo status --porcelain (§3)	empty: checkout unchanged	empty	PASS	0s
+9	Docker stop → doctor → start → doctor → rerun (§4)	✗ docker, then ✓; the rerun completes	doctor exit 1 then 1; rerun b0557bf6-4ab3-4928-94be-c5e9f00c9d44 BLOCKED	FAIL	124s
+10	qb runs, qb show, qb replay (§5)	run listed; replay reproduces the verdict	exit 0 for run b1eb3e7d-9be5-47f3-b010-58f1bc60a3f4; outcome=CANCELLED  reproduced	PASS	1s
+11	qb patch --out, apply to qb-demo, behaviour check (§5)	applies cleanly; prints 0 10 7	Script done on 2026-10-12 04:40:55+00:00 [COMMAND_EXIT_CODE="1"]	FAIL	0s
