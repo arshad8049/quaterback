@@ -171,3 +171,34 @@ The volume was created at 04:32, during the very first sign-in on that fresh Cod
 **Verification.**
 - 3 tests written first; all failed before the fix.
 - With real Docker, a root-owned volume becomes `10001:10001` and writable by uid 10001.
+
+## Senior review 10276 (2026-10-12): SENT BACK — unsupported test runners were not refused before model execution
+
+**What the review accepted:** the walkthrough evidence above.
+
+**Finding.** The card says unsupported agents *and runners* fail before model execution. Runners did not.
+- `validateRunOptions` never consulted `testPlan`, and doctor only warned.
+- My claim in comment 10275, that unsupported runners already failed early, was wrong.
+
+**Reproduced first** with `qb.js --agent claude-code`, the model stubbed and the sandbox spied:
+
+```
+jest exit 2 model calls 1 agent launches 0 run records 1
+mocha-config exit 2 model calls 1 agent launches 0 run records 1
+```
+
+**Fix.**
+- `lib/run-options.js` now runs `testPlan(repo)` in the run preflight. `testPlan` reads `package.json` / `.quarterback.json` only and never executes repository scripts.
+- Every agent run is refused with exit 2 and the runner named, for:
+  - a detected unsupported runner;
+  - a configured unsupported runner;
+  - an invalid test config.
+- `--agent dry-run` is the one stated exception: it only plans and verifies nothing.
+- Doctor's `test-runner` check now fails for agent runs and warns for dry-run.
+- `docs/support.md` and `docs/onboarding.md` are aligned.
+
+**Regressions** (`test/unit/qb31-runner-gate.test.js`, 5 of 7 failing before the fix):
+- detected Jest and a configured `.quarterback.json` mocha both give exit 2, the runner-specific error, **0 model calls, 0 agent launches** (`test/helpers/preload-sandbox-spy.js`) and **0 run records**;
+- an invalid config is refused;
+- the node:test control is not refused and reaches the model;
+- the dry-run exception is tested explicitly.
