@@ -8,6 +8,7 @@ const { orchestrate } = require('./orchestrator');
 const { executionGate } = require('./runner');
 const { approve } = require('../intent/contract-state');
 const { formatOracle } = require('../intent/oracle-view');
+const { AGENT_IDS, adapterProblem } = require('./adapters');
 
 program
   .name('qb-agent')
@@ -15,7 +16,7 @@ program
   .requiredOption('--contract <path>', 'Path to TaskContract JSON (from Layer 1)')
   .option('--context <path>',  'Path to ContextPackage JSON (from Layer 2)')
   .option('--repo <path>',     'Repo path (defaults to context.repo_path or cwd)')
-  .option('--agent <type>',    'Agent to invoke: dry-run | claude-code | manual', 'dry-run')
+  .option('--agent <type>',    `Agent to invoke: ${AGENT_IDS.join(' | ')}`, 'dry-run')
   .option('--save',            'Save ExecutionResult to agent/executions/{id}.json')
   .option('--approve-contract',  'I reviewed this contract and approve it as the test oracle (QB-13; required for non-dry-run agents)')
   .parse(process.argv);
@@ -23,6 +24,9 @@ program
 const options = program.opts();
 
 async function run() {
+  // QB-31: an unsupported agent fails before anything runs.
+  const problem = adapterProblem(options.agent);
+  if (problem) { console.error(`\n  ✗ --agent: ${problem}\n`); process.exitCode = 2; return; }
   let contract = JSON.parse(fs.readFileSync(path.resolve(options.contract), 'utf8'));
   // QB-13: a non-dry-run agent needs a human-approved oracle. An approval field in
   // the file is ignored (anyone can compute a hash); the user approves explicitly.

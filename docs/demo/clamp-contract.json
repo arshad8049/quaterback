@@ -1,0 +1,30 @@
+{
+  "goal": "Add a clamp(n, min, max) function to src/utils.js that bounds n to [min, max]",
+  "required_behavior": [
+    "src/utils.js exports a function clamp(n, min, max)",
+    "clamp returns min when n is below min, max when n is above max, and n itself when n is within [min, max]"
+  ],
+  "constraints": [],
+  "requirements": [
+    { "id": "R-1", "quote": "Add a clamp(n, min, max) function to src/utils.js" },
+    { "id": "R-2", "quote": "bounds n to [min, max]" }
+  ],
+  "acceptance_criteria": [
+    { "id": "AC-1", "criterion": "src/utils.js exports clamp as a function", "kind": "behavioral", "requirement_ids": ["R-1"] },
+    { "id": "AC-2", "criterion": "below the lower bound: clamp(-5, 0, 10) returns 0", "kind": "behavioral", "requirement_ids": ["R-2"] },
+    { "id": "AC-3", "criterion": "above the upper bound: clamp(50, 0, 10) returns 10", "kind": "behavioral", "requirement_ids": ["R-2"] },
+    { "id": "AC-4", "criterion": "in range: clamp(7, 0, 10) returns 7, and the bounds themselves are kept: clamp(0, 0, 10) returns 0 and clamp(10, 0, 10) returns 10", "kind": "behavioral", "requirement_ids": ["R-2"] }
+  ],
+  "checks": [
+    { "id": "CHK-EXPORT", "ac_id": "AC-1", "adapter": "module_exports", "params": { "module": "src/utils.js", "export": "clamp", "type": "function" } },
+    { "id": "CHK-LOWER", "ac_id": "AC-2", "adapter": "call_returns", "params": { "module": "src/utils.js", "export": "clamp", "args": [-5, 0, 10], "expect": 0 } },
+    { "id": "CHK-UPPER", "ac_id": "AC-3", "adapter": "call_returns", "params": { "module": "src/utils.js", "export": "clamp", "args": [50, 0, 10], "expect": 10 } },
+    { "id": "CHK-INRANGE", "ac_id": "AC-4", "adapter": "call_returns", "params": { "module": "src/utils.js", "export": "clamp", "args": [7, 0, 10], "expect": 7 } },
+    { "id": "CHK-AT-MIN", "ac_id": "AC-4", "adapter": "call_returns", "params": { "module": "src/utils.js", "export": "clamp", "args": [0, 0, 10], "expect": 0 } },
+    { "id": "CHK-AT-MAX", "ac_id": "AC-4", "adapter": "call_returns", "params": { "module": "src/utils.js", "export": "clamp", "args": [10, 0, 10], "expect": 10 } }
+  ],
+  "verification_plan": ["run the executable checks for each criterion", "run the repository's node:test suite"],
+  "scope": { "allowed_changes": ["src/utils.js", "test/**"], "protected_paths": ["package.json", "package-lock.json"] },
+  "relevant_context": ["src/utils.js"],
+  "ambiguity_flags": []
+}

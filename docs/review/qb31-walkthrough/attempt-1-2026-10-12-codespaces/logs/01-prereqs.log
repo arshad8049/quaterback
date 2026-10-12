@@ -1,0 +1,230 @@
+Script started on 2026-10-12 04:34:47+00:00 [COMMAND="set -e     sudo apt-get update && sudo apt-get install -y git curl ca-certificates zstd     if ! echo ' node24 docker ollama' | grep -q node24; then       curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -       sudo apt-get install -y nodejs     fi     if ! echo ' node24 docker ollama' | grep -q docker; then       sudo install -m 0755 -d /etc/apt/keyrings       sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc       sudo chmod a+r /etc/apt/keyrings/docker.asc       echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null       sudo apt-get update && sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin       sudo systemctl enable --now docker       sudo usermod -aG docker "$USER"     fi     if ! echo ' node24 docker ollama' | grep -q ollama; then curl -fsSL https://ollama.com/install.sh | sh; fi" TERM="xterm-256color" TTY="/dev/pts/1" COLUMNS="124" LINES="18"]
+
+0% [Working]
+            
+Hit:1 https://packages.microsoft.com/repos/microsoft-ubuntu-noble-prod noble InRelease
+
+0% [Connected to deb.nodesource.com (172.66.150.169)]
+                                                     
+0% [Waiting for headers]
+                        
+Hit:2 https://deb.nodesource.com/node_24.x nodistro InRelease
+
+                        
+0% [Working]
+0% [Connecting to archive.ubuntu.com] [Connecting to security.ubuntu.com (91.189.92.23)]
+                                                                                        
+Hit:3 http://archive.ubuntu.com/ubuntu noble InRelease
+
+                                                                                        
+0% [Waiting for headers]
+                        
+Hit:4 http://security.ubuntu.com/ubuntu noble-security InRelease
+
+0% [Waiting for headers]
+0% [Waiting for headers]
+                        
+Hit:5 http://archive.ubuntu.com/ubuntu noble-updates InRelease
+
+                        
+0% [Working]
+0% [Waiting for headers]
+                        
+Hit:6 http://archive.ubuntu.com/ubuntu noble-backports InRelease
+
+                        
+0% [Working]
+0% [Working]
+20% [Working]
+             
+
+Reading package lists... 0%
+
+Reading package lists... 0%
+
+Reading package lists... 0%
+
+Reading package lists... 2%
+
+Reading package lists... 2%
+
+Reading package lists... 2%
+
+Reading package lists... 2%
+
+Reading package lists... 2%
+
+Reading package lists... 2%
+
+Reading package lists... 7%
+
+Reading package lists... 7%
+
+Reading package lists... 60%
+
+Reading package lists... 60%
+
+Reading package lists... 60%
+
+Reading package lists... 60%
+
+Reading package lists... 61%
+
+Reading package lists... 61%
+
+Reading package lists... 66%
+
+Reading package lists... 66%
+
+Reading package lists... 74%
+
+Reading package lists... 74%
+
+Reading package lists... 81%
+
+Reading package lists... 81%
+
+Reading package lists... 81%
+
+Reading package lists... 82%
+
+Reading package lists... 82%
+
+Reading package lists... 82%
+
+Reading package lists... 82%
+
+Reading package lists... 82%
+
+Reading package lists... 82%
+
+Reading package lists... 82%
+
+Reading package lists... 82%
+
+Reading package lists... 86%
+
+Reading package lists... 86%
+
+Reading package lists... 92%
+
+Reading package lists... 92%
+
+Reading package lists... 99%
+
+Reading package lists... 99%
+
+Reading package lists... 99%
+
+Reading package lists... 99%
+
+Reading package lists... Done
+
+
+Reading package lists... 0%
+
+Reading package lists... 0%
+
+Reading package lists... 0%
+
+Reading package lists... 2%
+
+Reading package lists... 2%
+
+Reading package lists... 2%
+
+Reading package lists... 2%
+
+Reading package lists... 2%
+
+Reading package lists... 2%
+
+Reading package lists... 7%
+
+Reading package lists... 7%
+
+Reading package lists... 60%
+
+Reading package lists... 60%
+
+Reading package lists... 60%
+
+Reading package lists... 60%
+
+Reading package lists... 61%
+
+Reading package lists... 61%
+
+Reading package lists... 66%
+
+Reading package lists... 66%
+
+Reading package lists... 74%
+
+Reading package lists... 74%
+
+Reading package lists... 80%
+
+Reading package lists... 81%
+
+Reading package lists... 81%
+
+Reading package lists... 82%
+
+Reading package lists... 82%
+
+Reading package lists... 82%
+
+Reading package lists... 82%
+
+Reading package lists... 82%
+
+Reading package lists... 82%
+
+Reading package lists... 82%
+
+Reading package lists... 82%
+
+Reading package lists... 86%
+
+Reading package lists... 86%
+
+Reading package lists... 92%
+
+Reading package lists... 92%
+
+Reading package lists... 99%
+
+Reading package lists... 99%
+
+Reading package lists... 99%
+
+Reading package lists... 99%
+
+Reading package lists... Done
+
+
+Building dependency tree... 0%
+
+Building dependency tree... 0%
+
+Building dependency tree... 50%
+
+Building dependency tree... 50%
+
+Building dependency tree... Done
+
+
+Reading state information... 0% 
+
+Reading state information... 0%
+
+Reading state information... Done
+
+git is already the newest version (1:2.43.0-1ubuntu7.3).
+curl is already the newest version (8.5.0-2ubuntu10.15).
+ca-certificates is already the newest version (20260601~24.04.1).
+zstd is already the newest version (1.5.5+dfsg2-2build1.1).
+0 upgraded, 0 newly installed, 0 to remove and 109 not upgraded.
+
+Script done on 2026-10-12 04:34:50+00:00 [COMMAND_EXIT_CODE="0"]

@@ -1,0 +1,13 @@
+{
+  // QB-31 fresh-machine walkthrough in GitHub Codespaces: Ubuntu 24.04 x86_64, 4 cores / 16 GB
+  // (the sandbox admits a run only with about 11.1 GiB free). Node, Ollama and QB are installed
+  // by scripts/qb31-walkthrough.sh itself, as on a fresh VM; only Docker comes with the image.
+  // Guide: docs/review/qb31-codespaces.md
+  "name": "QB-31 walkthrough (Ubuntu 24.04, 16 GB)",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "hostRequirements": { "cpus": 4, "memory": "16gb", "storage": "32gb" },
+  "remoteUser": "vscode"
+}

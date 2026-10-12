@@ -1,2 +1,4 @@
 _worker.js
 wrangler.toml
+migrations
+schema.sql

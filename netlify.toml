@@ -1,3 +1,0 @@
-[build]
-  publish = "landing_page"
-  command = "cd landing_page && node build.js"

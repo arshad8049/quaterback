@@ -1,0 +1,35 @@
+◇ injected env (0) from context/.env
+◇ injected env (0) from intent/.env
+◇ injected env (0) from intent/.env
+◇ injected env (0) from context/.env
+▶ QB-28: a paired A-vs-E trial through the real sandbox
+  ✖ both arms graded by the same grader; the report is byte-reproducible; tampering is refused (381.571533ms)
+✖ QB-28: a paired A-vs-E trial through the real sandbox (415.112961ms)
+▶ QB-29: launches are bound to the pinned image identity
+  ✔ a tag retagged after validation still launches the pinned image (the workload runs the original) (1741.947573ms)
+  ✔ a container created from an unpinned image is removed before its workload runs (377.992398ms)
+✔ QB-29: launches are bound to the pinned image identity (3938.762553ms)
+ℹ tests 3
+ℹ suites 2
+ℹ pass 2
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4581.698239
+
+✖ failing tests:
+
+test at test/integration/qb28-experiment.test.js:45:3
+✖ both arms graded by the same grader; the report is byte-reproducible; tampering is refused (381.571533ms)
+  Error: suite not qualified: reference: expected pass, got infra_error (infra_error: insufficient_host_resources); 5m: expected fail (tests_failed), got infra_error (infra_error); off-by-one: expected fail (tests_failed), got infra_error (infra_error)
+      at qualify (/home/vboxuser/qb-testing/quaterback/bench/qualify.js:41:30)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async TestContext.<anonymous> (/home/vboxuser/qb-testing/quaterback/test/integration/qb28-experiment.test.js:48:27)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Promise.all (index 0)
+      at async Suite.run (node:internal/test_runner/test:1905:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    code: 'SUITE_NOT_QUALIFIED',
+    problems: [ 'reference: expected pass, got infra_error (infra_error: insufficient_host_resources)', '5m: expected fail (tests_failed), got infra_error (infra_error)', 'off-by-one: expected fail (tests_failed), got infra_error (infra_error)' ]
+  }

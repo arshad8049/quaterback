@@ -1,4 +1,5 @@
 const { z } = require('zod');
+const { AGENT_IDS } = require('./adapters');
 
 const FileChangeSchema = z.object({
   file:      z.string(),
@@ -22,7 +23,7 @@ const ExecutionResultSchema = z.object({
   id:           z.string().uuid(),
   contract_id:  z.string(),
   context_id:   z.string().nullable(),
-  agent_used:   z.enum(['claude-code', 'dry-run', 'manual']),
+  agent_used:   z.enum(AGENT_IDS),                 // the adapter registry (agent/adapters.js, QB-31)
   status:       z.enum(EXECUTION_STATUSES),
   duration_ms:  z.number().int().nonnegative(),
   generated_at: z.string().datetime(),

@@ -43,3 +43,11 @@ ci-evidence*.json
 
 # Local agent worktrees (never part of the repository)
 .claude/worktrees/
+
+# Local VM install media (never commit)
+*.iso
+sandbox/QB31_testRun/
+
+# QB-31 walkthrough evidence written inside a Codespace (download it, don't commit it)
+qb31-evidence*/
+qb31-evidence*.tgz

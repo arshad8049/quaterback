@@ -111,7 +111,7 @@ describe('telemetry is bounded and non-blocking', () => {
     try {
       const { sendMetrics } = require('../../lib/telemetry');
       const t0 = Date.now();
-      const r = await within(4000, sendMetrics({ x: 1 }, { url: `http://127.0.0.1:${server.address().port}/api/metrics`, timeoutMs: 300 }), 'sendMetrics');
+      const r = await within(4000, sendMetrics({ x: 1 }, { url: `http://127.0.0.1:${server.address().port}/api/metrics`, timeoutMs: 300, token: 'qbt_test' }), 'sendMetrics');
       assert.deepEqual(r, { sent: false, reason: 'timeout' });
       assert.ok(Date.now() - t0 < 2000);
     } finally { server.closeAllConnections(); server.close(); }
