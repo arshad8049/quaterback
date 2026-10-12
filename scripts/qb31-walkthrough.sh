@@ -115,7 +115,7 @@ s1() {
   if [ $rc -ne 0 ]; then step 1 "Prerequisites (§1)" "all installed" "install failed (exit $rc; logs/01-prereqs.log)" FAIL $((SECONDS-t)); exit 1; fi
   if ! docker info >/dev/null 2>&1; then
     step 1 "Prerequisites (§1)" "git, Node 24, Docker, Ollama installed; docker works without sudo after re-login" "installed; docker needs re-login" "PENDING" $((SECONDS-t))
-    bold "Log out and back in (so 'docker' works without sudo), then run:  bash $0 --ref $REF --from 2"
+    bold "Log out and back in (so 'docker' works without sudo), then run:  ${QB31_EVIDENCE:+QB31_EVIDENCE=$QB31_EVIDENCE }bash $0 --ref $REF --from 2"
     exit 0
   fi
   step 1 "Prerequisites (§1)" "git, Node 24, Docker, Ollama installed; docker works without sudo after re-login" "installed; $(node --version); docker without sudo OK${have:+; preinstalled:$have}" PASS $((SECONDS-t))
@@ -154,7 +154,7 @@ s4() {
   local said; said=$(grep -m1 -E 'signed in|not signed in' "$LOGS/04-auth-status.log")
   if [ $rc -ne 0 ] || [ $st -ne 0 ]; then
     step 4 "qb auth login (§1)" "signed in; qb auth status shows an expiry" "login exit $rc; status exit $st: $said" FAIL $((SECONDS-t))
-    bold "Sign-in did not complete, so a demo run cannot authenticate. Rerun from step 4 and, after signing in in the browser, paste the code into this terminal and press Enter:  bash $0 --ref $REF --from 4"
+    bold "Sign-in did not complete, so a demo run cannot authenticate. Rerun from step 4 and, after signing in in the browser, paste the code into this terminal and press Enter:  ${QB31_EVIDENCE:+QB31_EVIDENCE=$QB31_EVIDENCE }bash $0 --ref $REF --from 4"
     write_evidence; exit 1
   fi
   step 4 "qb auth login (§1)" "signed in; qb auth status shows an expiry" "login exit $rc; $said" PASS $((SECONDS-t))
