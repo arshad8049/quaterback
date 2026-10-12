@@ -9,7 +9,6 @@ name: qb31-rehearsal
 
 on:
   push:
-    branches: [qb31-walkthrough-kit]
     paths: [scripts/qb31-walkthrough.sh, .github/workflows/qb31-rehearsal.yml, .devcontainer/qb31-walkthrough/**, lib/model-release.js, lib/sandbox/pipeline.js]
   workflow_dispatch:
     inputs:
