@@ -163,6 +163,10 @@ jobs:
           cat report.txt
           enc() { sed -e 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}'; }
           echo "::notice title=QB-30 dev pilot (exploratory; not evidence of effectiveness)::$(head -120 report.txt | enc)"
+          # Every non-scored trial with its recorded detail (status/detail come from the trial's result.json).
+          details=$(for r in $(find "$E/trials" -name result.json | sort); do node -e "const r=require(process.argv[1]); if (r.status!=='completed' || !r.grade_outcome) console.log(r.task_id+' '+r.arm+' '+r.status+': '+String(r.detail||'(no detail)').replace(/\s+/g,' ').slice(0,400))" "$r"; done)
+          [ -n "$details" ] && echo "::notice title=Trials without a score (detail)::$(printf '%s\n' "$details" | head -60 | enc)"
+          true
       - uses: actions/upload-artifact@v4
         with:
           name: experiment-merged
