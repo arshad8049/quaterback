@@ -1,0 +1,107 @@
+name: qb31-rehearsal
+
+# QB-31 walkthrough REHEARSAL on a fresh GitHub-hosted Ubuntu 24.04 x86_64 VM (4 vCPU, 16 GB).
+# Runs scripts/qb31-walkthrough.sh --no-agent: no sign-in, no secrets, no paid agent task.
+# It exercises install, model, qb doctor (incl. the sandbox memory check), the demo repository
+# and the Docker recovery drill, and optionally reruns the Phase 4 Docker checkpoint (scripted
+# agent, mocked model). It is not the QB-31 acceptance walkthrough, which needs a person and a
+# real authenticated task. Evidence is uploaded as the `qb31-evidence` artifact.
+
+on:
+  push:
+    branches: [qb31-walkthrough-kit]
+    paths: [scripts/qb31-walkthrough.sh, .github/workflows/qb31-rehearsal.yml, .devcontainer/qb31-walkthrough/**]
+  workflow_dispatch:
+    inputs:
+      checkpoint:
+        description: 'Also rerun the Phase 4 Docker checkpoint (99682a6)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  rehearsal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Free disk (model and sandbox images need ~15 GB)
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          docker system prune -af >/dev/null
+          df -h / && free -g
+      - name: Walkthrough rehearsal
+        run: |
+          flag=--with-checkpoint
+          [ "${{ github.event_name }}" = workflow_dispatch ] && [ "${{ inputs.checkpoint }}" != true ] && flag=
+          bash scripts/qb31-walkthrough.sh --ref "$GITHUB_SHA" --no-agent $flag
+      - name: Summary
+        if: always()
+        run: |
+          [ -f ~/qb31-evidence/evidence.md ] && cat ~/qb31-evidence/evidence.md >> "$GITHUB_STEP_SUMMARY"
+          for f in ~/qb31-evidence/logs/cp-unit.log ~/qb31-evidence/logs/cp-integration.log; do
+            [ -f "$f" ] && { echo; echo "### $(basename "$f")"; echo '```'; grep -E '^ℹ (tests|pass|fail|skipped)|^✖ ' "$f" | head -20; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          done
+          true
+      - name: Publish results as annotations (readable without a token)
+        if: always()
+        run: |
+          enc() { sed -e 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}'; }
+          st=~/qb31-evidence/steps.tsv
+          [ -f "$st" ] && echo "::notice title=QB-31 rehearsal steps::$(sort -t$'\t' -k1,1n "$st" | awk -F'\t' '{print $1". "$2" | "$5" | "$4" | "$6}' | enc)"
+          for f in cp-unit cp-integration; do
+            l=~/qb31-evidence/logs/$f.log
+            [ -f "$l" ] && echo "::notice title=Checkpoint $f::$( { grep -m1 -E '^v[0-9]+\.' "$l"; grep -E '^ℹ (tests|pass|fail|skipped)|^✖ |Error: |code: ' "$l" | head -25; } | enc)"
+          done
+          for l in ~/qb31-evidence/logs/*.log; do
+            case "$(basename "$l")" in cp-*) continue;; esac
+            grep -qiE 'error|fail|✗' "$l" && echo "::notice title=Log $(basename "$l")::$(grep -iE 'error|fail|✗|warn|!' "$l" | head -15 | enc)"
+          done
+          true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qb31-evidence
+          path: ~/qb31-evidence
+          retention-days: 30
+
+  # The same kit inside the Codespaces definition (.devcontainer/qb31-walkthrough): Ubuntu 24.04,
+  # docker-in-docker, no systemd. Rehearses exactly what an owner run in Codespaces will do.
+  codespace:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL; df -h /
+      - name: Walkthrough rehearsal inside the Codespaces container
+        uses: devcontainers/ci@v0.3
+        with:
+          configFile: .devcontainer/qb31-walkthrough/devcontainer.json
+          push: never
+          runCmd: |
+            git config --global --add safe.directory '*'
+            uname -m; . /etc/os-release; echo "$PRETTY_NAME"; [ -d /run/systemd/system ] && echo systemd || echo "no systemd"
+            QB31_EVIDENCE="$PWD/qb31-evidence-codespace" bash scripts/qb31-walkthrough.sh --ref "$(git rev-parse HEAD)" --no-agent
+      - name: Publish results as annotations (readable without a token)
+        if: always()
+        run: |
+          enc() { sed -e 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}'; }
+          st=qb31-evidence-codespace/steps.tsv
+          [ -f "$st" ] && echo "::notice title=Codespace rehearsal steps::$(sort -t$'\t' -k1,1n "$st" | awk -F'\t' '{print $1". "$2" | "$5" | "$4" | "$6}' | enc)"
+          for l in qb31-evidence-codespace/logs/*.log; do
+            [ -f "$l" ] || continue
+            grep -qiE 'error|fail|✗' "$l" && echo "::notice title=Codespace log $(basename "$l")::$(grep -iE 'error|fail|✗|warn|!' "$l" | head -15 | enc)"
+          done
+          true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qb31-evidence-codespace
+          path: qb31-evidence-codespace
+          retention-days: 30

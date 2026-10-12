@@ -3,7 +3,7 @@ name = "qb-scan"
 version = "0.1.0"
 edition = "2021"
 description = "Quarterback sandbox: race-safe, bounded tree scanner that emits a git fast-import stream (agent-sandbox.md §6, §9.2)"
-license = "UNLICENSED"
+license = "MIT"
 publish = false
 
 [dependencies]
