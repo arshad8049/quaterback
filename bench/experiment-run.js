@@ -5,6 +5,12 @@
  * (bench/grader.js), every result recorded immutably (bench/experiment.js).
  *
  *   node bench/experiment-run.js --config <experiment-config.json> [--out bench/experiments]
+ *   node bench/experiment-run.js --config <cfg> --resume <experiment dir> [--shard i/n]
+ *
+ * --resume runs an experiment that is already pinned (its manifest is never rewritten; its
+ * pins are re-checked before every arm-trial as always). --shard i/n runs only the WHOLE tasks
+ * of shard i (sorted task ids, round-robin), so parallel machines can each fill their part of
+ * ONE pinned experiment and the recorded trials are merged afterwards (QB-30 dev pilot).
  *
  * Config: { kind, specs: [<spec file>…], arms: ["A","E",…], primary: ["A","E"], repetitions,
  *   budget: { agent_time_ms, trial_deadline_ms, model_call_deadline_ms }, seed?, order?,
@@ -40,6 +46,22 @@ function taskEntries(specs) {
 /** The exact arm definitions (bench/arms.js) — a manifest cannot redefine an arm. */
 function armDefinitions(ids) {
   return ids.map((id) => { if (!ARMS[id]) throw new Error(`unknown arm ${id}`); return { ...ARMS[id] }; });
+}
+
+/** "i/n" with 1 ≤ i ≤ n → { index, count }. */
+function parseShard(v) {
+  const m = /^(\d+)\/(\d+)$/.exec(String(v || ''));
+  const index = m ? Number(m[1]) : NaN; const count = m ? Number(m[2]) : NaN;
+  if (!(count >= 1 && index >= 1 && index <= count)) throw new Error(`--shard must be i/n with 1 ≤ i ≤ n (got "${v}")`);
+  return { index, count };
+}
+
+/** Whole tasks per shard: sorted task ids, round-robin. → { 1: [ids…], …, n: [ids…] } */
+function taskShards(taskIds, count) {
+  const out = {};
+  for (let i = 1; i <= count; i++) out[i] = [];
+  [...taskIds].sort().forEach((id, k) => out[(k % count) + 1].push(id));
+  return out;
 }
 
 /** Map the honest qb-usage/1 record onto the trial's usage (unknown stays unknown). */
@@ -85,7 +107,10 @@ async function runExperiment(expDir, o) {
     throw new Error('starting memory store does not match the manifest');
   }
   const results = [];
+  // QB-30: a shard runs only its whole tasks; the rest of the plan is left to the other shards.
+  const mine = o.shard ? new Set(taskShards(m.tasks.map((t) => t.id), o.shard.count)[o.shard.index]) : null;
   for (const p of m.trial_plan.order) {
+    if (mine && !mine.has(p.task_id)) continue;
     if (fs.existsSync(path.join(expDir, 'trials', p.trial_id, p.arm, 'result.json'))) continue;   // recorded
     const spec = o.specs[p.task_id];
     // QB-29 re-review 2: this arm-trial's own runtime identity — observed now, drift refused
@@ -152,14 +177,24 @@ async function runExperiment(expDir, o) {
 
 async function main(argv) {
   const { program } = require('commander');
-  program.name('experiment-run').requiredOption('--config <file>').option('--out <dir>', 'experiments root', path.join(__dirname, 'experiments')).parse(argv);
+  program.name('experiment-run').requiredOption('--config <file>').option('--out <dir>', 'experiments root', path.join(__dirname, 'experiments'))
+    .option('--pin-only', 'pin the experiment (manifest) and stop: no trials run')
+    .option('--resume <dir>', 'run an already pinned experiment (no new manifest)').option('--shard <i/n>', 'run only the whole tasks of shard i of n').parse(argv);
   const opts = program.opts();
+  const shard = opts.shard ? parseShard(opts.shard) : null;
   const cfgFile = path.resolve(opts.config);
   const cfg = JSON.parse(fs.readFileSync(cfgFile, 'utf8'));
   const specs = (cfg.specs || []).map((f) => JSON.parse(fs.readFileSync(path.resolve(path.dirname(cfgFile), f), 'utf8')));
   for (const s of specs) checkFrozen(s);
   const protocol = cfg.protocol ? { path: cfg.protocol.path, sha256: S.sha256File(path.resolve(path.dirname(cfgFile), cfg.protocol.path)) } : null;
   const memoryStart = cfg.memory_start ? path.resolve(path.dirname(cfgFile), cfg.memory_start) : null;
+  if (opts.resume) {
+    const dir = path.resolve(opts.resume);
+    console.log(`experiment ${dir} (resume${shard ? `, shard ${shard.index}/${shard.count}` : ''})`);
+    await runExperiment(dir, { specs: Object.fromEntries(specs.map((s) => [s.id, s])), memoryStart, shard });
+    console.log(`done — report: node bench/report.js ${dir}`);
+    return;
+  }
   const { dir } = await pinExperiment({
     dir: path.resolve(opts.out), kind: cfg.kind, tasks: taskEntries(specs), arms: armDefinitions(cfg.arms),
     primary_comparison: cfg.primary, budget: { ...cfg.budget, total_compute_controlled: false },
@@ -170,10 +205,11 @@ async function main(argv) {
     models: [{ role: 'qb-model', requested: process.env.QB_MODEL || 'deepseek-r1:7b' }],
   });
   console.log(`experiment ${dir}`);
-  await runExperiment(dir, { specs: Object.fromEntries(specs.map((s) => [s.id, s])), memoryStart });
+  if (opts.pinOnly) return;
+  await runExperiment(dir, { specs: Object.fromEntries(specs.map((s) => [s.id, s])), memoryStart, shard });
   console.log(`done — report: node bench/report.js ${dir}`);
 }
 
 if (require.main === module) main(process.argv).catch((e) => { console.error(`experiment-run: ${e.message}`); process.exit(1); });
 
-module.exports = { runExperiment, taskEntries, armDefinitions, trialUsage };
+module.exports = { runExperiment, taskEntries, armDefinitions, trialUsage, parseShard, taskShards };
