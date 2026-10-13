@@ -1,0 +1,89 @@
+{
+  "schema": "qb-spec-lock/1",
+  "specs": {
+    "FY-01": {
+      "version": 1,
+      "sha256": "ab7f334136eada635f5210d3423f6ea8989c70ef0388526988cba80c7bdffbf9",
+      "split": "dev",
+      "frozen_at": "2026-10-13T02:50:54.588Z"
+    },
+    "FY-02": {
+      "version": 1,
+      "sha256": "c5bf913473e88be7b1bd0f0f1cd98a12edf11b9b5c28ac5d563f7ae8d57cfac6",
+      "split": "dev",
+      "frozen_at": "2026-10-13T02:50:54.596Z"
+    },
+    "FY-03": {
+      "version": 1,
+      "sha256": "7231efdf6810f4d07f0aa56f67aa60f69f6cbfcf8022675103b2288a860b0dc4",
+      "split": "dev",
+      "frozen_at": "2026-10-13T02:50:54.598Z"
+    },
+    "FY-04": {
+      "version": 1,
+      "sha256": "46fc32416aab08a3bf739c2b2fc5dac715c4f12a8dc1100dbee25013167bcd47",
+      "split": "dev",
+      "frozen_at": "2026-10-13T02:50:54.600Z"
+    },
+    "FY-05": {
+      "version": 1,
+      "sha256": "f9c6def1e0b74d190557ce0a9f2eb089b58d3c85de80145903c1ff9a9c9b9f90",
+      "split": "dev",
+      "frozen_at": "2026-10-13T02:50:54.602Z"
+    },
+    "FY-06": {
+      "version": 1,
+      "sha256": "31d0f1087b1a8e993ef3974f066f0b8c264f52ffa7ad8f9b37b9f18e38d474a6",
+      "split": "dev",
+      "frozen_at": "2026-10-13T02:50:54.605Z"
+    },
+    "FY-07": {
+      "version": 1,
+      "sha256": "bf43e4353fd3af68665f690cc2ec59b0e979d6263927be126de0bddde1fd37da",
+      "split": "dev",
+      "frozen_at": "2026-10-13T02:50:54.606Z"
+    },
+    "FY-08": {
+      "version": 1,
+      "sha256": "eaeeb8e897cd3266d7effa8dbf6cdd963d5700d9a8a71eaa8a0fd21c8008af84",
+      "split": "dev",
+      "frozen_at": "2026-10-13T02:50:54.608Z"
+    },
+    "FY-09": {
+      "version": 1,
+      "sha256": "b6d6d59d622209235cab0e4a37f4b2bd1f028a6569c0c2ddb78c4b84f84f2ba5",
+      "split": "dev",
+      "frozen_at": "2026-10-13T02:50:54.610Z"
+    },
+    "FY-10": {
+      "version": 1,
+      "sha256": "4c55d39e566f283e5a0393ae694be085e8c3b4b5b2ad3e1f6e425b6eca5fc081",
+      "split": "dev",
+      "frozen_at": "2026-10-13T02:50:54.612Z"
+    },
+    "FY-11": {
+      "version": 1,
+      "sha256": "757d7d89b8eb180b14f8a5f970dfce3671e4d71a97af7e2bf8c99d28654614e0",
+      "split": "dev",
+      "frozen_at": "2026-10-13T02:50:54.614Z"
+    },
+    "FY-12": {
+      "version": 1,
+      "sha256": "cef63f3fda92376a23ace3e8cbe5fb45c24e2f78ed6ea27170fe656ccf0182a7",
+      "split": "dev",
+      "frozen_at": "2026-10-13T02:50:54.616Z"
+    },
+    "FY-13": {
+      "version": 1,
+      "sha256": "b000c594a40ea97db9f369a5e009ba9c96dd30ee552784c28536be66b6c805eb",
+      "split": "dev",
+      "frozen_at": "2026-10-13T02:50:54.617Z"
+    },
+    "FY-14": {
+      "version": 1,
+      "sha256": "ab31a0b885336c72f087c47fc98f98bf9d6b9902b794e7276c7e89a7a5b081f6",
+      "split": "dev",
+      "frozen_at": "2026-10-13T02:50:54.619Z"
+    }
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "kind": "exploratory",
+  "arms": [
+    "A",
+    "E"
+  ],
+  "primary": [
+    "A",
+    "E"
+  ],
+  "repetitions": 2,
+  "budget": {
+    "agent_time_ms": 900000,
+    "trial_deadline_ms": 3600000,
+    "model_call_deadline_ms": 180000
+  },
+  "seed": "qb30-hard-screen-2026-10-12",
+  "lock": "../screen/specs.lock.json",
+  "suites": "../screen/suites",
+  "specs": [
+    "../screen/specs/FY-01.json",
+    "../screen/specs/FY-02.json",
+    "../screen/specs/FY-03.json",
+    "../screen/specs/FY-04.json",
+    "../screen/specs/FY-05.json",
+    "../screen/specs/FY-06.json",
+    "../screen/specs/FY-07.json",
+    "../screen/specs/FY-08.json",
+    "../screen/specs/FY-09.json",
+    "../screen/specs/FY-10.json",
+    "../screen/specs/FY-11.json",
+    "../screen/specs/FY-12.json",
+    "../screen/specs/FY-13.json",
+    "../screen/specs/FY-14.json"
+  ],
+  "_note": "QB-30 harder-task screen: 14 Fastify dev candidates x arms A/E x 2. Exploratory; tasks are selected for difficulty, so results are never headline evidence."
+}

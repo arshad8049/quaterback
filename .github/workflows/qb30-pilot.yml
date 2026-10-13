@@ -19,14 +19,12 @@ on:
   workflow_dispatch:
     inputs:
       config:
-        description: 'Experiment config'
-        type: choice
-        options: [bench/pilot/smoke.json, bench/pilot/dev-pilot.json]
+        description: 'Experiment config (bench/pilot/smoke.json, dev-pilot.json or screen.json)'
+        type: string
         default: bench/pilot/smoke.json
       shards:
-        description: 'Number of shards (whole tasks each)'
-        type: choice
-        options: ['1', '2', '5', '10']
+        description: 'Number of shards (whole tasks each, 1-20)'
+        type: string
         default: '1'
       max_parallel:
         description: 'Shards running at once (subscription concurrency)'
