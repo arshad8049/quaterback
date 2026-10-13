@@ -1,0 +1,24 @@
+{
+  "id": "FY-02",
+  "split": "dev",
+  "stratum": { "type": "bug_fix", "repository": "fastify" },
+  "repo": "qb-bench:fastify-5.8.4",
+  "base_rev": "f49f85b74fc6b150b03ef561ecf96c66a70ab286",
+  "prompt": "With trustProxy set to a number (a hop count), request.ip is undefined when the socket's remoteAddress is undefined or null (as happens behind IISNode on Windows). Fix it so a missing socket address still counts as the first hop: with trustProxy: 1, an X-Forwarded-For of '2.2.2.2, 1.1.1.1' and socket.remoteAddress undefined, request.ip must be '1.1.1.1'; the same with socket.remoteAddress null. With socket.remoteAddress undefined and an X-Forwarded-Host of 'fastify.test', request.host must be 'fastify.test'.",
+  "requirement": "When trustProxy is a number n, the trust function trusts hop i whenever i < n, regardless of whether the address is undefined or null. So with trustProxy: 1 and a missing socket address, the socket hop is trusted and request.ip is the last X-Forwarded-For entry ('2.2.2.2, 1.1.1.1' gives '1.1.1.1') for remoteAddress undefined and for null. With remoteAddress undefined, request.host comes from X-Forwarded-Host.",
+  "oracle": {
+    "acceptance_criteria": [
+      { "id": "AC-1", "criterion": "trustProxy: 1, socket.remoteAddress undefined, X-Forwarded-For '2.2.2.2, 1.1.1.1': request.ip is '1.1.1.1'" },
+      { "id": "AC-2", "criterion": "the same with socket.remoteAddress null: request.ip is '1.1.1.1'" },
+      { "id": "AC-3", "criterion": "trustProxy: 1, socket.remoteAddress undefined, X-Forwarded-Host 'fastify.test': request.host is 'fastify.test'" }
+    ]
+  },
+  "suite": { "command": ["node", "--test", "test/hidden/*.test.js"] },
+  "adjudication_rules": "Score pass only if every hidden check passes. No partial credit.",
+  "provenance": {
+    "author": "Claude (QB developer side; dev screen, harder candidates)",
+    "created_at": "2026-10-12T00:00:00Z",
+    "tuned_during_development": false,
+    "notes": "Real defect in fastify v5.8.4 (the hop-count trust function rejects a null/undefined address), fixed upstream in 8dee9be0 (#6613, issue #6606). The reference is that fix applied to v5.8.4; the hidden suite is the upstream tests."
+  }
+}

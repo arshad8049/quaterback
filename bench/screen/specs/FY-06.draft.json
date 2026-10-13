@@ -1,0 +1,83 @@
+{
+  "schema": "qb-task-draft/1",
+  "spec": {
+    "schema": "qb-task-spec/1",
+    "id": "FY-06",
+    "version": 1,
+    "split": "dev",
+    "stratum": {
+      "type": "state",
+      "repository": "fastify"
+    },
+    "repo": {
+      "source": "qb-bench:fastify-5.11.2",
+      "base_rev": "311b307ea1b2b4e901e180ea059498de2b75a7d6",
+      "lockfiles": {
+        "package-lock.json": "6f9883960569600f0f05471e1e632659e4ba91888bb4a5c2e3f715ba1c328682"
+      }
+    },
+    "prompt": "When every trailer registered on a reply is removed with reply.removeTrailer() before the reply is sent, Fastify still switches the response to trailer mode: it sends Transfer-Encoding: chunked and an empty Trailer header, and drops Content-Length. Fix it so that a reply whose trailers have all been removed behaves exactly as if no trailer had been registered: no Trailer header, no Transfer-Encoding: chunked, a normal Content-Length (5 for the body 'hello'), and no trailer function is called. Removing only some trailers must keep trailer mode for the remaining ones: for example, registering ETag and Content-MD5, removing ETag and sending 'hello' must give a Trailer header of 'content-md5', Transfer-Encoding: chunked, no Content-Length, and the content-md5 trailer value; the removed ETag function is never called.",
+    "requirement": "At send time, if no registered trailer remains (every one removed), the reply leaves trailer mode: kReplyTrailers is cleared, no Trailer or chunked Transfer-Encoding header is set, Content-Length is computed as usual and no trailer function runs. If at least one remains, Trailer lists the remaining names, Transfer-Encoding is chunked, Content-Length is absent and the remaining trailers are sent; removed trailer functions are never called.",
+    "oracle": null,
+    "suite": {
+      "dir": "FY-06",
+      "files": {
+        "remove-trailers.test.js": "b7586e3c815e68502f1e9b549a00c463d2ffe2e52a521ea370d7c52dec2b56b1"
+      },
+      "command": [
+        "node",
+        "--test",
+        "test/hidden/*.test.js"
+      ],
+      "install_to": "test/hidden",
+      "owned_paths": [
+        "test/hidden/**"
+      ],
+      "adjudicate_checks": []
+    },
+    "qualification": {
+      "grader_sha256": "3116461e6934079a16ed5af0ae2c35e701094b699f62feeea86fe2106d4ea886",
+      "suite_sha256": "9603d178d48e4af2b055fa8ee98ef7ec02cf34ecdde796e185a24c13acd0fdb4",
+      "reference": {
+        "patch_sha256": "47b84e2101b2d5bc494be6343b2c379237eca447c480912dcbd43d0c76e57e6b",
+        "outcome": "pass"
+      },
+      "incorrect": [
+        {
+          "label": "headers-only-guard",
+          "patch_sha256": "7f88fce90344b03c1233a59c45de722ef85a6d1cd1de883e658e038ec38950eb",
+          "outcome": "fail"
+        },
+        {
+          "label": "remove-clears-all",
+          "patch_sha256": "b7d84d72b6b4e1679074a427a104a51de8a4cd3510517d0aa738a5b4de340636",
+          "outcome": "fail"
+        }
+      ],
+      "qualified_at": "2026-10-12T23:34:35.898Z"
+    },
+    "adjudication_rules": "Score pass only if every hidden check passes. No partial credit.",
+    "provenance": {
+      "author": "Claude (QB developer side; dev screen, harder candidates)",
+      "created_at": "2026-10-12T00:00:00Z",
+      "tuned_during_development": false,
+      "notes": "Real defect in fastify v5.11.2 (removing all trailers still forces chunked trailer mode), fixed upstream in 7299a57d (#6845). The reference is that fix applied to v5.11.2; the hidden suite is the upstream remove-all and remove-some tests."
+    },
+    "changelog": []
+  },
+  "oracle_draft": {
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "register an ETag trailer, remove it, send 'hello': status 200, no Trailer header, no Transfer-Encoding, Content-Length '5', no etag trailer, the ETag function never called"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "register ETag and Content-MD5, remove ETag, send 'hello': Trailer 'content-md5', Transfer-Encoding 'chunked', no Content-Length, trailer content-md5 'custom-md5'; the ETag function never called"
+      }
+    ]
+  },
+  "source": {
+    "curation_sha256": "39c95a7a4039dc3ec673f25945d9b72f7319aac21acbc95d42a44996070e7268"
+  }
+}

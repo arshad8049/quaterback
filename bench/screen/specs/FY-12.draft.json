@@ -1,0 +1,91 @@
+{
+  "schema": "qb-task-draft/1",
+  "spec": {
+    "schema": "qb-task-spec/1",
+    "id": "FY-12",
+    "version": 1,
+    "split": "dev",
+    "stratum": {
+      "type": "bug_fix",
+      "repository": "fastify"
+    },
+    "repo": {
+      "source": "qb-bench:fastify-5.9.0",
+      "base_rev": "07ca9dec7d0e37d99ed5166c7cefb8d7932dd71e",
+      "lockfiles": {
+        "package-lock.json": "058ab44aab933b8ede987a31b17f3f95b7f43240e9996a6f53324b990cf611a0"
+      }
+    },
+    "prompt": "reply.send decides whether a custom Content-Type is JSON, and whether it already declares a charset, with case-sensitive substring searches on the raw header string. As a result: 'application/json; CHARSET=utf-8' gets a second '; charset=utf-8' appended; 'ApPlIcAtIoN/JsOn; ChArSeT=utf-8' is not recognised as JSON, so sending an object fails with a 500; and 'application/json; x-charset-hint=a' (a parameter whose name only contains 'charset') gets no charset at all. Fix reply.send so it parses the Content-Type header with Fastify's ContentType parser (lib/content-type.js): JSON is detected from the parsed media type, case-insensitively (any media type containing 'json', such as application/vnd.api+json), and a charset is considered declared only when there is a parameter named charset, compared case-insensitively. When a JSON media type has no charset parameter, '; charset=utf-8' is appended to the header. Expected results when sending { hello: 'world' }: 'application/json; CHARSET=utf-8' and 'ApPlIcAtIoN/JsOn; ChArSeT=utf-8' are sent unchanged with status 200 and the JSON body; 'application/json; version=\"2\"' becomes 'application/json; version=\"2\"; charset=utf-8'; 'application/vnd.api+json' becomes 'application/vnd.api+json; charset=utf-8'; 'application/json;' becomes 'application/json; charset=utf-8'; for 'application/json; x-charset-hint=a' the header keeps the x-charset-hint parameter and ends with '; charset=utf-8'.",
+    "requirement": "reply.send parses the content-type header with ContentType; JSON handling applies when the parsed mediaType contains 'json' (media types are lowercased by the parser); a charset counts as declared only if a parameter named charset exists (names compared case-insensitively). Otherwise '; charset=utf-8' is appended to the normalised header. Parameter names merely containing 'charset' do not count.",
+    "oracle": null,
+    "suite": {
+      "dir": "FY-12",
+      "files": {
+        "reply-content-type.test.js": "99ab1222e1890f67f202f5b4fd018557c3665bab2c9049e55acde968310d688e"
+      },
+      "command": [
+        "node",
+        "--test",
+        "test/hidden/*.test.js"
+      ],
+      "install_to": "test/hidden",
+      "owned_paths": [
+        "test/hidden/**"
+      ],
+      "adjudicate_checks": []
+    },
+    "qualification": {
+      "grader_sha256": "3116461e6934079a16ed5af0ae2c35e701094b699f62feeea86fe2106d4ea886",
+      "suite_sha256": "a05d645823be7c67135d81918330ac1f323a40fc2488927399a4f5c63db561c6",
+      "reference": {
+        "patch_sha256": "c28c2a286d83a62738a775aea3d72c48ad9e4f5e80e3d0fa62433ff2f24ca74b",
+        "outcome": "pass"
+      },
+      "incorrect": [
+        {
+          "label": "charset-regex-only",
+          "patch_sha256": "25683b0eee08719cd3072be0beee0dc631d2d6516cfe367505a819eb4d9410ee",
+          "outcome": "fail"
+        },
+        {
+          "label": "lowercase-substring",
+          "patch_sha256": "1020642d334d70c4160a41fb99a2777c6203fc3c141914f5c5cc8eabf6bece2a",
+          "outcome": "fail"
+        }
+      ],
+      "qualified_at": "2026-10-12T23:53:50.176Z"
+    },
+    "adjudication_rules": "Score pass only if every hidden check passes. No partial credit.",
+    "provenance": {
+      "author": "Claude (QB developer side; dev screen, harder candidates)",
+      "created_at": "2026-10-12T00:00:00Z",
+      "tuned_during_development": false,
+      "notes": "Real defect in fastify v5.9.0 (case-sensitive substring JSON/charset detection in reply.send), fixed upstream in 6f63ce93 (#6830), which spans 5 files (a shared ContentType cache). Behaviour probed on base and reference before writing. The hidden suite grades reply.send behaviour only, not the internal cache API; it does not require a specific re-serialisation of parameter quoting."
+    },
+    "changelog": []
+  },
+  "oracle_draft": {
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "'application/json; CHARSET=utf-8' is sent unchanged (no second charset)"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "'ApPlIcAtIoN/JsOn; ChArSeT=utf-8' is treated as JSON: status 200, JSON body, header unchanged"
+      },
+      {
+        "id": "AC-3",
+        "criterion": "'application/json; version=\"2\"' becomes 'application/json; version=\"2\"; charset=utf-8'; 'application/vnd.api+json' gets '; charset=utf-8'; 'application/json;' becomes 'application/json; charset=utf-8'"
+      },
+      {
+        "id": "AC-4",
+        "criterion": "'application/json; x-charset-hint=a' keeps the x-charset-hint parameter and ends with '; charset=utf-8'"
+      }
+    ]
+  },
+  "source": {
+    "curation_sha256": "876067c32e753dc3c0d73475d5a393c2c632d7187afa9c084ece33a361e2fdba"
+  }
+}

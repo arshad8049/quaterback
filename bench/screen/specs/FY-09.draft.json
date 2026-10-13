@@ -1,0 +1,91 @@
+{
+  "schema": "qb-task-draft/1",
+  "spec": {
+    "schema": "qb-task-spec/1",
+    "id": "FY-09",
+    "version": 1,
+    "split": "dev",
+    "stratum": {
+      "type": "bug_fix",
+      "repository": "fastify"
+    },
+    "repo": {
+      "source": "qb-bench:fastify-5.12.1",
+      "base_rev": "e2c453ee70cc4f9ba9ba6edc32f57a86d5054233",
+      "lockfiles": {
+        "package-lock.json": "34ee85a1515a19acf451b6f7bc4a8b6a23fddab83e5de271287e4090964edc58"
+      }
+    },
+    "prompt": "Security: with an async request schema (an Ajv schema with $async: true), Fastify treats the validated data as if it were a custom-compiler result of the shape { value, error }. A client can therefore send a body containing a 'value' key to replace the whole request body with it, or an 'error' key to make a valid request fail. Fix validation so that the result an async validator resolves with only decides pass or fail: for a body schema { $async: true, type: 'object', additionalProperties: true, properties: { hello: { type: 'string' } } }, the body { hello: 'world', value: { hello: 'evil' } } must reach the handler unchanged, the body { hello: 'world', error: 'boom' } must succeed with status 200 and reach the handler unchanged, and an invalid body such as { hello: { not: 'a string' } } must still be rejected with 400. The synchronous custom-compiler contract is unchanged: a custom validatorCompiler whose validator returns { value: x } still replaces the request part with x, and one that returns { error } still fails with 400.",
+    "requirement": "For a promise returned by a validator (async Ajv), the resolved value is used only as pass/fail: false (or a rejection) fails validation; anything else passes and request[paramName] is untouched; its 'value' and 'error' properties are never interpreted. A rejected async validation still yields 400. Synchronous results keep the custom-compiler contract: { error } fails, { value } replaces request[paramName].",
+    "oracle": null,
+    "suite": {
+      "dir": "FY-09",
+      "files": {
+        "async-validation-result.test.js": "4228df988228b215cd6515f9a532e888086f0de3592b8894b4d2edc0fa0d6961"
+      },
+      "command": [
+        "node",
+        "--test",
+        "test/hidden/*.test.js"
+      ],
+      "install_to": "test/hidden",
+      "owned_paths": [
+        "test/hidden/**"
+      ],
+      "adjudicate_checks": []
+    },
+    "qualification": {
+      "grader_sha256": "3116461e6934079a16ed5af0ae2c35e701094b699f62feeea86fe2106d4ea886",
+      "suite_sha256": "9c4d35db6e0feb4dba196ff90fe518a41ee941c4a52336ae50cd874310494b6b",
+      "reference": {
+        "patch_sha256": "e9c49f7d3cee770d54e0e5af33d2baea65099802bcdc901f26159c887bf5508b",
+        "outcome": "pass"
+      },
+      "incorrect": [
+        {
+          "label": "async-keeps-error",
+          "patch_sha256": "9770931b22d5493af5b553cf262c371e1f0517449884af09070f1900437fb161",
+          "outcome": "fail"
+        },
+        {
+          "label": "never-unwrap-value",
+          "patch_sha256": "2fc353d79af2bf5ed8e941c266361ae8212d50705b829972ffcdc90545b7f216",
+          "outcome": "fail"
+        }
+      ],
+      "qualified_at": "2026-10-12T23:45:04.623Z"
+    },
+    "adjudication_rules": "Score pass only if every hidden check passes. No partial credit.",
+    "provenance": {
+      "author": "Claude (QB developer side; dev screen, harder candidates)",
+      "created_at": "2026-10-12T00:00:00Z",
+      "tuned_during_development": false,
+      "notes": "Real security defect in fastify v5.12.1 (GHSA-667r-xxjv-c9mm: async validator results unwrapped as { value, error }), fixed upstream in f02d8d4a. The reference is that fix applied to v5.12.1. The hidden suite is the upstream tests plus the invalid-async and synchronous-contract cases the prompt states."
+    },
+    "changelog": []
+  },
+  "oracle_draft": {
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "with the $async body schema, { hello: 'world', value: { hello: 'evil' } } returns 200 and the handler sees exactly that body"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "with the $async body schema, { hello: 'world', error: 'boom' } returns 200 and the handler sees exactly that body"
+      },
+      {
+        "id": "AC-3",
+        "criterion": "with the $async body schema, { hello: { not: 'a string' } } is rejected with 400"
+      },
+      {
+        "id": "AC-4",
+        "criterion": "a synchronous custom validatorCompiler returning { value: x } replaces the body with x; returning { error } fails with 400"
+      }
+    ]
+  },
+  "source": {
+    "curation_sha256": "58e197768de9b83cc49a7fe89c33c7ad2ff2506e836e0ef9df8dbe509b08e6c2"
+  }
+}

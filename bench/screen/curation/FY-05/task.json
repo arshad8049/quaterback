@@ -1,0 +1,25 @@
+{
+  "id": "FY-05",
+  "split": "dev",
+  "stratum": { "type": "addition", "repository": "fastify" },
+  "repo": "qb-bench:fastify-5.11.0",
+  "base_rev": "a831ab349bf04596090a3e790725ccf16533b99e",
+  "prompt": "fastify.addHttpMethod silently overrides a method that already exists, such as addHttpMethod('GET', { hasBody: true }). Deprecate implicit overrides: addHttpMethod accepts a new option overrideExisting (default false). When the method already exists (as a method with or without a body) and overrideExisting is not true, emit a new Fastify deprecation warning FSTDEP025 (defined with the other warnings in lib/warnings.js, name 'FastifyDeprecation', code 'FSTDEP025', message 'Calling addHttpMethod for existing method \"%s\" without { overrideExisting: true } is deprecated. In Fastify v6, this will throw an error.' with the method name), every time this happens, not only the first time. With { overrideExisting: true } no warning is emitted, and adding a method that does not exist yet emits no warning. The override itself still takes effect in both cases (for example, GET then accepts a body).",
+  "requirement": "addHttpMethod(method, { hasBody = false, overrideExisting = false }): when method is already in the bodyless or bodywith set and overrideExisting is not true, FSTDEP025 is emitted via process-warning with unlimited: true (name 'FastifyDeprecation', code 'FSTDEP025', message with %s = method). overrideExisting: true suppresses it; a new method never warns; the hasBody change is applied either way.",
+  "oracle": {
+    "acceptance_criteria": [
+      { "id": "AC-1", "criterion": "addHttpMethod('GET', { hasBody: true }) emits a warning named 'FastifyDeprecation' with code 'FSTDEP025' and message 'Calling addHttpMethod for existing method \"GET\" without { overrideExisting: true } is deprecated. In Fastify v6, this will throw an error.'" },
+      { "id": "AC-2", "criterion": "the warning is emitted on every such call, not only the first" },
+      { "id": "AC-3", "criterion": "{ overrideExisting: true } emits no warning, and adding a method that does not exist yet emits no warning" },
+      { "id": "AC-4", "criterion": "with { hasBody: true, overrideExisting: true }, a GET route with a body schema receives and returns the JSON body" }
+    ]
+  },
+  "suite": { "command": ["node", "--test", "test/hidden/*.test.js"] },
+  "adjudication_rules": "Score pass only if every hidden check passes. No partial credit.",
+  "provenance": {
+    "author": "Claude (QB developer side; dev screen, harder candidates)",
+    "created_at": "2026-10-12T00:00:00Z",
+    "tuned_during_development": false,
+    "notes": "Real gap in fastify v5.11.0 (addHttpMethod overrides silently), changed upstream in 0e9a3b35 (#6879). The reference is that change applied to v5.11.0 (runtime only; docs and types not graded). The hidden suite follows the upstream tests and adds the every-time and new-method cases the prompt states."
+  }
+}
