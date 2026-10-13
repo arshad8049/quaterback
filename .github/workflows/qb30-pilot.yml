@@ -19,14 +19,12 @@ on:
   workflow_dispatch:
     inputs:
       config:
-        description: 'Experiment config'
-        type: choice
-        options: [bench/pilot/smoke.json, bench/pilot/dev-pilot.json]
+        description: 'Experiment config (bench/pilot/smoke.json, dev-pilot.json or screen.json)'
+        type: string
         default: bench/pilot/smoke.json
       shards:
-        description: 'Number of shards (whole tasks each)'
-        type: choice
-        options: ['1', '2', '5', '10']
+        description: 'Number of shards (whole tasks each, 1-20)'
+        type: string
         default: '1'
       max_parallel:
         description: 'Shards running at once (subscription concurrency)'
@@ -102,17 +100,32 @@ jobs:
           while read -r ref digestref; do
             docker pull -q "$digestref" && docker tag "$digestref" "$ref"
           done < "$RUNNER_TEMP/exp/images.txt"
-      - name: Task repositories and the local model
+      - name: Build the task repositories
         run: |
-          node bench/repos.js build all
-          curl -fsSL https://ollama.com/install.sh | sh
-          ollama pull deepseek-r1:7b
+          [ -f bench/package-lock.json ] && npm ci --prefix bench
+          node bench/repos.js build all > "$RUNNER_TEMP/repos.log" 2>&1 || { echo "::error title=repos build failed::$(tail -15 "$RUNNER_TEMP/repos.log" | sed 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}')"; exit 1; }
+          cat "$RUNNER_TEMP/repos.log"
+      - name: Install Ollama (needs zstd) and pull the model
+        run: |
+          sudo apt-get install -y -qq zstd > /dev/null
+          { curl -fsSL https://ollama.com/install.sh | sh; } > "$RUNNER_TEMP/ollama.log" 2>&1 || { echo "::error title=ollama install failed::$(tail -15 "$RUNNER_TEMP/ollama.log" | sed 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}')"; exit 1; }
+          # The installer does not always leave the server running (as in scripts/qb31-walkthrough.sh):
+          # start it (service, else a background `ollama serve` that lives until the job ends) and wait.
+          if ! ollama list > /dev/null 2>&1; then
+            sudo systemctl start ollama 2> /dev/null || (nohup ollama serve > "$RUNNER_TEMP/ollama-serve.log" 2>&1 &)
+            for i in $(seq 1 60); do ollama list > /dev/null 2>&1 && break; sleep 1; done
+          fi
+          ollama list > /dev/null 2>&1 || { echo "::error title=ollama server did not start::$(tail -15 "$RUNNER_TEMP/ollama-serve.log" 2>/dev/null | sed 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}')"; exit 1; }
+          ollama pull deepseek-r1:7b > "$RUNNER_TEMP/pull.log" 2>&1 || { echo "::error title=model pull failed::$(tail -15 "$RUNNER_TEMP/pull.log" | sed 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}')"; exit 1; }
+          ollama list
       - name: Run shard ${{ matrix.shard }}/${{ inputs.shards }}
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
           [ -n "$CLAUDE_CODE_OAUTH_TOKEN" ] || { echo "::error::repository secret CLAUDE_CODE_OAUTH_TOKEN is not set"; exit 1; }
-          node bench/experiment-run.js --config "${{ inputs.config }}" --resume "$RUNNER_TEMP/exp/${{ needs.pin.outputs.exp }}" --shard "${{ matrix.shard }}/${{ inputs.shards }}"
+          set -o pipefail
+          node bench/experiment-run.js --config "${{ inputs.config }}" --resume "$RUNNER_TEMP/exp/${{ needs.pin.outputs.exp }}" --shard "${{ matrix.shard }}/${{ inputs.shards }}" 2>&1 | tee "$RUNNER_TEMP/shard.log" \
+            || { echo "::error title=shard ${{ matrix.shard }} failed::$(grep -v 'injected env' "$RUNNER_TEMP/shard.log" | tail -25 | sed 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}')"; exit 1; }
       - name: Upload this shard's trials
         if: always()
         uses: actions/upload-artifact@v4
@@ -148,6 +161,10 @@ jobs:
           cat report.txt
           enc() { sed -e 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}'; }
           echo "::notice title=QB-30 dev pilot (exploratory; not evidence of effectiveness)::$(head -120 report.txt | enc)"
+          # Every non-scored trial with its recorded detail (status/detail come from the trial's result.json).
+          details=$(for r in $(find "$E/trials" -name result.json | sort); do node -e "const r=require(process.argv[1]); if (r.status!=='completed' || !r.grade_outcome) console.log(r.task_id+' '+r.arm+' '+r.status+': '+String(r.detail||'(no detail)').replace(/\s+/g,' ').slice(0,400))" "$r"; done)
+          [ -n "$details" ] && echo "::notice title=Trials without a score (detail)::$(printf '%s\n' "$details" | head -60 | enc)"
+          true
       - uses: actions/upload-artifact@v4
         with:
           name: experiment-merged
