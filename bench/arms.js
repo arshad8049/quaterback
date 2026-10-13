@@ -34,6 +34,7 @@ const { approve } = require('../intent/contract-state');
 const { contractFromObject } = require('../intent/compiler');
 const { createMemory } = require('../memory');
 const { runPipeline, agentStageMs } = require('../lib/qb-pipeline');
+const { FAILED_EXECUTION } = require('../verify/verdict');
 const S = require('./schemas');
 
 /** The arm table — the single source for docs, manifests and runs. */
@@ -91,6 +92,22 @@ function visibleTests(execution) {
   const cls = classifyTestRun(v || null);
   const out = v && typeof v.output === 'string' ? v.output.slice(-MAX_FEEDBACK) : '';
   return { outcome: cls.outcome, reason: cls.reason, output: out };
+}
+
+/**
+ * QB-30 screen (GitHub run 38409518314): 7 trials of the last shard ran the agent for ~1 s,
+ * Claude Code exited with an error, and the empty patch was GRADED as a fail for both arms.
+ * Protocol §4: agent errors and timeouts are attrition, never a score. The agent's own
+ * failure (non-zero exit, timeout, OOM, cancel, setup failure) ends the trial as
+ * `agent_error` / `timeout`, with the exit code and the agent's stderr tail as the detail.
+ * Returns null when the agent ran to completion (with or without a change).
+ */
+function agentFailure(execution) {
+  if (!execution || !FAILED_EXECUTION.has(execution.status)) return null;
+  const exit = Number.isInteger(execution.exit_code) ? ` (exit ${execution.exit_code})` : '';
+  const why = String(execution.stderr_tail || execution.error || '').trim().slice(-400);
+  return { status: execution.status === 'timeout' ? 'timeout' : 'agent_error',
+    detail: `agent ${execution.status}${exit}${why ? `: ${why}` : ''}` };
 }
 
 /** Count memory reads and writes (a spy) around a real memory instance. */
@@ -154,6 +171,8 @@ async function nativeArm(def, o) {
     execution = r;
     run.event('arm.attempt', { attempt, status: r.status, visible_tests: visibleTests(r).outcome });
     if (r.status === 'blocked' || r.status === 'infra_error') return { status: r.status === 'blocked' ? 'agent_error' : 'infra_error', detail: r.error, patch: r.diff || '', attempts: attempt, agent_ms: agentMs, timing };
+    const failed = agentFailure(r);
+    if (failed) return { ...failed, patch: r.diff || '', attempts: attempt, agent_ms: agentMs, timing, internal_verdict: null };
     if (def.feedback !== 'visible_tests') break;
     const vt = visibleTests(r);
     if (vt.outcome === 'passed' || vt.outcome === 'not_run') break;   // nothing to feed back
@@ -202,6 +221,9 @@ async function runArm(o) {
       ? { mode: 'on', store_sha256_before: copy.before, ...counts }
       : memOff;
     if (r.blocked) return { status: 'agent_error', detail: `blocked: ${r.blocked}`, patch: '', attempts: r.attempt, agent_ms: r.agent_ms, timing: r.timing, internal_verdict: null, memory };
+    const failed = agentFailure(r.execution);   // the LAST attempt's agent failed (same rule as A–D)
+    if (failed) return { ...failed, patch: (r.execution && r.execution.diff) || '', attempts: r.attempt, agent_ms: r.agent_ms, timing: r.timing,
+      internal_verdict: r.report ? r.report.verdict : null, memory };
     return { status: 'completed', patch: (r.execution && r.execution.diff) || '', attempts: r.attempt, agent_ms: r.agent_ms, timing: r.timing,
       internal_verdict: r.report ? r.report.verdict : null, memory };
   } finally {
@@ -209,4 +231,4 @@ async function runArm(o) {
   }
 }
 
-module.exports = { ARMS, SCOPE, runArm, oracleContract, visibleTests, countingMemory, memoryCopy };
+module.exports = { ARMS, SCOPE, runArm, oracleContract, visibleTests, agentFailure, countingMemory, memoryCopy };
