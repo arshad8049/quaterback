@@ -18,7 +18,7 @@ const SEMANTIC_FIELDS = [
   'proposed_defaults',            // QB-17: QB's own choices where the request is silent — shown and approved, never silent
 ];
 const { modelCall } = require('../lib/budget');
-const { validateChecks, ADAPTERS: CHECK_ADAPTERS } = require('../verify/checks/registry');
+const { validateChecks } = require('../verify/checks/registry');
 
 const SYSTEM_PROMPT = fs.readFileSync(path.join(__dirname, 'prompts/system.md'), 'utf8');
 
@@ -202,45 +202,31 @@ function isNoQuestionSentinel(q) {
   return NO_QUESTION_SENTINELS.has(q.trim().toLowerCase().replace(/\.$/, ''));
 }
 
-/** The text of a list entry the model wrote as an object, or null (QB-17: never guessed). */
 /**
- * KAN-66: the model sometimes writes a verification_plan step as the check it executes
- * ({ adapter, params }) instead of a sentence. A step for a registered adapter whose
- * params have the expected shape is rendered from its own fields — nothing is added —
- * and the human approves that text with the contract. Any other shape returns null and
- * stays "unreadable" (QB-17).
+ * KAN-66: the model sometimes writes a verification_plan step as the call_returns check
+ * it executes ({ adapter, params }) instead of a sentence. Only that demonstrated shape is
+ * read, and only when every field is present and well-formed and nothing else is supplied
+ * (an unrendered field would be approved unseen): it is rendered from its own fields and
+ * the human approves that text with the contract. Every other shape, including the other
+ * check adapters, returns null and stays "unreadable" (QB-17).
  */
+const STEP_KEYS = new Set(['adapter', 'params', 'plan_item', 'id', 'ac_id']);
+const CALL_RETURNS_KEYS = ['module', 'export', 'args', 'expect'];
 function checkStepText(step) {
   if (!step || typeof step !== 'object' || Array.isArray(step)) return null;
-  const { adapter, params: p } = step;
-  if (!CHECK_ADAPTERS.includes(adapter) || !p || typeof p !== 'object') return null;
-  if (typeof p.module !== 'string' || !p.module || typeof p.export !== 'string' || !p.export) return null;
-  const call = (name, args) => (Array.isArray(args) ? `${name}(${args.map((a) => JSON.stringify(a)).join(', ')})` : null);
-  if (adapter === 'module_exports') {
-    return typeof p.type === 'string' && p.type ? `module_exports: ${p.module} exports ${p.export} as a ${p.type}` : null;
-  }
-  if (adapter === 'call_returns') {
-    const c = call(p.export, p.args);
-    return c && 'expect' in p ? `call_returns: ${c} from ${p.module} returns ${JSON.stringify(p.expect)}` : null;
-  }
-  if (adapter === 'call_throws') {
-    const c = call(p.export, p.args ?? []);
-    if (!c) return null;
-    const msg = typeof p.message_includes === 'string' && p.message_includes ? ` with a message including ${JSON.stringify(p.message_includes)}` : '';
-    return `call_throws: ${c} from ${p.module} throws${msg}`;
-  }
-  if (adapter === 'call_sequence') {
-    if (!Array.isArray(p.steps) || !p.steps.length) return null;
-    const steps = p.steps.map((s) => {
-      if (!s || typeof s.on !== 'string' || typeof s.method !== 'string') return null;
-      const c = call(`${s.on}.${s.method}`, s.args ?? []);
-      return c && ('expect' in s ? `${c} returns ${JSON.stringify(s.expect)}` : c);
-    });
-    return steps.every(Boolean) ? `call_sequence: ${p.export} from ${p.module}: ${steps.join('; ')}` : null;
-  }
-  return null;
+  if (Object.keys(step).some((k) => !STEP_KEYS.has(k)) || step.adapter !== 'call_returns') return null;
+  if ('plan_item' in step && !(Number.isInteger(step.plan_item) && step.plan_item >= 0)) return null;
+  for (const k of ['id', 'ac_id']) if (k in step && typeof step[k] !== 'string') return null;
+  const p = step.params;
+  if (!p || typeof p !== 'object' || Array.isArray(p)) return null;
+  const keys = Object.keys(p);
+  if (keys.length !== CALL_RETURNS_KEYS.length || !CALL_RETURNS_KEYS.every((k) => keys.includes(k))) return null;
+  if (typeof p.module !== 'string' || !p.module || typeof p.export !== 'string' || !p.export || !Array.isArray(p.args)) return null;
+  if (p.expect === undefined) return null;
+  return `call_returns: ${p.export}(${p.args.map((a) => JSON.stringify(a)).join(', ')}) from ${p.module} returns ${JSON.stringify(p.expect)}`;
 }
 
+/** The text of a list entry the model wrote as an object, or null (QB-17: never guessed). */
 function extractString(obj) {
   if (typeof obj === 'string') return obj;
   if (typeof obj === 'number' || typeof obj === 'boolean') return String(obj);

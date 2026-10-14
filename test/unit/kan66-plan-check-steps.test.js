@@ -4,9 +4,12 @@
  * as "unreadable", so every contract for the request below was invalid and nothing ran
  * (6 of 6 real attempts, 2026-10-14). The fixture is the model's captured output, unedited.
  *
- * A check-shaped step (a registered adapter with its params) is now rendered as text from its
- * own fields, for the human to approve with the rest of the contract. Nothing is invented: any
- * other object shape is still unreadable, and the contract still fails closed on everything else.
+ * A step of exactly the demonstrated shape — a call_returns check with module, export, args and
+ * expect and nothing else — is now rendered as text from its own fields, for the human to approve
+ * with the rest of the contract. Nothing is invented or left unseen: every other shape (the other
+ * adapters, extra or malformed fields) is still unreadable, and the contract still fails closed on
+ * everything else. Re-review (comment 10302): scoped to call_returns; the other adapters carry
+ * fields (constructor setup, optional message) that a short rendering could hide.
  */
 const { test, describe, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
@@ -64,21 +67,40 @@ describe('KAN-66: check-shaped verification_plan steps are read, not rejected', 
       [['CHK-1', 'AC-1', 'call_returns', 30000, '30s'], ['CHK-2', 'AC-2', 'call_returns', 90000, '1m 30s']]);
   });
 
-  test('every registered adapter renders from its own fields', async () => {
-    const plan = [
-      { adapter: 'module_exports', params: { module: 'src/a.js', export: 'f', type: 'function' } },
-      { adapter: 'call_throws', params: { module: 'src/a.js', export: 'f', args: [-1], message_includes: 'negative' } },
-      { adapter: 'call_throws', params: { module: 'src/a.js', export: 'f', args: [] } },
-      { adapter: 'call_sequence', params: { module: 'src/vad.js', export: 'VAD', instances: { a: { construct: 'new', args: [] } },
-        steps: [{ on: 'a', method: 'onSpeech', args: [300] }, { on: 'a', method: 'stats', args: [], expect: { n: 1 } }] } },
-    ];
-    const { c } = await compiled({ ...VALID_POLICY(), verification_plan: plan });
-    assert.deepEqual(c.verification_plan, [
-      'module_exports: src/a.js exports f as a function',
-      'call_throws: f(-1) from src/a.js throws with a message including "negative"',
-      'call_throws: f() from src/a.js throws',
-      'call_sequence: VAD from src/vad.js: a.onSpeech(300); a.stats() returns {"n":1}',
-    ]);
+  test('only call_returns is read: the other adapters stay unreadable, whatever their fields (re-review 10302)', async () => {
+    const ctor = (args) => ({ adapter: 'call_sequence', params: { module: 'src/vad.js', export: 'VAD', instances: { a: { construct: 'new', args } },
+      steps: [{ on: 'a', method: 'onSpeech', args: [300] }, { on: 'a', method: 'stats', args: [], expect: { n: 1 } }] } });
+    for (const [bad, label] of [
+      [{ adapter: 'module_exports', params: { module: 'src/a.js', export: 'f', type: 'function' } }, 'module_exports'],
+      [{ adapter: 'call_throws', params: { module: 'src/a.js', export: 'f', args: [-1], message_includes: 'negative' } }, 'call_throws'],
+      [{ adapter: 'call_throws', params: { module: 'src/a.js', export: 'f', args: [-1], message_includes: 123 } }, 'call_throws, non-string message_includes'],
+      [ctor([]), 'call_sequence, new VAD()'],
+      [ctor([16000]), 'call_sequence, new VAD(16000): would have rendered the same text as new VAD()'],
+      [{ adapter: 'call_sequence', params: { module: 'src/vad.js', export: 'VAD', steps: [{ on: 'a', method: 'stats', args: [] }] } }, 'call_sequence, no instances'],
+    ]) {
+      const { s } = await compiled({ ...VALID_POLICY(), verification_plan: [bad] });
+      assert.equal(s.state, 'invalid', label);
+      assert.match(s.errors.join(' | '), /unreadable verification_plan\[0\]/, label);
+    }
+  });
+
+  test('a call_returns step with any field the text would not show, or a malformed one, stays unreadable', async () => {
+    const ok = { plan_item: 0, adapter: 'call_returns', params: { module: 'src/duration.js', export: 'formatDuration', args: [30000], expect: '30s' } };
+    const { c } = await compiled({ ...VALID_POLICY(), verification_plan: [ok] });
+    assert.deepEqual(c.verification_plan, ['call_returns: formatDuration(30000) from src/duration.js returns "30s"'], 'control');
+    for (const [bad, label] of [
+      [{ ...ok, params: { ...ok.params, timeout_ms: 5 } }, 'extra param'],
+      [{ ...ok, note: 'x' }, 'extra step field'],
+      [{ ...ok, params: { module: ok.params.module, export: ok.params.export, args: [30000] } }, 'no expect'],
+      [{ ...ok, plan_item: '0' }, 'plan_item not an integer'],
+      [{ ...ok, plan_item: -1 }, 'negative plan_item'],
+      [{ ...ok, ac_id: 1 }, 'ac_id not a string'],
+      [{ ...ok, params: { ...ok.params, export: '' } }, 'empty export'],
+    ]) {
+      const { s } = await compiled({ ...VALID_POLICY(), verification_plan: [bad] });
+      assert.equal(s.state, 'invalid', label);
+      assert.match(s.errors.join(' | '), /unreadable verification_plan\[0\]/, label);
+    }
   });
 
   test('anything else stays unreadable and the contract invalid: unknown adapter, missing params, bare plan index, wrong field types', async () => {
@@ -87,7 +109,7 @@ describe('KAN-66: check-shaped verification_plan steps are read, not rejected', 
       [{ plan_item: 0, adapter: 'call_returns' }, 'no params'],
       [{ plan_item: 0 }, 'bare plan index'],
       [{ adapter: 'call_returns', params: { module: 'src/duration.js', export: 'formatDuration', args: 30000, expect: '30s' } }, 'args not a list'],
-      [{ adapter: 'module_exports', params: { module: 7, export: 'f', type: 'function' } }, 'module not a string'],
+      [{ adapter: 'call_returns', params: { module: 7, export: 'f', args: [], expect: 1 } }, 'module not a string'],
     ]) {
       const { c, s } = await compiled({ ...VALID_POLICY(), verification_plan: [bad] });
       assert.equal(s.state, 'invalid', label);
