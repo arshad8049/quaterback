@@ -1,0 +1,123 @@
+/**
+ * KAN-66: the local compiler model (deepseek-r1:7b) writes valid `checks`, then repeats them
+ * as check-shaped OBJECTS in `verification_plan` (a list of strings). QB-17 reported each one
+ * as "unreadable", so every contract for the request below was invalid and nothing ran
+ * (6 of 6 real attempts, 2026-10-14). The fixture is the model's captured output, unedited.
+ *
+ * A check-shaped step (a registered adapter with its params) is now rendered as text from its
+ * own fields, for the human to approve with the rest of the contract. Nothing is invented: any
+ * other object shape is still unreadable, and the contract still fails closed on everything else.
+ */
+const { test, describe, beforeEach, afterEach } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { spawnSync } = require('child_process');
+const { mockFetch, ollamaReply } = require('../helpers/mocks');
+const { makeRepo } = require('../helpers/tmprepo');
+
+const ROOT = path.join(__dirname, '..', '..');
+const PRELOAD = path.join(__dirname, '..', 'helpers', 'preload-ollama.js');
+const REQUEST = 'In src/duration.js, formatDuration(30000) should return "30s" instead of "0m 30s"; formatDuration(90000) should still return "1m 30s".';
+const CAPTURED = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'fixtures', 'kan66', 'deepseek-r1-7b-output.json'), 'utf8'));
+const copy = (o) => JSON.parse(JSON.stringify(o));
+/**
+ * The captured output with its two OTHER defects repaired, both still rejected by QB as they
+ * should be: an invented enforcement kind (made advisory) and requirement quotes with " turned
+ * into ' that left parts of the request untraced (QB-14; here one requirement quotes it whole).
+ */
+const VALID_POLICY = () => {
+  const c = { ...copy(CAPTURED), constraint_policy: [{ constraint: 0, advisory: true }], requirements: [{ id: 'R-1', quote: REQUEST }] };
+  for (const ac of c.acceptance_criteria) ac.requirement_ids = ['R-1'];
+  return c;
+};
+
+async function compiled(reply) {
+  const { compile } = require('../../intent/compiler');
+  const { contractState } = require('../../intent/contract-state');
+  const m = mockFetch(ollamaReply(reply));
+  try {
+    const c = await compile(REQUEST);
+    return { c, s: contractState(c) };
+  } finally { m.restore(); }
+}
+
+describe('KAN-66: check-shaped verification_plan steps are read, not rejected', () => {
+  test('the captured model output: the plan is rendered from each step\'s own fields (pre-fix: unreadable verification_plan[0], [1])', async () => {
+    const { c, s } = await compiled(copy(CAPTURED));
+    assert.deepEqual(c.verification_plan, [
+      'call_returns: formatDuration(30000) from src/duration.js returns "30s"',
+      'call_returns: formatDuration(90000) from src/duration.js returns "1m 30s"',
+    ]);
+    const errors = (s.errors || []).join(' | ');
+    assert.doesNotMatch(errors, /verification_plan/);
+    // Still fail closed on the output's OTHER defect: an enforcement kind the model invented.
+    assert.equal(s.state, 'invalid');
+    assert.match(errors, /constraint 0 has an unknown enforcement/);
+  });
+
+  test('with that defect absent, the same output is a finalized contract whose checks are unchanged', async () => {
+    const { c, s } = await compiled(VALID_POLICY());
+    assert.equal(s.state, 'finalized', JSON.stringify(s.errors));
+    assert.deepEqual(c.checks.map((k) => [k.id, k.ac_id, k.adapter, k.params.args[0], k.params.expect]),
+      [['CHK-1', 'AC-1', 'call_returns', 30000, '30s'], ['CHK-2', 'AC-2', 'call_returns', 90000, '1m 30s']]);
+  });
+
+  test('every registered adapter renders from its own fields', async () => {
+    const plan = [
+      { adapter: 'module_exports', params: { module: 'src/a.js', export: 'f', type: 'function' } },
+      { adapter: 'call_throws', params: { module: 'src/a.js', export: 'f', args: [-1], message_includes: 'negative' } },
+      { adapter: 'call_throws', params: { module: 'src/a.js', export: 'f', args: [] } },
+      { adapter: 'call_sequence', params: { module: 'src/vad.js', export: 'VAD', instances: { a: { construct: 'new', args: [] } },
+        steps: [{ on: 'a', method: 'onSpeech', args: [300] }, { on: 'a', method: 'stats', args: [], expect: { n: 1 } }] } },
+    ];
+    const { c } = await compiled({ ...VALID_POLICY(), verification_plan: plan });
+    assert.deepEqual(c.verification_plan, [
+      'module_exports: src/a.js exports f as a function',
+      'call_throws: f(-1) from src/a.js throws with a message including "negative"',
+      'call_throws: f() from src/a.js throws',
+      'call_sequence: VAD from src/vad.js: a.onSpeech(300); a.stats() returns {"n":1}',
+    ]);
+  });
+
+  test('anything else stays unreadable and the contract invalid: unknown adapter, missing params, bare plan index, wrong field types', async () => {
+    for (const [bad, label] of [
+      [{ adapter: 'shell', params: { cmd: 'rm -rf /' } }, 'unknown adapter'],
+      [{ plan_item: 0, adapter: 'call_returns' }, 'no params'],
+      [{ plan_item: 0 }, 'bare plan index'],
+      [{ adapter: 'call_returns', params: { module: 'src/duration.js', export: 'formatDuration', args: 30000, expect: '30s' } }, 'args not a list'],
+      [{ adapter: 'module_exports', params: { module: 7, export: 'f', type: 'function' } }, 'module not a string'],
+    ]) {
+      const { c, s } = await compiled({ ...VALID_POLICY(), verification_plan: [bad] });
+      assert.equal(s.state, 'invalid', label);
+      assert.match(s.errors.join(' | '), /incomplete compiler output: unreadable verification_plan\[0\]; missing verification_plan/, label);
+      assert.ok(!JSON.stringify(c.verification_plan || []).includes('rm -rf'), label);
+    }
+  });
+});
+
+describe('KAN-66 through qb.js: the captured output reaches the approval step', () => {
+  let tmp, repo;
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'kan66-'));
+    repo = makeRepo({ 'src/duration.js': 'module.exports = { formatDuration: (ms) => `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s` };\n' });
+  });
+  afterEach(() => { repo.cleanup(); fs.rmSync(tmp, { recursive: true, force: true }); });
+
+  test('non-interactive run stops for human approval and writes the rendered plan (pre-fix: "unusable contract", nothing to approve)', () => {
+    const r = spawnSync(process.execPath, ['--require', PRELOAD, 'qb.js', REQUEST, '--repo', repo.dir, '--agent', 'claude-code'], {
+      cwd: ROOT, encoding: 'utf8', timeout: 60_000, input: '',
+      env: { ...process.env, QB_RUNS_DIR: path.join(tmp, 'runs'), QB_MEMORY_DIR: path.join(tmp, 'mem'), QB_TEST_OLLAMA_REPLY: JSON.stringify(VALID_POLICY()) },
+    });
+    const out = r.stdout + r.stderr;
+    assert.doesNotMatch(out, /unusable contract/, out);
+    assert.match(out, /needs a human's approval/, out);
+    const file = out.match(/Review \(and edit if needed\): (\S+)/)[1];
+    const proposed = JSON.parse(fs.readFileSync(file, 'utf8'));
+    assert.deepEqual(proposed.verification_plan, [
+      'call_returns: formatDuration(30000) from src/duration.js returns "30s"',
+      'call_returns: formatDuration(90000) from src/duration.js returns "1m 30s"',
+    ]);
+  });
+});

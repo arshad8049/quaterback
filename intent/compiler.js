@@ -18,7 +18,7 @@ const SEMANTIC_FIELDS = [
   'proposed_defaults',            // QB-17: QB's own choices where the request is silent — shown and approved, never silent
 ];
 const { modelCall } = require('../lib/budget');
-const { validateChecks } = require('../verify/checks/registry');
+const { validateChecks, ADAPTERS: CHECK_ADAPTERS } = require('../verify/checks/registry');
 
 const SYSTEM_PROMPT = fs.readFileSync(path.join(__dirname, 'prompts/system.md'), 'utf8');
 
@@ -119,7 +119,8 @@ function contractFromObject(raw, request) {
   for (const key of ['required_behavior', 'constraints', 'verification_plan', 'ambiguity_flags']) {
     if (Array.isArray(raw[key])) {
       raw[key] = raw[key].map((item, i) => {
-        const t = typeof item === 'string' ? item : extractString(item);
+        const t = typeof item === 'string' ? item
+          : (key === 'verification_plan' ? checkStepText(item) : null) ?? extractString(item);
         if (t === null) incomplete.push(`unreadable ${key}[${i}]`);
         return t;
       }).filter(Boolean);
@@ -202,6 +203,44 @@ function isNoQuestionSentinel(q) {
 }
 
 /** The text of a list entry the model wrote as an object, or null (QB-17: never guessed). */
+/**
+ * KAN-66: the model sometimes writes a verification_plan step as the check it executes
+ * ({ adapter, params }) instead of a sentence. A step for a registered adapter whose
+ * params have the expected shape is rendered from its own fields — nothing is added —
+ * and the human approves that text with the contract. Any other shape returns null and
+ * stays "unreadable" (QB-17).
+ */
+function checkStepText(step) {
+  if (!step || typeof step !== 'object' || Array.isArray(step)) return null;
+  const { adapter, params: p } = step;
+  if (!CHECK_ADAPTERS.includes(adapter) || !p || typeof p !== 'object') return null;
+  if (typeof p.module !== 'string' || !p.module || typeof p.export !== 'string' || !p.export) return null;
+  const call = (name, args) => (Array.isArray(args) ? `${name}(${args.map((a) => JSON.stringify(a)).join(', ')})` : null);
+  if (adapter === 'module_exports') {
+    return typeof p.type === 'string' && p.type ? `module_exports: ${p.module} exports ${p.export} as a ${p.type}` : null;
+  }
+  if (adapter === 'call_returns') {
+    const c = call(p.export, p.args);
+    return c && 'expect' in p ? `call_returns: ${c} from ${p.module} returns ${JSON.stringify(p.expect)}` : null;
+  }
+  if (adapter === 'call_throws') {
+    const c = call(p.export, p.args ?? []);
+    if (!c) return null;
+    const msg = typeof p.message_includes === 'string' && p.message_includes ? ` with a message including ${JSON.stringify(p.message_includes)}` : '';
+    return `call_throws: ${c} from ${p.module} throws${msg}`;
+  }
+  if (adapter === 'call_sequence') {
+    if (!Array.isArray(p.steps) || !p.steps.length) return null;
+    const steps = p.steps.map((s) => {
+      if (!s || typeof s.on !== 'string' || typeof s.method !== 'string') return null;
+      const c = call(`${s.on}.${s.method}`, s.args ?? []);
+      return c && ('expect' in s ? `${c} returns ${JSON.stringify(s.expect)}` : c);
+    });
+    return steps.every(Boolean) ? `call_sequence: ${p.export} from ${p.module}: ${steps.join('; ')}` : null;
+  }
+  return null;
+}
+
 function extractString(obj) {
   if (typeof obj === 'string') return obj;
   if (typeof obj === 'number' || typeof obj === 'boolean') return String(obj);
