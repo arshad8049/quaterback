@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quarterback — Check AI-written code against your requirements</title>
+  <meta name="description" content="Quarterback turns a coding request into requirements you approve, runs Claude Code in an isolated workspace, and checks the resulting changes. You get a proposed patch, test results and a record of what remains unresolved. In development.">
+
+  <!-- Canonical -->
+  <link rel="canonical" href="https://quaterback.velorallc.workers.dev/">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="./favicon.png">
+  <link rel="apple-touch-icon" href="./favicon.png">
+
+  <!-- Open Graph -->
+  <meta property="og:type"        content="website">
+  <meta property="og:site_name"   content="Quarterback">
+  <meta property="og:url"         content="https://quaterback.velorallc.workers.dev/">
+  <meta property="og:title"       content="Quarterback — Check AI-written code against your requirements">
+  <meta property="og:description" content="Quarterback turns a coding request into requirements you approve, runs Claude Code in an isolated workspace, and checks the resulting changes. You get a proposed patch, test results and a record of what remains unresolved. In development.">
+  <meta property="og:image"       content="https://quaterback.velorallc.workers.dev/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt"   content="Quarterback — AI coding runtime diagram showing Intent → Context → Agent → Verify pipeline">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card"        content="summary_large_image">
+  <meta name="twitter:title"       content="Quarterback — Check AI-written code against your requirements">
+  <meta name="twitter:description" content="Quarterback turns a coding request into requirements you approve, runs Claude Code in an isolated workspace, and checks the resulting changes. You get a proposed patch, test results and a record of what remains unresolved. In development.">
+  <meta name="twitter:image"       content="https://quaterback.velorallc.workers.dev/og-image.png">
+
+  <!-- Security -->
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta http-equiv="X-Frame-Options" content="DENY">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+
+  <!-- JSON-LD structured data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Quarterback",
+    "description": "Quarterback turns a coding request into requirements you approve, runs Claude Code in an isolated workspace, and checks the resulting changes. You get a proposed patch, test results and a record of what remains unresolved. In development.",
+    "url": "https://quaterback.velorallc.workers.dev/",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "macOS, Linux, Windows",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "author": { "@type": "Organization", "name": "Velora", "url": "https://velorallc.netlify.app/" }
+  }
+  </script>
+
+  <!-- Fonts → edit: src/styles/fonts.css -->
+  <link rel="stylesheet" href="./src/styles/fonts.css">
+
+  <!-- Styles → edit: src/styles/main.css -->
+  <link rel="stylesheet" href="./src/styles/main.css">
+
+  <!-- Scripts (order matters) -->
+  <script src="./src/scripts/react.js"></script>
+  <script src="./src/scripts/react-dom.js"></script>
+  <script src="./src/scripts/dc-runtime.js"></script>
+</head>
+<body>
+<div style="width: 100%; background: #0D100F; color: #F4F1EA; font-family: 'IBM Plex Sans', 'Helvetica Neue', sans-serif; -webkit-font-smoothing: antialiased;">
+
+  <!-- ============================================================ -->
+  <!-- SECTION: NAV → edit: src/nav.html -->
+  <!-- ============================================================ -->
+  <!-- NAV -->
+  <div class="qb-nav" style="display: flex; align-items: center; justify-content: space-between; padding: 16px 80px; border-bottom: 1px solid rgba(34,42,39,0.8);">
+    <div style="display: flex; align-items: center; gap: 14px;">
+      <a href="./" class="qb-logo-link" style="display: flex; align-items: center; gap: 11px; text-decoration: none;">
+        <img src="./logo.png" alt="Quarterback" width="30" height="30" style="border-radius: 7px; display: block; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.5);">
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600; letter-spacing: 0.02em; color: #F4F1EA;">Quarterback</span>
+      </a>
+      <span style="font-size: 12px; color: #4A5652;">by</span>
+      <a href="https://velorallc.netlify.app/" target="_blank" rel="noopener noreferrer" style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: #6E7A76; text-decoration: none;" class="qb-velora-link">Velora</a>
+    </div>
+    <button class="qb-nav-toggle" aria-label="Open navigation menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="qb-nav-links" style="display: flex; align-items: center; gap: 34px;">
+      <a href="#problem" class="qb-nav-link" style="font-size: 14px; color: #A7B0AB; text-decoration: none;">How it works</a>
+      <a href="#metric" class="qb-nav-link" style="font-size: 14px; color: #A7B0AB; text-decoration: none;">Status</a>
+      <a href="#loop" class="qb-nav-link" style="font-size: 14px; color: #A7B0AB; text-decoration: none;">The runtime</a>
+      <a href="#verification" class="qb-nav-link" style="font-size: 14px; color: #A7B0AB; text-decoration: none;">Verification</a>
+      <a href="./engineering.html" class="qb-nav-link" style="font-size: 14px; color: #A7B0AB; text-decoration: none;">Engineering</a>
+      <a href="./research.html" class="qb-nav-link" style="font-size: 14px; color: #6FBF9F; text-decoration: none;">Evaluation →</a>
+      <a href="https://github.com/arshad8049/quaterback" target="_blank" rel="noopener noreferrer" class="qb-github-link" style="display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 14px; border: 1px solid #2E3C38; border-radius: 7px; text-decoration: none; color: #A7B0AB; font-size: 13px; font-family: 'IBM Plex Mono', monospace; transition: border-color 0.18s, color 0.18s;" aria-label="GitHub repository">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.009-.868-.014-1.703-2.782.604-3.369-1.341-3.369-1.341-.454-1.154-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0 1 12 6.836a9.59 9.59 0 0 1 2.504.337c1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.202 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.579.688.481C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg>
+        <span id="qb-star-count" style="display:inline-flex;align-items:center;gap:4px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="opacity:0.6" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <span id="qb-stars">0</span>
+        </span>
+      </a>
+      <a href="#beta" class="qb-cta-btn" style="display: inline-flex; align-items: center; height: 38px; padding: 0 18px; border: 1px solid rgba(224,138,76,0.7); border-radius: 8px; font-size: 14px; font-weight: 500; color: #E08A4C; text-decoration: none; letter-spacing: 0.01em;">Request early access</a>
+    </div>
+  </div>
+
+
+  <!-- ============================================================ -->
+  <!-- SECTION: HERO → edit: src/hero.html -->
+  <!-- ============================================================ -->
+  <!-- HERO -->
+  <div style="position: relative; overflow: hidden; padding: 128px 80px 104px 80px;">
+  
+    <div class="qb-grid" aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 0; bottom: 0; opacity: 0.35;"></div>
+    <div class="qb-glow" aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 0; bottom: 0;"></div>
+  
+    <div class="qb-hero-layout" style="position: relative; max-width: 1180px; margin: 0 auto;">
+      <div class="qb-hero-copy">
+        <div class="qb-reveal" style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #E08A4C; margin-bottom: 30px;">A <a href="https://velorallc.netlify.app/" target="_blank" rel="noopener" style="color: #E08A4C; text-decoration: none; border-bottom: 1px solid rgba(224,138,76,0.4);" class="qb-velora-link">Velora</a> product · in development</div>
+        <h1 class="qb-reveal" style="margin: 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 84px; line-height: 1.02; font-weight: 400; letter-spacing: -0.02em; color: #F4F1EA; transition-delay: 0.08s;">Check AI-written code against your requirements.</h1>
+        <p class="qb-reveal" style="margin: 32px 0 0 0; max-width: 680px; font-size: 21px; line-height: 1.6; color: #D6DFDB; transition-delay: 0.16s;">Quarterback turns a coding request into requirements you approve, runs Claude Code in an isolated workspace, and checks the resulting changes. You get a proposed patch, test results and a record of what remains unresolved.</p>
+        <div class="qb-reveal qb-hero-cta" style="display: flex; align-items: center; gap: 20px; margin-top: 40px; transition-delay: 0.24s; flex-wrap: wrap;">
+          <a href="#beta" class="qb-btn-primary" style="display: inline-flex; align-items: center; height: 54px; padding: 0 30px; background: #E08A4C; border-radius: 4px; font-size: 16px; font-weight: 600; color: #0D100F; text-decoration: none;">Request early access</a>
+          <a href="https://github.com/arshad8049/quaterback" target="_blank" rel="noopener" class="qb-btn-ghost" style="display: inline-flex; align-items: center; height: 54px; padding: 0 24px; font-size: 16px; font-weight: 500; color: #F4F1EA; text-decoration: none; border-bottom: 1px solid #3A4441;">View the code →</a>
+        </div>
+        <p class="qb-reveal" style="margin: 28px 0 0 0; font-size: 15px; line-height: 1.6; color: #A7B0AB; transition-delay: 0.3s;">Currently built for Claude Code on supported JavaScript projects using Linux and Docker.</p>
+      </div>
+      <!-- HERO-TERMINAL -->
+    </div>
+  </div>
+
+
+  <!-- ============================================================ -->
+  <!-- SECTION: SOCIAL-PROOF → edit: src/social-proof.html -->
+  <!-- ============================================================ -->
+  <!-- SOCIAL PROOF: Stack Overflow 2025 AI Developer Survey -->
+  <div style="border-top: 1px solid #1A211E; border-bottom: 1px solid #1A211E; background: #0B0E0D; padding: 0 80px;">
+    <div style="max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1px 1fr 1px 1fr; align-items: stretch;">
+  
+      <div class="qb-reveal" style="padding: 56px 48px 56px 0; display: flex; flex-direction: column; gap: 12px;">
+        <div style="font-family: 'Instrument Serif', Georgia, serif; font-size: 72px; line-height: 1; color: #E08A4C; letter-spacing: -0.02em;">66%</div>
+        <div style="font-size: 16px; line-height: 1.55; color: #B4BEB9; max-width: 260px;">of developers say AI gives solutions that are <em style="color:#C6CFCB; font-style:normal;">almost right, but not quite</em> — requiring manual correction every time.</div>
+      </div>
+  
+      <div style="background: #1A211E; width: 1px;"></div>
+  
+      <div class="qb-reveal" style="padding: 56px 48px; display: flex; flex-direction: column; gap: 12px;">
+        <div style="font-family: 'Instrument Serif', Georgia, serif; font-size: 72px; line-height: 1; color: #E08A4C; letter-spacing: -0.02em;">4.4%</div>
+        <div style="font-size: 16px; line-height: 1.55; color: #B4BEB9; max-width: 260px;">of professional developers say AI <em style="color:#C6CFCB; font-style:normal;">handles complex tasks well</em>. The remaining 95.6% do not.</div>
+      </div>
+  
+      <div style="background: #1A211E; width: 1px;"></div>
+  
+      <div class="qb-reveal" style="padding: 56px 0 56px 48px; display: flex; flex-direction: column; gap: 12px;">
+        <div style="font-family: 'Instrument Serif', Georgia, serif; font-size: 72px; line-height: 1; color: #E08A4C; letter-spacing: -0.02em;">46%</div>
+        <div style="font-size: 16px; line-height: 1.55; color: #B4BEB9; max-width: 260px;">actively distrust AI accuracy — up from 33% last year. Trust in AI output is declining, not growing.</div>
+      </div>
+  
+    </div>
+  
+    <div style="max-width: 1180px; margin: 0 auto; padding-bottom: 22px; border-top: 1px solid #1A211E;">
+      <p style="margin: 16px 0 0 0; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #4A5450; letter-spacing: 0.06em;">
+        Source: <a href="https://survey.stackoverflow.co/2025/ai#developer-tools-ai-complex-ai-complex-prof-exp" target="_blank" rel="noopener noreferrer" style="color: #4A5450; text-decoration: underline; text-underline-offset: 3px;">Stack Overflow 2025 AI Developer Survey</a> — 65,000+ professional developers surveyed.
+      </p>
+    </div>
+  </div>
+
+
+  <!-- ============================================================ -->
+  <!-- SECTION: TODAY-VS-FUTURE → edit: src/today-vs-future.html -->
+  <!-- ============================================================ -->
+  <!-- HOW IT WORKS (three steps) -->
+  <div id="problem" style="padding: 104px 80px; border-top: 1px solid #222A27; background: #0A0D0C;">
+    <div style="max-width: 1180px; margin: 0 auto;">
+      <h2 style="margin: 0 0 20px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1.1; font-weight: 400; color: #F4F1EA;">You stopped writing the code. Now you check the agent.</h2>
+      <p style="margin: 0 0 52px 0; max-width: 760px; font-size: 19px; line-height: 1.6; color: #B4BEB9;">Writing code with a coding agent is fast. Checking whether it actually completed the request still takes work. Quarterback structures that check in three steps.</p>
+  
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;">
+  
+        <div style="background: #121615; border: 1px solid #262E2B; border-top: 2px solid #E08A4C; border-radius: 6px; padding: 34px 32px;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: #E08A4C; margin-bottom: 14px;">01</div>
+          <h3 style="margin: 0 0 12px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 32px; line-height: 1.15; font-weight: 400; color: #F4F1EA;">Approve the task.</h3>
+          <p style="margin: 0; font-size: 17px; line-height: 1.6; color: #C6CFCB;">Review the requirements and checks before the coding agent starts.</p>
+        </div>
+  
+        <div style="background: #121615; border: 1px solid #262E2B; border-top: 2px solid #6FBF9F; border-radius: 6px; padding: 34px 32px;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: #6FBF9F; margin-bottom: 14px;">02</div>
+          <h3 style="margin: 0 0 12px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 32px; line-height: 1.15; font-weight: 400; color: #F4F1EA;">Run and check.</h3>
+          <p style="margin: 0; font-size: 17px; line-height: 1.6; color: #C6CFCB;">Quarterback supplies repository context, executes the agent in isolation and runs the approved checks. Failed checks can feed another repair attempt.</p>
+        </div>
+  
+        <div style="background: #121615; border: 1px solid #262E2B; border-top: 2px solid #C6CFCB; border-radius: 6px; padding: 34px 32px;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: #C6CFCB; margin-bottom: 14px;">03</div>
+          <h3 style="margin: 0 0 12px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 32px; line-height: 1.15; font-weight: 400; color: #F4F1EA;">Review the result.</h3>
+          <p style="margin: 0; font-size: 17px; line-height: 1.6; color: #C6CFCB;">Inspect the proposed patch and its evidence before applying changes to your repository.</p>
+        </div>
+  
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ============================================================ -->
+  <!-- SECTION: THE-GAP → edit: src/the-gap.html -->
+  <!-- ============================================================ -->
+  <!-- THE GAP -->
+  <div style="padding: 104px 80px; border-top: 1px solid #222A27;">
+    <div style="max-width: 1180px; margin: 0 auto;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #E08A4C; margin-bottom: 28px;">The intent–execution gap</div>
+      <h2 style="margin: 0 0 20px 0; max-width: 900px; font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1.12; font-weight: 400; color: #F4F1EA;">It compiles. The tests pass. The diff looks fine. It is still wrong.</h2>
+      <p style="margin: 0 0 54px 0; max-width: 760px; font-size: 19px; line-height: 1.6; color: #B4BEB9;">Valid code generation is not an accepted outcome. These are the failures a human currently has to catch by reading.</p>
+  
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: #262E2B; border: 1px solid #262E2B; border-radius: 6px;">
+        <div style="background: #0D100F; padding: 30px 34px; display: flex; gap: 16px; align-items: flex-start;">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#E08A4C" stroke-width="1.8" style="margin-top: 5px; flex-shrink: 0;" aria-hidden="true"><path d="M3 3l10 10M13 3L3 13"></path></svg>
+          <span style="font-size: 17px; line-height: 1.6; color: #C6CFCB;">The backend field exists, but the frontend never sends it.</span>
+        </div>
+        <div style="background: #0D100F; padding: 30px 34px; display: flex; gap: 16px; align-items: flex-start;">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#E08A4C" stroke-width="1.8" style="margin-top: 5px; flex-shrink: 0;" aria-hidden="true"><path d="M3 3l10 10M13 3L3 13"></path></svg>
+          <span style="font-size: 17px; line-height: 1.6; color: #C6CFCB;">A new authentication path quietly bypasses onboarding.</span>
+        </div>
+        <div style="background: #0D100F; padding: 30px 34px; display: flex; gap: 16px; align-items: flex-start;">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#E08A4C" stroke-width="1.8" style="margin-top: 5px; flex-shrink: 0;" aria-hidden="true"><path d="M3 3l10 10M13 3L3 13"></path></svg>
+          <span style="font-size: 17px; line-height: 1.6; color: #C6CFCB;">One requirement in the request is silently omitted.</span>
+        </div>
+        <div style="background: #0D100F; padding: 30px 34px; display: flex; gap: 16px; align-items: flex-start;">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#E08A4C" stroke-width="1.8" style="margin-top: 5px; flex-shrink: 0;" aria-hidden="true"><path d="M3 3l10 10M13 3L3 13"></path></svg>
+          <span style="font-size: 17px; line-height: 1.6; color: #C6CFCB;">Tests validate the implementation instead of the requirement.</span>
+        </div>
+        <div style="background: #0D100F; padding: 30px 34px; display: flex; gap: 16px; align-items: flex-start;">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#E08A4C" stroke-width="1.8" style="margin-top: 5px; flex-shrink: 0;" aria-hidden="true"><path d="M3 3l10 10M13 3L3 13"></path></svg>
+          <span style="font-size: 17px; line-height: 1.6; color: #C6CFCB;">An unrelated subsystem gets modified along the way.</span>
+        </div>
+        <div style="background: #0D100F; padding: 30px 34px; display: flex; gap: 16px; align-items: flex-start;">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#E08A4C" stroke-width="1.8" style="margin-top: 5px; flex-shrink: 0;" aria-hidden="true"><path d="M3 3l10 10M13 3L3 13"></path></svg>
+          <span style="font-size: 17px; line-height: 1.6; color: #C6CFCB;">A project invariant is violated with no test to catch it.</span>
+        </div>
+        <div style="background: #0D100F; padding: 30px 34px; display: flex; gap: 16px; align-items: flex-start;">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#E08A4C" stroke-width="1.8" style="margin-top: 5px; flex-shrink: 0;" aria-hidden="true"><path d="M3 3l10 10M13 3L3 13"></path></svg>
+          <span style="font-size: 17px; line-height: 1.6; color: #C6CFCB;">A historical architectural decision is accidentally reversed.</span>
+        </div>
+        <div style="background: #0D100F; padding: 30px 34px; display: flex; gap: 16px; align-items: flex-start;">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#E08A4C" stroke-width="1.8" style="margin-top: 5px; flex-shrink: 0;" aria-hidden="true"><path d="M3 3l10 10M13 3L3 13"></path></svg>
+          <span style="font-size: 17px; line-height: 1.6; color: #C6CFCB;">The agent reports done, having reviewed only its own interpretation.</span>
+        </div>
+      </div>
+  
+      <div style="margin-top: 36px; padding: 20px 28px; background: #0B0E0D; border: 1px solid #1A211E; border-radius: 4px; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;">
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #E08A4C; flex-shrink: 0;">Data point</span>
+        <span style="font-size: 15px; color: #B4BEB9; line-height: 1.5;">45.2% of developers say debugging AI-generated code takes <em style="color: #C6CFCB; font-style: normal;">more time</em> than writing it themselves — <a href="https://survey.stackoverflow.co/2025/ai#developer-tools-ai-complex-ai-complex-prof-exp" target="_blank" rel="noopener noreferrer" style="color: #6B8A7F; text-decoration: underline; text-underline-offset: 3px;">Stack Overflow 2025 AI Developer Survey</a>.</span>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ============================================================ -->
+  <!-- SECTION: NORTH-STAR-METRIC → edit: src/north-star-metric.html -->
+  <!-- ============================================================ -->
+  <!-- STATUS: what works today / what we are measuring -->
+  <div id="metric" style="padding: 104px 80px; border-top: 1px solid #222A27; background: #0A0D0C;">
+    <div style="max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px;">
+  
+      <div style="background: #121615; border: 1px solid #262E2B; border-top: 2px solid #6FBF9F; border-radius: 6px; padding: 38px 40px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: #6FBF9F; margin-bottom: 16px;">Status</div>
+        <h2 style="margin: 0 0 18px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 44px; line-height: 1.1; font-weight: 400; color: #F4F1EA;">What works today</h2>
+        <p style="margin: 0; font-size: 18px; line-height: 1.65; color: #C6CFCB;">Approved task contracts, isolated execution, executable checks, protected-file policies and replayable run records are implemented. Quarterback remains in development.</p>
+      </div>
+  
+      <div style="background: #121615; border: 1px solid #262E2B; border-top: 2px solid #E08A4C; border-radius: 6px; padding: 38px 40px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: #E08A4C; margin-bottom: 16px;">Evaluation</div>
+        <h2 style="margin: 0 0 18px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 44px; line-height: 1.1; font-weight: 400; color: #F4F1EA;">What we are measuring</h2>
+        <p style="margin: 0 0 22px 0; font-size: 18px; line-height: 1.65; color: #C6CFCB;">We are testing whether Quarterback reduces the correction and review work needed to complete a coding task. Our exploratory evaluations have not yet demonstrated an advantage over Claude Code alone.</p>
+        <a href="./research.html" style="font-size: 16px; color: #6FBF9F; text-decoration: none; border-bottom: 1px solid rgba(111,191,159,0.4);">Read the evaluation results →</a>
+      </div>
+  
+    </div>
+  </div>
+
+
+  <!-- ============================================================ -->
+  <!-- SECTION: THE-LOOP → edit: src/the-loop.html -->
+  <!-- ============================================================ -->
+  <!-- THE LOOP -->
+  <div id="loop" style="padding: 104px 80px; border-top: 1px solid #222A27;">
+    <div style="max-width: 1180px; margin: 0 auto;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #E08A4C; margin-bottom: 28px;">The runtime</div>
+      <h2 style="margin: 0 0 20px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1.1; font-weight: 400; color: #F4F1EA;">A control loop around the agent you already use</h2>
+      <p style="margin: 0 0 54px 0; max-width: 780px; font-size: 19px; line-height: 1.6; color: #B4BEB9;">Assign, observe, inspect, correct, test, inspect again, approve. You run that loop by hand today. Quarterback runs the inspect, test and repair part, and hands back a proposed patch with its evidence for you to approve.</p>
+  
+      <div style="display: flex; flex-direction: column; gap: 1px; background: #262E2B; border: 1px solid #262E2B; border-radius: 6px;">
+  
+        <div class="qb-loop-row" style="background: #0D100F; padding: 34px 38px; display: flex; gap: 34px; align-items: flex-start;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #E08A4C; width: 34px; flex-shrink: 0; padding-top: 4px;">01</div>
+          <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Intent compiler</div>
+          <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #B4BEB9;">A deterministic ambiguity filter runs first — a regex rule engine that intercepts vague patterns at 0ms, before a model is ever called. When the request is clear, a local LLM (DeepSeek-R1 via Ollama) produces a structured task contract: goal, required behavior, constraints, acceptance criteria and a verification plan, which you review and approve. This step runs locally: no API key, no cloud, no per-call cost.</div>
+        </div>
+  
+        <div class="qb-loop-row" style="background: #0D100F; padding: 34px 38px; display: flex; gap: 34px; align-items: flex-start;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #E08A4C; width: 34px; flex-shrink: 0; padding-top: 4px;">02</div>
+          <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Context engine</div>
+          <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #B4BEB9;">The contract is grounded in the actual codebase. A deterministic pass extracts exported symbols, traces import graphs two levels deep, identifies test files for affected areas, detects framework and architecture patterns, and surfaces git activity on changed files. An LLM pass then ranks the top files and writes an agent brief — or is skipped entirely for a fast, fully offline run.</div>
+        </div>
+  
+        <div class="qb-loop-row" style="background: #0D100F; padding: 34px 38px; display: flex; gap: 34px; align-items: flex-start;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #E08A4C; width: 34px; flex-shrink: 0; padding-top: 4px;">03</div>
+          <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Execution and observability</div>
+          <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #B4BEB9;">The approved contract goes to Claude Code, which runs in an isolated Docker sandbox whose only network route is to its own API. Quarterback captures exactly what changed. Adapters for other agents are on the roadmap.</div>
+        </div>
+  
+        <div class="qb-loop-row" style="background: #0D100F; padding: 34px 38px; display: flex; gap: 34px; align-items: flex-start;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #6FBF9F; width: 34px; flex-shrink: 0; padding-top: 4px;">04</div>
+          <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Independent verification</div>
+          <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #B4BEB9;">The implementation is checked against the original contract — by a different model, with different context and a different strategy. Deterministic evidence first, judgment second.</div>
+        </div>
+  
+        <div class="qb-loop-row" style="background: #0D100F; padding: 34px 38px; display: flex; gap: 34px; align-items: flex-start;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #6FBF9F; width: 34px; flex-shrink: 0; padding-top: 4px;">05</div>
+          <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Automatic repair</div>
+          <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #B4BEB9;">A failed criterion becomes a precise repair package and goes straight back to the agent. Quarterback stops instead of retrying when a repair makes no progress.</div>
+        </div>
+  
+        <div class="qb-loop-row" style="background: #0D100F; padding: 34px 38px; display: flex; gap: 34px; align-items: flex-start;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #6FBF9F; width: 34px; flex-shrink: 0; padding-top: 4px;">06</div>
+          <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Memory</div>
+          <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #B4BEB9;">Repairs that led to an approved pass are kept as project memory and suggested for similar future tasks; suggestions that never led to a pass are labelled as unproven.</div>
+        </div>
+  
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ============================================================ -->
+  <!-- SECTION: TASK-CONTRACT → edit: src/task-contract.html -->
+  <!-- ============================================================ -->
+  <!-- TASK CONTRACT -->
+  <div style="padding: 104px 80px; border-top: 1px solid #222A27; background: #0A0D0C;">
+    <div style="max-width: 1180px; margin: 0 auto;">
+      <h2 style="margin: 0 0 20px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1.1; font-weight: 400; color: #F4F1EA;">Not a prompt enhancer. An intent compiler.</h2>
+      <p style="margin: 0 0 50px 0; max-width: 820px; font-size: 19px; line-height: 1.6; color: #B4BEB9;">A compiler does not make its input prettier. It turns a human-friendly representation into a machine-executable one with explicit semantics. The expensive model gets a smaller, clearer, better-grounded unit of work.</p>
+  
+      <div style="border: 1px solid #262E2B; border-radius: 6px; overflow: hidden;">
+        <div style="padding: 30px 38px; background: #121615; border-bottom: 1px solid #262E2B;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: #A7B0AB; margin-bottom: 16px;">You write</div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 18px; color: #F4F1EA;"><span style="color: #E08A4C;">&gt;</span> Add Google login and make it work like normal signup.</div>
+        </div>
+        <div style="padding: 34px 38px 40px 38px; background: #0D100F;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: #6FBF9F; margin-bottom: 24px;">The agent receives</div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; line-height: 1.95; color: #C6CFCB;">
+            <div style="color: #F4F1EA; font-weight: 600; letter-spacing: 0.06em;">TASK CONTRACT</div>
+            <div style="height: 20px;"></div>
+            <div style="color: #E08A4C;">Goal</div>
+            <div>Implement Google OAuth login.</div>
+            <div style="height: 20px;"></div>
+            <div style="color: #E08A4C;">Required behavior</div>
+            <div>Existing email/password authentication remains unchanged.</div>
+            <div>First-time Google users enter the existing onboarding flow.</div>
+            <div>Existing users with a verified matching email follow current account-linking rules.</div>
+            <div>Existing session behavior remains intact.</div>
+            <div style="height: 20px;"></div>
+            <div style="color: #E08A4C;">Relevant project knowledge</div>
+            <div>auth provider location · user creation path · onboarding state logic</div>
+            <div>current session model · historical auth decisions</div>
+            <div style="height: 20px;"></div>
+            <div style="color: #E08A4C;">Constraints</div>
+            <div>Reuse the current authentication architecture.</div>
+            <div>Do not introduce a second auth framework.</div>
+            <div>Do not modify unrelated session behavior.</div>
+            <div style="height: 20px;"></div>
+            <div style="color: #6FBF9F;">Acceptance criteria</div>
+            <div><span style="color: #6FBF9F;">[ ]</span> Google authentication succeeds</div>
+            <div><span style="color: #6FBF9F;">[ ]</span> New OAuth users enter onboarding</div>
+            <div><span style="color: #6FBF9F;">[ ]</span> Existing authentication continues to work</div>
+            <div><span style="color: #6FBF9F;">[ ]</span> Account-linking behavior matches policy</div>
+            <div><span style="color: #6FBF9F;">[ ]</span> Relevant tests pass</div>
+            <div><span style="color: #6FBF9F;">[ ]</span> No unrelated code is changed</div>
+            <div style="height: 20px;"></div>
+            <div style="color: #6FBF9F;">Verification plan</div>
+            <div>Run existing auth tests · run onboarding tests · exercise the OAuth callback</div>
+            <div>Inspect modified files · validate each acceptance criterion individually</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ============================================================ -->
+  <!-- SECTION: VERIFICATION → edit: src/verification.html -->
+  <!-- ============================================================ -->
+  <!-- VERIFICATION -->
+  <div id="verification" style="padding: 104px 80px; border-top: 1px solid #222A27;">
+    <div style="max-width: 1180px; margin: 0 auto;">
+      <h2 style="margin: 0 0 20px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1.1; font-weight: 400; color: #F4F1EA;">The builder does not grade its own work.</h2>
+      <p style="margin: 0 0 44px 0; max-width: 800px; font-size: 19px; line-height: 1.6; color: #B4BEB9;">An agent that reports completion has told you what it believes, not what is true. Verification is a separate step with its own model, its own context and its own evidence.</p>
+  
+      <div style="padding: 28px 34px; background: #12100E; border-left: 2px solid #E08A4C; border-radius: 4px; margin-bottom: 54px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: #E08A4C; margin-bottom: 18px;">The loop we refuse to ship</div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 16px; line-height: 2; color: #B4BEB9;">
+          <div>Builder: “I interpreted the task this way.”</div>
+          <div>Builder: “I implemented my interpretation.”</div>
+          <div>Builder: “I reviewed my work and confirm my interpretation was implemented.”</div>
+        </div>
+      </div>
+  
+      <div style="display: flex; gap: 32px; align-items: stretch;">
+        <div style="flex-grow: 1; flex-basis: 0; padding: 36px 38px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
+          <div style="font-size: 24px; font-weight: 600; color: #F4F1EA; margin-bottom: 10px;">Deterministic evidence first</div>
+          <p style="margin: 0 0 24px 0; font-size: 16px; line-height: 1.6; color: #A7B0AB;">Cheap, fast and not up for debate. We exhaust this before spending a token on judgment.</p>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; line-height: 2.05; color: #C6CFCB;">
+            <div>the repository's own tests, on the change and on the base</div>
+            <div>approved executable checks (exports, return values, calls, errors)</div>
+            <div>exact capture of every changed file</div>
+            <div>changed-file scope · protected-file policy</div>
+          </div>
+          <p style="margin: 22px 0 0 0; font-size: 15px; line-height: 1.6; color: #A7B0AB;">Planned, not yet built: type checking, linting, browser and UI tests, security and dependency checks.</p>
+        </div>
+        <div style="flex-grow: 1; flex-basis: 0; padding: 36px 38px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
+          <div style="font-size: 24px; font-weight: 600; color: #F4F1EA; margin-bottom: 10px;">Judgment second</div>
+          <p style="margin: 0 0 24px 0; font-size: 16px; line-height: 1.6; color: #A7B0AB;">The genuinely semantic questions a test suite cannot answer for you.</p>
+          <div style="font-size: 16px; line-height: 1.75; color: #C6CFCB;">
+            <div style="margin-bottom: 12px;">Did the implementation satisfy each approved acceptance criterion?</div>
+            <div style="margin-bottom: 12px;">Which evidence supports that judgment, and what evidence is missing?</div>
+            <div>Was an acceptance criterion silently skipped?</div>
+            <p style="margin: 22px 0 0 0; font-size: 15px; line-height: 1.6; color: #A7B0AB;">A judgment without supporting evidence cannot turn a run into a pass.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ============================================================ -->
+  <!-- SECTION: PROOF → edit: src/proof.html -->
+  <!-- ============================================================ -->
+  <!-- PROOF: three product-relevant receipts; the full list is on engineering.html -->
+  <div id="proof" style="padding: 104px 80px; border-top: 1px solid #222A27;">
+    <div style="max-width: 1180px; margin: 0 auto;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase; color: #6FBF9F; margin-bottom: 18px;">Receipts</div>
+      <h2 style="margin: 0 0 20px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1.1; font-weight: 400; color: #F4F1EA;">Every claim has a link.</h2>
+      <p style="margin: 0 0 44px 0; max-width: 820px; font-size: 19px; line-height: 1.6; color: #B4BEB9;">Three of the safeguards behind each run, each linked to the test or document that backs it.</p>
+  
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px;">
+  
+        <a href="https://github.com/arshad8049/quaterback/blob/main/docs/verify/test-oracle.md" style="display: block; text-decoration: none; padding: 30px 32px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
+          <div style="font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1; color: #6FBF9F; margin-bottom: 12px;">Approved first</div>
+          <div style="font-size: 18px; font-weight: 600; color: #F4F1EA; margin-bottom: 8px;">No run without a signed-off contract</div>
+          <div style="font-size: 16px; line-height: 1.6; color: #A7B0AB; margin-bottom: 16px;">Coding-agent runs require an approved contract. Changing the contract requires approval again. Requirement tracing catches omitted instructions, including missing negation, before execution.</div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6FBF9F;">Accepted · QB-13, QB-14</div>
+        </a>
+  
+        <a href="https://github.com/arshad8049/quaterback/blob/main/test/integration/qb02-sandbox-pipeline.test.js" style="display: block; text-decoration: none; padding: 30px 32px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
+          <div style="font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1; color: #6FBF9F; margin-bottom: 12px;">0 escapes</div>
+          <div style="font-size: 18px; font-weight: 600; color: #F4F1EA; margin-bottom: 8px;">A hostile agent, boxed in</div>
+          <div style="font-size: 16px; line-height: 1.6; color: #A7B0AB; margin-bottom: 16px;">It tried to write files on the host, reach a forbidden site, and gut the tests so broken code would pass. All three were denied, the user's checkout stayed byte-identical, and the verdict was still FAIL.</div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #E08A4C;">Pre-release · Linux CI green · senior-accepted (QB-02)</div>
+        </a>
+  
+        <a href="https://github.com/arshad8049/quaterback/blob/main/test/unit/run-store.test.js" style="display: block; text-decoration: none; padding: 30px 32px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
+          <div style="font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1; color: #6FBF9F; margin-bottom: 12px;">Every run</div>
+          <div style="font-size: 18px; font-weight: 600; color: #F4F1EA; margin-bottom: 8px;">Replayable from its own evidence</div>
+          <div style="font-size: 16px; line-height: 1.6; color: #A7B0AB; margin-bottom: 16px;">Each run keeps a versioned record: the exact starting commit, the agent version, the test report and the checks. Replaying it recomputes the verdict, and a record whose outcome its evidence does not support is flagged.</div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6FBF9F;">Senior-accepted · QB-38</div>
+        </a>
+      </div>
+  
+      <div style="margin-top: 28px; display: flex; gap: 28px; flex-wrap: wrap; font-size: 16px;">
+        <a href="./engineering.html" style="color: #6FBF9F; text-decoration: none; border-bottom: 1px solid rgba(111,191,159,0.4);">All engineering receipts →</a>
+        <a href="https://github.com/arshad8049/quaterback/blob/main/docs/security/agent-sandbox.md" style="color: #6FBF9F; text-decoration: none; border-bottom: 1px solid rgba(111,191,159,0.4);">Sandbox design and threat model →</a>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ============================================================ -->
+  <!-- SECTION: REPAIR → edit: src/repair.html -->
+  <!-- ============================================================ -->
+  <!-- REPAIR -->
+  <div style="padding: 104px 80px; border-top: 1px solid #222A27; background: #0A0D0C;">
+    <div style="max-width: 1180px; margin: 0 auto;">
+      <h2 style="margin: 0 0 20px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1.1; font-weight: 400; color: #F4F1EA;">When a check fails, the agent gets a precise repair.</h2>
+      <p style="margin: 0 0 50px 0; max-width: 800px; font-size: 19px; line-height: 1.6; color: #B4BEB9;">A failed check becomes a specific instruction with its evidence, sent back for another attempt. Quarterback stops instead of retrying when a repair makes no progress or the problem is the environment, not the code.</p>
+  
+      <div style="display: flex; gap: 32px; align-items: flex-start;">
+        <div style="flex-grow: 1.35; flex-basis: 0; background: #0D100F; border: 1px solid #262E2B; border-radius: 6px; padding: 34px 38px;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; line-height: 1.95; color: #C6CFCB;">
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #A7B0AB; margin-bottom: 10px;">Illustrative example</div>
+            <div style="color: #E08A4C; font-weight: 600;">Verification failed.</div>
+            <div style="height: 20px;"></div>
+            <div style="color: #A7B0AB;">Criterion</div>
+            <div>New Google users must enter onboarding.</div>
+            <div style="height: 20px;"></div>
+            <div style="color: #A7B0AB;">Observed</div>
+            <div>OAuth callback creates the user and redirects directly to dashboard.</div>
+            <div style="height: 20px;"></div>
+            <div style="color: #A7B0AB;">Evidence</div>
+            <div>src/auth/googleCallback.js:87</div>
+            <div>integration test: oauth-new-user-onboarding</div>
+            <div style="height: 20px;"></div>
+            <div style="color: #6FBF9F;">Required repair</div>
+            <div>Route newly created OAuth users through the existing onboarding state transition.</div>
+            <div style="height: 20px;"></div>
+            <div style="color: #A7B0AB;">→ sent to the coding agent automatically</div>
+          </div>
+        </div>
+  
+        <div style="flex-grow: 1; flex-basis: 0; padding: 36px 38px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
+          <div style="font-size: 24px; font-weight: 600; color: #F4F1EA; margin-bottom: 10px;">We come back to you when</div>
+          <p style="margin: 0 0 26px 0; font-size: 16px; line-height: 1.6; color: #A7B0AB;">You approve the task at the start and review the patch at the end. In between, Quarterback stops and asks when:</p>
+          <div style="font-size: 17px; line-height: 1.6; color: #C6CFCB;">
+            <div style="padding: 14px 0; border-top: 1px solid #262E2B;">Two or more legitimate interpretations remain.</div>
+                      <div style="padding: 14px 0; border-top: 1px solid #262E2B;">A repair attempt makes no progress.</div>
+            <div style="padding: 14px 0; border-top: 1px solid #262E2B;">Verification cannot establish correctness.</div>
+            <div style="padding: 14px 0; border-top: 1px solid #262E2B; border-bottom: 1px solid #262E2B;">The test environment fails, so the problem is not the code.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ============================================================ -->
+  <!-- SECTION: POSITIONING → edit: src/positioning.html -->
+  <!-- ============================================================ -->
+  <!-- POSITIONING -->
+  <div style="padding: 104px 80px; border-top: 1px solid #222A27; background: #0A0D0C;">
+    <div style="max-width: 1180px; margin: 0 auto;">
+      <h2 style="margin: 0 0 20px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1.1; font-weight: 400; color: #F4F1EA;">We do not compete with the model. We orchestrate it.</h2>
+      <p style="margin: 0 0 56px 0; max-width: 820px; font-size: 19px; line-height: 1.6; color: #B4BEB9;">Every time a base model gets better, this layer gets more valuable: implementations succeed more often, repair loops shrink, verification gets cheaper. Your engineering history should not belong to whichever vendor you happened to pick this year.</p>
+  
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 44px 0;">
+        <div style="display: flex; gap: 28px; flex-wrap: wrap; justify-content: center; align-items: flex-start;">
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #6FBF9F;">Supported today</div>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 16px; color: #F4F1EA; padding: 12px 22px; border: 1px solid #6FBF9F; border-radius: 4px;">Claude Code</span>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #A7B0AB;">Adapters on the roadmap</div>
+            <div style="display: flex; gap: 14px; flex-wrap: wrap; justify-content: center;">
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 16px; color: #A7B0AB; padding: 12px 22px; border: 1px dashed #3A4441; border-radius: 4px;">Codex</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 16px; color: #A7B0AB; padding: 12px 22px; border: 1px dashed #3A4441; border-radius: 4px;">Cursor</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 16px; color: #A7B0AB; padding: 12px 22px; border: 1px dashed #3A4441; border-radius: 4px;">Gemini</span>
+            </div>
+          </div>
+        </div>
+        <div style="font-size: 24px; color: #3A4441; line-height: 1;">↓</div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 19px; font-weight: 600; letter-spacing: 0.08em; color: #0D100F; background: #E08A4C; padding: 18px 40px; border-radius: 4px;">Quarterback RUNTIME</div>
+        <div style="font-size: 24px; color: #3A4441; line-height: 1;">↓</div>
+        <div style="display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; max-width: 900px;">
+          <span style="font-size: 16px; color: #C6CFCB; padding: 12px 22px; background: #121615; border: 1px solid #262E2B; border-radius: 4px;">Company intent</span>
+          <span style="font-size: 16px; color: #C6CFCB; padding: 12px 22px; background: #121615; border: 1px solid #262E2B; border-radius: 4px;">Project memory</span>
+          <span style="font-size: 16px; color: #C6CFCB; padding: 12px 22px; background: #121615; border: 1px solid #262E2B; border-radius: 4px;">Verification history</span>
+          <span style="font-size: 16px; color: #C6CFCB; padding: 12px 22px; background: #121615; border: 1px solid #262E2B; border-radius: 4px;">Engineering policy</span>
+          <span style="font-size: 16px; color: #C6CFCB; padding: 12px 22px; background: #121615; border: 1px solid #262E2B; border-radius: 4px;">Failure patterns</span>
+          <span style="font-size: 16px; color: #C6CFCB; padding: 12px 22px; background: #121615; border: 1px solid #262E2B; border-radius: 4px;">Accepted implementations</span>
+        </div>
+      </div>
+  
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; margin-top: 44px; padding-top: 44px; border-top: 1px solid #222A27;">
+        <div>
+          <div style="font-size: 19px; font-weight: 600; color: #F4F1EA; margin-bottom: 10px;">Correctness before cost</div>
+          <div style="font-size: 16px; line-height: 1.65; color: #A7B0AB;">Correctness, then human attention, then time, then tokens. Inference gets cheaper every year. Senior engineering attention does not.</div>
+        </div>
+        <div>
+          <div style="font-size: 19px; font-weight: 600; color: #F4F1EA; margin-bottom: 10px;">Local-first by default</div>
+          <div style="font-size: 16px; line-height: 1.65; color: #A7B0AB;">The client runs on your machine and its own model calls stay local by default. The coding agent you choose sends your task and code to its provider; telemetry is off unless you turn it on.</div>
+        </div>
+        <div>
+          <div style="font-size: 19px; font-weight: 600; color: #F4F1EA; margin-bottom: 10px;">No new IDE</div>
+          <div style="font-size: 16px; line-height: 1.65; color: #A7B0AB;">A command-line tool next to the coding agent and editor you already use. If it does not reduce your review work, uninstall it.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ============================================================ -->
+  <!-- SECTION: BETA-CTA → edit: src/beta-cta.html -->
+  <!-- ============================================================ -->
+  <!-- BETA CTA -->
+  <div id="beta" style="padding: 112px 80px; border-top: 1px solid #222A27;">
+    <div style="max-width: 1180px; margin: 0 auto; display: flex; gap: 72px; align-items: flex-start;">
+      <div style="flex-grow: 1; flex-basis: 0;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #6FBF9F; margin-bottom: 26px;">Early access</div>
+        <h2 style="margin: 0 0 22px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1.1; font-weight: 400; color: #F4F1EA;">Help us test it on real work.</h2>
+        <p style="margin: 0 0 26px 0; font-size: 19px; line-height: 1.65; color: #B4BEB9;">We are looking for developers who use Claude Code and regularly need to check whether a generated change satisfies the original request.</p>
+        <p style="margin: 0; font-size: 19px; line-height: 1.65; color: #B4BEB9;">If you opt in, we measure how much correction and review your own tasks need with and without Quarterback, and share the results with you. Metrics are opt-in, tied to your account (not anonymous), deletable by you, and we publish nothing without your say-so.</p>
+      </div>
+  
+      <div class="qb-glass" style="flex-grow: 1; flex-basis: 0; padding: 40px 42px; border-radius: 12px;">
+        <form id="beta-form" name="beta-access" method="POST">
+          <div style="margin-bottom: 24px;">
+            <label for="email" style="display: block; font-size: 15px; font-weight: 500; color: #C6CFCB; margin-bottom: 10px;">Work email</label>
+            <input id="email" name="email" type="email" required placeholder="you@company.com" style="width: 100%; box-sizing: border-box; height: 52px; padding: 0 16px; background: #0D100F; border: 1px solid #3A4441; border-radius: 4px; color: #F4F1EA; font-family: 'IBM Plex Sans', sans-serif; font-size: 16px;">
+          </div>
+          <div style="margin-bottom: 28px;">
+            <label for="stack" style="display: block; font-size: 15px; font-weight: 500; color: #C6CFCB; margin-bottom: 10px;">Which agent do you run most?</label>
+            <input id="stack" name="agent" type="text" placeholder="Claude Code" style="width: 100%; box-sizing: border-box; height: 52px; padding: 0 16px; background: #0D100F; border: 1px solid #3A4441; border-radius: 4px; color: #F4F1EA; font-family: 'IBM Plex Sans', sans-serif; font-size: 16px;">
+          </div>
+          <button type="submit" style="width: 100%; height: 54px; background: #E08A4C; border: none; border-radius: 4px; color: #0D100F; font-family: 'IBM Plex Sans', sans-serif; font-size: 16px; font-weight: 600; cursor: pointer;">Request early access</button>
+          <p id="form-feedback" style="margin: 20px 0 0 0; font-size: 15px; line-height: 1.6; color: #A7B0AB;">Quarterback runs on your machine; the Claude Code agent sends your task and the code it reads to Anthropic under your account. <a href="./privacy.html" style="color:#6FBF9F;">Data flows</a>.</p>
+        </form>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ============================================================ -->
+  <!-- SECTION: FOOTER → edit: src/footer.html -->
+  <!-- ============================================================ -->
+  <!-- FOOTER -->
+  <div style="padding: 44px 80px; border-top: 1px solid #222A27; background: #0A0D0C;">
+    <div style="max-width: 1180px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#E08A4C" stroke-width="1.6" aria-hidden="true"><path d="M2 10h5l2.2 5 3-11 2 6h3.8"></path></svg>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 600; color: #C6CFCB;">Quarterback</span>
+        <span style="font-size: 14px; color: #A7B0AB;">· the reliability layer for AI-written software · a <a href="https://velorallc.netlify.app/" target="_blank" rel="noopener" class="qb-velora-link" style="color: #A7B0AB; text-decoration: none; border-bottom: 1px solid rgba(138,148,143,0.35);">Velora</a> product</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 24px; flex-wrap: wrap;">
+        <a href="./privacy.html" style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #6E7A76; text-decoration: none; letter-spacing: 0.04em;">Privacy</a>
+        <a href="mailto:ashaik8.us@gmail.com" style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #6E7A76; text-decoration: none; letter-spacing: 0.04em;">Contact</a>
+        <a href="./engineering.html" style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #A7B0AB; text-decoration: none; letter-spacing: 0.04em;">Engineering</a>
+        <a href="https://github.com/arshad8049/quaterback" target="_blank" rel="noopener" style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #A7B0AB; text-decoration: none; letter-spacing: 0.04em;">Code</a>
+        <a href="./research.html" style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #6FBF9F; text-decoration: none; letter-spacing: 0.06em;">Evaluation →</a>
+        <span style="font-size: 13px; color: #4A5652;">© 2026 Velora</span>
+      </div>
+    </div>
+  </div>
+  
+  </div>
+
+</div>
+
+<!-- Interactions → edit: src/scripts/interactions.js -->
+<script src="./src/scripts/interactions.js" defer></script>
+</body>
+</html>

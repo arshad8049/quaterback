@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quarterback — Evaluation: Exploratory Results and Limitations</title>
+  <meta name="description" content="Exploratory evaluations of Claude Code alone versus Claude Code inside Quarterback have not demonstrated an advantage for Quarterback. Original runs, execution failures and reruns are reported separately, with links to the evidence.">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="./favicon.png">
+  <link rel="apple-touch-icon" href="./favicon.png">
+
+  <!-- Security meta tags -->
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta http-equiv="X-Frame-Options" content="DENY">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+
+  <!-- Fonts -->
+  <link rel="stylesheet" href="./src/styles/fonts.css">
+  <!-- Styles -->
+  <link rel="stylesheet" href="./src/styles/main.css">
+
+  <style>
+    .metric-card {
+      padding: 28px 30px;
+      background: #0A0D0C;
+      border: 1px solid #262E2B;
+      border-radius: 6px;
+    }
+    .metric-card .value {
+      font-family: 'Instrument Serif', Georgia, serif;
+      font-size: 56px;
+      line-height: 1;
+      letter-spacing: -0.02em;
+      margin-bottom: 10px;
+    }
+    .metric-card .label {
+      font-size: 15px;
+      line-height: 1.55;
+      color: #9AA5A0;
+    }
+    .metric-card .sub {
+      margin-top: 8px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      color: #4A5450;
+      letter-spacing: 0.06em;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 15px;
+    }
+    thead th {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #8A948F;
+      text-align: left;
+      padding: 12px 16px;
+      border-bottom: 1px solid #262E2B;
+    }
+    tbody td {
+      padding: 14px 16px;
+      border-bottom: 1px solid #1A211E;
+      color: #C6CFCB;
+      vertical-align: top;
+    }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: #111614; }
+    .tag {
+      display: inline-block;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 3px;
+      letter-spacing: 0.06em;
+    }
+    .tag-pass  { background: #0D2018; color: #6FBF9F; border: 1px solid #2E4F44; }
+    .tag-fail  { background: #1A0D0D; color: #C47A7A; border: 1px solid #4F2E2E; }
+    .tag-easy  { background: #0F1A14; color: #6FBF9F; }
+    .tag-med   { background: #1A1508; color: #E0B44C; }
+    .tag-hard  { background: #1A0F08; color: #E08A4C; }
+    .timeline-item {
+      display: flex;
+      gap: 24px;
+      padding: 22px 0;
+      border-bottom: 1px solid #1A211E;
+    }
+    .timeline-item:last-child { border-bottom: none; }
+    .timeline-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      flex-shrink: 0; margin-top: 5px;
+    }
+    .dot-done  { background: #6FBF9F; }
+    .dot-live  { background: #E08A4C; }
+    .dot-next  { background: #3A4441; border: 1px solid #6FBF9F; }
+    @media (max-width: 768px) {
+      nav { padding: 16px 24px !important; }
+      [style*="padding: 96px 80px"] { padding: 56px 24px !important; }
+      [style*="padding: 0 80px"] { padding: 0 24px !important; }
+      [style*="padding: 72px 80px"] { padding: 48px 24px !important; }
+      [style*="padding: 40px 80px"] { padding: 28px 24px !important; }
+      [style*="font-size: 72px"] { font-size: 44px !important; }
+      [style*="font-size: 42px"] { font-size: 30px !important; }
+      [style*="font-size: 20px"] { font-size: 16px !important; }
+      [style*="repeat(4, 1fr)"] { grid-template-columns: 1fr 1fr !important; }
+      [style*="repeat(3, 1fr)"] { grid-template-columns: 1fr !important; }
+      [style*="repeat(2, 1fr)"] { grid-template-columns: 1fr !important; }
+      [style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
+    }
+    @media (max-width: 640px) {
+      .qb-table-wrap table, .qb-table-wrap tbody, .qb-table-wrap tr, .qb-table-wrap td { display: block; width: 100%; }
+      .qb-table-wrap thead { display: none; }
+      .qb-table-wrap td { white-space: normal !important; border-bottom: none !important; padding-top: 6px !important; padding-bottom: 6px !important; }
+      .qb-table-wrap tr { padding: 10px 0; border-bottom: 1px solid #1A211E; }
+      .qb-table-wrap td:first-child { padding-top: 12px !important; }
+    }
+    @media (max-width: 480px) {
+      [style*="repeat(4, 1fr)"] { grid-template-columns: 1fr !important; }
+    }
+  </style>
+</head>
+<body>
+<div style="width: 100%; background: #0D100F; color: #F4F1EA; font-family: 'IBM Plex Sans', 'Helvetica Neue', sans-serif; -webkit-font-smoothing: antialiased;">
+
+  <!-- NAV -->
+  <nav style="position: sticky; top: 0; z-index: 100; padding: 16px 80px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1A211E; background: rgba(13,16,15,0.92); backdrop-filter: blur(20px) saturate(1.4); -webkit-backdrop-filter: blur(20px) saturate(1.4);">
+    <a href="./index.html" style="display: flex; align-items: center; gap: 10px; text-decoration: none;">
+      <img src="./logo.png" width="28" height="28" style="border-radius: 6px;" alt="Quarterback">
+      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600; color: #C6CFCB;">Quarterback</span>
+    </a>
+    <div style="display: flex; align-items: center; gap: 12px 28px; flex-wrap: wrap; justify-content: flex-end;">
+      <a href="./index.html" style="font-size: 14px; color: #8A948F; text-decoration: none;">← Product</a>
+      <span style="font-size: 14px; color: #6FBF9F; font-family: 'IBM Plex Mono', monospace;">Evaluation</span>
+      <a href="./engineering.html" style="font-size: 14px; color: #A7B0AB; text-decoration: none;">Engineering</a>
+      <a href="./index.html#beta" style="display: inline-flex; align-items: center; height: 36px; padding: 0 18px; background: #E08A4C; border-radius: 8px; font-size: 14px; font-weight: 600; color: #0D100F; text-decoration: none;">Request early access</a>
+    </div>
+  </nav>
+
+  <!-- LEAD: exploratory results and current limitations -->
+  <div style="padding: 96px 80px 56px;">
+    <div style="max-width: 1180px; margin: 0 auto;">
+      <div style="font-family:'IBM Plex Mono',monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #E08A4C; margin-bottom: 20px;">Evaluation · October 2026</div>
+      <h1 style="margin: 0 0 32px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 72px; line-height: 1.05; font-weight: 400; letter-spacing: -0.02em; color: #F4F1EA;">Exploratory results and current limitations</h1>
+      <p style="margin: 0 0 18px 0; max-width: 860px; font-size: 19px; line-height: 1.65; color: #C6CFCB;">We have built an evaluation harness and run development experiments comparing Claude Code alone with Claude Code inside Quarterback. These experiments have not demonstrated an advantage for Quarterback.</p>
+      <p style="margin: 0 0 18px 0; max-width: 860px; font-size: 19px; line-height: 1.65; color: #C6CFCB;">In a screen of 14 Fastify tasks with two repetitions per task, both approaches passed all 28 task-specific checks after rerunning failed agent executions. The original experiment included eight agent execution failures; the combined totals include their replacement runs and are not first-run success rates.</p>
+      <p style="margin: 0 0 18px 0; max-width: 860px; font-size: 19px; line-height: 1.65; color: #C6CFCB;">The screen also exposed disagreements between Quarterback’s verifier and the external task checks. One regression-classification bug has been fixed. Test-update policy and task qualification remain under review.</p>
+      <p style="margin: 0 0 18px 0; max-width: 860px; font-size: 19px; line-height: 1.65; color: #C6CFCB; margin-bottom: 0;">We retain the original runs and report reruns separately. An independently authored holdout evaluation remains pending.</p>
+    </div>
+  </div>
+
+  <!-- SCREEN EVIDENCE -->
+  <div style="padding: 0 80px 88px;">
+    <div style="max-width: 1180px; margin: 0 auto;">
+      <div style="font-family:'IBM Plex Mono',monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #6FBF9F; margin-bottom: 20px;">Harder-task screen · exploratory</div>
+      <div style="background: #0A0D0C; border: 1px solid #262E2B; border-radius: 6px; overflow: hidden;">
+        <div class="qb-table-wrap" style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+        <table>
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Status and evidence</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="color:#F4F1EA; font-weight:600; white-space:nowrap;">Task set</td>
+              <td>14 tasks built from real bug fixes in Fastify, on 11 pinned Fastify 5.x releases; frozen October 13, 2026. Selected for difficulty, so exploratory: not the controlled evaluation.</td>
+            </tr>
+            <tr>
+              <td style="color:#F4F1EA; font-weight:600; white-space:nowrap;">Original experiment</td>
+              <td><a href="https://github.com/arshad8049/quaterback/actions/runs/38409518314" style="color: #6FBF9F; text-decoration: none; border-bottom: 1px solid rgba(111,191,159,0.4);">GitHub run 38409518314</a> (October 13, 2026): 14 tasks × 2 repetitions × 2 arms = 56 trials. The 48 trials that ran to completion all passed the task-specific hidden checks (24 per arm).</td>
+            </tr>
+            <tr>
+              <td style="color:#F4F1EA; font-weight:600; white-space:nowrap;">Execution failures</td>
+              <td>8 trials (tasks FY-07 and FY-14, 4 per arm) were agent crashes: about one second, empty patch; likely a usage limit, unconfirmed. They were first graded as fails. A harness fix (<a href="https://github.com/arshad8049/quaterback/commit/7443bd0" style="color: #6FBF9F; text-decoration: none; border-bottom: 1px solid rgba(111,191,159,0.4);">commit 7443bd0</a>) now counts an agent failure as attrition, not a fail.</td>
+            </tr>
+            <tr>
+              <td style="color:#F4F1EA; font-weight:600; white-space:nowrap;">Replacement runs</td>
+              <td><a href="https://github.com/arshad8049/quaterback/actions/runs/38459455639" style="color: #6FBF9F; text-decoration: none; border-bottom: 1px solid rgba(111,191,159,0.4);">GitHub run 38459455639</a> (October 13, 2026) reran those 8 trials: Claude Code alone 4 of 4, Claude Code inside Quarterback 4 of 4 passed the hidden checks.</td>
+            </tr>
+            <tr>
+              <td style="color:#F4F1EA; font-weight:600; white-space:nowrap;">Combined totals</td>
+              <td>Claude Code alone 28 of 28; inside Quarterback 28 of 28, including the replacement runs. Not first-run success rates. Both arms passed everything, so the screen does not demonstrate an advantage for Quarterback.</td>
+            </tr>
+            <tr>
+              <td style="color:#F4F1EA; font-weight:600; white-space:nowrap;">Verifier disagreements</td>
+              <td>Quarterback’s verifier flagged patches that passed the hidden checks. Fixed and merged: a test failure that already existed before the change, whose message names the run folder, was misclassified as a regression (<a href="https://github.com/arshad8049/quaterback/pull/12" style="color: #6FBF9F; text-decoration: none; border-bottom: 1px solid rgba(111,191,159,0.4);">PR #12</a>, <a href="https://github.com/arshad8049/quaterback/commit/9cdda81" style="color: #6FBF9F; text-decoration: none; border-bottom: 1px solid rgba(111,191,159,0.4);">commit 9cdda81</a>). Under review: fixes that pass the hidden checks but change behaviour an existing test asserts are reported as regressions (test-update policy), and a build defect in the task repositories is being corrected, with the tasks re-qualified as a disclosed new version.</td>
+            </tr>
+            <tr>
+              <td style="color:#F4F1EA; font-weight:600; white-space:nowrap;">Development task set</td>
+              <td><a href="https://github.com/arshad8049/quaterback/tree/phase-4-evaluation/bench/specs" style="color: #6FBF9F; text-decoration: none; border-bottom: 1px solid rgba(111,191,159,0.4);">30 frozen tasks across 5 repositories, linked to the frozen specs</a></td>
+            </tr>
+            <tr>
+              <td style="color:#F4F1EA; font-weight:600; white-space:nowrap;">Controlled performance results</td>
+              <td>Not yet available</td>
+            </tr>
+            <tr>
+              <td style="color:#F4F1EA; font-weight:600; white-space:nowrap;">Independent holdout</td>
+              <td>Authoring and protocol review pending</td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+      <p style="margin: 18px 0 0 0; font-size: 15px; line-height: 1.6; color: #A7B0AB;">Next: resolve the verifier disagreements and the test-update policy, re-qualify the screen tasks, report attrition separately from fails in every result, build tasks that separate the arms, then run the independently authored holdout.</p>
+    </div>
+  </div>
+
+  <!-- CURRENT LIMITATIONS -->
+  <div style="padding: 72px 80px 88px; border-top: 1px solid #222A27; background: #0A0D0C;">
+    <div style="max-width: 1180px; margin: 0 auto;">
+      <div style="font-family:'IBM Plex Mono',monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #E08A4C; margin-bottom: 20px;">Current limitations</div>
+      <h2 style="margin: 0 0 28px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 42px; font-weight: 400; color: #F4F1EA;">What does not work yet</h2>
+      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+        <div style="padding: 26px 28px; border: 1px solid #262E2B; border-radius: 5px;">
+          <div style="font-size:16px; font-weight:600; color:#F4F1EA; margin-bottom:8px;">Existing tests that a fix must change</div>
+          <div style="font-size:15px; line-height:1.65; color:#B4BEB9;">When a fix that passes the task’s hidden checks changes behaviour that an existing test asserts, the verifier reports that test as a regression and asks for a repair. A policy for approved test updates is under review.</div>
+        </div>
+        <div style="padding: 26px 28px; border: 1px solid #262E2B; border-radius: 5px;">
+          <div style="font-size:16px; font-weight:600; color:#F4F1EA; margin-bottom:8px;">Visible tests miss some wrong patches</div>
+          <div style="font-size:15px; line-height:1.65; color:#B4BEB9;">On some screen tasks, a patch that fails the hidden checks and one that passes them look the same to the repository’s visible tests; only the hidden checks tell them apart.</div>
+        </div>
+        <div style="padding: 26px 28px; border: 1px solid #262E2B; border-radius: 5px;">
+          <div style="font-size:16px; font-weight:600; color:#F4F1EA; margin-bottom:8px;">Narrow support</div>
+          <div style="font-size:15px; line-height:1.65; color:#B4BEB9;">Claude Code only, on JavaScript projects, with Linux and Docker. A sandboxed run needs about 11 GiB of free memory.</div>
+        </div>
+        <div style="padding: 26px 28px; border: 1px solid #262E2B; border-radius: 5px;">
+          <div style="font-size:16px; font-weight:600; color:#F4F1EA; margin-bottom:8px;">Small local judge</div>
+          <div style="font-size:15px; line-height:1.65; color:#B4BEB9;">The judge is a local 7B model. Its initial calibration covers 13 human-labelled patches and does not establish production accuracy.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROGRESS TRACKER -->
+  <div style="padding: 72px 80px 88px; border-top: 1px solid #222A27;">
+    <div style="max-width: 1180px; margin: 0 auto;">
+      <div style="font-family:'IBM Plex Mono',monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #6FBF9F; margin-bottom: 20px;">Progress tracker</div>
+      <h2 style="margin: 0 0 28px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 42px; font-weight: 400; color: #F4F1EA;">What’s built, what’s next</h2>
+      <div style="background: #0A0D0C; border: 1px solid #262E2B; border-radius: 6px; padding: 12px 28px;">
+        <div class="timeline-item">
+          <div class="timeline-dot dot-done"></div>
+          <div>
+            <div style="font-size:16px; font-weight:600; color:#F4F1EA; margin-bottom:4px;">Approved task contracts</div>
+            <div style="font-size:15px; line-height:1.6; color:#B4BEB9;">A local model compiles the request into requirements and acceptance criteria; unclear requests stay blocked; a coding-agent run needs an approved contract, and a changed contract needs approval again.</div>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot dot-done"></div>
+          <div>
+            <div style="font-size:16px; font-weight:600; color:#F4F1EA; margin-bottom:4px;">Repository context</div>
+            <div style="font-size:15px; line-height:1.6; color:#B4BEB9;">Parsed JavaScript symbols, import and caller tracing to a bounded depth, refreshed after each attempt.</div>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot dot-done"></div>
+          <div>
+            <div style="font-size:16px; font-weight:600; color:#F4F1EA; margin-bottom:4px;">Isolated execution</div>
+            <div style="font-size:15px; line-height:1.6; color:#B4BEB9;">Claude Code runs in a Docker sandbox whose only network route is to its own API; every change is captured exactly.</div>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot dot-done"></div>
+          <div>
+            <div style="font-size:16px; font-weight:600; color:#F4F1EA; margin-bottom:4px;">Verification</div>
+            <div style="font-size:15px; line-height:1.6; color:#B4BEB9;">The repository’s own tests on the change and on the base, approved executable checks, changed-file scope and protected-file policy, and an evidence-cited judge.</div>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot dot-done"></div>
+          <div>
+            <div style="font-size:16px; font-weight:600; color:#F4F1EA; margin-bottom:4px;">Repair and routing</div>
+            <div style="font-size:15px; line-height:1.6; color:#B4BEB9;">Failed checks become repair instructions; the loop stops on no progress or an environment failure instead of retrying.</div>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot dot-done"></div>
+          <div>
+            <div style="font-size:16px; font-weight:600; color:#F4F1EA; margin-bottom:4px;">Run records</div>
+            <div style="font-size:15px; line-height:1.6; color:#B4BEB9;">Each run keeps a versioned record that replays to the same verdict.</div>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot dot-done"></div>
+          <div>
+            <div style="font-size:16px; font-weight:600; color:#F4F1EA; margin-bottom:4px;">Evaluation harness</div>
+            <div style="font-size:15px; line-height:1.6; color:#B4BEB9;">External grader with hidden test suites, equal agent-time budgets per arm, pinned images and hash-checked experiment records; 30 development tasks frozen; exploratory harder-task screen run.</div>
+          </div>
+        </div>
+
+        <div class="timeline-item" style="border-bottom: none;">
+          <div class="timeline-dot dot-next"></div>
+          <div>
+            <div style="font-size:16px; font-weight:600; color:#C6CFCB; margin-bottom:4px;">Next</div>
+            <div style="font-size:15px; line-height:1.6; color:#B4BEB9;">Verifier disagreements and test-update policy; task qualification; attrition reporting; tasks that separate the arms; a controlled evaluation and an independently authored holdout; then measuring correction and review work for other developers.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARCHIVE -->
+  <div style="padding: 72px 80px 40px; border-top: 1px solid #222A27; background: #0A0D0C;">
+    <div style="max-width: 1180px; margin: 0 auto;">
+      <div style="font-family:'IBM Plex Mono',monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #A7B0AB; margin-bottom: 20px;">Archive · dated</div>
+      <h2 style="margin: 0 0 28px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 42px; font-weight: 400; color: #F4F1EA;">Earlier checkpoints, kept as a record</h2>
+      <p style="margin: 0 0 40px 0; max-width: 860px; font-size: 17px; line-height: 1.65; color: #B4BEB9;">These describe the project at the date shown, not today.</p>
+      <h3 style="margin: 0 0 18px 0; font-size: 20px; font-weight: 600; color: #F4F1EA;">October 8, 2026 · resource-limited engineering checkpoint</h3>
+      <div style="background: #0A0D0C; border: 1px solid #262E2B; border-radius: 6px; overflow: hidden;">
+        <div class="qb-table-wrap" style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+        <table>
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Status and evidence</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="color:#F4F1EA; font-weight:600; white-space:nowrap;">Unit tests</td>
+              <td><a href="./evidence/2026-10-08-ubuntu-arm64.html" style="color: #6FBF9F; text-decoration: none; border-bottom: 1px solid rgba(111,191,159,0.4);">757 passed, 0 failed in the default-image configuration</a></td>
+            </tr>
+            <tr>
+              <td style="color:#F4F1EA; font-weight:600; white-space:nowrap;">Docker image-pinning checks</td>
+              <td><a href="./evidence/2026-10-08-ubuntu-arm64.html" style="color: #6FBF9F; text-decoration: none; border-bottom: 1px solid rgba(111,191,159,0.4);">2 passed using real Docker containers</a></td>
+            </tr>
+            <tr>
+              <td style="color:#F4F1EA; font-weight:600; white-space:nowrap;">Paired sandbox integration</td>
+              <td><a href="./evidence/2026-10-08-ubuntu-arm64.html" style="color: #6FBF9F; text-decoration: none; border-bottom: 1px solid rgba(111,191,159,0.4);">Blocked by resource admission before grading completed</a></td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+      <p style="margin: 18px 0 0 0; font-size: 15px; line-height: 1.6; color: #A7B0AB;">A founder-run engineering checkpoint on a local Ubuntu ARM64 virtual machine (commit <code style="font-family:'IBM Plex Mono',monospace; font-size:12px;">99682a6</code>), reviewed from supplied logs; not independent validation. Its integration tests used a scripted agent and mocked model responses. In the October 8 checkpoint, no live paid agent evaluation was run. <a href="./evidence/2026-10-08-ubuntu-arm64.html" style="color: #6FBF9F; text-decoration: none; border-bottom: 1px solid rgba(111,191,159,0.4);">Evidence, commands and logs →</a></p>
+    </div>
+  </div>
+
+  <!-- BENCHMARK TABLE -->
+  <div style="padding: 0 80px 88px; border-top: 1px solid #222A27;">
+    <div style="max-width: 1180px; margin: 0 auto; padding-top: 72px;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #8A948F; margin-bottom: 20px;">Archive · September 2026</div>
+      <h2 style="margin: 0 0 12px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 42px; font-weight: 400; color: #F4F1EA;">Legacy record (tuned during development, ungraded)</h2>
+      <div style="margin: 0 0 24px 0; padding: 22px 28px; background: #12100E; border-left: 2px solid #E08A4C; border-radius: 4px; font-size: 16px; line-height: 1.65; color: #9AA5A0; max-width: 900px;"><strong style="color: #C6CFCB;">Not a performance result.</strong> These six tasks were tuned during development and are excluded from the controlled evaluation. Our own engineering review found this setup can favour QB: QB wrote the acceptance contract that graded both sides, only QB's agent saw it, the baseline got less time, and this table mixes runs from different versions. We keep it as a record, not as evidence. <a href="https://github.com/arshad8049/quaterback/blob/main/docs/review/issue-register.md" style="color: #6FBF9F; text-decoration: none; border-bottom: 1px solid rgba(111,191,159,0.4);">Review findings QB-27 to QB-30 →</a></div>
+      <p style="margin: 0 0 44px 0; font-size: 17px; color: #9AA5A0; max-width: 740px;">Tested against <code style="font-family:'IBM Plex Mono',monospace; font-size:14px; background:#121615; padding:2px 6px; border-radius:3px; color:#C6CFCB;">cue</code> — an Electron desktop AI interview assistant, JS/CJS, 27 tests. Tasks range from single-file utilities to multi-file exports requiring coordinated changes.</p>
+
+      <div style="background: #0A0D0C; border: 1px solid #262E2B; border-radius: 6px; overflow: hidden;">
+        <div class="qb-table-wrap" style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+        <table>
+          <thead>
+            <tr>
+              <th>Task</th>
+              <th>Description</th>
+              <th>Difficulty</th>
+              <th>QB Result</th>
+              <th>Attempts</th>
+              <th>Baseline</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="font-family:'IBM Plex Mono',monospace; color:#8A948F;">T-001</td>
+              <td><code style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#C6CFCB;">getProviderName()</code> in <code style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#C6CFCB;">src/llm.js</code></td>
+              <td><span class="tag tag-easy">easy</span></td>
+              <td><span class="tag tag-pass">PASS</span></td>
+              <td style="font-family:'IBM Plex Mono',monospace; color:#8A948F;">2</td>
+              <td><span class="tag tag-pass">PASS</span></td>
+              <td style="color:#8A948F; font-size:14px;">L4 flip-flop on attempt 1 (7B inconsistency). Repair loop recovered.</td>
+            </tr>
+            <tr>
+              <td style="font-family:'IBM Plex Mono',monospace; color:#8A948F;">T-002</td>
+              <td><code style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#C6CFCB;">formatDuration(ms)</code> in <code style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#C6CFCB;">src/wav.js</code></td>
+              <td><span class="tag tag-easy">easy</span></td>
+              <td><span class="tag tag-pass">PASS</span></td>
+              <td style="font-family:'IBM Plex Mono',monospace; color:#8A948F;">1</td>
+              <td><span class="tag tag-fail">FAIL</span></td>
+              <td style="color:#8A948F; font-size:14px;">Baseline missed edge-case ACs (invalid input, negative ms, hours). QB contract caught all 6.</td>
+            </tr>
+            <tr>
+              <td style="font-family:'IBM Plex Mono',monospace; color:#8A948F;">T-003</td>
+              <td><code style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#C6CFCB;">isAvailable()</code> on STT object in <code style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#C6CFCB;">src/stt.js</code></td>
+              <td><span class="tag tag-easy">easy</span></td>
+              <td><span class="tag tag-pass">PASS</span></td>
+              <td style="font-family:'IBM Plex Mono',monospace; color:#8A948F;">1</td>
+              <td><span class="tag tag-pass">PASS</span></td>
+              <td style="color:#8A948F; font-size:14px;">Both passed. Tests that agent reads the return-object pattern.</td>
+            </tr>
+            <tr>
+              <td style="font-family:'IBM Plex Mono',monospace; color:#8A948F;">T-004</td>
+              <td><code style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#C6CFCB;">getErrorSummary(error)</code> in <code style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#C6CFCB;">src/llm.js</code></td>
+              <td><span class="tag tag-med">medium</span></td>
+              <td><span class="tag tag-pass">PASS</span></td>
+              <td style="font-family:'IBM Plex Mono',monospace; color:#8A948F;">2</td>
+              <td><span class="tag tag-fail">FAIL</span></td>
+              <td style="color:#8A948F; font-size:14px;">Requires reading existing functions to avoid duplication. Baseline failed entirely. QB repaired on attempt 2.</td>
+            </tr>
+            <tr>
+              <td style="font-family:'IBM Plex Mono',monospace; color:#8A948F;">T-005</td>
+              <td><code style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#C6CFCB;">getVADStats()</code> in <code style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#C6CFCB;">src/vad.js</code></td>
+              <td><span class="tag tag-med">medium</span></td>
+              <td><span class="tag tag-pass">PASS</span></td>
+              <td style="font-family:'IBM Plex Mono',monospace; color:#8A948F;">2</td>
+              <td style="color:#4A5450;">—</td>
+              <td style="color:#8A948F; font-size:14px;">Requires modifying AdaptiveVAD class internals to accumulate counters. Repair loop recovered.</td>
+            </tr>
+            <tr>
+              <td style="font-family:'IBM Plex Mono',monospace; color:#8A948F;">T-006</td>
+              <td><code style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#C6CFCB;">formatBytes()</code> — multi-file export + import in <code style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#C6CFCB;">wav.js</code> + <code style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#C6CFCB;">main.js</code></td>
+              <td><span class="tag tag-hard">hard</span></td>
+              <td><span class="tag tag-pass">PASS</span></td>
+              <td style="font-family:'IBM Plex Mono',monospace; color:#8A948F;">2</td>
+              <td style="color:#4A5450;">—</td>
+              <td style="color:#8A948F; font-size:14px;">Multi-file: correct export in wav.js + correct import + usage in main.js. Repair loop recovered on attempt 2.</td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+
+      <div style="margin-top: 20px; padding: 18px 22px; background: #0A0D0C; border: 1px solid #2E4F44; border-radius: 5px; display: flex; gap: 14px; align-items: flex-start;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#6FBF9F" stroke-width="1.5" style="flex-shrink:0; margin-top:2px;" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="M8 5v3.5M8 11h.01"/></svg>
+        <span style="font-size: 14px; line-height: 1.6; color: #8A948F;">All tasks run with a full git reset (<code style="font-family:'IBM Plex Mono',monospace; font-size:12px;">git checkout -- .</code> + <code style="font-family:'IBM Plex Mono',monospace; font-size:12px;">git clean -fd</code>) between every execution. Both sides were judged against the contract QB generated, so the verdicts are not independent.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- METHODOLOGY -->
+  <div style="padding: 72px 80px 88px; border-top: 1px solid #222A27; background: #0A0D0C;">
+    <div style="max-width: 1180px; margin: 0 auto;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #E08A4C; margin-bottom: 20px;">Methodology</div>
+      <h2 style="margin: 0 0 44px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 42px; font-weight: 400; color: #F4F1EA;">How the legacy runs were measured</h2>
+
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;">
+        <div style="padding: 28px; background: #0D100F; border: 1px solid #262E2B; border-radius: 5px;">
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#E08A4C; margin-bottom:14px;">01 — Contract</div>
+          <div style="font-size:15px; line-height:1.65; color:#9AA5A0;">L1 produces a Task Contract with explicit acceptance criteria before any code is written. The same contract was used to verify both the QB run and the raw baseline; because QB wrote it, the comparison can favour QB.</div>
+        </div>
+        <div style="padding: 28px; background: #0D100F; border: 1px solid #262E2B; border-radius: 5px;">
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#E08A4C; margin-bottom:14px;">02 — Execution</div>
+          <div style="font-size:15px; line-height:1.65; color:#9AA5A0;">QB runs the full 5-layer pipeline. Baseline sends the raw task description directly to <code style="font-family:'IBM Plex Mono',monospace; font-size:13px;">claude --print</code> with no contract, no context, no repair loop. Same underlying model in both cases.</div>
+        </div>
+        <div style="padding: 28px; background: #0D100F; border: 1px solid #262E2B; border-radius: 5px;">
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#E08A4C; margin-bottom:14px;">03 — Verdict</div>
+          <div style="font-size:15px; line-height:1.65; color:#9AA5A0;">L4 judges both diffs against the same contract — running the test suite, checking diff scope, scanning for AC keywords, then asking an independent local LLM to judge each AC. Pass = all criteria met.</div>
+        </div>
+      </div>
+
+      <div style="margin-top: 32px; padding: 28px 32px; border: 1px solid #262E2B; border-radius: 5px; background: #0D100F;">
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:#8A948F; margin-bottom:16px; letter-spacing:0.08em;">ZERO API KEYS — HOW</div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:24px;">
+          <div>
+            <div style="font-size:15px; font-weight:600; color:#F4F1EA; margin-bottom:6px;">L1 Intent</div>
+            <div style="font-size:14px; line-height:1.6; color:#9AA5A0;">DeepSeek-R1:7b via Ollama on localhost:11434. Produces the task contract from the raw request.</div>
+          </div>
+          <div>
+            <div style="font-size:15px; font-weight:600; color:#F4F1EA; margin-bottom:6px;">L3 Agent</div>
+            <div style="font-size:14px; line-height:1.6; color:#9AA5A0;">Claude Code CLI subscription — <code style="font-family:'IBM Plex Mono',monospace; font-size:12px;">claude --print</code>. No per-call charge, no Anthropic API key.</div>
+          </div>
+          <div>
+            <div style="font-size:15px; font-weight:600; color:#F4F1EA; margin-bottom:6px;">L4 Verify</div>
+            <div style="font-size:14px; line-height:1.6; color:#9AA5A0;">Same DeepSeek-R1:7b instance, separate context. Independent judgment — never sees the original briefing.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LIMITATIONS -->
+  <div style="padding: 72px 80px 88px; border-top: 1px solid #222A27; background: #0A0D0C;">
+    <div style="max-width: 1180px; margin: 0 auto;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #E08A4C; margin-bottom: 20px;">Archive · September 2026</div>
+      <h2 style="margin: 0 0 36px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 42px; font-weight: 400; color: #F4F1EA;">Limitations observed in the legacy runs</h2>
+
+      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+        <div style="padding: 26px 28px; border: 1px solid #262E2B; border-radius: 5px;">
+          <div style="font-size:16px; font-weight:600; color:#F4F1EA; margin-bottom:8px;">L1 contract accuracy ceiling</div>
+          <div style="font-size:14px; line-height:1.65; color:#9AA5A0;">DeepSeek-R1:7b occasionally produces incorrect acceptance criteria — a confidently-wrong spec that the agent then implements correctly. T-002 AC-2 wrote "1000ms → '1m'" when 1000ms = 1s. The entire pipeline then validates the wrong behavior.</div>
+        </div>
+        <div style="padding: 26px 28px; border: 1px solid #262E2B; border-radius: 5px;">
+          <div style="font-size:16px; font-weight:600; color:#F4F1EA; margin-bottom:8px;">L4 7B verdict inconsistency</div>
+          <div style="font-size:14px; line-height:1.65; color:#9AA5A0;">The same diff can receive different verdicts across L4 calls — a 7B model at the judgment boundary. Manifested in T-001 (fail on attempt 1, same code passes on attempt 2). A model router or deterministic post-processing step is the mitigation.</div>
+        </div>
+        <div style="padding: 26px 28px; border: 1px solid #262E2B; border-radius: 5px;">
+          <div style="font-size:16px; font-weight:600; color:#F4F1EA; margin-bottom:8px;">Single-repo legacy record</div>
+          <div style="font-size:14px; line-height:1.65; color:#9AA5A0;">All 6 legacy tasks test the same JavaScript repo. The frozen development set now spans 5 repositories, all JavaScript; other languages are not yet covered.</div>
+        </div>
+        <div style="padding: 26px 28px; border: 1px solid #262E2B; border-radius: 5px;">
+          <div style="font-size:16px; font-weight:600; color:#F4F1EA; margin-bottom:8px;">Scope drift on repair</div>
+          <div style="font-size:14px; line-height:1.65; color:#9AA5A0;">T-004 repair attempt 2 modified <code style="font-family:'IBM Plex Mono',monospace; font-size:12px;">src/stt.js</code> in addition to the intended <code style="font-family:'IBM Plex Mono',monospace; font-size:12px;">src/llm.js</code>. At the time, scope enforcement was not applied on repair re-executions; the scope policy is now checked on every attempt (review finding QB-09).</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div style="padding: 40px 80px; border-top: 1px solid #222A27; background: #0A0D0C;">
+    <div style="max-width: 1180px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#E08A4C" stroke-width="1.6" aria-hidden="true"><path d="M2 10h5l2.2 5 3-11 2 6h3.8"></path></svg>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 600; color: #C6CFCB;">Quarterback</span>
+        <span style="font-size: 14px; color: #8A948F;">· a <a href="https://velorallc.netlify.app/" target="_blank" rel="noopener noreferrer" style="color: #8A948F; text-decoration: none; border-bottom: 1px solid rgba(138,148,143,0.35);">Velora</a> product</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 24px; flex-wrap: wrap;">
+        <a href="./index.html" style="font-size:14px; color:#8A948F; text-decoration:none;">← Back to product</a>
+        <a href="./index.html#beta" style="font-size:14px; color:#6FBF9F; text-decoration:none;">Request early access →</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
