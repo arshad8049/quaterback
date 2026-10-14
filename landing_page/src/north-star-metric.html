@@ -1,79 +1,19 @@
-<!-- NORTH STAR METRIC -->
+<!-- STATUS: what works today / what we are measuring -->
 <div id="metric" style="padding: 104px 80px; border-top: 1px solid #222A27; background: #0A0D0C;">
-  <div style="max-width: 1180px; margin: 0 auto;">
-    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #6FBF9F; margin-bottom: 28px;">North-star metric</div>
-    <h2 style="margin: 0 0 20px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1.1; font-weight: 400; color: #F4F1EA;">Human interventions per accepted task</h2>
-    <p style="margin: 0 0 60px 0; max-width: 780px; font-size: 19px; line-height: 1.6; color: #9AA5A0;"><em style="color: #C6CFCB; font-style: normal;">Accepted</em> is the load-bearing word. A system that stops asking questions while shipping bad results has not improved. We count every human message that corrects, clarifies, redirects or verifies the work — and drive that number down without giving up acceptance.</p>
+  <div style="max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px;">
 
-    <div style="display: flex; flex-direction: column; gap: 26px;">
-
-      <div class="qb-metric-row" style="display: flex; align-items: center; gap: 28px;">
-        <div class="qb-metric-label" style="width: 232px; flex-shrink: 0; text-align: right; font-size: 16px; color: #C6CFCB;">Coding agent alone</div>
-        <div style="flex-grow: 1; display: flex; align-items: center; gap: 18px;">
-          <div class="qb-bar" style="width: 812px; height: 40px; background: #E08A4C; border-radius: 3px; animation-delay: 0.1s;"></div>
-          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 26px; font-weight: 600; color: #E08A4C;">7.4</div>
-        </div>
-      </div>
-
-      <div class="qb-metric-row" style="display: flex; align-items: center; gap: 28px;">
-        <div class="qb-metric-label" style="width: 232px; flex-shrink: 0; text-align: right; font-size: 16px; color: #C6CFCB;">With Quarterback</div>
-        <div style="flex-grow: 1; display: flex; align-items: center; gap: 18px;">
-          <div class="qb-bar" style="width: 230px; height: 40px; background: #6FBF9F; border-radius: 3px; animation-delay: 0.45s;"></div>
-          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 26px; font-weight: 600; color: #6FBF9F;">2.1</div>
-        </div>
-      </div>
-
-      <div class="qb-metric-row" style="display: flex; align-items: center; gap: 28px;">
-        <div class="qb-metric-label" style="width: 232px; flex-shrink: 0; text-align: right; font-size: 16px; color: #8A948F;">As verification learns</div>
-        <div style="flex-grow: 1; display: flex; align-items: center; gap: 18px;">
-          <div class="qb-bar" style="width: 154px; height: 40px; background: #3E6F5E; border-radius: 3px; animation-delay: 0.7s;"></div>
-          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 26px; font-weight: 600; color: #8A948F;">1.4</div>
-        </div>
-      </div>
-
-      <div class="qb-metric-row" style="display: flex; align-items: center; gap: 28px;">
-        <div class="qb-metric-label" style="width: 232px; flex-shrink: 0; text-align: right; font-size: 16px; color: #8A948F;">At maturity</div>
-        <div style="flex-grow: 1; display: flex; align-items: center; gap: 18px;">
-          <div class="qb-bar" style="width: 88px; height: 40px; background: #2E4F44; border-radius: 3px; animation-delay: 0.95s;"></div>
-          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 26px; font-weight: 600; color: #8A948F;">0.8</div>
-        </div>
-      </div>
-
+    <div style="background: #121615; border: 1px solid #262E2B; border-top: 2px solid #6FBF9F; border-radius: 6px; padding: 38px 40px;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: #6FBF9F; margin-bottom: 16px;">Status</div>
+      <h2 style="margin: 0 0 18px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 44px; line-height: 1.1; font-weight: 400; color: #F4F1EA;">What works today</h2>
+      <p style="margin: 0; font-size: 18px; line-height: 1.65; color: #C6CFCB;">Approved task contracts, isolated execution, executable checks, protected-file policies and replayable run records are implemented. Quarterback remains in development.</p>
     </div>
 
-    <div style="margin-top: 40px; padding: 22px 26px; border: 1px solid #2E4F44; border-radius: 4px; display: flex; gap: 16px; align-items: flex-start; background: #0A0D0C;">
-      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#6FBF9F" stroke-width="1.6" style="margin-top: 3px; flex-shrink: 0;" aria-hidden="true"><polyline points="3 9 7 13 15 5"/></svg>
-      <span style="font-size: 16px; line-height: 1.65; color: #8A948F;">The targets above are projections. Quarterback’s evaluation infrastructure is implemented, with 30 frozen development tasks across five repositories. A local Ubuntu ARM64 checkpoint passed 757 unit tests and two Docker image-pinning checks. The paired sandbox integration test was blocked by resource admission before grading completed. Controlled performance results and independent holdout evaluation remain pending. <a href="./research.html" style="color: #6FBF9F; text-decoration: none; border-bottom: 1px solid rgba(111,191,159,0.4);">Evaluation status →</a> · <a href="./evidence/2026-10-08-ubuntu-arm64.html" style="color: #6FBF9F; text-decoration: none; border-bottom: 1px solid rgba(111,191,159,0.4);">Checkpoint evidence →</a></span>
+    <div style="background: #121615; border: 1px solid #262E2B; border-top: 2px solid #E08A4C; border-radius: 6px; padding: 38px 40px;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: #E08A4C; margin-bottom: 16px;">Evaluation</div>
+      <h2 style="margin: 0 0 18px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 44px; line-height: 1.1; font-weight: 400; color: #F4F1EA;">What we are measuring</h2>
+      <p style="margin: 0 0 22px 0; font-size: 18px; line-height: 1.65; color: #C6CFCB;">We are testing whether Quarterback reduces the correction and review work needed to complete a coding task. Our exploratory evaluations have not yet demonstrated an advantage over Claude Code alone.</p>
+      <a href="./research.html" style="font-size: 16px; color: #6FBF9F; text-decoration: none; border-bottom: 1px solid rgba(111,191,159,0.4);">Read the evaluation results →</a>
     </div>
 
-    <div style="margin-top: 54px; padding-top: 40px; border-top: 1px solid #222A27;">
-      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: #8A948F; margin-bottom: 26px;">Measured alongside it</div>
-      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px;">
-        <div style="padding: 22px 24px; background: #121615; border: 1px solid #262E2B; border-radius: 5px;">
-          <div style="font-size: 16px; font-weight: 600; color: #F4F1EA; margin-bottom: 6px;">First-pass acceptance rate</div>
-          <div style="font-size: 15px; line-height: 1.55; color: #8A948F;">Did we understand the job before writing any code?</div>
-        </div>
-        <div style="padding: 22px 24px; background: #121615; border: 1px solid #262E2B; border-radius: 5px;">
-          <div style="font-size: 16px; font-weight: 600; color: #F4F1EA; margin-bottom: 6px;">Verification catch rate</div>
-          <div style="font-size: 15px; line-height: 1.55; color: #8A948F;">Failures caught before they reached a human.</div>
-        </div>
-        <div style="padding: 22px 24px; background: #121615; border: 1px solid #262E2B; border-radius: 5px;">
-          <div style="font-size: 16px; font-weight: 600; color: #F4F1EA; margin-bottom: 6px;">Escaped regression rate</div>
-          <div style="font-size: 15px; line-height: 1.55; color: #8A948F;">The number that keeps autonomy honest.</div>
-        </div>
-        <div style="padding: 22px 24px; background: #121615; border: 1px solid #262E2B; border-radius: 5px;">
-          <div style="font-size: 16px; font-weight: 600; color: #F4F1EA; margin-bottom: 6px;">Time per accepted task</div>
-          <div style="font-size: 15px; line-height: 1.55; color: #8A948F;">End-to-end, not time-to-first-diff.</div>
-        </div>
-        <div style="padding: 22px 24px; background: #121615; border: 1px solid #262E2B; border-radius: 5px;">
-          <div style="font-size: 16px; font-weight: 600; color: #F4F1EA; margin-bottom: 6px;">Rework loops per task</div>
-          <div style="font-size: 15px; line-height: 1.55; color: #8A948F;">How many attempts it took to get there.</div>
-        </div>
-        <div style="padding: 22px 24px; background: #121615; border: 1px solid #262E2B; border-radius: 5px;">
-          <div style="font-size: 16px; font-weight: 600; color: #F4F1EA; margin-bottom: 6px;">Tokens per accepted task</div>
-          <div style="font-size: 15px; line-height: 1.55; color: #8A948F;">Efficiency, deliberately last on the list.</div>
-        </div>
-      </div>
-    </div>
   </div>
 </div>

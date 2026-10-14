@@ -220,7 +220,6 @@ button, a { min-height: 44px; }
 .qb-grid {
   background-image: linear-gradient(#171E1B 1px, transparent 1px), linear-gradient(90deg, #171E1B 1px, transparent 1px);
   background-size: 60px 60px;
-  animation: qb-drift 24s linear infinite;
 }
 @keyframes qb-drift { from { background-position: 0 0, 0 0; } to { background-position: 0 -60px, -60px 0; } }
 
@@ -251,7 +250,7 @@ button, a { min-height: 44px; }
 /* ── Reduced motion ── */
 @media (prefers-reduced-motion: reduce) {
   .qb-grid, .qb-sweep, .qb-ring-a, .qb-ring-b, .qb-pulse, .qb-line, .qb-bar,
-  .qb-reveal, .qb-card, .qb-btn-primary, .qb-btn-ghost, .qb-nav { animation: none; transition: none; }
+  .qb-reveal, .qb-card, .qb-btn-primary, .qb-btn-ghost, .qb-nav, .qb-glass-chip { animation: none; transition: none; }
   .qb-reveal { opacity: 1; transform: none; }
 }
 
@@ -625,4 +624,23 @@ button, a { min-height: 44px; }
 
   /* Research table: horizontal scroll */
   .qb-table-wrap { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+}
+
+/* ── Hero: copy + real terminal capture ── */
+.qb-hero-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 56px; align-items: center; }
+.qb-hero-layout.qb-has-terminal { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); }
+.qb-term { background: #090C0B; border: 1px solid #262E2B; border-radius: 10px; overflow: hidden; box-shadow: 0 24px 64px rgba(0,0,0,0.45); }
+.qb-term-bar { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid #1A211E; }
+.qb-term-dot { width: 10px; height: 10px; border-radius: 50%; background: #262E2B; }
+.qb-term pre { margin: 0; padding: 18px 20px; font-family: "IBM Plex Mono", monospace; font-size: 12.5px; line-height: 1.65; color: #C6CFCB; white-space: pre-wrap; word-break: break-word; max-height: 520px; overflow: auto; }
+.qb-term-cap { padding: 10px 16px; border-top: 1px solid #1A211E; font-size: 12px; line-height: 1.5; color: #A7B0AB; }
+@media (max-width: 1000px) { .qb-hero-layout.qb-has-terminal { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 768px) {
+  [style*="font-size: 84px"] { font-size: 52px !important; line-height: 1.06 !important; }
+  [style*="font-size: 44px"] { font-size: 34px !important; }
+}
+@media (max-width: 640px) {
+  [style*="font-size: 84px"] { font-size: 38px !important; line-height: 1.08 !important; }
+  [style*="font-size: 44px"] { font-size: 30px !important; }
+  .qb-term pre { font-size: 11.5px; }
 }
