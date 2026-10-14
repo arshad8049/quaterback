@@ -63,28 +63,26 @@ function claimsInText(text) {
 
 // Only a spelled-out unit (or "ms") names an argument's unit; single letters are too ambiguous.
 const ARG_UNIT_RE = 'milliseconds?|ms|seconds?|minutes?|hours?|days?';
-const SPELLED_QTY = 'a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|half|several|few';
+const ARG_UNIT = { ms: 'ms', millisecond: 'ms', milliseconds: 'ms', second: 's', seconds: 's',
+  minute: 'm', minutes: 'm', hour: 'h', hours: 'h', day: 'd', days: 'd' };
+const reEscape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
- * KAN-68: the unit of a check's numeric argument `n`, from criterion + goal text, or null
- * ("not checked"). In order: a unit attached to that same number ("30000 ms", "30,000 ms");
- * a unit named as the parameter ("formatDuration(ms)"); otherwise the one unit word left after
- * removing quantities ("60,000 ms", "one minute") and output phrases ("to seconds") — never a
- * guess between two different units.
+ * KAN-68: the unit of the numeric argument `n` of a check on export `fn`, from criterion +
+ * goal text, or null ("not checked"). Only positively bound statements count: a unit attached
+ * to that same number ("30000 ms", "30,000 milliseconds", "30000ms") and a unit named as that
+ * export's parameter ("formatDuration(ms)"). Every such statement is collected; if they name
+ * different units, or there is none, the argument's unit is unknown — never a guess from other
+ * unit words in the text ("to seconds", "one minute", "the seconds label").
  */
-function argUnit(n, text) {
+function argUnit(n, fn, text) {
   const t = String(text || '');
-  const digits = String(n).split('').join(',?');
-  const attached = new RegExp(`(?<![\\d.,])${digits}(?![\\d.])\\s*(${ARG_UNIT_RE})\\b`, 'i').exec(t);
-  if (attached) return attached[1].toLowerCase();
-  const param = new RegExp(`\\w\\(\\s*(${ARG_UNIT_RE})\\s*\\)`, 'i').exec(t);
-  if (param) return param[1].toLowerCase();
-  const rest = t
-    .replace(new RegExp(`\\d[\\d,.]*\\s*(?:${UNIT_RE})(?![a-z])`, 'gi'), ' ')
-    .replace(new RegExp(`\\b(?:${SPELLED_QTY})\\s+(?:${UNIT_RE})(?![a-z])`, 'gi'), ' ')
-    .replace(new RegExp(`\\b(?:to|as|into|in|returns?|shows?|displays?|gives)\\s+(?:${ARG_UNIT_RE})\\b`, 'gi'), ' ');
-  const found = new Set([...rest.matchAll(new RegExp(`\\b(${ARG_UNIT_RE})\\b`, 'gi'))]
-    .map((m) => m[1].toLowerCase().replace(/s$/, '').replace(/^m$/, 'ms')));
+  const num = Number.isInteger(n) ? String(Math.abs(n)).split('').join(',?') : reEscape(String(Math.abs(n)));
+  const found = new Set();
+  for (const m of t.matchAll(new RegExp(`(?<![\\d.,])${num}(?![\\d.])\\s*(${ARG_UNIT_RE})\\b`, 'gi'))) found.add(ARG_UNIT[m[1].toLowerCase()]);
+  if (typeof fn === 'string' && fn) {
+    for (const m of t.matchAll(new RegExp(`(?<![\\w$.])${reEscape(fn)}\\s*\\(\\s*(${ARG_UNIT_RE})\\s*\\)`, 'gi'))) found.add(ARG_UNIT[m[1].toLowerCase()]);
+  }
   return found.size === 1 ? [...found][0] : null;
 }
 
@@ -110,7 +108,7 @@ function validateExamples(contract) {
     const p = ch?.params;
     if (ch?.adapter !== 'call_returns' || !p || !Array.isArray(p.args) || p.args.length !== 1 || typeof p.args[0] !== 'number' || typeof p.expect !== 'string') continue;
     const ac = acs.find((a) => a && a.id === ch.ac_id);
-    const unit = argUnit(p.args[0], `${ac ? ac.criterion : ''} ${contract.goal || ''}`);
+    const unit = argUnit(p.args[0], p.export, `${ac ? ac.criterion : ''} ${contract.goal || ''}`);
     if (!unit || !UNIT_MS[unit]) continue;
     record(ch.id, `${p.args[0]} ${unit}`, p.args[0] * UNIT_MS[unit], p.expect);
   }

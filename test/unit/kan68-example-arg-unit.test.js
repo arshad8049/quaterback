@@ -6,10 +6,11 @@
  * 30000 ms → "30s", was rejected as "30000 seconds → '30s'" / "30000 minute → '30s'" and the
  * contract was never run (3 of 6 real attempts).
  *
- * The argument's unit now comes, in order, from: a unit attached to that same number ("30000 ms",
- * "30,000 ms"); a unit named as the parameter ("formatDuration(ms)"); otherwise the remaining unit
- * words once number–unit pairs, spelled-out quantities and output phrases ("to seconds") are
- * removed — and only when exactly one unit is left. Anything else is "not checked", never correct.
+ * The argument's unit now comes only from statements bound to it: a unit attached to that same
+ * number ("30000 ms", "30,000 ms", "30000ms") and a unit named as the CHECKED export's parameter
+ * ("formatDuration(ms)"). All such statements are collected; conflicting units or none → "not
+ * checked", never correct and never a guess from other unit words (re-review 10301 removed the
+ * leftover-word fallback and the first-match early returns).
  */
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
@@ -68,6 +69,24 @@ describe('KAN-68: a check argument\'s unit is the unit of that argument', () => 
     const c = (goal, criterion) => ({ goal, acceptance_criteria: [{ id: 'AC-1', criterion, kind: 'behavioral' }], checks: [check('CHK-1', 'AC-1', 30000, '5m')] });
     assert.deepEqual(where(validateExamples(c('Add formatDuration', 'returns minutes for 90000 ms')).errors), [], 'unit attached to 90000, not 30000; "minutes" is an output unit');
     assert.deepEqual(where(validateExamples(c('Accepts seconds or minutes', 'formats a duration')).errors), [], 'seconds vs minutes: ambiguous');
+  });
+
+  test('re-review 10301: conflicting bound units, another function’s signature and unrelated unit words are not checked', () => {
+    const c = (goal, criterion, expect = '5m') => ({ goal, acceptance_criteria: [{ id: 'AC-1', criterion, kind: 'behavioral' }],
+      checks: [check('CHK-1', 'AC-1', 30000, expect)] });
+    for (const [goal, criterion, label] of [
+      ['Add formatDuration', 'Accept either 30000 ms or 30000 seconds', 'same number, two units (pre-rework: ms, first match)'],
+      ['Keep sleep(seconds) unchanged. Add formatDuration for short durations.', 'formats durations', 'another function’s parameter (pre-rework: seconds)'],
+      ['Add formatDuration', 'Preserve the seconds label', 'unrelated unit word (pre-rework: seconds)'],
+      ['Add formatDuration(ms)', 'formatDuration(30000) handles 30000 seconds', 'signature and attached unit disagree'],
+      ['Add formatDuration(seconds) and parseDuration(ms)', 'formats 30000 ms', 'attached ms vs the checked export’s seconds'],
+    ]) {
+      const r = validateExamples(c(goal, criterion));
+      assert.deepEqual([where(r.errors), where(r.checked)], [[], []], label);
+    }
+    // controls: the same texts with the conflict removed are checked and the wrong example caught
+    assert.deepEqual(where(validateExamples(c('Add formatDuration', 'Accept 30000 ms')).errors), [['CHK-1', "30000 ms → '5m'"]]);
+    assert.deepEqual(where(validateExamples(c('Keep sleep(seconds) unchanged. Add formatDuration(ms).', 'formats durations')).errors), [['CHK-1', "30000 ms → '5m'"]]);
   });
 
   test('through the real compiler: the captured criteria no longer make the contract invalid', async () => {
