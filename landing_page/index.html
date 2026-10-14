@@ -108,7 +108,7 @@
     <div class="qb-grid" aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 0; bottom: 0; opacity: 0.35;"></div>
     <div class="qb-glow" aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 0; bottom: 0;"></div>
   
-    <div class="qb-hero-layout" style="position: relative; max-width: 1180px; margin: 0 auto;">
+    <div class="qb-hero-layout qb-has-terminal" style="position: relative; max-width: 1180px; margin: 0 auto;">
       <div class="qb-hero-copy">
         <div class="qb-reveal" style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #E08A4C; margin-bottom: 30px;">A <a href="https://velorallc.netlify.app/" target="_blank" rel="noopener" style="color: #E08A4C; text-decoration: none; border-bottom: 1px solid rgba(224,138,76,0.4);" class="qb-velora-link">Velora</a> product · in development</div>
         <h1 class="qb-reveal" style="margin: 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 84px; line-height: 1.02; font-weight: 400; letter-spacing: -0.02em; color: #F4F1EA; transition-delay: 0.08s;">Check AI-written code against your requirements.</h1>
@@ -119,7 +119,11 @@
         </div>
         <p class="qb-reveal" style="margin: 28px 0 0 0; font-size: 15px; line-height: 1.6; color: #A7B0AB; transition-delay: 0.3s;">Currently built for Claude Code on supported JavaScript projects using Linux and Docker.</p>
       </div>
-      <!-- HERO-TERMINAL -->
+      <figure class="qb-term qb-reveal" style="margin: 0; transition-delay: 0.2s;" aria-label="Terminal output from a real Quarterback run">
+        <div class="qb-term-bar" aria-hidden="true"><span class="qb-term-dot"></span><span class="qb-term-dot"></span><span class="qb-term-dot"></span></div>
+        <pre><span style="color:#E08A4C">$ qb "formatDuration should show durations under one minute as seconds only, …"</span>&#10;[L1]   Contract ready  (50674ms)&#10;<span style="color:#5E6863">…</span>&#10;Acceptance criteria:&#10;   - [AC-1] (behavioral) formatDuration(30000) should return "30s"  ← R-1&#10;   - [AC-2] (behavioral) formatDuration(90000) should return "1m 30s"  ← R-1&#10;QB's own arithmetic: 1 example(s) recomputed and correct&#10;<span style="color:#5E6863">…</span>&#10;The test oracle needs a human's approval before anything runs.&#10;&#10;<span style="color:#E08A4C">$ qb "…" --contract-file contract.json</span>&#10;[L1]   Oracle approved (contract-file); frozen as 96682f70adb8&#10;[L2]   Context ready  (27278ms)&#10;[L3]   Execution done  (77055ms)  status=completed&#10;   src/duration.js                        +2 -1&#10;<span style="color:#6FBF9F">[L4]   Verdict: ✓ PASS  (83ms)</span>&#10;<span style="color:#6FBF9F">   ✓ [AC-1] formatDuration(30000) should return "30s"</span>&#10;<span style="color:#6FBF9F">   ✓ [AC-2] formatDuration(90000) should return "1m 30s"</span>&#10;<span style="color:#5E6863">…</span>&#10;<span style="color:#6FBF9F">RESULT: ✓ PASS</span>&#10;Attempts: 1 / 3</pre>
+        <figcaption class="qb-term-cap">Real run, October 14, 2026: Claude Code 2.1.288 in Quarterback’s Docker sandbox on a two-file sample project. The contract was compiled by the local model; the reviewer added the allowed file and constraint checks before approving. The patch is proposed, not applied. Lines cut where marked “…”. <a href="./evidence/2026-10-14-hero-run/hero-run.log" style="color: #6FBF9F; text-decoration: none; border-bottom: 1px solid rgba(111,191,159,0.4);">Full log →</a></figcaption>
+      </figure>
     </div>
   </div>
 
