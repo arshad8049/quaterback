@@ -644,3 +644,6 @@ button, a { min-height: 44px; }
   [style*="font-size: 44px"] { font-size: 30px !important; }
   .qb-term pre { font-size: 11.5px; }
 }
+
+/* Orbit sits behind the hero content (paused for reduced-motion users in interactions.js) */
+.qb-orbit { z-index: 0; pointer-events: none; }
