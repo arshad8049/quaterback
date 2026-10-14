@@ -168,6 +168,18 @@
               <td><a href="https://github.com/arshad8049/quaterback/tree/phase-4-evaluation/bench/specs" style="color: #6FBF9F; text-decoration: none; border-bottom: 1px solid rgba(111,191,159,0.4);">30 frozen tasks across 5 repositories, linked to the frozen specs</a></td>
             </tr>
             <tr>
+              <td style="color:#F4F1EA; font-weight:600; white-space:nowrap;">Development pilot</td>
+              <td>Runs on GitHub Actions runners (manual <code style="font-family:'IBM Plex Mono',monospace; font-size:12px;">qb30-pilot</code> workflow)</td>
+            </tr>
+            <tr>
+              <td style="color:#F4F1EA; font-weight:600; white-space:nowrap;">Harder-task screen (exploratory)</td>
+              <td>14 tasks built from real Fastify bug fixes on 11 pinned Fastify 5.x releases, frozen October 13, 2026; 2 repetitions per arm. Claude Code alone passed the hidden suites in 28 of 28 trials, Claude Code inside Quarterback in 28 of 28: a ceiling, so the tasks did not separate the arms. Not performance evidence.</td>
+            </tr>
+            <tr>
+              <td style="color:#F4F1EA; font-weight:600; white-space:nowrap;">Verifier false rejections</td>
+              <td>In progress: the screen showed Quarterback’s verifier rejecting correct patches. One cause is fixed on main; a second needs a policy decision (see note below).</td>
+            </tr>
+            <tr>
               <td style="color:#F4F1EA; font-weight:600; white-space:nowrap;">Controlled performance results</td>
               <td>Not yet available</td>
             </tr>
@@ -180,6 +192,8 @@
         </div>
       </div>
       <p style="margin: 20px 0 0 0; font-size: 14px; line-height: 1.6; color: #8A948F;">The test results come from a founder-run engineering checkpoint on October 8, 2026 (commit <code style="font-family:'IBM Plex Mono',monospace; font-size:12px;">99682a6</code>), reviewed from supplied logs. It is not independent validation. Its integration tests use a scripted agent and mocked model responses; no live paid agent evaluation has been run. <a href="./evidence/2026-10-08-ubuntu-arm64.html" style="color: #6FBF9F; text-decoration: none; border-bottom: 1px solid rgba(111,191,159,0.4);">Evidence, commands and logs →</a></p>
+      <p style="margin: 14px 0 0 0; font-size: 14px; line-height: 1.6; color: #8A948F;"><strong style="color: #C6CFCB;">Latest progress · October 14, 2026.</strong> The harder-task screen is exploratory: its tasks were selected for difficulty, and it is not the controlled evaluation. Disclosure: in the first run (GitHub run <code style="font-family:'IBM Plex Mono',monospace; font-size:12px;">38409518314</code>), 8 trials in one shard (tasks FY-07 and FY-14) were agent crashes of about one second with an empty patch (likely a usage limit, unconfirmed) and had been graded as fails. A harness fix (commit <code style="font-family:'IBM Plex Mono',monospace; font-size:12px;">7443bd0</code>) now counts an agent failure as attrition, not a fail, and those trials were rerun (run <code style="font-family:'IBM Plex Mono',monospace; font-size:12px;">38459455639</code>: 4 of 4 for each arm). The original run is retained. The 28 of 28 results above include the rerun.</p>
+      <p style="margin: 14px 0 0 0; font-size: 14px; line-height: 1.6; color: #8A948F;">The screen also showed Quarterback’s verifier rejecting correct Fastify patches and asking for unnecessary repairs. One cause is fixed on main (commit <code style="font-family:'IBM Plex Mono',monospace; font-size:12px;">9cdda81</code>): a test failure that already existed before the change, whose message names the run folder, was misclassified as a regression. A second cause is open: some correct fixes change behaviour that existing tests assert (upstream updated those tests in the same commit), and Quarterback reports these as regressions; a policy decision is pending. A build defect in the Fastify task repositories (a missing lint dependency) is being fixed, and the tasks will be re-qualified as version 2 with a disclosed changelog. Harder tasks are needed before the arms can be compared.</p>
     </div>
   </div>
 
@@ -408,7 +422,7 @@
           <div class="timeline-dot dot-next"></div>
           <div>
             <div style="font-size:16px; font-weight:600; color:#8A948F; margin-bottom:4px;">Next: controlled evaluation</div>
-            <div style="font-size:14px; line-height:1.6; color:#4A5450;">A capped development pilot on a Linux host with enough memory for the sandbox (about 11 GiB free per run), then an independently authored and reviewed holdout set. No performance results until then.</div>
+            <div style="font-size:14px; line-height:1.6; color:#4A5450;">A capped development pilot on a Linux host with enough memory for the sandbox (about 11 GiB free per run), then an independently authored and reviewed holdout set. No performance results until then. An exploratory harder-task screen (October 2026) hit a ceiling, so harder tasks are needed first.</div>
           </div>
         </div>
 
