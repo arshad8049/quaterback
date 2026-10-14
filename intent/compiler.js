@@ -119,8 +119,11 @@ function contractFromObject(raw, request) {
   for (const key of ['required_behavior', 'constraints', 'verification_plan', 'ambiguity_flags']) {
     if (Array.isArray(raw[key])) {
       raw[key] = raw[key].map((item, i) => {
+        // KAN-66: a check-shaped plan step is read only by the strict call_returns reader; when
+        // that fails it stays unreadable — a text field beside a malformed check is never used.
         const t = typeof item === 'string' ? item
-          : (key === 'verification_plan' ? checkStepText(item) : null) ?? extractString(item);
+          : key === 'verification_plan' && isCheckShaped(item) ? checkStepText(item)
+            : extractString(item);
         if (t === null) incomplete.push(`unreadable ${key}[${i}]`);
         return t;
       }).filter(Boolean);
@@ -211,6 +214,8 @@ function isNoQuestionSentinel(q) {
  * check adapters, returns null and stays "unreadable" (QB-17).
  */
 const STEP_KEYS = new Set(['adapter', 'params', 'plan_item', 'id', 'ac_id']);
+const isCheckShaped = (o) => !!o && typeof o === 'object' && !Array.isArray(o)
+  && (Object.prototype.hasOwnProperty.call(o, 'adapter') || Object.prototype.hasOwnProperty.call(o, 'params'));
 const CALL_RETURNS_KEYS = ['module', 'export', 'args', 'expect'];
 function checkStepText(step) {
   if (!step || typeof step !== 'object' || Array.isArray(step)) return null;

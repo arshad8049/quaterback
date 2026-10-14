@@ -103,6 +103,26 @@ describe('KAN-66: check-shaped verification_plan steps are read, not rejected', 
     }
   });
 
+  test('re-review 10308: a malformed check with a text field does not fall back to that text; text-shaped objects still read', async () => {
+    const ok = { plan_item: 0, adapter: 'call_returns', params: { module: 'src/duration.js', export: 'formatDuration', args: [30000], expect: '30s' } };
+    for (const [bad, label] of [
+      [{ ...ok, description: 'Run the check', params: { ...ok.params, timeout_ms: 123 } }, 'reviewer repro: description + extra timeout_ms (pre-fix: plan "Run the check", finalized)'],
+      [{ ...ok, text: 'Run the check', params: { module: ok.params.module, export: ok.params.export, args: [30000] } }, 'text + missing expect'],
+      [{ adapter: 'call_throws', params: { module: 'src/a.js', export: 'f', args: [] }, step: 'f throws' }, 'other adapter + step'],
+      [{ params: ok.params, description: 'Run the check' }, 'params without adapter + description'],
+      [{ adapter: 'call_returns', description: 'Run the check' }, 'adapter without params + description'],
+    ]) {
+      const { c, s } = await compiled({ ...VALID_POLICY(), verification_plan: [bad] });
+      assert.equal(s.state, 'invalid', label);
+      assert.match(s.errors.join(' | '), /unreadable verification_plan\[0\]/, label);
+      assert.ok(!(c.verification_plan || []).some((p) => /Run the check|f throws/.test(p)), label);
+    }
+    // control: an ordinary text-shaped object (no adapter/params) is read as before (QB-17)
+    const { c, s } = await compiled({ ...VALID_POLICY(), verification_plan: [{ text: 'Run the test suite' }, { description: 'Call formatDuration(90000)' }] });
+    assert.deepEqual(c.verification_plan, ['Run the test suite', 'Call formatDuration(90000)']);
+    assert.equal(s.state, 'finalized', JSON.stringify(s.errors));
+  });
+
   test('anything else stays unreadable and the contract invalid: unknown adapter, missing params, bare plan index, wrong field types', async () => {
     for (const [bad, label] of [
       [{ adapter: 'shell', params: { cmd: 'rm -rf /' } }, 'unknown adapter'],
