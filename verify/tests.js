@@ -116,8 +116,14 @@ function relFile(f) {
 const validPath = (p, nesting) => (Array.isArray(p) && p.length === nesting && p.every((x) => typeof x === 'string') ? p.map(String) : null);
 /** Full test identity, or null when it cannot be established (never matched). */
 const testId = (t) => (typeof t.file === 'string' && t.path ? JSON.stringify([t.file, ...t.path, t.name]) : null);
-/** The same failure: same identity, same failure type, same assertion message. */
-const sameFailure = (a, b) => a.failureType === b.failureType && a.error === b.error;
+/**
+ * The same failure: same identity, same failure type, same assertion message. The candidate runs
+ * in /verify and the base in /scratch, so a message that embeds its own run root (a require stack,
+ * a stack frame) is compared with the root removed (KAN-65: Fastify's
+ * "Cannot find module 'neostandard' … /verify/eslint.config.js" was blamed on every patch).
+ */
+const runRootless = (e) => (typeof e === 'string' ? e.replace(/(^|[^\w./-])\/(?:verify|scratch)(?=\/)/g, '$1<root>') : e);
+const sameFailure = (a, b) => a.failureType === b.failureType && runRootless(a.error) === runRootless(b.error);
 
 /**
  * @param {object|null} v - execution.sandbox.verification

@@ -45,6 +45,16 @@ describe('base vs candidate test evidence', () => {
     const c = classifyTestRun(run([['flaky', false], ['doubles', true]], baseRun([['flaky', false], ['doubles', true]])), WAIVE);
     assert.deepEqual([c.outcome, c.regressions, c.preexisting.map((t) => t.name), c.baseline], ['preexisting_failures', [], ['flaky'], 'compared']);
   });
+  test('KAN-65: a message that embeds its own run root (/verify vs /scratch) is still the same pre-existing failure', () => {
+    const msg = (root) => `Cannot find module 'neostandard'\nRequire stack:\n- ${root}/eslint.config.js`;
+    const c = classifyTestRun(run([['lint', false, msg('/verify')], ['doubles', true]], baseRun([['lint', false, msg('/scratch')], ['doubles', true]])), WAIVE);
+    assert.deepEqual([c.outcome, c.regressions, c.preexisting.map((t) => t.name)], ['preexisting_failures', [], ['lint']]);
+    // only the run root is ignored: a different module, or a different file under the root, is still a changed failure
+    for (const other of [msg('/verify').replace('neostandard', 'eslint'), msg('/verify').replace('eslint.config', 'other.config'), msg('/verifyx')]) {
+      const d = classifyTestRun(run([['lint', false, other]], baseRun([['lint', false, msg('/scratch')]])), WAIVE);
+      assert.deepEqual([d.outcome, d.regressions.map((t) => [t.name, t.changed_failure])], ['failed', [['lint', true]]], other);
+    }
+  });
   test('mixed: only the new failure is a regression', () => {
     const c = classifyTestRun(run([['flaky', false], ['doubles', false]], baseRun([['flaky', false], ['doubles', true]])));
     assert.deepEqual([c.outcome, c.regressions.map((t) => t.name), c.preexisting.map((t) => t.name)], ['failed', ['doubles'], ['flaky']]);
