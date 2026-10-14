@@ -107,6 +107,10 @@
     }
   });
 
+  /* ── Orbit: SMIL animations ignore CSS, so pause them for reduced-motion users ── */
+  const orbit = document.querySelector('.qb-orbit');
+  if (orbit && window.matchMedia('(prefers-reduced-motion: reduce)').matches && orbit.pauseAnimations) orbit.pauseAnimations();
+
   /* ── Terminal cursor ── */
   const terminalCmd = document.querySelector('[style*="color: #6FBF9F"]');
   if (terminalCmd && terminalCmd.textContent.trim().startsWith('$')) {
