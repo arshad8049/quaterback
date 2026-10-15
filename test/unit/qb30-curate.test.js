@@ -6,7 +6,9 @@
  *     and freezing without an approver is refused (QB-13: an oracle is human-approved);
  *   - a suite that cannot tell a wrong implementation from the reference is refused;
  *   - freeze approves exactly what was qualified: a task.json, reference or incorrect tree, or
- *     grader that changed after qualification is refused (the reviewer reads the current files).
+ *     grader that changed after qualification is refused (the reviewer reads the current files);
+ *   - the base must pass the repository's own declared tests, and freeze refuses a draft that
+ *     does not record that it did (KAN-65 review).
  */
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
@@ -26,6 +28,9 @@ const BASE = {
   'package.json': JSON.stringify({ name: 'dur', version: '1.0.0', scripts: { test: 'node --test' } }, null, 2) + '\n',
   'package-lock.json': JSON.stringify({ name: 'dur', version: '1.0.0', lockfileVersion: 3, requires: true, packages: { '': { name: 'dur', version: '1.0.0' } } }, null, 2) + '\n',
   'src/duration.js': 'module.exports.formatDuration = (ms) => `${ms}ms`;\n',
+  // as bench/repos.js writes for every bench repository
+  '.quarterback.json': JSON.stringify({ test: { runner: 'node-test', command: ['node', '--test', 'test/visible/*.test.js'] } }) + '\n',
+  'test/visible/loads.test.js': "const { test } = require('node:test');\ntest('loads', () => require('../../src/duration'));\n",
 };
 const write = (root, files) => { for (const [rel, c] of Object.entries(files)) { fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true }); fs.writeFileSync(path.join(root, rel), c); } };
 
@@ -64,6 +69,8 @@ describe('QB-30: curation', () => {
     assert.deepEqual(d.spec.suite.owned_paths, ['test/hidden/**']);
     assert.ok(fs.existsSync(path.join(dirs.specs, 'DUR-1.draft.json')));
     assert.equal(fs.existsSync(path.join(dirs.specs, 'DUR-1.json')), false, 'nothing is frozen by qualify');
+    assert.deepEqual(d.base_tests, { command: ['node', '--test', 'test/visible/*.test.js'], outcome: 'passed' }, 'the base check ran and is recorded');
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dirs.specs, 'DUR-1.draft.json'), 'utf8')).base_tests, d.base_tests);
   });
 
   test('freeze without a named approver is refused', () => {
@@ -92,6 +99,13 @@ describe('QB-30: curation', () => {
     fs.writeFileSync(draftFile, JSON.stringify(d));
     try { assert.throws(() => C.freezeTask('DUR-1', { ...opts(), approver: 'Arshad Ahmed Shaik' }), /no source fingerprint/); }
     finally { fs.writeFileSync(draftFile, draft); }
+    // a draft made before the base check (or with it not passed) cannot be approved
+    for (const base_tests of [undefined, { declared: false }]) {
+      const old = JSON.parse(draft); if (base_tests) old.base_tests = base_tests; else delete old.base_tests;
+      fs.writeFileSync(draftFile, JSON.stringify(old));
+      try { assert.throws(() => C.freezeTask('DUR-1', { ...opts(), approver: 'Arshad Ahmed Shaik' }), /no passing run of the base's own tests/); }
+      finally { fs.writeFileSync(draftFile, draft); }
+    }
     assert.equal(fs.existsSync(dirs.lockFile), false, 'nothing was frozen');
   });
 

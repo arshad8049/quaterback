@@ -12,7 +12,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const { grade, gradeArm, graderHash, patchPaths, safeInstall } = require('../../bench/grader');
-const { qualify } = require('../../bench/qualify');
+const { qualify, qualifyDetailed } = require('../../bench/qualify');
 const { freeze, checkFrozen } = require('../../bench/spec');
 const adj = require('../../bench/adjudicate');
 const S = require('../../bench/schemas');
@@ -201,14 +201,64 @@ describe('QB-27: qualification and freezing', LIVE, () => {
     f.repo.write('test/visible/loads.test.js', "const { test } = require('node:test');\ntest('loads', () => require('../../src/duration'));\n");
     f.repo.write('test/visible/shipped-broken.test.js', "const { test } = require('node:test');\nconst assert = require('node:assert');\n"
       + "test('mediaType is a string', () => assert.strictEqual(typeof undefined, 'string'));\n");
-    const run = (head) => qualify({ spec: { ...f.spec, repo: { ...f.spec.repo, base_rev: head } }, suitesRoot: f.suitesRoot, runSandboxed: hostRunner(),
+    const run = async (head) => qualifyDetailed({ spec: { ...f.spec, repo: { ...f.spec.repo, base_rev: head } }, suitesRoot: f.suitesRoot, runSandboxed: hostRunner(),
       reference: f.patch('correct'), incorrect: [{ label: '5m', patch: f.patch('fiveMinutes') }, { label: 'off-by-one', patch: f.patch('offByOne') }] });
     await assert.rejects(run(f.repo.commit('base whose own test fails')),
       (e) => e.code === 'SUITE_NOT_QUALIFIED' && /base: the repository's own tests must pass on the unchanged base.*mediaType is a string/.test(e.message));
     // control: the same base with that test fixed qualifies
     f.repo.write('test/visible/shipped-broken.test.js', "const { test } = require('node:test');\ntest('mediaType is a string', () => {});\n");
     const q = await run(f.repo.commit('upstream fixed the test'));
-    assert.equal(q.reference.outcome, 'pass');
+    assert.equal(q.qualification.reference.outcome, 'pass');
+    assert.deepEqual(q.base_tests, { command: visible, outcome: 'passed' }, 'the gate\'s result is recorded, beside the unchanged Qualification record');
+  });
+
+  test('KAN-65 review: a broken .quarterback.json fails qualification instead of skipping the base check', async () => {
+    // Senior's reproduction: '{bad json' was read as "no command declared", so qualification succeeded
+    // with 3 sandbox calls, all hidden-suite grading, and the base's own tests never ran.
+    const f = fx();
+    const visible = ['node', '--test', 'test/visible/*.test.js'];
+    f.repo.write('test/visible/loads.test.js', "const { test } = require('node:test');\ntest('loads', () => require('../../src/duration'));\n");
+    const run = (head, calls, extra = {}) => qualifyDetailed({ spec: { ...f.spec, repo: { ...f.spec.repo, base_rev: head } }, suitesRoot: f.suitesRoot, runSandboxed: hostRunner(calls),
+      reference: f.patch('correct'), incorrect: [{ label: '5m', patch: f.patch('fiveMinutes') }, { label: 'off-by-one', patch: f.patch('offByOne') }], ...extra });
+    const refused = async (content, why) => {
+      f.repo.write('.quarterback.json', content);
+      const calls = [];
+      await assert.rejects(run(f.repo.commit(`config: ${why}`), calls),
+        (e) => e.code === 'SUITE_NOT_QUALIFIED' && /base: \.quarterback\.json/.test(e.message), why);
+    };
+    await refused('{bad json', 'malformed JSON');
+    await refused(JSON.stringify({ test: { runner: 'node-test' } }), 'no test.command');
+    await refused(JSON.stringify({ test: { command: [] } }), 'empty command');
+    await refused(JSON.stringify({ test: { command: 'node --test' } }), 'command not an argv array');
+    await refused(JSON.stringify({ test: { command: ['node', 7] } }), 'non-string argv');
+    await refused(JSON.stringify({ test: { command: ['node', ''] } }), 'empty argv element');
+    await refused('null', 'not an object');
+    // unreadable: a dangling symlink exists in the tree but cannot be read
+    fs.rmSync(path.join(f.repo.dir, '.quarterback.json'));
+    fs.symlinkSync('missing-target.json', path.join(f.repo.dir, '.quarterback.json'));
+    await assert.rejects(run(f.repo.commit('config: dangling symlink'), []),
+      (e) => e.code === 'SUITE_NOT_QUALIFIED' && /base: \.quarterback\.json.*cannot be read/.test(e.message), 'unreadable');
+
+    // controls: a valid declared command runs on the base (4 sandbox calls) and is recorded…
+    fs.rmSync(path.join(f.repo.dir, '.quarterback.json'));
+    f.repo.write('.quarterback.json', JSON.stringify({ test: { runner: 'node-test', command: visible } }));
+    const validHead = f.repo.commit('config: valid');
+    const calls = [];
+    const q = await run(validHead, calls, { requireVisibleTests: true });
+    assert.equal(calls.length, 4);
+    assert.deepEqual(calls[0].testCommand, visible, 'the first sandbox call is the base\'s own tests');
+    assert.deepEqual(q.base_tests, { command: visible, outcome: 'passed' });
+    // …and a base whose own test fails is still refused (the FY-08 control)
+    f.repo.write('test/visible/broken.test.js', "const { test } = require('node:test');\nconst assert = require('node:assert');\ntest('broken', () => assert.fail('shipped broken'));\n");
+    await assert.rejects(run(f.repo.commit('base own test fails'), []), /base: the repository's own tests must pass.*broken/);
+
+    // absent config: allowed (and recorded as not declared) only when visible tests are not required
+    f.repo.git(['rm', '-q', '.quarterback.json', 'test/visible/broken.test.js']);
+    const bare = f.repo.commit('config: absent');
+    const q2 = await run(bare, []);
+    assert.deepEqual(q2.base_tests, { declared: false });
+    await assert.rejects(run(bare, [], { requireVisibleTests: true }),
+      (e) => e.code === 'SUITE_NOT_QUALIFIED' && /base: no \.quarterback\.json declares the repository's own test command/.test(e.message));
   });
 
   test('freezing needs qualification; a frozen spec cannot be edited; a new version needs a disclosed changelog entry', async () => {
