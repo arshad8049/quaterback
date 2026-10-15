@@ -100,6 +100,41 @@ describe('QB-30: reproducible task repositories', () => {
     assert.throws(() => R.build('fx', { ...opts(path.join(tmp, 'l')), lockDir }), /link:\/file:\/git.*node_modules\/fx/);
   });
 
+  test('KAN-65 (FY-08): listed upstream commits are applied on top of the pin, in the one base commit', () => {
+    // The release ships a test that fails on its own code; upstream fixed the TEST after the tag.
+    const up = makeRepo({ ...UPSTREAM, 'test/add.test.js': UPSTREAM['test/add.test.js'].replace('3)', "'3')") });
+    try {
+      up.git(['tag', 'v1.2.3']);
+      const pin = up.head();
+      up.write('test/add.test.js', UPSTREAM['test/add.test.js']);
+      const fix = up.commit('test: fix add');
+      up.write('index.js', 'module.exports.add = (a, b) => a - b;\n');
+      const unrelated = up.commit('later source change, not listed');
+      const e = { ...mf.fx, upstream: up.dir, commit: pin };
+      const o = (r, extra) => ({ ...opts(path.join(tmp, r)), mirrors: path.join(tmp, `m-${r}`), manifest: { fx: { ...e, ...extra } } });
+      const rev = (d, r) => require('child_process').execFileSync('git', ['rev-parse', r], { cwd: d, encoding: 'utf8' }).trim();
+
+      const plain = R.build('fx', o('up0'));
+      const a = R.build('fx', o('up1', { upstream_commits: [fix] }));
+      assert.notEqual(a.head, plain.head, 'a different base');
+      assert.equal(a.head, R.build('fx', o('up2', { upstream_commits: [fix] })).head, 'deterministic');
+      assert.equal(rev(a.dir, 'HEAD^'), pin, 'still one commit on top of the pinned release');
+      assert.equal(fs.readFileSync(path.join(a.dir, 'test/add.test.js'), 'utf8'), UPSTREAM['test/add.test.js'], 'the fix is applied');
+      assert.equal(fs.readFileSync(path.join(a.dir, 'index.js'), 'utf8'), UPSTREAM['index.js'], 'nothing else from later upstream');
+      const msg = require('child_process').execFileSync('git', ['log', '-1', '--format=%B'], { cwd: a.dir, encoding: 'utf8' });
+      assert.match(msg, new RegExp(`upstream commits applied: ${fix}`), 'the base commit names what was applied');
+      assert.doesNotMatch(require('child_process').execFileSync('git', ['log', '-1', '--format=%B'], { cwd: plain.dir, encoding: 'utf8' }), /upstream commits applied/,
+        'a pin without upstream_commits builds exactly as before');
+
+      assert.throws(() => R.build('fx', o('up3', { upstream_commits: [fix.slice(0, 12)] })), /upstream_commits.*full sha/);
+      assert.throws(() => R.build('fx', o('up4', { upstream_commits: ['d'.repeat(40)] })), /upstream commit d{40} not found/);
+      up.git(['checkout', '-q', '-b', 'other', pin]);
+      up.write('index.js', 'module.exports.add = (a, b) => a * b;\n');
+      const clash = up.commit('conflicts with the unrelated change');
+      assert.throws(() => R.build('fx', o('up5', { upstream_commits: [unrelated, clash] })), /does not apply/);
+    } finally { up.cleanup(); }
+  });
+
   test('resolveSource: qb-bench:<name> → the built checkout; a plain path is unchanged; an unknown name is refused', () => {
     const o = opts(path.join(tmp, 'e'));
     const dir = R.resolveSource('qb-bench:fx', o);

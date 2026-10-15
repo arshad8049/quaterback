@@ -11,7 +11,9 @@
  *     - package-lock.json: the pinned lockfile from bench/repos/<name>.package-lock.json
  *       (the sandbox installs only from a lockfile: `npm ci`);
  *     - .quarterback.json: the node:test command (QB-20), so visible tests are verifiable;
- *     - the files listed in `remove` (e.g. an .npmrc with package-lock=false).
+ *     - the files listed in `remove` (e.g. an .npmrc with package-lock=false);
+ *     - the upstream commits listed in `upstream_commits`, applied in order (a fix released after
+ *       the pin, e.g. a test the release shipped failing; KAN-65 FY-08).
  *   Every other file is upstream bytes. Same pin + same edits → same base_rev on any machine.
  *
  * Built checkouts live outside the QB repository (QB_BENCH_REPOS, default
@@ -61,6 +63,9 @@ function entryOf(name, o) {
   if (!e) throw new Error(`unknown benchmark repository: ${name}`);
   if (!/^[0-9a-f]{40}$/.test(e.commit)) throw new Error(`${name}: commit must be a full sha`);
   if (!Array.isArray(e.test) || !e.test.length || !e.test.every((a) => ARG.test(a))) throw new Error(`${name}: test must be a simple argv`);
+  if (e.upstream_commits !== undefined && !(Array.isArray(e.upstream_commits) && e.upstream_commits.every((c) => /^[0-9a-f]{40}$/.test(c)))) {
+    throw new Error(`${name}: upstream_commits must be a list of full sha`);
+  }
   return e;
 }
 
@@ -76,7 +81,13 @@ function mirror(name, e, o) {
   if (e.tag === null) {
     // A repository without release tags (e.g. a local project): pinned by commit alone.
     if (!has()) throw new Error(`${name}: pinned commit ${e.commit} not found in ${e.upstream}`);
+    for (const c of e.upstream_commits || []) {
+      try { git(dir, ['cat-file', '-e', `${c}^{commit}`]); } catch { throw new Error(`${name}: upstream commit ${c} not found in ${e.upstream}`); }
+    }
     return dir;
+  }
+  for (const c of e.upstream_commits || []) {
+    try { git(dir, ['cat-file', '-e', `${c}^{commit}`]); } catch { throw new Error(`${name}: upstream commit ${c} not found in ${e.upstream}`); }
   }
   let tagged = null;
   try { tagged = git(dir, ['rev-parse', '--verify', `refs/tags/${e.tag}^{commit}`]).trim(); } catch { /* unknown tag */ }
@@ -123,6 +134,11 @@ function build(name, o = {}) {
   fs.mkdirSync(o.root, { recursive: true });
   git(o.root, ['clone', '--quiet', '--no-checkout', '--no-hardlinks', src, dir]);
   git(dir, ['checkout', '--quiet', '--detach', e.commit]);
+  // Upstream fixes released after the pin (e.g. a test the release shipped failing), applied as
+  // upstream wrote them and folded into the one base commit, which names them.
+  for (const c of e.upstream_commits || []) {
+    try { git(dir, ['cherry-pick', '--no-commit', c]); } catch (err) { throw new Error(`${name}: upstream commit ${c} does not apply on ${e.commit}: ${err.message}`); }
+  }
   transform(dir, name, e, o);
   git(dir, ['add', '-A']);
   // The files the builder writes are committed even when the upstream .gitignore lists them
@@ -132,7 +148,8 @@ function build(name, o = {}) {
   const msg = `qb-bench: ${name} ${e.tag || e.commit.slice(0, 12)} as a QB benchmark base\n\n`
     + `Upstream ${e.upstream} @ ${e.commit} (${e.license || 'license unknown'}).\n`
     + 'Changes: package.json scripts = node:test only, devDependencies cut to those the tests import;\n'
-    + `pinned package-lock.json; .quarterback.json test command${(e.remove || []).length ? `; removed ${e.remove.join(', ')}` : ''}.\n`;
+    + `pinned package-lock.json; .quarterback.json test command${(e.remove || []).length ? `; removed ${e.remove.join(', ')}` : ''}.\n`
+    + ((e.upstream_commits || []).length ? `Later upstream commits applied: ${e.upstream_commits.join(', ')}.\n` : '');
   const head = git(dir, ['commit-tree', tree, '-p', e.commit, '-F', '-'], msg).trim();
   git(dir, ['checkout', '--quiet', '-B', 'qb-bench', head]);
   try { git(dir, ['remote', 'remove', 'origin']); } catch { /* none */ }

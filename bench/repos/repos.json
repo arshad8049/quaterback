@@ -437,6 +437,43 @@
       ],
       "notes": "QB-30 harder-task screen (docs/bench/hard-candidates.md): Fastify core at the release before a candidate fix. Upstream runs these node:test files through borp."
     },
+    "fastify-5.12.0-t6949": {
+      "upstream": "https://github.com/fastify/fastify.git",
+      "tag": "v5.12.0",
+      "commit": "27d1fec147852f5379c062dd531c31c2bbf19880",
+      "license": "MIT",
+      "test": [
+        "node",
+        "--test",
+        "test/**/*.test.js"
+      ],
+      "keep_dev_dependencies": [
+        "JSONStream",
+        "ajv",
+        "ajv-errors",
+        "ajv-formats",
+        "ajv-i18n",
+        "ajv-merge-patch",
+        "eslint",
+        "fast-json-body",
+        "fastify-plugin",
+        "fluent-json-schema",
+        "h2url",
+        "http-errors",
+        "joi",
+        "neostandard",
+        "node-forge",
+        "proxyquire",
+        "split2",
+        "undici",
+        "vary",
+        "yup"
+      ],
+      "notes": "KAN-65 (FY-08): fastify-5.12.0 plus upstream 65d12da9 \"test: fix reply.mediaType (#6949)\", a one-line test fix released after v5.12.0. v5.12.0 shipped test/internals/reply.test.js failing on its own code (430dd4ed made reply.mediaType undefined without a content type).",
+      "upstream_commits": [
+        "65d12da96f298f545939026a235c4754640ca3a7"
+      ]
+    },
     "fastify-5.12.1": {
       "upstream": "https://github.com/fastify/fastify.git",
       "tag": "v5.12.1",

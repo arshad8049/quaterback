@@ -3,15 +3,15 @@
   "spec": {
     "schema": "qb-task-spec/1",
     "id": "FY-08",
-    "version": 2,
+    "version": 3,
     "split": "dev",
     "stratum": {
       "type": "bug_fix",
       "repository": "fastify"
     },
     "repo": {
-      "source": "qb-bench:fastify-5.12.0",
-      "base_rev": "d4fd174c06e35bbf0261997d7144b39eaf36510c",
+      "source": "qb-bench:fastify-5.12.0-t6949",
+      "base_rev": "6913ba1c680080081bcd7ac08ddb9b8ae3cff41a",
       "lockfiles": {
         "package-lock.json": "5f6b5930f1257ad88b62d2d59f64d7b8af0fdcb943eeb2afbd9872e5132c8fc5"
       }
@@ -54,7 +54,7 @@
           "outcome": "fail"
         }
       ],
-      "qualified_at": "2026-10-14T16:07:17.527Z"
+      "qualified_at": "2026-10-15T16:13:10.347Z"
     },
     "adjudication_rules": "Score pass only if every hidden check passes. No partial credit.",
     "provenance": {
@@ -68,6 +68,12 @@
         "version": 2,
         "reason": "Rebuilt the Fastify base with neostandard kept in devDependencies (bench/repos/repos.json, lockfile regenerated as of the release date): without it the repository test test/build/error-serializer.test.js › check generated code syntax failed on every tree, which QB misread as a regression of correct patches (KAN-65). Only base_rev and the lockfile change; prompt, oracle, reference, incorrect implementations and hidden suite are unchanged.",
         "disclosed_at": "2026-10-14T00:00:00Z",
+        "after_viewing_results": true
+      },
+      {
+        "version": 3,
+        "reason": "The base now includes upstream 65d12da9 (\"test: fix reply.mediaType (#6949)\"), a one-line fix to test/internals/reply.test.js released after v5.12.0. v5.12.0 shipped that test failing on its own code, so every QB run on FY-08, including the unchanged base, ended as a pre-existing failure (found by the KAN-65 v2 replays). Qualification now also requires the base to pass its own tests. Only the repository source, base_rev and this entry change; prompt, oracle, reference, incorrect implementations, hidden suite and lockfile are unchanged.",
+        "disclosed_at": "2026-10-15T00:00:00Z",
         "after_viewing_results": true
       }
     ]
@@ -93,6 +99,6 @@
     ]
   },
   "source": {
-    "curation_sha256": "636faeb2d55877e7f1743cfd78958ae9275455d7c42528e736fd8ebf21692b78"
+    "curation_sha256": "45cdb7537e103e375b81fdf608f5e50d0418e02bd106b54cabc7117883c03a20"
   }
 }

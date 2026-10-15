@@ -192,6 +192,25 @@ describe('QB-27: qualification and freezing', LIVE, () => {
       incorrect: [{ label: '5m', patch: f.patch('fiveMinutes') }] }), /at least two/);
   });
 
+  test('KAN-65 (FY-08): a base that fails its OWN tests is not qualified, whatever the hidden suite says', async () => {
+    // Fastify v5.12.0 shipped test/internals/reply.test.js failing on its own code; qualification only
+    // graded the hidden suite, so every QB run on FY-08 was a `fail` (pre-existing failure) from the start.
+    const f = fx();
+    const visible = ['node', '--test', 'test/visible/*.test.js'];
+    f.repo.write('.quarterback.json', JSON.stringify({ test: { runner: 'node-test', command: visible } }));
+    f.repo.write('test/visible/loads.test.js', "const { test } = require('node:test');\ntest('loads', () => require('../../src/duration'));\n");
+    f.repo.write('test/visible/shipped-broken.test.js', "const { test } = require('node:test');\nconst assert = require('node:assert');\n"
+      + "test('mediaType is a string', () => assert.strictEqual(typeof undefined, 'string'));\n");
+    const run = (head) => qualify({ spec: { ...f.spec, repo: { ...f.spec.repo, base_rev: head } }, suitesRoot: f.suitesRoot, runSandboxed: hostRunner(),
+      reference: f.patch('correct'), incorrect: [{ label: '5m', patch: f.patch('fiveMinutes') }, { label: 'off-by-one', patch: f.patch('offByOne') }] });
+    await assert.rejects(run(f.repo.commit('base whose own test fails')),
+      (e) => e.code === 'SUITE_NOT_QUALIFIED' && /base: the repository's own tests must pass on the unchanged base.*mediaType is a string/.test(e.message));
+    // control: the same base with that test fixed qualifies
+    f.repo.write('test/visible/shipped-broken.test.js', "const { test } = require('node:test');\ntest('mediaType is a string', () => {});\n");
+    const q = await run(f.repo.commit('upstream fixed the test'));
+    assert.equal(q.reference.outcome, 'pass');
+  });
+
   test('freezing needs qualification; a frozen spec cannot be edited; a new version needs a disclosed changelog entry', async () => {
     const f = fx(); const lockFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'qb-lock-')), 'specs.lock.json');
     assert.throws(() => freeze(f.spec, { lockFile, suitesRoot: f.suitesRoot }), /not qualified/);

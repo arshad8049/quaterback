@@ -44,9 +44,9 @@ never be reported as one.
 FY-04 has a further, separate problem. Its reference patch also lacks the upstream
 documentation and type updates that Fastify's own consistency tests check (KAN-70).
 
-## Open: FY-08's base fails one of its own tests (found by the v2 replays)
+## FY-08: the base failed one of its own tests (found by the v2 replays; fixed in version 3)
 
-Every FY-08 replay, including the unchanged base, ends in `fail` with
+In version 2, every FY-08 replay, including the unchanged base, ended in `fail` with
 `preexisting_failures_not_waived`. Fastify v5.12.0 itself fails `test/internals/reply.test.js`
 › "Once called, Reply should return an object with methods". 430dd4ed made `reply.mediaType`
 return `undefined` without a content type, and the test still expected a string. Upstream fixed
@@ -54,8 +54,16 @@ the test after the release (65d12da9, "test: fix reply.mediaType (#6949)").
 
 Qualification only ran the hidden suite, so it did not catch this. In the original screen,
 FY-08's E arm was internally `fail` while the hidden grade was `pass`; the lint failures
-that v2 removed hid the cause. FY-08 is still in the included 10 until the owner decides what to
-do with it. Its replays are kept as they are.
+that v2 removed hid the cause.
+
+The fix:
+- FY-08 version 3 (disclosed, after viewing results) runs on `qb-bench:fastify-5.12.0-t6949`,
+  which is v5.12.0 plus upstream's one-line test fix (`upstream_commits` in
+  `bench/repos/repos.json`). Prompt, oracle, reference, incorrect implementations, hidden suite
+  and lockfile are unchanged.
+- Qualification (`bench/qualify.js`) now also requires the unchanged base to pass the
+  repository's own tests. Run against FY-08's version 2 base in the sandbox, it refuses
+  it and names that test. FY-08 stays among the included 10; its version 2 replays are kept.
 
 ## Reporting rule
 
