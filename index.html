@@ -84,7 +84,7 @@
     <div class="qb-nav-links" style="display: flex; align-items: center; gap: 34px;">
       <a href="#problem" class="qb-nav-link" style="font-size: 14px; color: #A7B0AB; text-decoration: none;">How it works</a>
       <a href="#metric" class="qb-nav-link" style="font-size: 14px; color: #A7B0AB; text-decoration: none;">Status</a>
-      <a href="#loop" class="qb-nav-link" style="font-size: 14px; color: #A7B0AB; text-decoration: none;">The runtime</a>
+      <a href="#loop" class="qb-nav-link" style="font-size: 14px; color: #A7B0AB; text-decoration: none;">Under the hood</a>
       <a href="#verification" class="qb-nav-link" style="font-size: 14px; color: #A7B0AB; text-decoration: none;">Verification</a>
       <a href="./engineering.html" class="qb-nav-link" style="font-size: 14px; color: #A7B0AB; text-decoration: none;">Engineering</a>
       <a href="./research.html" class="qb-nav-link" style="font-size: 14px; color: #6FBF9F; text-decoration: none;">Evaluation →</a>
@@ -243,6 +243,9 @@
           <a href="https://github.com/arshad8049/quaterback" target="_blank" rel="noopener" class="qb-btn-ghost" style="display: inline-flex; align-items: center; height: 54px; padding: 0 24px; font-size: 16px; font-weight: 500; color: #F4F1EA; text-decoration: none; border-bottom: 1px solid #3A4441;">View the code →</a>
         </div>
         <p class="qb-reveal" style="margin: 28px 0 0 0; font-size: 15px; line-height: 1.6; color: #A7B0AB; transition-delay: 0.3s;">Currently built for Claude Code on supported JavaScript projects using Linux and Docker.</p>
+        <div class="qb-reveal" style="margin-top: 22px; transition-delay: 0.34s;">
+          <a href="https://www.producthunt.com/products/quarterback-intent-to-verified-result?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-quarterback-intent-to-verified-result" target="_blank" rel="noopener noreferrer"><img alt="Quarterback on Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1256652&amp;theme=light&amp;t=1789952281330"></a>
+        </div>
       </div>
       <figure class="qb-term qb-reveal" style="margin: 0; transition-delay: 0.2s;" aria-label="Terminal output from a real Quarterback run">
         <div class="qb-term-bar" aria-hidden="true"><span class="qb-term-dot"></span><span class="qb-term-dot"></span><span class="qb-term-dot"></span></div>
@@ -329,7 +332,7 @@
   <!-- THE GAP -->
   <div style="padding: 104px 80px; border-top: 1px solid #222A27;">
     <div style="max-width: 1180px; margin: 0 auto;">
-      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #E08A4C; margin-bottom: 28px;">The intent–execution gap</div>
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #E08A4C; margin-bottom: 28px;">The problem</div>
       <h2 style="margin: 0 0 20px 0; max-width: 900px; font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1.12; font-weight: 400; color: #F4F1EA;">It compiles. The tests pass. The diff looks fine. It is still wrong.</h2>
       <p style="margin: 0 0 54px 0; max-width: 760px; font-size: 19px; line-height: 1.6; color: #B4BEB9;">Valid code generation is not an accepted outcome. These are the failures a human currently has to catch by reading.</p>
   
@@ -406,46 +409,46 @@
   <!-- THE LOOP -->
   <div id="loop" style="padding: 104px 80px; border-top: 1px solid #222A27;">
     <div style="max-width: 1180px; margin: 0 auto;">
-      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #E08A4C; margin-bottom: 28px;">The runtime</div>
-      <h2 style="margin: 0 0 20px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1.1; font-weight: 400; color: #F4F1EA;">A control loop around the agent you already use</h2>
-      <p style="margin: 0 0 54px 0; max-width: 780px; font-size: 19px; line-height: 1.6; color: #B4BEB9;">Assign, observe, inspect, correct, test, inspect again, approve. You run that loop by hand today. Quarterback runs the inspect, test and repair part, and hands back a proposed patch with its evidence for you to approve.</p>
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #E08A4C; margin-bottom: 28px;">How Quarterback works</div>
+      <h2 style="margin: 0 0 20px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1.1; font-weight: 400; color: #F4F1EA;">It wraps the coding agent you already use</h2>
+      <p style="margin: 0 0 54px 0; max-width: 780px; font-size: 19px; line-height: 1.6; color: #B4BEB9;">Today you hand a task to a coding agent, read what it did, test it, ask for fixes and check again. Quarterback does the checking and fixing rounds, then hands back a proposed change and its evidence for you to approve.</p>
   
       <div style="display: flex; flex-direction: column; gap: 1px; background: #262E2B; border: 1px solid #262E2B; border-radius: 6px;">
   
         <div class="qb-loop-row" style="background: #0D100F; padding: 34px 38px; display: flex; gap: 34px; align-items: flex-start;">
           <div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #E08A4C; width: 34px; flex-shrink: 0; padding-top: 4px;">01</div>
-          <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Intent compiler</div>
-          <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #B4BEB9;">A deterministic ambiguity filter runs first — a regex rule engine that intercepts vague patterns at 0ms, before a model is ever called. When the request is clear, a local LLM (DeepSeek-R1 via Ollama) produces a structured task contract: goal, required behavior, constraints, acceptance criteria and a verification plan, which you review and approve. This step runs locally: no API key, no cloud, no per-call cost.</div>
+          <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Understands the request</div>
+          <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #B4BEB9;">Before any code is written, Quarterback turns your request into a short list of requirements and checks. A vague request gets a clarifying question instead of a guess. You review and approve the list. This step runs on your machine with a local model: no API key, no cloud, no per-call cost.</div>
         </div>
   
         <div class="qb-loop-row" style="background: #0D100F; padding: 34px 38px; display: flex; gap: 34px; align-items: flex-start;">
           <div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #E08A4C; width: 34px; flex-shrink: 0; padding-top: 4px;">02</div>
-          <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Context engine</div>
-          <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #B4BEB9;">The contract is grounded in the actual codebase. A deterministic pass extracts exported symbols, traces import graphs two levels deep, identifies test files for affected areas, detects framework and architecture patterns, and surfaces git activity on changed files. An LLM pass then ranks the top files and writes an agent brief — or is skipped entirely for a fast, fully offline run.</div>
+          <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Finds the relevant code</div>
+          <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #B4BEB9;">It reads your repository to find the files, functions and tests the task touches, so the coding agent starts with the right context instead of searching blind.</div>
         </div>
   
         <div class="qb-loop-row" style="background: #0D100F; padding: 34px 38px; display: flex; gap: 34px; align-items: flex-start;">
           <div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #E08A4C; width: 34px; flex-shrink: 0; padding-top: 4px;">03</div>
-          <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Execution and observability</div>
-          <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #B4BEB9;">The approved contract goes to Claude Code, which runs in an isolated Docker sandbox whose only network route is to its own API. Quarterback captures exactly what changed. Adapters for other agents are on the roadmap.</div>
+          <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Runs the agent safely</div>
+          <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #B4BEB9;">Claude Code does the work inside an isolated sandbox. It cannot change your files, and it cannot reach the internet except its own service. Quarterback records exactly what changed. Support for other agents is planned.</div>
         </div>
   
         <div class="qb-loop-row" style="background: #0D100F; padding: 34px 38px; display: flex; gap: 34px; align-items: flex-start;">
           <div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #6FBF9F; width: 34px; flex-shrink: 0; padding-top: 4px;">04</div>
-          <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Independent verification</div>
-          <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #B4BEB9;">The implementation is checked against the original contract — by a different model, with different context and a different strategy. Deterministic evidence first, judgment second.</div>
+          <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Checks the result</div>
+          <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #B4BEB9;">The change is checked against the requirements you approved: first by running your tests and the approved checks, then by a separate reviewer model for what tests cannot answer.</div>
         </div>
   
         <div class="qb-loop-row" style="background: #0D100F; padding: 34px 38px; display: flex; gap: 34px; align-items: flex-start;">
           <div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #6FBF9F; width: 34px; flex-shrink: 0; padding-top: 4px;">05</div>
-          <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Automatic repair</div>
-          <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #B4BEB9;">A failed criterion becomes a precise repair package and goes straight back to the agent. Quarterback stops instead of retrying when a repair makes no progress.</div>
+          <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Asks for fixes</div>
+          <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #B4BEB9;">If a check fails, the agent gets a specific instruction to fix it. Quarterback stops instead of looping when a fix makes no progress.</div>
         </div>
   
         <div class="qb-loop-row" style="background: #0D100F; padding: 34px 38px; display: flex; gap: 34px; align-items: flex-start;">
           <div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #6FBF9F; width: 34px; flex-shrink: 0; padding-top: 4px;">06</div>
-          <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Memory</div>
-          <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #B4BEB9;">Repairs that led to an approved pass are kept as project memory and suggested for similar future tasks; suggestions that never led to a pass are labelled as unproven.</div>
+          <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Remembers what worked</div>
+          <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #B4BEB9;">Fixes that led to an approved result are remembered and suggested for similar tasks later. Suggestions that never led to a pass are labelled as unproven.</div>
         </div>
   
       </div>
@@ -459,8 +462,8 @@
   <!-- TASK CONTRACT -->
   <div style="padding: 104px 80px; border-top: 1px solid #222A27; background: #0A0D0C;">
     <div style="max-width: 1180px; margin: 0 auto;">
-      <h2 style="margin: 0 0 20px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1.1; font-weight: 400; color: #F4F1EA;">Not a prompt enhancer. An intent compiler.</h2>
-      <p style="margin: 0 0 50px 0; max-width: 820px; font-size: 19px; line-height: 1.6; color: #B4BEB9;">A compiler does not make its input prettier. It turns a human-friendly representation into a machine-executable one with explicit semantics. The expensive model gets a smaller, clearer, better-grounded unit of work.</p>
+      <h2 style="margin: 0 0 20px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1.1; font-weight: 400; color: #F4F1EA;">Your request, turned into a checklist.</h2>
+      <p style="margin: 0 0 50px 0; max-width: 820px; font-size: 19px; line-height: 1.6; color: #B4BEB9;">Instead of passing your words straight to the agent, Quarterback writes down what “done” means — the required behavior, the limits and how it will be checked — and you approve it before any work starts.</p>
   
       <div style="border: 1px solid #262E2B; border-radius: 6px; overflow: hidden;">
         <div style="padding: 30px 38px; background: #121615; border-bottom: 1px solid #262E2B;">
@@ -515,7 +518,7 @@
   <div id="verification" style="padding: 104px 80px; border-top: 1px solid #222A27;">
     <div style="max-width: 1180px; margin: 0 auto;">
       <h2 style="margin: 0 0 20px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1.1; font-weight: 400; color: #F4F1EA;">The builder does not grade its own work.</h2>
-      <p style="margin: 0 0 44px 0; max-width: 800px; font-size: 19px; line-height: 1.6; color: #B4BEB9;">An agent that reports completion has told you what it believes, not what is true. Verification is a separate step with its own model, its own context and its own evidence.</p>
+      <p style="margin: 0 0 44px 0; max-width: 800px; font-size: 19px; line-height: 1.6; color: #B4BEB9;">An agent that says it is done is telling you what it believes, not what is true. Quarterback checks the work separately, with its own evidence.</p>
   
       <div style="padding: 28px 34px; background: #12100E; border-left: 2px solid #E08A4C; border-radius: 4px; margin-bottom: 54px;">
         <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: #E08A4C; margin-bottom: 18px;">The loop we refuse to ship</div>
@@ -528,24 +531,24 @@
   
       <div style="display: flex; gap: 32px; align-items: stretch;">
         <div style="flex-grow: 1; flex-basis: 0; padding: 36px 38px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
-          <div style="font-size: 24px; font-weight: 600; color: #F4F1EA; margin-bottom: 10px;">Deterministic evidence first</div>
-          <p style="margin: 0 0 24px 0; font-size: 16px; line-height: 1.6; color: #A7B0AB;">Cheap, fast and not up for debate. We exhaust this before spending a token on judgment.</p>
+          <div style="font-size: 24px; font-weight: 600; color: #F4F1EA; margin-bottom: 10px;">Hard evidence first</div>
+          <p style="margin: 0 0 24px 0; font-size: 16px; line-height: 1.6; color: #A7B0AB;">Facts that are not up for debate come before any opinion.</p>
           <div style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; line-height: 2.05; color: #C6CFCB;">
-            <div>the repository's own tests, on the change and on the base</div>
-            <div>approved executable checks (exports, return values, calls, errors)</div>
-            <div>exact capture of every changed file</div>
-            <div>changed-file scope · protected-file policy</div>
+            <div>your project’s own tests, before and after the change</div>
+            <div>the checks you approved (for example: this function returns that value)</div>
+            <div>an exact record of every changed file</div>
+            <div>a guard on which files may change and which must not</div>
           </div>
-          <p style="margin: 22px 0 0 0; font-size: 15px; line-height: 1.6; color: #A7B0AB;">Planned, not yet built: type checking, linting, browser and UI tests, security and dependency checks.</p>
+          <p style="margin: 22px 0 0 0; font-size: 15px; line-height: 1.6; color: #A7B0AB;">Planned, not yet built: type checking, linting, browser tests, and security and dependency checks.</p>
         </div>
         <div style="flex-grow: 1; flex-basis: 0; padding: 36px 38px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
           <div style="font-size: 24px; font-weight: 600; color: #F4F1EA; margin-bottom: 10px;">Judgment second</div>
-          <p style="margin: 0 0 24px 0; font-size: 16px; line-height: 1.6; color: #A7B0AB;">The genuinely semantic questions a test suite cannot answer for you.</p>
+          <p style="margin: 0 0 24px 0; font-size: 16px; line-height: 1.6; color: #A7B0AB;">A separate reviewer model answers what tests cannot:</p>
           <div style="font-size: 16px; line-height: 1.75; color: #C6CFCB;">
-            <div style="margin-bottom: 12px;">Did the implementation satisfy each approved acceptance criterion?</div>
-            <div style="margin-bottom: 12px;">Which evidence supports that judgment, and what evidence is missing?</div>
-            <div>Was an acceptance criterion silently skipped?</div>
-            <p style="margin: 22px 0 0 0; font-size: 15px; line-height: 1.6; color: #A7B0AB;">A judgment without supporting evidence cannot turn a run into a pass.</p>
+            <div style="margin-bottom: 12px;">Was each approved requirement actually met?</div>
+            <div style="margin-bottom: 12px;">What evidence supports that, and what is missing?</div>
+            <div>Was any requirement quietly skipped?</div>
+            <p style="margin: 22px 0 0 0; font-size: 15px; line-height: 1.6; color: #A7B0AB;">Without evidence, a judgment cannot turn a run into a pass.</p>
           </div>
         </div>
       </div>
@@ -568,21 +571,21 @@
         <a href="https://github.com/arshad8049/quaterback/blob/main/docs/verify/test-oracle.md" style="display: block; text-decoration: none; padding: 30px 32px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
           <div style="font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1; color: #6FBF9F; margin-bottom: 12px;">Approved first</div>
           <div style="font-size: 18px; font-weight: 600; color: #F4F1EA; margin-bottom: 8px;">No run without a signed-off contract</div>
-          <div style="font-size: 16px; line-height: 1.6; color: #A7B0AB; margin-bottom: 16px;">Coding-agent runs require an approved contract. Changing the contract requires approval again. Requirement tracing catches omitted instructions, including missing negation, before execution.</div>
+          <div style="font-size: 16px; line-height: 1.6; color: #A7B0AB; margin-bottom: 16px;">Nothing runs until you approve the requirements, and any change to them needs approval again. Quarterback also checks that every part of your request made it into the list — even a single “not”.</div>
           <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6FBF9F;">Accepted (internal review) · QB-13, QB-14</div>
         </a>
   
         <a href="https://github.com/arshad8049/quaterback/blob/main/test/integration/qb02-sandbox-pipeline.test.js" style="display: block; text-decoration: none; padding: 30px 32px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
           <div style="font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1; color: #6FBF9F; margin-bottom: 12px;">0 escapes</div>
           <div style="font-size: 18px; font-weight: 600; color: #F4F1EA; margin-bottom: 8px;">A hostile agent, boxed in</div>
-          <div style="font-size: 16px; line-height: 1.6; color: #A7B0AB; margin-bottom: 16px;">It tried to write files on the host, reach a forbidden site, and gut the tests so broken code would pass. All three were denied, the user's checkout stayed byte-identical, and the verdict was still FAIL.</div>
+          <div style="font-size: 16px; line-height: 1.6; color: #A7B0AB; margin-bottom: 16px;">It tried to write files on the host, reach a forbidden site, and gut the tests so broken code would pass. All three were blocked, your files were left exactly as they were, and the bad change was still marked as failed.</div>
           <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #E08A4C;">Pre-release · Linux CI green · accepted in internal review (QB-02)</div>
         </a>
   
         <a href="https://github.com/arshad8049/quaterback/blob/main/test/unit/run-store.test.js" style="display: block; text-decoration: none; padding: 30px 32px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
           <div style="font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1; color: #6FBF9F; margin-bottom: 12px;">Every run</div>
           <div style="font-size: 18px; font-weight: 600; color: #F4F1EA; margin-bottom: 8px;">Replayable from its own evidence</div>
-          <div style="font-size: 16px; line-height: 1.6; color: #A7B0AB; margin-bottom: 16px;">Each run keeps a versioned record: the exact starting commit, the agent version, the test report and the checks. Replaying it recomputes the verdict, and a record whose outcome its evidence does not support is flagged.</div>
+          <div style="font-size: 16px; line-height: 1.6; color: #A7B0AB; margin-bottom: 16px;">Each run keeps a record of where it started, which agent version ran, and the test and check results. Re-checking a record gives the same verdict, and a record whose own evidence does not support its result is flagged.</div>
           <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6FBF9F;">Accepted (internal review) · QB-38</div>
         </a>
       </div>
@@ -633,8 +636,8 @@
           <div style="font-size: 17px; line-height: 1.6; color: #C6CFCB;">
             <div style="padding: 14px 0; border-top: 1px solid #262E2B;">Two or more legitimate interpretations remain.</div>
                       <div style="padding: 14px 0; border-top: 1px solid #262E2B;">A repair attempt makes no progress.</div>
-            <div style="padding: 14px 0; border-top: 1px solid #262E2B;">Verification cannot establish correctness.</div>
-            <div style="padding: 14px 0; border-top: 1px solid #262E2B; border-bottom: 1px solid #262E2B;">The test environment fails, so the problem is not the code.</div>
+            <div style="padding: 14px 0; border-top: 1px solid #262E2B;">The checks cannot tell whether the result is right.</div>
+            <div style="padding: 14px 0; border-top: 1px solid #262E2B; border-bottom: 1px solid #262E2B;">Your test setup itself fails, so the problem is not the code.</div>
           </div>
         </div>
       </div>
@@ -648,8 +651,8 @@
   <!-- POSITIONING -->
   <div style="padding: 104px 80px; border-top: 1px solid #222A27; background: #0A0D0C;">
     <div style="max-width: 1180px; margin: 0 auto;">
-      <h2 style="margin: 0 0 20px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1.1; font-weight: 400; color: #F4F1EA;">We do not compete with the model. We orchestrate it.</h2>
-      <p style="margin: 0 0 56px 0; max-width: 820px; font-size: 19px; line-height: 1.6; color: #B4BEB9;">Every time a base model gets better, this layer gets more valuable: implementations succeed more often, repair loops shrink, verification gets cheaper. Your engineering history should not belong to whichever vendor you happened to pick this year.</p>
+      <h2 style="margin: 0 0 20px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1.1; font-weight: 400; color: #F4F1EA;">It works with the coding model, not against it.</h2>
+      <p style="margin: 0 0 56px 0; max-width: 820px; font-size: 19px; line-height: 1.6; color: #B4BEB9;">As coding models improve, a better agent simply passes the checks more often and needs fewer fixes. Your project’s requirements, checks and fixes stay yours, whichever agent you use.</p>
   
       <div style="display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 44px 0;">
         <div style="display: flex; gap: 28px; flex-wrap: wrap; justify-content: center; align-items: flex-start;">
@@ -667,15 +670,15 @@
           </div>
         </div>
         <div style="font-size: 24px; color: #3A4441; line-height: 1;">↓</div>
-        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 19px; font-weight: 600; letter-spacing: 0.08em; color: #0D100F; background: #E08A4C; padding: 18px 40px; border-radius: 4px;">Quarterback RUNTIME</div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 19px; font-weight: 600; letter-spacing: 0.08em; color: #0D100F; background: #E08A4C; padding: 18px 40px; border-radius: 4px;">Quarterback</div>
         <div style="font-size: 24px; color: #3A4441; line-height: 1;">↓</div>
         <div style="display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; max-width: 900px;">
-          <span style="font-size: 16px; color: #C6CFCB; padding: 12px 22px; background: #121615; border: 1px solid #262E2B; border-radius: 4px;">Company intent</span>
+          <span style="font-size: 16px; color: #C6CFCB; padding: 12px 22px; background: #121615; border: 1px solid #262E2B; border-radius: 4px;">Approved requirements</span>
           <span style="font-size: 16px; color: #C6CFCB; padding: 12px 22px; background: #121615; border: 1px solid #262E2B; border-radius: 4px;">Project memory</span>
-          <span style="font-size: 16px; color: #C6CFCB; padding: 12px 22px; background: #121615; border: 1px solid #262E2B; border-radius: 4px;">Verification history</span>
-          <span style="font-size: 16px; color: #C6CFCB; padding: 12px 22px; background: #121615; border: 1px solid #262E2B; border-radius: 4px;">Engineering policy</span>
-          <span style="font-size: 16px; color: #C6CFCB; padding: 12px 22px; background: #121615; border: 1px solid #262E2B; border-radius: 4px;">Failure patterns</span>
-          <span style="font-size: 16px; color: #C6CFCB; padding: 12px 22px; background: #121615; border: 1px solid #262E2B; border-radius: 4px;">Accepted implementations</span>
+          <span style="font-size: 16px; color: #C6CFCB; padding: 12px 22px; background: #121615; border: 1px solid #262E2B; border-radius: 4px;">Run records</span>
+          <span style="font-size: 16px; color: #C6CFCB; padding: 12px 22px; background: #121615; border: 1px solid #262E2B; border-radius: 4px;">File rules</span>
+          <span style="font-size: 16px; color: #C6CFCB; padding: 12px 22px; background: #121615; border: 1px solid #262E2B; border-radius: 4px;">Proven fixes</span>
+          <span style="font-size: 16px; color: #C6CFCB; padding: 12px 22px; background: #121615; border: 1px solid #262E2B; border-radius: 4px;">Check results</span>
         </div>
       </div>
   
