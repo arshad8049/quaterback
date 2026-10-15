@@ -3,7 +3,8 @@
   "split": "dev",
   "stratum": { "type": "bug_fix", "repository": "fastify" },
   "repo": "qb-bench:fastify-5.12.1",
-  "base_rev": "e2c453ee70cc4f9ba9ba6edc32f57a86d5054233",
+  "version": 2,
+  "base_rev": "79c97e84acd5bde7dcabf0a900a969c2498fa284",
   "prompt": "Security: with an async request schema (an Ajv schema with $async: true), Fastify treats the validated data as if it were a custom-compiler result of the shape { value, error }. A client can therefore send a body containing a 'value' key to replace the whole request body with it, or an 'error' key to make a valid request fail. Fix validation so that the result an async validator resolves with only decides pass or fail: for a body schema { $async: true, type: 'object', additionalProperties: true, properties: { hello: { type: 'string' } } }, the body { hello: 'world', value: { hello: 'evil' } } must reach the handler unchanged, the body { hello: 'world', error: 'boom' } must succeed with status 200 and reach the handler unchanged, and an invalid body such as { hello: { not: 'a string' } } must still be rejected with 400. The synchronous custom-compiler contract is unchanged: a custom validatorCompiler whose validator returns { value: x } still replaces the request part with x, and one that returns { error } still fails with 400.",
   "requirement": "For a promise returned by a validator (async Ajv), the resolved value is used only as pass/fail: false (or a rejection) fails validation; anything else passes and request[paramName] is untouched; its 'value' and 'error' properties are never interpreted. A rejected async validation still yields 400. Synchronous results keep the custom-compiler contract: { error } fails, { value } replaces request[paramName].",
   "oracle": {
@@ -21,5 +22,8 @@
     "created_at": "2026-10-12T00:00:00Z",
     "tuned_during_development": false,
     "notes": "Real security defect in fastify v5.12.1 (GHSA-667r-xxjv-c9mm: async validator results unwrapped as { value, error }), fixed upstream in f02d8d4a. The reference is that fix applied to v5.12.1. The hidden suite is the upstream tests plus the invalid-async and synchronous-contract cases the prompt states."
-  }
+  },
+  "changelog": [
+    {"version":2,"reason":"Rebuilt the Fastify base with neostandard kept in devDependencies (bench/repos/repos.json, lockfile regenerated as of the release date): without it the repository test test/build/error-serializer.test.js › check generated code syntax failed on every tree, which QB misread as a regression of correct patches (KAN-65). Only base_rev and the lockfile change; prompt, oracle, reference, incorrect implementations and hidden suite are unchanged.","disclosed_at":"2026-10-14T00:00:00Z","after_viewing_results":true}
+  ]
 }

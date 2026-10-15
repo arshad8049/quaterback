@@ -3,7 +3,7 @@
   "spec": {
     "schema": "qb-task-spec/1",
     "id": "FY-04",
-    "version": 1,
+    "version": 2,
     "split": "dev",
     "stratum": {
       "type": "errors",
@@ -11,9 +11,9 @@
     },
     "repo": {
       "source": "qb-bench:fastify-5.8.5",
-      "base_rev": "d10d5feb29c61fac6e0dbb97fa1bad5a60692f4e",
+      "base_rev": "bfa38008bdac83ecac84579eb22d0cd669813f18",
       "lockfiles": {
-        "package-lock.json": "1fd2393cdb1374fe268ef74d9ce97c5be4664fdfb58a6217c1aa74e40131fda7"
+        "package-lock.json": "742d14f118f4a52c1eec5ed34c844b6c2d95bb016788bc612dff1b230977e018"
       }
     },
     "prompt": "A route registered with an invalid logLevel (for example fastify.get('/log', { logLevel: 'invalid' }, handler) on a Fastify instance created with logger: true) is accepted silently. Validate the route's logLevel when the route is registered: if it is not one of the logger's levels, or is not a string, registration must throw a new Fastify error FST_ERR_ROUTE_LOG_LEVEL_INVALID, exported with the other error codes in lib/errors.js. It is a TypeError with statusCode 500 and the message template \"Log level for '%s:%s' route must be a valid logger level. Received: '%s'\" (method, url, the received value), so the example throws \"Log level for 'GET:/log' route must be a valid logger level. Received: 'invalid'\". A null logLevel is treated as omitted (no error), and valid levels such as 'debug' are accepted. Adding the error code changes the error count checked in test/internals/errors.test.js; update that expected count.",
@@ -36,7 +36,7 @@
       "adjudicate_checks": []
     },
     "qualification": {
-      "grader_sha256": "3116461e6934079a16ed5af0ae2c35e701094b699f62feeea86fe2106d4ea886",
+      "grader_sha256": "f088eb07030432a8bee9f72ffdb439d034d91051d6512762f7169c14c73a75f6",
       "suite_sha256": "7533aa6e1e498e7f3a7b50df4dd95ecb047925ce3def06cd4cd3a3dd0122749e",
       "reference": {
         "patch_sha256": "07bc585970dfd0e0b674944de9ab902b1117152a9afbcd3f029331659a91a24d",
@@ -54,7 +54,7 @@
           "outcome": "fail"
         }
       ],
-      "qualified_at": "2026-10-12T23:27:16.840Z"
+      "qualified_at": "2026-10-14T15:56:38.009Z"
     },
     "adjudication_rules": "Score pass only if every hidden check passes. No partial credit.",
     "provenance": {
@@ -63,7 +63,14 @@
       "tuned_during_development": false,
       "notes": "Real gap in fastify v5.8.5 (an invalid route logLevel is accepted), fixed upstream in 2ae3e1d7 (#6523). The reference is that fix applied to v5.8.5, plus the upstream update of the error count. The hidden suite follows the upstream tests and adds the non-string and valid-level cases the prompt states."
     },
-    "changelog": []
+    "changelog": [
+      {
+        "version": 2,
+        "reason": "Rebuilt the Fastify base with neostandard kept in devDependencies (bench/repos/repos.json, lockfile regenerated as of the release date): without it the repository test test/build/error-serializer.test.js › check generated code syntax failed on every tree, which QB misread as a regression of correct patches (KAN-65). Only base_rev and the lockfile change; prompt, oracle, reference, incorrect implementations and hidden suite are unchanged.",
+        "disclosed_at": "2026-10-14T00:00:00Z",
+        "after_viewing_results": true
+      }
+    ]
   },
   "oracle_draft": {
     "acceptance_criteria": [
@@ -86,6 +93,6 @@
     ]
   },
   "source": {
-    "curation_sha256": "1aebcb49ec7c3bb99e88ce1a5774fb7caba83d2d41182cbc60938e2505af9393"
+    "curation_sha256": "457a68fa31472c7fc26bb41a1f827998ecfb276658daffe13a86c7b5e0e5cc08"
   }
 }

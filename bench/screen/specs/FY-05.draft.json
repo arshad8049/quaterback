@@ -3,7 +3,7 @@
   "spec": {
     "schema": "qb-task-spec/1",
     "id": "FY-05",
-    "version": 1,
+    "version": 2,
     "split": "dev",
     "stratum": {
       "type": "addition",
@@ -11,9 +11,9 @@
     },
     "repo": {
       "source": "qb-bench:fastify-5.11.0",
-      "base_rev": "a831ab349bf04596090a3e790725ccf16533b99e",
+      "base_rev": "2f7cd0fb6b18578bef0a7f9c2ceb4ed4581206e5",
       "lockfiles": {
-        "package-lock.json": "21fa59204ca364ce037f5101e18d2ebd03c0c8d23e3fd754bd4d64a942a7fada"
+        "package-lock.json": "f7470b5c45149b7e3b61bc6a5b0876d0c995af2c6f8fa071b00631deb635c088"
       }
     },
     "prompt": "fastify.addHttpMethod silently overrides a method that already exists, such as addHttpMethod('GET', { hasBody: true }). Deprecate implicit overrides: addHttpMethod accepts a new option overrideExisting (default false). When the method already exists (as a method with or without a body) and overrideExisting is not true, emit a new Fastify deprecation warning FSTDEP025 (defined with the other warnings in lib/warnings.js, name 'FastifyDeprecation', code 'FSTDEP025', message 'Calling addHttpMethod for existing method \"%s\" without { overrideExisting: true } is deprecated. In Fastify v6, this will throw an error.' with the method name), every time this happens, not only the first time. With { overrideExisting: true } no warning is emitted, and adding a method that does not exist yet emits no warning. The override itself still takes effect in both cases (for example, GET then accepts a body).",
@@ -36,7 +36,7 @@
       "adjudicate_checks": []
     },
     "qualification": {
-      "grader_sha256": "3116461e6934079a16ed5af0ae2c35e701094b699f62feeea86fe2106d4ea886",
+      "grader_sha256": "f088eb07030432a8bee9f72ffdb439d034d91051d6512762f7169c14c73a75f6",
       "suite_sha256": "b757063c78f310459c3e394fa0ec200cece3773020cd7233496e88049e69fb41",
       "reference": {
         "patch_sha256": "7501439625b94f69a3dd06e6efd07505a3fad7d3d20e1fd43050b82e8f1d2b12",
@@ -54,7 +54,7 @@
           "outcome": "fail"
         }
       ],
-      "qualified_at": "2026-10-12T23:29:50.773Z"
+      "qualified_at": "2026-10-14T15:59:12.812Z"
     },
     "adjudication_rules": "Score pass only if every hidden check passes. No partial credit.",
     "provenance": {
@@ -63,7 +63,14 @@
       "tuned_during_development": false,
       "notes": "Real gap in fastify v5.11.0 (addHttpMethod overrides silently), changed upstream in 0e9a3b35 (#6879). The reference is that change applied to v5.11.0 (runtime only; docs and types not graded). The hidden suite follows the upstream tests and adds the every-time and new-method cases the prompt states."
     },
-    "changelog": []
+    "changelog": [
+      {
+        "version": 2,
+        "reason": "Rebuilt the Fastify base with neostandard kept in devDependencies (bench/repos/repos.json, lockfile regenerated as of the release date): without it the repository test test/build/error-serializer.test.js › check generated code syntax failed on every tree, which QB misread as a regression of correct patches (KAN-65). Only base_rev and the lockfile change; prompt, oracle, reference, incorrect implementations and hidden suite are unchanged.",
+        "disclosed_at": "2026-10-14T00:00:00Z",
+        "after_viewing_results": true
+      }
+    ]
   },
   "oracle_draft": {
     "acceptance_criteria": [
@@ -86,6 +93,6 @@
     ]
   },
   "source": {
-    "curation_sha256": "3198aa7a6ba8eba55723f1c8dedf821da4b10b8d44fe832a6d5c4b37f83eab74"
+    "curation_sha256": "9e98a0c2b5fac3134eb5e99ef4e2ec209a36aaff268ff64eb9db16ac02ede0a9"
   }
 }

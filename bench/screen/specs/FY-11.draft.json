@@ -3,7 +3,7 @@
   "spec": {
     "schema": "qb-task-spec/1",
     "id": "FY-11",
-    "version": 1,
+    "version": 2,
     "split": "dev",
     "stratum": {
       "type": "bug_fix",
@@ -11,9 +11,9 @@
     },
     "repo": {
       "source": "qb-bench:fastify-5.10.0",
-      "base_rev": "21501b98d1e2f7ee50cb01f377b06708fe40326e",
+      "base_rev": "c975bcd711d132a8f6730f653ce916f988640621",
       "lockfiles": {
-        "package-lock.json": "3715b2f8d2527e325a2a1c724043036caa000f6f4828b2f39e4563ca15be4c3a"
+        "package-lock.json": "0a9b8ed310401bb693a4d02ed473d82c76f357c19fc71e63ac2458722375c869"
       }
     },
     "prompt": "Fastify's Content-Type parser (the ContentType class in lib/content-type.js) mishandles quoted parameter values (RFC 9110 quoted-string): a ';' inside quotes ends the value early, a 'key=value' inside a quoted value leaks out as a separate parameter, and backslash escapes are not unescaped. Fix it so a parameter value may be a token or a full quoted-string, and inside a quoted-string ';', '=' and escaped quotes are part of the value. For a quoted value, remove the surrounding double quotes and replace every backslash-escaped character (\\x) by the character itself. Examples: 'application/json; name=\"foo;bar\"; charset=utf-8' is valid, with media type 'application/json', parameter name 'foo;bar' and charset 'utf-8'; 'application/json; name=\"a=b;charset=fake\"; boundary=xyz' is valid with name 'a=b;charset=fake', boundary 'xyz' and no charset parameter; 'application/json; name=\"he said \\\"hi\\\"\"' is valid with name 'he said \"hi\"'; 'application/json; charset=\"utf-8\"; foo=\"BaR\"' still gives charset 'utf-8' and foo 'BaR' (case preserved). Because reply.send relies on this parser to see whether a charset is already declared, a reply with Content-Type 'application/json; name=\"a=b;charset=fake\"' sending { hello: 'world' } must be sent with Content-Type 'application/json; name=\"a=b;charset=fake\"; charset=utf-8'.",
@@ -36,7 +36,7 @@
       "adjudicate_checks": []
     },
     "qualification": {
-      "grader_sha256": "3116461e6934079a16ed5af0ae2c35e701094b699f62feeea86fe2106d4ea886",
+      "grader_sha256": "f088eb07030432a8bee9f72ffdb439d034d91051d6512762f7169c14c73a75f6",
       "suite_sha256": "db7762354483e1be87447d2768dee7855d72764b4cbad747f37e9721778e01d8",
       "reference": {
         "patch_sha256": "feae05aa7a422c9f51c5a0c9a2d8437dbcb1e5cf6235722d8048949a6b8f8897",
@@ -54,7 +54,7 @@
           "outcome": "fail"
         }
       ],
-      "qualified_at": "2026-10-12T23:50:31.168Z"
+      "qualified_at": "2026-10-14T16:16:55.900Z"
     },
     "adjudication_rules": "Score pass only if every hidden check passes. No partial credit.",
     "provenance": {
@@ -63,7 +63,14 @@
       "tuned_during_development": false,
       "notes": "Real defect in fastify v5.10.0 (quoted-string parameter values split on ';' and not unescaped), fixed upstream in 29bdcbb9 (#6865). The reference is that fix applied to v5.10.0; the hidden suite is the upstream tests plus the preserved quoted-value case."
     },
-    "changelog": []
+    "changelog": [
+      {
+        "version": 2,
+        "reason": "Rebuilt the Fastify base with neostandard kept in devDependencies (bench/repos/repos.json, lockfile regenerated as of the release date): without it the repository test test/build/error-serializer.test.js › check generated code syntax failed on every tree, which QB misread as a regression of correct patches (KAN-65). Only base_rev and the lockfile change; prompt, oracle, reference, incorrect implementations and hidden suite are unchanged.",
+        "disclosed_at": "2026-10-14T00:00:00Z",
+        "after_viewing_results": true
+      }
+    ]
   },
   "oracle_draft": {
     "acceptance_criteria": [
@@ -90,6 +97,6 @@
     ]
   },
   "source": {
-    "curation_sha256": "0318d935d749ff08463720719dd23366003712327e8e20108ee2ebf234428acb"
+    "curation_sha256": "630e6a3c0b984ec15fb920bd187203ab60d2ea15b6ddcd2b4849bfcc6cc24d45"
   }
 }

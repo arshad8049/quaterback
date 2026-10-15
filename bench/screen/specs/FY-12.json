@@ -1,7 +1,7 @@
 {
   "schema": "qb-task-spec/1",
   "id": "FY-12",
-  "version": 1,
+  "version": 2,
   "split": "dev",
   "stratum": {
     "type": "bug_fix",
@@ -9,9 +9,9 @@
   },
   "repo": {
     "source": "qb-bench:fastify-5.9.0",
-    "base_rev": "07ca9dec7d0e37d99ed5166c7cefb8d7932dd71e",
+    "base_rev": "42b61c8c6aa925fc37fa6157f6c37b9cd51c1f2a",
     "lockfiles": {
-      "package-lock.json": "058ab44aab933b8ede987a31b17f3f95b7f43240e9996a6f53324b990cf611a0"
+      "package-lock.json": "dd39c3b8b5601f27e210f16e02c13e6386347602a9f7a9c6bbd01f1a77ec0e83"
     }
   },
   "prompt": "reply.send decides whether a custom Content-Type is JSON, and whether it already declares a charset, with case-sensitive substring searches on the raw header string. As a result: 'application/json; CHARSET=utf-8' gets a second '; charset=utf-8' appended; 'ApPlIcAtIoN/JsOn; ChArSeT=utf-8' is not recognised as JSON, so sending an object fails with a 500; and 'application/json; x-charset-hint=a' (a parameter whose name only contains 'charset') gets no charset at all. Fix reply.send so it parses the Content-Type header with Fastify's ContentType parser (lib/content-type.js): JSON is detected from the parsed media type, case-insensitively (any media type containing 'json', such as application/vnd.api+json), and a charset is considered declared only when there is a parameter named charset, compared case-insensitively. When a JSON media type has no charset parameter, '; charset=utf-8' is appended to the header. Expected results when sending { hello: 'world' }: 'application/json; CHARSET=utf-8' and 'ApPlIcAtIoN/JsOn; ChArSeT=utf-8' are sent unchanged with status 200 and the JSON body; 'application/json; version=\"2\"' becomes 'application/json; version=\"2\"; charset=utf-8'; 'application/vnd.api+json' becomes 'application/vnd.api+json; charset=utf-8'; 'application/json;' becomes 'application/json; charset=utf-8'; for 'application/json; x-charset-hint=a' the header keeps the x-charset-hint parameter and ends with '; charset=utf-8'.",
@@ -54,7 +54,7 @@
     "adjudicate_checks": []
   },
   "qualification": {
-    "grader_sha256": "3116461e6934079a16ed5af0ae2c35e701094b699f62feeea86fe2106d4ea886",
+    "grader_sha256": "f088eb07030432a8bee9f72ffdb439d034d91051d6512762f7169c14c73a75f6",
     "suite_sha256": "a05d645823be7c67135d81918330ac1f323a40fc2488927399a4f5c63db561c6",
     "reference": {
       "patch_sha256": "c28c2a286d83a62738a775aea3d72c48ad9e4f5e80e3d0fa62433ff2f24ca74b",
@@ -72,7 +72,7 @@
         "outcome": "fail"
       }
     ],
-    "qualified_at": "2026-10-12T23:53:50.176Z"
+    "qualified_at": "2026-10-14T16:20:08.146Z"
   },
   "adjudication_rules": "Score pass only if every hidden check passes. No partial credit.",
   "provenance": {
@@ -81,5 +81,12 @@
     "tuned_during_development": false,
     "notes": "Real defect in fastify v5.9.0 (case-sensitive substring JSON/charset detection in reply.send), fixed upstream in 6f63ce93 (#6830), which spans 5 files (a shared ContentType cache). Behaviour probed on base and reference before writing. The hidden suite grades reply.send behaviour only, not the internal cache API; it does not require a specific re-serialisation of parameter quoting."
   },
-  "changelog": []
+  "changelog": [
+    {
+      "version": 2,
+      "reason": "Rebuilt the Fastify base with neostandard kept in devDependencies (bench/repos/repos.json, lockfile regenerated as of the release date): without it the repository test test/build/error-serializer.test.js › check generated code syntax failed on every tree, which QB misread as a regression of correct patches (KAN-65). Only base_rev and the lockfile change; prompt, oracle, reference, incorrect implementations and hidden suite are unchanged.",
+      "disclosed_at": "2026-10-14T00:00:00Z",
+      "after_viewing_results": true
+    }
+  ]
 }

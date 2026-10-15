@@ -1,7 +1,7 @@
 {
   "schema": "qb-task-spec/1",
   "id": "FY-14",
-  "version": 1,
+  "version": 2,
   "split": "dev",
   "stratum": {
     "type": "errors",
@@ -9,9 +9,9 @@
   },
   "repo": {
     "source": "qb-bench:fastify-5.10.0",
-    "base_rev": "21501b98d1e2f7ee50cb01f377b06708fe40326e",
+    "base_rev": "c975bcd711d132a8f6730f653ce916f988640621",
     "lockfiles": {
-      "package-lock.json": "3715b2f8d2527e325a2a1c724043036caa000f6f4828b2f39e4563ca15be4c3a"
+      "package-lock.json": "0a9b8ed310401bb693a4d02ed473d82c76f357c19fc71e63ac2458722375c869"
     }
   },
   "prompt": "When an async onSend or preSerialization hook sets an invalid header value, for example reply.header('X-Invalid', '\\n'), Node throws while writing the response head, but the error escapes Fastify: the request never gets a response, the onError hooks are not called, and the error surfaces as an uncaught exception. Fix this so that such an error goes through Fastify's normal error handling: the request must be answered with status 500, whose JSON body has code 'ERR_INVALID_CHAR' (the Node error code), the onError hook must be called, and no exception or promise rejection may escape uncaught. Do not drop or sanitise the invalid header instead: the request must end with that 500 error. This applies to an async onSend hook (async (request, reply, payload) => { reply.header('X-Invalid', '\\n'); return payload }) and to an async preSerialization hook (async (request, reply) => { reply.header('X-Invalid', '\\n') }) on a route returning { ok: true }.",
@@ -50,7 +50,7 @@
     "adjudicate_checks": []
   },
   "qualification": {
-    "grader_sha256": "3116461e6934079a16ed5af0ae2c35e701094b699f62feeea86fe2106d4ea886",
+    "grader_sha256": "f088eb07030432a8bee9f72ffdb439d034d91051d6512762f7169c14c73a75f6",
     "suite_sha256": "6cd5699ca9cd18b634c8d2e313a7d900dc93cca9d1f8034e80433de8e5a36bfc",
     "reference": {
       "patch_sha256": "e8622ef3930e95067749714064415d1444a1738935a1a770a55773afab61ae19",
@@ -68,7 +68,7 @@
         "outcome": "fail"
       }
     ],
-    "qualified_at": "2026-10-13T00:02:42.995Z"
+    "qualified_at": "2026-10-14T16:26:44.318Z"
   },
   "adjudication_rules": "Score pass only if every hidden check passes. No partial credit.",
   "provenance": {
@@ -77,5 +77,12 @@
     "tuned_during_development": false,
     "notes": "Real defect in fastify v5.10.0 (a writeHead throw after an async onSend/preSerialization hook escapes: no response, uncaught), fixed upstream in 01ca8393 (#6881). Probed: base gives no response and 1 uncaught error; reference gives 500 ERR_INVALID_CHAR, onError called, 0 uncaught. The hidden suite grades what the client gets (with its own timer, so a hang fails an assertion), plus onError and no uncaught errors."
   },
-  "changelog": []
+  "changelog": [
+    {
+      "version": 2,
+      "reason": "Rebuilt the Fastify base with neostandard kept in devDependencies (bench/repos/repos.json, lockfile regenerated as of the release date): without it the repository test test/build/error-serializer.test.js › check generated code syntax failed on every tree, which QB misread as a regression of correct patches (KAN-65). Only base_rev and the lockfile change; prompt, oracle, reference, incorrect implementations and hidden suite are unchanged.",
+      "disclosed_at": "2026-10-14T00:00:00Z",
+      "after_viewing_results": true
+    }
+  ]
 }

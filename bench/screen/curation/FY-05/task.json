@@ -3,7 +3,8 @@
   "split": "dev",
   "stratum": { "type": "addition", "repository": "fastify" },
   "repo": "qb-bench:fastify-5.11.0",
-  "base_rev": "a831ab349bf04596090a3e790725ccf16533b99e",
+  "version": 2,
+  "base_rev": "2f7cd0fb6b18578bef0a7f9c2ceb4ed4581206e5",
   "prompt": "fastify.addHttpMethod silently overrides a method that already exists, such as addHttpMethod('GET', { hasBody: true }). Deprecate implicit overrides: addHttpMethod accepts a new option overrideExisting (default false). When the method already exists (as a method with or without a body) and overrideExisting is not true, emit a new Fastify deprecation warning FSTDEP025 (defined with the other warnings in lib/warnings.js, name 'FastifyDeprecation', code 'FSTDEP025', message 'Calling addHttpMethod for existing method \"%s\" without { overrideExisting: true } is deprecated. In Fastify v6, this will throw an error.' with the method name), every time this happens, not only the first time. With { overrideExisting: true } no warning is emitted, and adding a method that does not exist yet emits no warning. The override itself still takes effect in both cases (for example, GET then accepts a body).",
   "requirement": "addHttpMethod(method, { hasBody = false, overrideExisting = false }): when method is already in the bodyless or bodywith set and overrideExisting is not true, FSTDEP025 is emitted via process-warning with unlimited: true (name 'FastifyDeprecation', code 'FSTDEP025', message with %s = method). overrideExisting: true suppresses it; a new method never warns; the hasBody change is applied either way.",
   "oracle": {
@@ -21,5 +22,8 @@
     "created_at": "2026-10-12T00:00:00Z",
     "tuned_during_development": false,
     "notes": "Real gap in fastify v5.11.0 (addHttpMethod overrides silently), changed upstream in 0e9a3b35 (#6879). The reference is that change applied to v5.11.0 (runtime only; docs and types not graded). The hidden suite follows the upstream tests and adds the every-time and new-method cases the prompt states."
-  }
+  },
+  "changelog": [
+    {"version":2,"reason":"Rebuilt the Fastify base with neostandard kept in devDependencies (bench/repos/repos.json, lockfile regenerated as of the release date): without it the repository test test/build/error-serializer.test.js › check generated code syntax failed on every tree, which QB misread as a regression of correct patches (KAN-65). Only base_rev and the lockfile change; prompt, oracle, reference, incorrect implementations and hidden suite are unchanged.","disclosed_at":"2026-10-14T00:00:00Z","after_viewing_results":true}
+  ]
 }

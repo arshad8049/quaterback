@@ -2,88 +2,88 @@
   "schema": "qb-spec-lock/1",
   "specs": {
     "FY-01": {
-      "version": 1,
-      "sha256": "ab7f334136eada635f5210d3423f6ea8989c70ef0388526988cba80c7bdffbf9",
+      "version": 2,
+      "sha256": "40d23e5930305266ec90f6d32925dd7042bcff8e15ad45b6b9c26cc79c471fb8",
       "split": "dev",
-      "frozen_at": "2026-10-13T02:50:54.588Z"
+      "frozen_at": "2026-10-15T03:36:48.242Z"
     },
     "FY-02": {
-      "version": 1,
-      "sha256": "c5bf913473e88be7b1bd0f0f1cd98a12edf11b9b5c28ac5d563f7ae8d57cfac6",
+      "version": 2,
+      "sha256": "5652f80190ad2850f40d4f8174284ed91b4e99a9643c4f29d29cf21800a55ea4",
       "split": "dev",
-      "frozen_at": "2026-10-13T02:50:54.596Z"
+      "frozen_at": "2026-10-15T03:36:48.250Z"
     },
     "FY-03": {
-      "version": 1,
-      "sha256": "7231efdf6810f4d07f0aa56f67aa60f69f6cbfcf8022675103b2288a860b0dc4",
+      "version": 2,
+      "sha256": "9ef8f48c53f9ba2274b6aea4fe1f4a86f9a9538a46699f7ca6d297d6aad72ae8",
       "split": "dev",
-      "frozen_at": "2026-10-13T02:50:54.598Z"
+      "frozen_at": "2026-10-15T03:36:48.252Z"
     },
     "FY-04": {
-      "version": 1,
-      "sha256": "46fc32416aab08a3bf739c2b2fc5dac715c4f12a8dc1100dbee25013167bcd47",
+      "version": 2,
+      "sha256": "980fa11596e0a569b8a96c9a5a992f995b661131dd672b8d361651b3be8e4d6d",
       "split": "dev",
-      "frozen_at": "2026-10-13T02:50:54.600Z"
+      "frozen_at": "2026-10-15T03:36:48.255Z"
     },
     "FY-05": {
-      "version": 1,
-      "sha256": "f9c6def1e0b74d190557ce0a9f2eb089b58d3c85de80145903c1ff9a9c9b9f90",
+      "version": 2,
+      "sha256": "77a91d2b8b61bf7675d790c27befe9f027b35f0a3708cd99986cc6970a5aba01",
       "split": "dev",
-      "frozen_at": "2026-10-13T02:50:54.602Z"
+      "frozen_at": "2026-10-15T03:36:48.258Z"
     },
     "FY-06": {
-      "version": 1,
-      "sha256": "31d0f1087b1a8e993ef3974f066f0b8c264f52ffa7ad8f9b37b9f18e38d474a6",
+      "version": 2,
+      "sha256": "38f010c72939c7144881ad3b96ce9656efc0927d81c4ff627da4d120bb1858a9",
       "split": "dev",
-      "frozen_at": "2026-10-13T02:50:54.605Z"
+      "frozen_at": "2026-10-15T03:36:48.260Z"
     },
     "FY-07": {
-      "version": 1,
-      "sha256": "bf43e4353fd3af68665f690cc2ec59b0e979d6263927be126de0bddde1fd37da",
+      "version": 2,
+      "sha256": "83361852f68adcd863e437f91b8d944320ee8c86dd17ea0c9a01c7dd8c8fac3a",
       "split": "dev",
-      "frozen_at": "2026-10-13T02:50:54.606Z"
+      "frozen_at": "2026-10-15T03:36:48.261Z"
     },
     "FY-08": {
-      "version": 1,
-      "sha256": "eaeeb8e897cd3266d7effa8dbf6cdd963d5700d9a8a71eaa8a0fd21c8008af84",
+      "version": 2,
+      "sha256": "3d645dc1242775a3f05a76d53bdc44189db285517e4db7696f1ad01554208884",
       "split": "dev",
-      "frozen_at": "2026-10-13T02:50:54.608Z"
+      "frozen_at": "2026-10-15T03:36:48.263Z"
     },
     "FY-09": {
-      "version": 1,
-      "sha256": "b6d6d59d622209235cab0e4a37f4b2bd1f028a6569c0c2ddb78c4b84f84f2ba5",
+      "version": 2,
+      "sha256": "0fce2105fcb387222b0334f2de74b340f00538cfe9296258a84ba174559c97e1",
       "split": "dev",
-      "frozen_at": "2026-10-13T02:50:54.610Z"
+      "frozen_at": "2026-10-15T03:36:48.265Z"
     },
     "FY-10": {
-      "version": 1,
-      "sha256": "4c55d39e566f283e5a0393ae694be085e8c3b4b5b2ad3e1f6e425b6eca5fc081",
+      "version": 2,
+      "sha256": "81cc35265a0c96900cdf99aaf0f7b8e5748d4e763ed16165a384a11a4cd2315c",
       "split": "dev",
-      "frozen_at": "2026-10-13T02:50:54.612Z"
+      "frozen_at": "2026-10-15T03:36:48.267Z"
     },
     "FY-11": {
-      "version": 1,
-      "sha256": "757d7d89b8eb180b14f8a5f970dfce3671e4d71a97af7e2bf8c99d28654614e0",
+      "version": 2,
+      "sha256": "81af1d1e55138d7e747cc13eae2a7e8c7ca0c5a079e3eb6ca1ad688bb33a03fa",
       "split": "dev",
-      "frozen_at": "2026-10-13T02:50:54.614Z"
+      "frozen_at": "2026-10-15T03:36:48.270Z"
     },
     "FY-12": {
-      "version": 1,
-      "sha256": "cef63f3fda92376a23ace3e8cbe5fb45c24e2f78ed6ea27170fe656ccf0182a7",
+      "version": 2,
+      "sha256": "6425f3286aa0c1b064c0f29cc1748aa97034bdd83dda9313cee13cf43bc9dc16",
       "split": "dev",
-      "frozen_at": "2026-10-13T02:50:54.616Z"
+      "frozen_at": "2026-10-15T03:36:48.272Z"
     },
     "FY-13": {
-      "version": 1,
-      "sha256": "b000c594a40ea97db9f369a5e009ba9c96dd30ee552784c28536be66b6c805eb",
+      "version": 2,
+      "sha256": "1da4230c9e0daedd941dcc9913b847a0d0e94c5f7c0597bb745b78e4b1df5190",
       "split": "dev",
-      "frozen_at": "2026-10-13T02:50:54.617Z"
+      "frozen_at": "2026-10-15T03:36:48.273Z"
     },
     "FY-14": {
-      "version": 1,
-      "sha256": "ab31a0b885336c72f087c47fc98f98bf9d6b9902b794e7276c7e89a7a5b081f6",
+      "version": 2,
+      "sha256": "db35f2ec5cdfd7e200afeb627054eb1313da392770a234bb4c52d6512c6b5ce5",
       "split": "dev",
-      "frozen_at": "2026-10-13T02:50:54.619Z"
+      "frozen_at": "2026-10-15T03:36:48.275Z"
     }
   }
 }

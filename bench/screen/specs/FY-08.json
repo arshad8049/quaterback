@@ -1,7 +1,7 @@
 {
   "schema": "qb-task-spec/1",
   "id": "FY-08",
-  "version": 1,
+  "version": 2,
   "split": "dev",
   "stratum": {
     "type": "bug_fix",
@@ -9,9 +9,9 @@
   },
   "repo": {
     "source": "qb-bench:fastify-5.12.0",
-    "base_rev": "12d950eb428b9a91212c24a3b079cde130572035",
+    "base_rev": "d4fd174c06e35bbf0261997d7144b39eaf36510c",
     "lockfiles": {
-      "package-lock.json": "eeb7cd9daa7fcc2f983005abb46c6266a2a78884917e2408df7bfdfa45a71c09"
+      "package-lock.json": "5f6b5930f1257ad88b62d2d59f64d7b8af0fdcb943eeb2afbd9872e5132c8fc5"
     }
   },
   "prompt": "When a route's schema for a request part is a root primitive, Fastify validates the coerced value but the handler still receives the original one. For example, with schema.body { type: 'integer', minimum: 1, maximum: 10 } and the JSON body \"10\" (a string), validation passes but request.body is still the string '10'. Fix validation so that a value Ajv coerces at the root of a request part is assigned to the request, for every primitive type: the example must give request.body === 10 (a number), and a body schema { type: 'boolean' } with the JSON body \"true\" must give request.body === true. Validation must still reject invalid values with a 400 (the JSON body \"0\" against the integer schema above). Routes using a custom validatorCompiler, whose validators are plain functions rather than Ajv validators, must keep working as before.",
@@ -54,7 +54,7 @@
     "adjudicate_checks": []
   },
   "qualification": {
-    "grader_sha256": "3116461e6934079a16ed5af0ae2c35e701094b699f62feeea86fe2106d4ea886",
+    "grader_sha256": "f088eb07030432a8bee9f72ffdb439d034d91051d6512762f7169c14c73a75f6",
     "suite_sha256": "e2411b6f1bba660254e7279420c551062993034face749b36525e0e7607f4f02",
     "reference": {
       "patch_sha256": "83850128ee6e1b6065f40366b3063400fbf82dc8d855127915ca40a126db6096",
@@ -72,7 +72,7 @@
         "outcome": "fail"
       }
     ],
-    "qualified_at": "2026-10-12T23:39:51.876Z"
+    "qualified_at": "2026-10-14T16:07:17.527Z"
   },
   "adjudication_rules": "Score pass only if every hidden check passes. No partial credit.",
   "provenance": {
@@ -81,5 +81,12 @@
     "tuned_during_development": false,
     "notes": "Real defect in fastify v5.12.0 (root-primitive coercion is lost), fixed upstream in 1ef8a60c. The reference is that fix applied to v5.12.0. The hidden suite extends the upstream test with the boolean, invalid and custom-validator cases the prompt states."
   },
-  "changelog": []
+  "changelog": [
+    {
+      "version": 2,
+      "reason": "Rebuilt the Fastify base with neostandard kept in devDependencies (bench/repos/repos.json, lockfile regenerated as of the release date): without it the repository test test/build/error-serializer.test.js › check generated code syntax failed on every tree, which QB misread as a regression of correct patches (KAN-65). Only base_rev and the lockfile change; prompt, oracle, reference, incorrect implementations and hidden suite are unchanged.",
+      "disclosed_at": "2026-10-14T00:00:00Z",
+      "after_viewing_results": true
+    }
+  ]
 }

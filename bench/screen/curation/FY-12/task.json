@@ -3,7 +3,8 @@
   "split": "dev",
   "stratum": { "type": "bug_fix", "repository": "fastify" },
   "repo": "qb-bench:fastify-5.9.0",
-  "base_rev": "07ca9dec7d0e37d99ed5166c7cefb8d7932dd71e",
+  "version": 2,
+  "base_rev": "42b61c8c6aa925fc37fa6157f6c37b9cd51c1f2a",
   "prompt": "reply.send decides whether a custom Content-Type is JSON, and whether it already declares a charset, with case-sensitive substring searches on the raw header string. As a result: 'application/json; CHARSET=utf-8' gets a second '; charset=utf-8' appended; 'ApPlIcAtIoN/JsOn; ChArSeT=utf-8' is not recognised as JSON, so sending an object fails with a 500; and 'application/json; x-charset-hint=a' (a parameter whose name only contains 'charset') gets no charset at all. Fix reply.send so it parses the Content-Type header with Fastify's ContentType parser (lib/content-type.js): JSON is detected from the parsed media type, case-insensitively (any media type containing 'json', such as application/vnd.api+json), and a charset is considered declared only when there is a parameter named charset, compared case-insensitively. When a JSON media type has no charset parameter, '; charset=utf-8' is appended to the header. Expected results when sending { hello: 'world' }: 'application/json; CHARSET=utf-8' and 'ApPlIcAtIoN/JsOn; ChArSeT=utf-8' are sent unchanged with status 200 and the JSON body; 'application/json; version=\"2\"' becomes 'application/json; version=\"2\"; charset=utf-8'; 'application/vnd.api+json' becomes 'application/vnd.api+json; charset=utf-8'; 'application/json;' becomes 'application/json; charset=utf-8'; for 'application/json; x-charset-hint=a' the header keeps the x-charset-hint parameter and ends with '; charset=utf-8'.",
   "requirement": "reply.send parses the content-type header with ContentType; JSON handling applies when the parsed mediaType contains 'json' (media types are lowercased by the parser); a charset counts as declared only if a parameter named charset exists (names compared case-insensitively). Otherwise '; charset=utf-8' is appended to the normalised header. Parameter names merely containing 'charset' do not count.",
   "oracle": {
@@ -21,5 +22,8 @@
     "created_at": "2026-10-12T00:00:00Z",
     "tuned_during_development": false,
     "notes": "Real defect in fastify v5.9.0 (case-sensitive substring JSON/charset detection in reply.send), fixed upstream in 6f63ce93 (#6830), which spans 5 files (a shared ContentType cache). Behaviour probed on base and reference before writing. The hidden suite grades reply.send behaviour only, not the internal cache API; it does not require a specific re-serialisation of parameter quoting."
-  }
+  },
+  "changelog": [
+    {"version":2,"reason":"Rebuilt the Fastify base with neostandard kept in devDependencies (bench/repos/repos.json, lockfile regenerated as of the release date): without it the repository test test/build/error-serializer.test.js › check generated code syntax failed on every tree, which QB misread as a regression of correct patches (KAN-65). Only base_rev and the lockfile change; prompt, oracle, reference, incorrect implementations and hidden suite are unchanged.","disclosed_at":"2026-10-14T00:00:00Z","after_viewing_results":true}
+  ]
 }
