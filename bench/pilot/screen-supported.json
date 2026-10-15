@@ -1,0 +1,91 @@
+{
+  "kind": "exploratory",
+  "arms": [
+    "A",
+    "E"
+  ],
+  "primary": [
+    "A",
+    "E"
+  ],
+  "repetitions": 2,
+  "budget": {
+    "agent_time_ms": 900000,
+    "trial_deadline_ms": 3600000,
+    "model_call_deadline_ms": 180000
+  },
+  "seed": "qb30-supported-screen-2026-10-15",
+  "lock": "../screen/specs.lock.json",
+  "suites": "../screen/suites",
+  "specs": [
+    "../screen/specs/FY-01.json",
+    "../screen/specs/FY-02.json",
+    "../screen/specs/FY-03.json",
+    "../screen/specs/FY-05.json",
+    "../screen/specs/FY-07.json",
+    "../screen/specs/FY-08.json",
+    "../screen/specs/FY-09.json",
+    "../screen/specs/FY-10.json",
+    "../screen/specs/FY-13.json",
+    "../screen/specs/FY-14.json"
+  ],
+  "selection": {
+    "considered": [
+      "FY-01",
+      "FY-02",
+      "FY-03",
+      "FY-04",
+      "FY-05",
+      "FY-06",
+      "FY-07",
+      "FY-08",
+      "FY-09",
+      "FY-10",
+      "FY-11",
+      "FY-12",
+      "FY-13",
+      "FY-14"
+    ],
+    "included": [
+      "FY-01",
+      "FY-02",
+      "FY-03",
+      "FY-05",
+      "FY-07",
+      "FY-08",
+      "FY-09",
+      "FY-10",
+      "FY-13",
+      "FY-14"
+    ],
+    "excluded": [
+      {
+        "id": "FY-04",
+        "reason": "required behavior change conflicts with protected base-test expectations under the current product policy",
+        "group": "diagnostic (retained compatibility case)"
+      },
+      {
+        "id": "FY-06",
+        "reason": "required behavior change conflicts with protected base-test expectations under the current product policy",
+        "group": "diagnostic (retained compatibility case)"
+      },
+      {
+        "id": "FY-11",
+        "reason": "required behavior change conflicts with protected base-test expectations under the current product policy",
+        "group": "diagnostic (retained compatibility case)"
+      },
+      {
+        "id": "FY-12",
+        "reason": "required behavior change conflicts with protected base-test expectations under the current product policy",
+        "group": "diagnostic (retained compatibility case)"
+      }
+    ],
+    "rule": "A task is eligible when, in the no-model fixed-patch replay at the pinned QB commit, (1) the unchanged base passes the repository's own tests and (2) the known-correct reference passes the repository's protected visible tests with no regression. The same rule applies to every task and to both arms.",
+    "decided_at": "2026-10-14",
+    "decision": "KAN-65 option (a), owner policy decision (Jira comment 10319)",
+    "after_viewing_results": true,
+    "denominator": "14 tasks considered; supported-subset outcomes are reported separately from full-set coverage and limitations",
+    "evidence": "docs/bench/screen-supported-scope.md"
+  },
+  "_note": "KAN-65 supported-scope screen: 10 of the 14 Fastify candidates x arms A/E x 2. Exploratory; never headline evidence. This plan does not approve a paid run."
+}
