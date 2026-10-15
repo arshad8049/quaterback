@@ -94,21 +94,36 @@ In version 2, every FY-08 replay, including the unchanged base, ended in `fail` 
 return `undefined` without a content type, and the test still expected a string. Upstream fixed
 the test after the release (65d12da9, "test: fix reply.mediaType (#6949)").
 
-Qualification only ran the hidden suite, so it did not catch this. In the original screen,
+Qualification only ran the hidden suite at the time, so it did not catch this. In the original screen,
 FY-08's E arm was internally `fail` while the hidden grade was `pass`; the lint failures that
 v2 removed hid the cause.
 
-The correction is a benchmark-environment correction, like the neostandard rebuild: the same
-task ID, a disclosed new version, nothing a candidate sees or is graded on changes.
+**Owner decision (KAN-65, comment 10324):** FY-08 keeps its task ID as a disclosed version 3
+benchmark correction. The pinned upstream patch is limited to that unrelated pre-existing test
+error, and every earlier version and result stays addressable. Version 3 is **not** a replacement
+performance result, and v2 and v3 scores are never combined.
+
+What changes and what does not:
+- **Unchanged:** the task prompt, the required behaviour and the independent hidden suite (and
+  the oracle, reference, incorrect implementations and lockfile).
+- **Changed:** the base revision and one visible base test. That test is part of what QB
+  verifies against, so the change does affect QB's verification of FY-08.
 - FY-08 version 3 (disclosed, `after_viewing_results: true`) runs on
-  `qb-bench:fastify-5.12.0-t6949`: v5.12.0 plus upstream's one-line test fix
-  (`upstream_commits` in `bench/repos/repos.json`). Prompt, oracle, reference, incorrect
-  implementations, hidden suite and lockfile are unchanged.
-- Qualification (`bench/qualify.js`) now also requires the unchanged base to pass the
-  repository's own tests. Run against FY-08's version 2 base in the sandbox, it refuses it and
-  names that test. FY-08 v3 passed it and was re-qualified and frozen.
-- **For the owner to confirm:** this was treated as an environment correction, not a
-  replacement task. If it should count as a replacement, FY-08 needs a new task ID instead.
+  `qb-bench:fastify-5.12.0-t6949`: v5.12.0 plus upstream commit 65d12da9, which changes only
+  that test (`upstream_commits` in `bench/repos/repos.json`).
+
+The base check in qualification (`bench/qualify.js`):
+- Qualification now also requires the unchanged base to pass the repository's own tests, the
+  command declared in `.quarterback.json`. Run against FY-08's version 2 base in the sandbox,
+  it refuses it and names that test.
+- It fails closed (commit 1c66857, after the review found a bypass). A malformed or unreadable
+  `.quarterback.json`, or a `test.command` that is not a non-empty argv array, fails
+  qualification. Bench curation also requires the file to exist.
+- Its result (the command and `passed`) is recorded in each new draft, and freeze refuses a
+  draft without it.
+- **No frozen record contains this result.** Every frozen spec, FY-08 v3 included, was
+  qualified before the result was recorded. The evidence that each screen base passes the
+  check is the re-qualification listed under Evidence, not the frozen records.
 
 ## Negative controls
 
@@ -127,9 +142,9 @@ None reaches `pass`. Hidden tests are never given to the repair loop.
 
 All are kept as recorded; nothing is rewritten.
 - **Original screen:** GitHub run 38409518314, 14 tasks × arms A/E × 2.
-- **Setup failures:** 8 trials (FY-07 and FY-14, 4 per arm) were agent crashes of about one
-  second with an empty patch (likely a usage limit, unconfirmed). They were first graded as
-  fails. Harness fix 7443bd0 now counts an agent failure as attrition, not a fail.
+- **Setup failures:** eight agent execution failures (FY-07 and FY-14, 4 per arm), each with
+  an empty patch; the cause is unconfirmed. They were first graded as fails. Harness fix
+  7443bd0 now counts an agent failure as attrition, not a fail.
 - **Reruns:** GitHub run 38459455639 reran those 8 trials. In each arm, 4 of 4 passed the hidden
   checks.
 
@@ -140,6 +155,7 @@ All are kept as recorded; nothing is rewritten.
 | v1 specs and lock (the original screen) | commit 6e0e0de: `bench/screen/specs/`, `bench/screen/specs.lock.json`, `bench/pilot/screen.json` |
 | v2 specs (neostandard rebuild) | commit 8cfb159 |
 | FY-08 v3 and the base self-test in qualification | commit 2a8d972 |
+| The base check fails closed on a broken `.quarterback.json`, and its result is recorded | commit 1c66857 (failing tests first: 23e69f2) |
 | Original run artifacts | runs 38409518314 and 38459455639: the trial shards expire 2026-11-12 and the merged experiments 2027-01-11 |
 
 ## Reporting rule
@@ -156,3 +172,13 @@ decided after observing results)". Both arms use the same 10 tasks.
   - CI: `.github/workflows/kan65-replay.yml`, one job per task, records uploaded as artifacts;
   - exact-commit runs: 38686485340 at f21d18e (all 14, FY-08 at v2) and 38767929870 at 2a8d972
     (all 14, FY-08 at v3). Each matches the local replays at the same code line for line (56 of 56).
+- Base check, re-run and recorded (KAN-65 review): all 14 screen tasks were re-qualified at
+  commit 1c66857 through the real Docker sandbox (`bench/curate.js`), on 2026-10-15/16, into
+  a scratch folder. The frozen specs and lock were not touched.
+  - Every draft records `base_tests: { command: ["node","--test","test/**/*.test.js"],
+    outcome: "passed" }`.
+  - Every re-qualification is identical to the frozen qualification apart from `qualified_at`.
+  - On the first pass, FY-09, FY-10 and FY-11 ended in `infra_error` (`npm ci` setup failed
+    during a network interruption), so the run was stopped. FY-09 to FY-14 were then re-run,
+    and all qualified. Those infrastructure failures are reported, not hidden.
+  - This was a local run, not a fresh CI runner.
