@@ -2,7 +2,7 @@
 <div id="verification" style="padding: 104px 80px; border-top: 1px solid #222A27;">
   <div style="max-width: 1180px; margin: 0 auto;">
     <h2 style="margin: 0 0 20px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1.1; font-weight: 400; color: #F4F1EA;">The builder does not grade its own work.</h2>
-    <p style="margin: 0 0 44px 0; max-width: 800px; font-size: 19px; line-height: 1.6; color: #B4BEB9;">An agent that reports completion has told you what it believes, not what is true. Verification is a separate step with its own model, its own context and its own evidence.</p>
+    <p style="margin: 0 0 44px 0; max-width: 800px; font-size: 19px; line-height: 1.6; color: #B4BEB9;">An agent that says it is done is telling you what it believes, not what is true. Quarterback checks the work separately, with its own evidence.</p>
 
     <div style="padding: 28px 34px; background: #12100E; border-left: 2px solid #E08A4C; border-radius: 4px; margin-bottom: 54px;">
       <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: #E08A4C; margin-bottom: 18px;">The loop we refuse to ship</div>
@@ -15,24 +15,24 @@
 
     <div style="display: flex; gap: 32px; align-items: stretch;">
       <div style="flex-grow: 1; flex-basis: 0; padding: 36px 38px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
-        <div style="font-size: 24px; font-weight: 600; color: #F4F1EA; margin-bottom: 10px;">Deterministic evidence first</div>
-        <p style="margin: 0 0 24px 0; font-size: 16px; line-height: 1.6; color: #A7B0AB;">Cheap, fast and not up for debate. We exhaust this before spending a token on judgment.</p>
+        <div style="font-size: 24px; font-weight: 600; color: #F4F1EA; margin-bottom: 10px;">Hard evidence first</div>
+        <p style="margin: 0 0 24px 0; font-size: 16px; line-height: 1.6; color: #A7B0AB;">Facts that are not up for debate come before any opinion.</p>
         <div style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; line-height: 2.05; color: #C6CFCB;">
-          <div>the repository's own tests, on the change and on the base</div>
-          <div>approved executable checks (exports, return values, calls, errors)</div>
-          <div>exact capture of every changed file</div>
-          <div>changed-file scope · protected-file policy</div>
+          <div>your project’s own tests, before and after the change</div>
+          <div>the checks you approved (for example: this function returns that value)</div>
+          <div>an exact record of every changed file</div>
+          <div>a guard on which files may change and which must not</div>
         </div>
-        <p style="margin: 22px 0 0 0; font-size: 15px; line-height: 1.6; color: #A7B0AB;">Planned, not yet built: type checking, linting, browser and UI tests, security and dependency checks.</p>
+        <p style="margin: 22px 0 0 0; font-size: 15px; line-height: 1.6; color: #A7B0AB;">Planned, not yet built: type checking, linting, browser tests, and security and dependency checks.</p>
       </div>
       <div style="flex-grow: 1; flex-basis: 0; padding: 36px 38px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
         <div style="font-size: 24px; font-weight: 600; color: #F4F1EA; margin-bottom: 10px;">Judgment second</div>
-        <p style="margin: 0 0 24px 0; font-size: 16px; line-height: 1.6; color: #A7B0AB;">The genuinely semantic questions a test suite cannot answer for you.</p>
+        <p style="margin: 0 0 24px 0; font-size: 16px; line-height: 1.6; color: #A7B0AB;">A separate reviewer model answers what tests cannot:</p>
         <div style="font-size: 16px; line-height: 1.75; color: #C6CFCB;">
-          <div style="margin-bottom: 12px;">Did the implementation satisfy each approved acceptance criterion?</div>
-          <div style="margin-bottom: 12px;">Which evidence supports that judgment, and what evidence is missing?</div>
-          <div>Was an acceptance criterion silently skipped?</div>
-          <p style="margin: 22px 0 0 0; font-size: 15px; line-height: 1.6; color: #A7B0AB;">A judgment without supporting evidence cannot turn a run into a pass.</p>
+          <div style="margin-bottom: 12px;">Was each approved requirement actually met?</div>
+          <div style="margin-bottom: 12px;">What evidence supports that, and what is missing?</div>
+          <div>Was any requirement quietly skipped?</div>
+          <p style="margin: 22px 0 0 0; font-size: 15px; line-height: 1.6; color: #A7B0AB;">Without evidence, a judgment cannot turn a run into a pass.</p>
         </div>
       </div>
     </div>

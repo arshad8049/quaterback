@@ -1,46 +1,46 @@
 <!-- THE LOOP -->
 <div id="loop" style="padding: 104px 80px; border-top: 1px solid #222A27;">
   <div style="max-width: 1180px; margin: 0 auto;">
-    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #E08A4C; margin-bottom: 28px;">The runtime</div>
-    <h2 style="margin: 0 0 20px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1.1; font-weight: 400; color: #F4F1EA;">A control loop around the agent you already use</h2>
-    <p style="margin: 0 0 54px 0; max-width: 780px; font-size: 19px; line-height: 1.6; color: #B4BEB9;">Assign, observe, inspect, correct, test, inspect again, approve. You run that loop by hand today. Quarterback runs the inspect, test and repair part, and hands back a proposed patch with its evidence for you to approve.</p>
+    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #E08A4C; margin-bottom: 28px;">How Quarterback works</div>
+    <h2 style="margin: 0 0 20px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1.1; font-weight: 400; color: #F4F1EA;">It wraps the coding agent you already use</h2>
+    <p style="margin: 0 0 54px 0; max-width: 780px; font-size: 19px; line-height: 1.6; color: #B4BEB9;">Today you hand a task to a coding agent, read what it did, test it, ask for fixes and check again. Quarterback does the checking and fixing rounds, then hands back a proposed change and its evidence for you to approve.</p>
 
     <div style="display: flex; flex-direction: column; gap: 1px; background: #262E2B; border: 1px solid #262E2B; border-radius: 6px;">
 
       <div class="qb-loop-row" style="background: #0D100F; padding: 34px 38px; display: flex; gap: 34px; align-items: flex-start;">
         <div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #E08A4C; width: 34px; flex-shrink: 0; padding-top: 4px;">01</div>
-        <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Intent compiler</div>
-        <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #B4BEB9;">A deterministic ambiguity filter runs first — a regex rule engine that intercepts vague patterns at 0ms, before a model is ever called. When the request is clear, a local LLM (DeepSeek-R1 via Ollama) produces a structured task contract: goal, required behavior, constraints, acceptance criteria and a verification plan, which you review and approve. This step runs locally: no API key, no cloud, no per-call cost.</div>
+        <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Understands the request</div>
+        <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #B4BEB9;">Before any code is written, Quarterback turns your request into a short list of requirements and checks. A vague request gets a clarifying question instead of a guess. You review and approve the list. This step runs on your machine with a local model: no API key, no cloud, no per-call cost.</div>
       </div>
 
       <div class="qb-loop-row" style="background: #0D100F; padding: 34px 38px; display: flex; gap: 34px; align-items: flex-start;">
         <div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #E08A4C; width: 34px; flex-shrink: 0; padding-top: 4px;">02</div>
-        <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Context engine</div>
-        <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #B4BEB9;">The contract is grounded in the actual codebase. A deterministic pass extracts exported symbols, traces import graphs two levels deep, identifies test files for affected areas, detects framework and architecture patterns, and surfaces git activity on changed files. An LLM pass then ranks the top files and writes an agent brief — or is skipped entirely for a fast, fully offline run.</div>
+        <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Finds the relevant code</div>
+        <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #B4BEB9;">It reads your repository to find the files, functions and tests the task touches, so the coding agent starts with the right context instead of searching blind.</div>
       </div>
 
       <div class="qb-loop-row" style="background: #0D100F; padding: 34px 38px; display: flex; gap: 34px; align-items: flex-start;">
         <div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #E08A4C; width: 34px; flex-shrink: 0; padding-top: 4px;">03</div>
-        <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Execution and observability</div>
-        <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #B4BEB9;">The approved contract goes to Claude Code, which runs in an isolated Docker sandbox whose only network route is to its own API. Quarterback captures exactly what changed. Adapters for other agents are on the roadmap.</div>
+        <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Runs the agent safely</div>
+        <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #B4BEB9;">Claude Code does the work inside an isolated sandbox. It cannot change your files, and it cannot reach the internet except its own service. Quarterback records exactly what changed. Support for other agents is planned.</div>
       </div>
 
       <div class="qb-loop-row" style="background: #0D100F; padding: 34px 38px; display: flex; gap: 34px; align-items: flex-start;">
         <div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #6FBF9F; width: 34px; flex-shrink: 0; padding-top: 4px;">04</div>
-        <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Independent verification</div>
-        <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #B4BEB9;">The implementation is checked against the original contract — by a different model, with different context and a different strategy. Deterministic evidence first, judgment second.</div>
+        <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Checks the result</div>
+        <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #B4BEB9;">The change is checked against the requirements you approved: first by running your tests and the approved checks, then by a separate reviewer model for what tests cannot answer.</div>
       </div>
 
       <div class="qb-loop-row" style="background: #0D100F; padding: 34px 38px; display: flex; gap: 34px; align-items: flex-start;">
         <div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #6FBF9F; width: 34px; flex-shrink: 0; padding-top: 4px;">05</div>
-        <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Automatic repair</div>
-        <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #B4BEB9;">A failed criterion becomes a precise repair package and goes straight back to the agent. Quarterback stops instead of retrying when a repair makes no progress.</div>
+        <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Asks for fixes</div>
+        <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #B4BEB9;">If a check fails, the agent gets a specific instruction to fix it. Quarterback stops instead of looping when a fix makes no progress.</div>
       </div>
 
       <div class="qb-loop-row" style="background: #0D100F; padding: 34px 38px; display: flex; gap: 34px; align-items: flex-start;">
         <div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #6FBF9F; width: 34px; flex-shrink: 0; padding-top: 4px;">06</div>
-        <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Memory</div>
-        <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #B4BEB9;">Repairs that led to an approved pass are kept as project memory and suggested for similar future tasks; suggestions that never led to a pass are labelled as unproven.</div>
+        <div class="qb-loop-title" style="width: 250px; flex-shrink: 0; font-size: 21px; font-weight: 600; color: #F4F1EA;">Remembers what worked</div>
+        <div style="flex-grow: 1; font-size: 17px; line-height: 1.65; color: #B4BEB9;">Fixes that led to an approved result are remembered and suggested for similar tasks later. Suggestions that never led to a pass are labelled as unproven.</div>
       </div>
 
     </div>
