@@ -51,7 +51,7 @@
     <div style="max-width: 1180px; margin: 0 auto;">
       <div style="font-family:'IBM Plex Mono',monospace; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #E08A4C; margin-bottom: 24px;">Engineering receipts</div>
       <h1 style="margin: 0 0 22px 0; font-family: 'Instrument Serif', Georgia, serif; font-size: 72px; line-height: 1.05; font-weight: 400; color: #F4F1EA;">Review findings fixed in public</h1>
-      <p style="margin: 0 0 44px 0; max-width: 820px; font-size: 19px; line-height: 1.6; color: #B4BEB9;">We wrote a hard internal engineering review of our own code, then started fixing what it found in public. Each card links to the test, experiment or document behind it, and names where it was measured. Accepted work has regression coverage and CI across Node 20, 22 and 24, plus Docker integration tests. For evaluation results, see <a href="./research.html" style="color: #6FBF9F; text-decoration: none; border-bottom: 1px solid rgba(111,191,159,0.4);">evaluation</a>.</p>
+      <p style="margin: 0 0 44px 0; max-width: 820px; font-size: 19px; line-height: 1.6; color: #B4BEB9;">We wrote a hard internal engineering review of our own code, then started fixing what it found in public. Each card links to the test, experiment or document behind it, and names where it was measured. “Accepted” means accepted in the project’s internal review, which is AI-assisted; it is not independent validation. Accepted work has regression coverage and CI across Node 20, 22 and 24, plus Docker integration tests. For evaluation results, see <a href="./research.html" style="color: #6FBF9F; text-decoration: none; border-bottom: 1px solid rgba(111,191,159,0.4);">evaluation</a>.</p>
 
         <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px;">
     
@@ -59,7 +59,7 @@
             <div style="font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1; color: #6FBF9F; margin-bottom: 12px;">0 escapes</div>
             <div style="font-size: 18px; font-weight: 600; color: #F4F1EA; margin-bottom: 8px;">A hostile agent, boxed in</div>
             <div style="font-size: 16px; line-height: 1.6; color: #A7B0AB; margin-bottom: 16px;">It tried to write files on the host, reach a forbidden site, and gut the tests so broken code would pass. All three were denied, the user's checkout stayed byte-identical, and the verdict was still FAIL.</div>
-            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #E08A4C;">Pre-release · Linux CI green · senior-accepted (QB-02)</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #E08A4C;">Pre-release · Linux CI green · accepted in internal review (QB-02)</div>
           </a>
     
           <a href="https://github.com/arshad8049/quaterback/blob/main/spikes/qb-02/e3-network/results/e3-20261002T221147Z-2455/results.md" style="display: block; text-decoration: none; padding: 30px 32px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
@@ -80,7 +80,7 @@
             <div style="font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1; color: #6FBF9F; margin-bottom: 12px;">Byte-exact</div>
             <div style="font-size: 18px; font-weight: 600; color: #F4F1EA; margin-bottom: 8px;">What the agent changed, exactly</div>
             <div style="font-size: 16px; line-height: 1.6; color: #A7B0AB; margin-bottom: 16px;">Every change type round-trips exactly: CRLF, binary, symlinks, executable bits, deletions, file↔folder swaps, even files hidden by .gitignore. Anything we can't capture faithfully can never be approved.</div>
-            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #E08A4C;">Pre-release · Linux CI green · senior-accepted (QB-03)</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #E08A4C;">Pre-release · Linux CI green · accepted in internal review (QB-03)</div>
           </a>
     
           <a href="https://github.com/arshad8049/quaterback/blob/main/spikes/qb-02/e1-auth/results/e1-probe-20261002T222747Z/results.md" style="display: block; text-decoration: none; padding: 30px 32px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
@@ -91,9 +91,9 @@
           </a>
     
           <a href="https://github.com/arshad8049/quaterback/blob/main/docs/review/issue-register.md" style="display: block; text-decoration: none; padding: 30px 32px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
-            <div style="font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1; color: #6FBF9F; margin-bottom: 12px;">35 / 38</div>
+            <div style="font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1; color: #6FBF9F; margin-bottom: 12px;">36 / 38</div>
             <div style="font-size: 18px; font-weight: 600; color: #F4F1EA; margin-bottom: 8px;">Review findings fixed and accepted</div>
-            <div style="font-size: 16px; line-height: 1.6; color: #A7B0AB; margin-bottom: 16px;">35 of the original 38 engineering findings are fixed and accepted in internal review. Each fix landed with a failing test written before it. Three remain open and tracked in public: the controlled evaluation (QB-30), the fresh-machine onboarding walkthrough (QB-31) and public claims (QB-37).</div>
+            <div style="font-size: 16px; line-height: 1.6; color: #A7B0AB; margin-bottom: 16px;">36 of the original 38 engineering findings are fixed and accepted in internal review. Each fix landed with a failing test written before it. Two remain open and tracked in public: the controlled evaluation (QB-30) and public claims (QB-37).</div>
             <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6FBF9F;">Phases 0–3 and 5 on main · Phase 4 on its branch</div>
           </a>
     
@@ -101,84 +101,84 @@
             <div style="font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1; color: #6FBF9F; margin-bottom: 12px;">3 / 3</div>
             <div style="font-size: 18px; font-weight: 600; color: #F4F1EA; margin-bottom: 8px;">Known false passes, closed</div>
             <div style="font-size: 16px; line-height: 1.6; color: #A7B0AB; margin-bottom: 16px;">Our review found three ways a broken change could still be marked PASS: a task that was only a question, a judge’s “not implemented” read as a yes, and a crashed test run read as green. All three are now permanent tests, and none of them can pass.</div>
-            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6FBF9F;">Senior-accepted · QB-06, QB-07, QB-08</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6FBF9F;">Accepted (internal review) · QB-06, QB-07, QB-08</div>
           </a>
     
           <a href="https://github.com/arshad8049/quaterback/blob/main/test/unit/run-store.test.js" style="display: block; text-decoration: none; padding: 30px 32px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
             <div style="font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1; color: #6FBF9F; margin-bottom: 12px;">Every run</div>
             <div style="font-size: 18px; font-weight: 600; color: #F4F1EA; margin-bottom: 8px;">Replayable from its own evidence</div>
             <div style="font-size: 16px; line-height: 1.6; color: #A7B0AB; margin-bottom: 16px;">Each run keeps a versioned record: the exact starting commit, the agent version, the test report and the checks. Replaying it recomputes the verdict, and a record whose outcome its evidence does not support is flagged.</div>
-            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6FBF9F;">Senior-accepted · QB-38</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6FBF9F;">Accepted (internal review) · QB-38</div>
           </a>
     
           <a href="https://github.com/arshad8049/quaterback/blob/main/docs/verify/test-oracle.md" style="display: block; text-decoration: none; padding: 30px 32px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
             <div style="font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1; color: #6FBF9F; margin-bottom: 12px;">Approved first</div>
             <div style="font-size: 18px; font-weight: 600; color: #F4F1EA; margin-bottom: 8px;">No run without a signed-off contract</div>
             <div style="font-size: 16px; line-height: 1.6; color: #A7B0AB; margin-bottom: 16px;">Coding-agent runs require an approved contract. Changing the contract requires approval again. Requirement tracing catches omitted instructions, including missing negation, before execution.</div>
-            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6FBF9F;">Accepted · QB-13, QB-14</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6FBF9F;">Accepted (internal review) · QB-13, QB-14</div>
           </a>
     
           <a href="https://github.com/arshad8049/quaterback/blob/main/docs/verify/executable-checks.md" style="display: block; text-decoration: none; padding: 30px 32px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
             <div style="font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1; color: #6FBF9F; margin-bottom: 12px;">Executed</div>
             <div style="font-size: 18px; font-weight: 600; color: #F4F1EA; margin-bottom: 8px;">Behaviour is tested, not guessed</div>
             <div style="font-size: 16px; line-height: 1.6; color: #A7B0AB; margin-bottom: 16px;">Behavioral requirements are checked through executable tests in the sandbox. Protected-file edits fail scope checks.</div>
-            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6FBF9F;">Accepted · QB-09, QB-16</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6FBF9F;">Accepted (internal review) · QB-09, QB-16</div>
           </a>
     
           <a href="https://github.com/arshad8049/quaterback/blob/main/docs/verify/evidence.md" style="display: block; text-decoration: none; padding: 30px 32px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
             <div style="font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1; color: #6FBF9F; margin-bottom: 12px;">Traceable</div>
             <div style="font-size: 18px; font-weight: 600; color: #F4F1EA; margin-bottom: 8px;">The judge shows its evidence</div>
             <div style="font-size: 16px; line-height: 1.6; color: #A7B0AB; margin-bottom: 16px;">The judge receives traceable evidence, including supported unchanged helpers. Known missing material evidence prevents a positive judgment from passing.</div>
-            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6FBF9F;">Accepted · QB-11, QB-12</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6FBF9F;">Accepted (internal review) · QB-11, QB-12</div>
           </a>
     
           <a href="https://github.com/arshad8049/quaterback/blob/main/docs/verify/calibration.md" style="display: block; text-decoration: none; padding: 30px 32px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
             <div style="font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1; color: #6FBF9F; margin-bottom: 12px;">1 judgment</div>
             <div style="font-size: 18px; font-weight: 600; color: #F4F1EA; margin-bottom: 8px;">No rerolling until it passes</div>
             <div style="font-size: 16px; line-height: 1.6; color: #A7B0AB; margin-bottom: 16px;">Repeated and concurrent verification of identical evidence reuses one cached judgment instead of resampling until it passes.</div>
-            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6FBF9F;">Accepted · QB-15</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6FBF9F;">Accepted (internal review) · QB-15</div>
           </a>
     
           <a href="https://github.com/arshad8049/quaterback/blob/main/docs/intent/grounding.md" style="display: block; text-decoration: none; padding: 30px 32px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
             <div style="font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1; color: #6FBF9F; margin-bottom: 12px;">Grounded</div>
             <div style="font-size: 18px; font-weight: 600; color: #F4F1EA; margin-bottom: 8px;">Unclear requests stay blocked</div>
             <div style="font-size: 16px; line-height: 1.6; color: #A7B0AB; margin-bottom: 16px;">Requests are grounded in repository context. Unresolved choices and incomplete numeric targets stay blocked.</div>
-            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6FBF9F;">Accepted · QB-17</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6FBF9F;">Accepted (internal review) · QB-17</div>
           </a>
     
           <a href="https://github.com/arshad8049/quaterback/blob/main/docs/verify/calibration.md" style="display: block; text-decoration: none; padding: 30px 32px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
             <div style="font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1; color: #6FBF9F; margin-bottom: 12px;">13 patches</div>
             <div style="font-size: 18px; font-weight: 600; color: #F4F1EA; margin-bottom: 8px;">A judge graded against human labels</div>
             <div style="font-size: 16px; line-height: 1.6; color: #A7B0AB; margin-bottom: 16px;">Initial judge calibration covers 13 human-labeled patches. It measures false approvals, false rejections and abstentions separately; it does not establish production accuracy.</div>
-            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6FBF9F;">Accepted · QB-15 · initial calibration</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6FBF9F;">Accepted (internal review) · QB-15 · initial calibration</div>
           </a>
     
           <a href="https://github.com/arshad8049/quaterback/blob/main/docs/verify/deadlines.md" style="display: block; text-decoration: none; padding: 30px 32px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
             <div style="font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1; color: #6FBF9F; margin-bottom: 12px;">Deadlines</div>
             <div style="font-size: 18px; font-weight: 600; color: #F4F1EA; margin-bottom: 8px;">Runs that cannot hang</div>
             <div style="font-size: 16px; line-height: 1.6; color: #A7B0AB; margin-bottom: 16px;">Every model call and every run has a deadline. A cancelled run stops its sandbox and records the stage it interrupted. Usage records mark unreported tokens and agent cost as unknown, never as zero.</div>
-            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6FBF9F;">Accepted · QB-21</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6FBF9F;">Accepted (internal review) · QB-21</div>
           </a>
     
           <a href="https://github.com/arshad8049/quaterback/blob/main/docs/memory/repairs.md" style="display: block; text-decoration: none; padding: 30px 32px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
             <div style="font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1; color: #6FBF9F; margin-bottom: 12px;">Proven only</div>
             <div style="font-size: 18px; font-weight: 600; color: #F4F1EA; margin-bottom: 8px;">Memory keeps fixes that actually worked</div>
             <div style="font-size: 16px; line-height: 1.6; color: #A7B0AB; margin-bottom: 16px;">A repair is recorded as proven only when the hinted criterion passes on a changed patch and the run ends in an approved PASS.</div>
-            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6FBF9F;">Accepted · QB-23</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6FBF9F;">Accepted (internal review) · QB-23</div>
           </a>
     
           <a href="https://github.com/arshad8049/quaterback/blob/main/docs/context/symbols.md" style="display: block; text-decoration: none; padding: 30px 32px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
             <div style="font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1; color: #6FBF9F; margin-bottom: 12px;">Parsed</div>
             <div style="font-size: 18px; font-weight: 600; color: #F4F1EA; margin-bottom: 8px;">Code symbols, located exactly</div>
             <div style="font-size: 16px; line-height: 1.6; color: #A7B0AB; margin-bottom: 16px;">JavaScript symbols are indexed with a parser, with qualified IDs and real source spans. Syntax it cannot index is reported, not dropped.</div>
-            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6FBF9F;">Accepted · QB-19</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6FBF9F;">Accepted (internal review) · QB-19</div>
           </a>
     
           <a href="https://github.com/arshad8049/quaterback/blob/main/docs/context/retrieval.md" style="display: block; text-decoration: none; padding: 30px 32px; background: #121615; border: 1px solid #262E2B; border-radius: 6px;">
             <div style="font-family: 'Instrument Serif', Georgia, serif; font-size: 56px; line-height: 1; color: #6FBF9F; margin-bottom: 12px;">Bounded depth</div>
             <div style="font-size: 18px; font-weight: 600; color: #F4F1EA; margin-bottom: 8px;">Context that follows the code</div>
             <div style="font-size: 16px; line-height: 1.6; color: #A7B0AB; margin-bottom: 16px;">Context retrieval ranks files by symbols and content, follows imports and callers to a bounded depth, refreshes after each attempt, and records what it left out.</div>
-            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6FBF9F;">Accepted · QB-18</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6FBF9F;">Accepted (internal review) · QB-18</div>
           </a>
         </div>
     </div>
