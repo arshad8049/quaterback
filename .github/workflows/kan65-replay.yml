@@ -1,0 +1,85 @@
+name: kan65-replay
+
+# KAN-65: QB's production pipeline replayed on the frozen Fastify screen tasks with the agent
+# replaced by a FIXED patch (base, the known-correct reference, each known-incorrect
+# implementation), applied inside the real sandbox. No model and no secrets: L2 and the judge
+# run without an LLM, so every routing decision comes from the repository's own tests and the
+# frozen checks. One job per task; each replay's summary is an annotation and its full
+# per-attempt evidence (qb-kan65-replay/1) is uploaded as an artifact.
+
+on:
+  push:
+    branches: [qb30-gh-runner]
+    paths: ['.github/workflows/kan65-replay.yml', 'scripts/kan65-replay.js', 'bench/screen/**', 'bench/repos/**', 'verify/**', 'lib/**']
+  workflow_dispatch:
+    inputs:
+      tasks:
+        description: 'Task ids (JSON list), e.g. ["FY-03","FY-04"]; empty = all screen tasks'
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '24.21.0'
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      tasks: ${{ steps.t.outputs.tasks }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: t
+        run: |
+          if [ -n '${{ inputs.tasks }}' ]; then echo 'tasks=${{ inputs.tasks }}' >> "$GITHUB_OUTPUT"
+          else echo "tasks=$(ls bench/screen/specs | grep -E '^FY-[0-9]+\.json$' | sed 's/.json//' | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.stringify(s.trim().split("\n"))))')" >> "$GITHUB_OUTPUT"; fi
+
+  replay:
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        task: ${{ fromJSON(needs.plan.outputs.tasks) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '${{ env.NODE_VERSION }}' }
+      - name: Free disk
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL; df -h /
+      - run: npm ci
+      - name: Exact commit, clean tree
+        run: |
+          git status --porcelain | grep . && { echo "::error::checkout is dirty"; exit 1; } || true
+          echo "::notice title=QB commit::$(git rev-parse HEAD)"
+      - name: Build the sandbox images
+        run: node -e "(async()=>{await require('./lib/sandbox/agent').ensureAgentImage();await require('./lib/sandbox/egress').ensureProxyImage();await require('./lib/sandbox/workspace').ensureToolsImage();})()"
+      - name: Build this task's repository
+        run: |
+          [ -f bench/package-lock.json ] && npm ci --prefix bench
+          name=$(node -e "console.log(require('./bench/screen/specs/${{ matrix.task }}.json').repo.source.replace('qb-bench:',''))")
+          node bench/repos.js build "$name" > "$RUNNER_TEMP/repos.log" 2>&1 || { echo "::error title=repos build failed::$(tail -15 "$RUNNER_TEMP/repos.log" | sed 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}')"; exit 1; }
+          base=$(tail -1 "$RUNNER_TEMP/repos.log" | awk '{print $2}')
+          want=$(node -e "console.log(require('./bench/screen/specs/${{ matrix.task }}.json').repo.base_rev)")
+          [ "$base" = "$want" ] || { echo "::error title=base_rev mismatch::built $base, spec pins $want"; exit 1; }
+          echo "::notice title=${{ matrix.task }} base::$name $base (matches the frozen spec)"
+      - name: Replay base, reference and every incorrect implementation
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          for kind in base reference $(ls bench/screen/curation/${{ matrix.task }}/incorrect | sed 's/^/incorrect:/'); do
+            log="$RUNNER_TEMP/out/log-$(echo $kind | tr : -).txt"
+            node scripts/kan65-replay.js "${{ matrix.task }}" "$kind" --out "$RUNNER_TEMP/out" > "$log" 2>&1
+            line=$(grep -E "^FY-|ERROR" "$log" | head -1 | cut -c1-900)
+            case "$line" in *ERROR*|'') echo "::error title=${{ matrix.task }} $kind::$(tail -15 "$log" | sed 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}')" ;;
+              *) echo "::notice title=${{ matrix.task }} $kind::$line" ;; esac
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kan65-replay-${{ matrix.task }}
+          path: ${{ runner.temp }}/out
+          retention-days: 30
