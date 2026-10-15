@@ -1,0 +1,134 @@
+Quarterback — real run captured for the website hero, 2026-10-15 (UTC)
+QB revision: 3fc08fd202c9e6c103594d124722744d4659b044 (main, after merging the accepted KAN-66 and KAN-68 fixes; clean checkout)
+Agent: claude-code@2.1.288 in QB's Docker sandbox; local models: deepseek-r1:7b (context, judge)
+Machine: macOS, Docker Engine 28.1.1, Node 20.20.2
+Edits to this log: local paths shortened (~/demo = the sample repository's folder, ~/.qb = QB's run store). Command lines ($ …) are written by the capturer; <request> is the request shown in the output. Nothing else changed.
+
+==== Where the contract came from ====
+On main (3fc08fd), the local model did not produce a usable contract for this request in 22 attempts (22 rejected by QB as invalid or non-JSON;
+most often constraints naming checks that do not exist, e.g. "CHECK-1" when the checks are CHK-1). QB rejected each one; nothing ran.
+This run therefore uses the contract the local model compiled on 2026-10-14 (QB build 850c282; see evidence/2026-10-14-hero-run/hero-run.log, step 1),
+reviewed and edited by the owner before approval:
+  scope.allowed_changes = ["src/duration.js"]  (as compiled: none, so no change could pass)
+  constraint 0 -> enforced by allowed_changes; constraint 1 -> enforced by check CHK-2; constraint 2 -> advisory
+Contract file sha256: baa7c3f237de580837900393835902d0039a54279581f3070640d2a95b9f22ad  (QB's --contract-file flow: the human-reviewed contract is the test oracle)
+
+==== Sample repository ====
+src/duration.js before the run:
+'use strict';
+
+/** Formats a duration in milliseconds for the status line, e.g. 90000 -> "1m 30s". */
+function formatDuration(ms) {
+  const minutes = Math.floor(ms / 60000);
+  const seconds = Math.floor((ms % 60000) / 1000);
+  return `${minutes}m ${seconds}s`;
+}
+
+module.exports = { formatDuration };
+test/duration.test.js:
+'use strict';
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const { formatDuration } = require('../src/duration');
+
+test('minutes and seconds', () => {
+  assert.equal(formatDuration(90000), '1m 30s');
+});
+
+==== First attempt (blocked by QB's own run lock while benchmark replays were running) ====
+$ qb "<request>" --repo ~/demo/hero-demo --agent claude-code --contract-file ~/demo/hero-demo-contract.json
+
+════════════════════════════════════════════════════════════════════════
+  QUARTERBACK
+  Request: "formatDuration should show durations under one minute as seconds only, for example 30000 ms as "30s" instead of "0m 30s". Durations of one minute or more keep the current format."
+  Repo:    ~/demo/hero-demo
+  Agent:   claude-code  (sandboxed: docs/security/agent-sandbox.md)
+════════════════════════════════════════════════════════════════════════
+
+  [RUN]  5c931bc6-b513-4e1b-ae11-6fed37617a87  (~/.qb/runs/5c931bc6-b513-4e1b-ae11-6fed37617a87)
+  [L5]   Memory: 1 similar past run(s) on this repo
+     ✓ [pass] "Modify the formatDuration function to show durations un"  changed: src/duration.js
+  [L1]   Intent compiler...
+  [L1]   Using the reviewed contract file ~/demo/hero-demo-contract.json (sha256 baa7c3f237de)
+  [L1]   Contract ready  (6ms)
+     Goal: Modify the formatDuration function to show durations under one minute as seconds only, e.g. 30000 ms as "30s" instead of "0m 30s". Durations of one minute or more keep the current format.
+     ACs:  2
+  [L1]   Oracle approved (contract-file); frozen as 96682f70adb8
+  [L5]   Memory: 1 file hint(s) for L2
+     ↑ src/duration.js  (changed for an AMBIGUOUS-intent task — lexical hint only (sim=0.50))
+  [L2]   Context engine...
+  [L2]   Context ready  (30657ms)
+     2 files, 1 symbols
+  [L3]   L3 Agent...
+  [L3]   Execution done  (50062ms)  status=blocked
+
+  ✗ Blocked: run_in_progress
+
+==== The run (replays paused) ====
+$ qb "<request>" --repo ~/demo/hero-demo --agent claude-code --contract-file ~/demo/hero-demo-contract.json
+
+════════════════════════════════════════════════════════════════════════
+  QUARTERBACK
+  Request: "formatDuration should show durations under one minute as seconds only, for example 30000 ms as "30s" instead of "0m 30s". Durations of one minute or more keep the current format."
+  Repo:    ~/demo/hero-demo
+  Agent:   claude-code  (sandboxed: docs/security/agent-sandbox.md)
+════════════════════════════════════════════════════════════════════════
+
+  [RUN]  e01b3273-1737-4ca6-8f0a-5a172f4e74e6  (~/.qb/runs/e01b3273-1737-4ca6-8f0a-5a172f4e74e6)
+  [L5]   Memory: 1 similar past run(s) on this repo
+     ✓ [pass] "Modify the formatDuration function to show durations un"  changed: src/duration.js
+  [L1]   Intent compiler...
+  [L1]   Using the reviewed contract file ~/demo/hero-demo-contract.json (sha256 baa7c3f237de)
+  [L1]   Contract ready  (7ms)
+     Goal: Modify the formatDuration function to show durations under one minute as seconds only, e.g. 30000 ms as "30s" instead of "0m 30s". Durations of one minute or more keep the current format.
+     ACs:  2
+  [L1]   Oracle approved (contract-file); frozen as 96682f70adb8
+  [L5]   Memory: 1 file hint(s) for L2
+     ↑ src/duration.js  (changed for an AMBIGUOUS-intent task — lexical hint only (sim=0.50))
+  [L2]   Context engine...
+  [L2]   Context ready  (31639ms)
+     2 files, 1 symbols
+  [L3]   L3 Agent...
+  [L3]   Execution done  (79470ms)  status=completed
+     src/duration.js                        +2 -1
+  [L4]   Verification...
+  [L4]   Verdict: ✓ PASS  (82ms)
+     ✓ [AC-1] formatDuration(30000) should return "30s"
+     ✓ [AC-2] formatDuration(90000) should return "1m 30s"
+  [L5]   Memory updated  (2 run(s), 1 file(s) tracked)
+
+════════════════════════════════════════════════════════════════════════
+  RESULT: ✓ PASS
+  Attempts: 1 / 3
+  Total time: 111.4s
+  Run:      e01b3273-1737-4ca6-8f0a-5a172f4e74e6  outcome=VERIFIED
+
+  All 2 acceptance criteria met.
+  1 file(s) changed.
+
+════════════════════════════════════════════════════════════════════════
+
+
+==== The proposed patch (run artifact; not applied to the repository) ====
+diff --git a/src/duration.js b/src/duration.js
+index fee990eb3b008c893f32b9fb90197b7f11c7933c..83a51b4286f29c97e3e26232595ea8a79533261c 100644
+--- a/src/duration.js
++++ b/src/duration.js
+@@ -1,9 +1,10 @@
+ 'use strict';
+ 
+-/** Formats a duration in milliseconds for the status line, e.g. 90000 -> "1m 30s". */
++/** Formats a duration in milliseconds for the status line, e.g. 90000 -> "1m 30s", 30000 -> "30s". */
+ function formatDuration(ms) {
+   const minutes = Math.floor(ms / 60000);
+   const seconds = Math.floor((ms % 60000) / 1000);
++  if (minutes === 0) return `${seconds}s`;
+   return `${minutes}m ${seconds}s`;
+ }
+ 
+
+==== Replay of the stored run record ====
+$ qb replay e01b3273-1737-4ca6-8f0a-5a172f4e74e6
+  attempt 1: recorded=pass replayed=pass OK
+  final: outcome=VERIFIED legacy=pass replayed=pass expected=VERIFIED OK
+  outcome=VERIFIED  reproduced
