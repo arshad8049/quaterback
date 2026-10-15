@@ -62,20 +62,21 @@
   <script src="./src/scripts/dc-runtime.js"></script>
 </head>
 <body>
+<a class="qb-skip" href="#main">Skip to content</a>
 <div style="width: 100%; background: #0D100F; color: #F4F1EA; font-family: 'IBM Plex Sans', 'Helvetica Neue', sans-serif; -webkit-font-smoothing: antialiased;">
 
   <!-- ============================================================ -->
   <!-- SECTION: NAV → edit: src/nav.html -->
   <!-- ============================================================ -->
   <!-- NAV -->
-  <div class="qb-nav" style="display: flex; align-items: center; justify-content: space-between; padding: 16px 80px; border-bottom: 1px solid rgba(34,42,39,0.8);">
+  <nav class="qb-nav" aria-label="Main" style="display: flex; align-items: center; justify-content: space-between; padding: 16px 80px; border-bottom: 1px solid rgba(34,42,39,0.8);">
     <div style="display: flex; align-items: center; gap: 14px;">
       <a href="/" class="qb-logo-link" style="display: flex; align-items: center; gap: 11px; text-decoration: none;">
         <img src="./logo.png" alt="Quarterback" width="30" height="30" style="border-radius: 7px; display: block; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.5);">
         <span style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600; letter-spacing: 0.02em; color: #F4F1EA;">Quarterback</span>
       </a>
-      <span style="font-size: 12px; color: #4A5652;">by</span>
-      <a href="https://velorallc.netlify.app/" target="_blank" rel="noopener noreferrer" style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: #6E7A76; text-decoration: none;" class="qb-velora-link">Velora</a>
+      <span style="font-size: 12px; color: #858F8A;">by</span>
+      <a href="https://velorallc.netlify.app/" target="_blank" rel="noopener noreferrer" style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: #A7B0AB; text-decoration: none;" class="qb-velora-link">Velora</a>
     </div>
     <button class="qb-nav-toggle" aria-label="Open navigation menu" aria-expanded="false">
       <span></span><span></span><span></span>
@@ -87,7 +88,7 @@
       <a href="#verification" class="qb-nav-link" style="font-size: 14px; color: #A7B0AB; text-decoration: none;">Verification</a>
       <a href="./engineering.html" class="qb-nav-link" style="font-size: 14px; color: #A7B0AB; text-decoration: none;">Engineering</a>
       <a href="./research.html" class="qb-nav-link" style="font-size: 14px; color: #6FBF9F; text-decoration: none;">Evaluation →</a>
-      <a href="https://github.com/arshad8049/quaterback" target="_blank" rel="noopener noreferrer" class="qb-github-link" style="display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 14px; border: 1px solid #2E3C38; border-radius: 7px; text-decoration: none; color: #A7B0AB; font-size: 13px; font-family: 'IBM Plex Mono', monospace; transition: border-color 0.18s, color 0.18s;" aria-label="GitHub repository">
+      <a href="https://github.com/arshad8049/quaterback" target="_blank" rel="noopener noreferrer" class="qb-github-link" aria-label="Quarterback on GitHub" style="display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 14px; border: 1px solid #2E3C38; border-radius: 7px; text-decoration: none; color: #A7B0AB; font-size: 13px; font-family: 'IBM Plex Mono', monospace; transition: border-color 0.18s, color 0.18s;" aria-label="GitHub repository">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.009-.868-.014-1.703-2.782.604-3.369-1.341-3.369-1.341-.454-1.154-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0 1 12 6.836a9.59 9.59 0 0 1 2.504.337c1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.202 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.579.688.481C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg>
         <span id="qb-star-count" style="display:inline-flex;align-items:center;gap:4px;">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="opacity:0.6" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
@@ -96,12 +97,13 @@
       </a>
       <a href="#beta" class="qb-cta-btn" style="display: inline-flex; align-items: center; height: 38px; padding: 0 18px; border: 1px solid rgba(224,138,76,0.7); border-radius: 8px; font-size: 14px; font-weight: 500; color: #E08A4C; text-decoration: none; letter-spacing: 0.01em;">Request early access</a>
     </div>
-  </div>
+  </nav>
 
 
   <!-- ============================================================ -->
   <!-- SECTION: HERO → edit: src/hero.html -->
   <!-- ============================================================ -->
+  <main id="main" tabindex="-1">
   <!-- HERO -->
   <div style="position: relative; overflow: hidden; padding: 128px 80px 104px 80px;">
   
@@ -248,7 +250,7 @@
       </div>
       <figure class="qb-term qb-reveal" style="margin: 0; transition-delay: 0.2s;" aria-label="Terminal output from a real Quarterback run">
         <div class="qb-term-bar" aria-hidden="true"><span class="qb-term-dot"></span><span class="qb-term-dot"></span><span class="qb-term-dot"></span></div>
-        <pre><span style="color:#E08A4C">$ qb "formatDuration should show durations under one minute as seconds only, …" --contract-file contract.json</span>  <span style="color:#5E6863"># command abbreviated</span>&#10;[L1]   Using the reviewed contract file ~/demo/hero-demo-contract.json (sha256 baa7c3f237de)&#10;[L1]   Oracle approved (contract-file); frozen as 96682f70adb8&#10;[L2]   Context ready  (31639ms)&#10;[L3]   Execution done  (79470ms)  status=completed&#10;   src/duration.js                        +2 -1&#10;<span style="color:#6FBF9F">[L4]   Verdict: ✓ PASS  (82ms)</span>&#10;<span style="color:#6FBF9F">   ✓ [AC-1] formatDuration(30000) should return "30s"</span>&#10;<span style="color:#6FBF9F">   ✓ [AC-2] formatDuration(90000) should return "1m 30s"</span>&#10;<span style="color:#5E6863">…</span>&#10;<span style="color:#6FBF9F">RESULT: ✓ PASS</span>&#10;Attempts: 1 / 3&#10;Total time: 111.4s</pre>
+        <pre><span style="color:#E08A4C">$ qb "formatDuration should show durations under one minute as seconds only, …" --contract-file contract.json</span>  <span style="color:#858F8A"># command abbreviated</span>&#10;[L1]   Using the reviewed contract file ~/demo/hero-demo-contract.json (sha256 baa7c3f237de)&#10;[L1]   Oracle approved (contract-file); frozen as 96682f70adb8&#10;[L2]   Context ready  (31639ms)&#10;[L3]   Execution done  (79470ms)  status=completed&#10;   src/duration.js                        +2 -1&#10;<span style="color:#6FBF9F">[L4]   Verdict: ✓ PASS  (82ms)</span>&#10;<span style="color:#6FBF9F">   ✓ [AC-1] formatDuration(30000) should return "30s"</span>&#10;<span style="color:#6FBF9F">   ✓ [AC-2] formatDuration(90000) should return "1m 30s"</span>&#10;<span style="color:#858F8A">…</span>&#10;<span style="color:#6FBF9F">RESULT: ✓ PASS</span>&#10;Attempts: 1 / 3&#10;Total time: 111.4s</pre>
         <figcaption class="qb-term-cap">Real run, October 15, 2026: Claude Code 2.1.288 in Quarterback’s Docker sandbox on a two-file sample project, at Quarterback’s current main (3fc08fd). The contract was compiled by the local model on October 14 and reviewed before approval; the reviewer added the allowed file and constraint checks. On main the local model did not produce a usable contract for this request in 22 attempts, so this run uses that reviewed contract. The patch is proposed, not applied. The command line is abbreviated; output lines are copied from the run, with a cut marked “…”. <a href="./evidence/2026-10-15-hero-run/hero-run.log" style="color: #6FBF9F; text-decoration: none; border-bottom: 1px solid rgba(111,191,159,0.4);">Full log →</a></figcaption>
       </figure>
     </div>
@@ -284,8 +286,8 @@
     </div>
   
     <div style="max-width: 1180px; margin: 0 auto; padding-bottom: 22px; border-top: 1px solid #1A211E;">
-      <p style="margin: 16px 0 0 0; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #4A5450; letter-spacing: 0.06em;">
-        Source: <a href="https://survey.stackoverflow.co/2025/ai#developer-tools-ai-complex-ai-complex-prof-exp" target="_blank" rel="noopener noreferrer" style="color: #4A5450; text-decoration: underline; text-underline-offset: 3px;">Stack Overflow 2025 AI Developer Survey</a> — 65,000+ professional developers surveyed.
+      <p style="margin: 16px 0 0 0; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #858F8A; letter-spacing: 0.06em;">
+        Source: <a href="https://survey.stackoverflow.co/2025/ai#developer-tools-ai-complex-ai-complex-prof-exp" target="_blank" rel="noopener noreferrer" style="color: #858F8A; text-decoration: underline; text-underline-offset: 3px;">Stack Overflow 2025 AI Developer Survey</a> — 65,000+ professional developers surveyed.
       </p>
     </div>
   </div>
@@ -668,9 +670,9 @@
             </div>
           </div>
         </div>
-        <div style="font-size: 24px; color: #3A4441; line-height: 1;">↓</div>
+        <div aria-hidden="true" style="font-size: 24px; color: #3A4441; line-height: 1;">↓</div>
         <div style="font-family: 'IBM Plex Mono', monospace; font-size: 19px; font-weight: 600; letter-spacing: 0.08em; color: #0D100F; background: #E08A4C; padding: 18px 40px; border-radius: 4px;">Quarterback</div>
-        <div style="font-size: 24px; color: #3A4441; line-height: 1;">↓</div>
+        <div aria-hidden="true" style="font-size: 24px; color: #3A4441; line-height: 1;">↓</div>
         <div style="display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; max-width: 900px;">
           <span style="font-size: 16px; color: #C6CFCB; padding: 12px 22px; background: #121615; border: 1px solid #262E2B; border-radius: 4px;">Approved requirements</span>
           <span style="font-size: 16px; color: #C6CFCB; padding: 12px 22px; background: #121615; border: 1px solid #262E2B; border-radius: 4px;">Project memory</span>
@@ -728,13 +730,14 @@
       </div>
     </div>
   </div>
+  </main>
 
 
   <!-- ============================================================ -->
   <!-- SECTION: FOOTER → edit: src/footer.html -->
   <!-- ============================================================ -->
   <!-- FOOTER -->
-  <div style="padding: 44px 80px; border-top: 1px solid #222A27; background: #0A0D0C;">
+  <footer style="padding: 44px 80px; border-top: 1px solid #222A27; background: #0A0D0C;">
     <div style="max-width: 1180px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
       <div style="display: flex; align-items: center; gap: 12px;">
         <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#E08A4C" stroke-width="1.6" aria-hidden="true"><path d="M2 10h5l2.2 5 3-11 2 6h3.8"></path></svg>
@@ -742,17 +745,15 @@
         <span style="font-size: 14px; color: #A7B0AB;">· the reliability layer for AI-written software · a <a href="https://velorallc.netlify.app/" target="_blank" rel="noopener" class="qb-velora-link" style="color: #A7B0AB; text-decoration: none; border-bottom: 1px solid rgba(138,148,143,0.35);">Velora</a> product</span>
       </div>
       <div style="display: flex; align-items: center; gap: 24px; flex-wrap: wrap;">
-        <a href="./privacy.html" style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #6E7A76; text-decoration: none; letter-spacing: 0.04em;">Privacy</a>
-        <a href="mailto:ashaik8.us@gmail.com" style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #6E7A76; text-decoration: none; letter-spacing: 0.04em;">Contact</a>
+        <a href="./privacy.html" style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #A7B0AB; text-decoration: none; letter-spacing: 0.04em;">Privacy</a>
+        <a href="mailto:ashaik8.us@gmail.com" style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #A7B0AB; text-decoration: none; letter-spacing: 0.04em;">Contact</a>
         <a href="./engineering.html" style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #A7B0AB; text-decoration: none; letter-spacing: 0.04em;">Engineering</a>
         <a href="https://github.com/arshad8049/quaterback" target="_blank" rel="noopener" style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #A7B0AB; text-decoration: none; letter-spacing: 0.04em;">Code</a>
         <a href="./research.html" style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #6FBF9F; text-decoration: none; letter-spacing: 0.06em;">Evaluation →</a>
-        <span style="font-size: 13px; color: #4A5652;">© 2026 Velora</span>
+        <span style="font-size: 13px; color: #858F8A;">© 2026 Velora</span>
       </div>
     </div>
-  </div>
-  
-  </div>
+  </footer>
 
 </div>
 

@@ -209,6 +209,11 @@ a, button, input[type="submit"], [role="button"] {
 button, a { min-height: 44px; }
 .qb-nav-link { min-height: 36px; }
 
+/* ── Skip link: first stop for keyboard users, visible only when focused ── */
+.qb-skip { position: absolute; left: 16px; top: -100px; z-index: 1000; display: inline-flex; align-items: center; padding: 0 16px; background: #E08A4C; color: #0D100F; border-radius: 4px; font-weight: 600; font-size: 15px; text-decoration: none; }
+.qb-skip:focus { top: 16px; color: #0D100F; }
+#main:focus { outline: none; }
+
 /* ── Focus ring (keyboard nav) ── */
 :focus-visible {
   outline: 2px solid rgba(224, 138, 76, 0.7);
@@ -632,7 +637,7 @@ button, a { min-height: 44px; }
 .qb-term { background: #090C0B; border: 1px solid #262E2B; border-radius: 10px; overflow: hidden; box-shadow: 0 24px 64px rgba(0,0,0,0.45); }
 .qb-term-bar { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid #1A211E; }
 .qb-term-dot { width: 10px; height: 10px; border-radius: 50%; background: #262E2B; }
-.qb-term pre { margin: 0; padding: 18px 20px; font-family: "IBM Plex Mono", monospace; font-size: 12.5px; line-height: 1.65; color: #C6CFCB; white-space: pre-wrap; word-break: break-word; max-height: 520px; overflow: auto; }
+.qb-term pre { margin: 0; padding: 18px 20px; font-family: "IBM Plex Mono", monospace; font-size: 12.5px; line-height: 1.65; color: #C6CFCB; white-space: pre-wrap; word-break: break-word; }
 .qb-term-cap { padding: 10px 16px; border-top: 1px solid #1A211E; font-size: 12px; line-height: 1.5; color: #A7B0AB; }
 @media (max-width: 1000px) { .qb-hero-layout.qb-has-terminal { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 768px) {
@@ -647,3 +652,29 @@ button, a { min-height: 44px; }
 
 /* Orbit sits behind the hero content (paused for reduced-motion users in interactions.js) */
 .qb-orbit { z-index: 0; pointer-events: none; }
+
+/* ── Nav fit (KAN-67 review): links never wrap; tighter spacing below wide desktops ── */
+.qb-nav-link, .qb-cta-btn, .qb-github-link { white-space: nowrap; }
+.qb-nav .qb-velora-link { display: inline-flex; align-items: center; }
+@media (max-width: 1360px) and (min-width: 641px) {
+  .qb-nav { padding-left: 40px !important; padding-right: 40px !important; }
+  .qb-nav-links { gap: 22px !important; }
+}
+@media (max-width: 1240px) and (min-width: 641px) {
+  /* Too narrow for six links + GitHub + CTA on one line: use the phone menu (same rules as ≤ 640px) */
+  .qb-nav { padding: 14px 28px !important; }
+  .qb-nav-toggle { display: flex !important; }
+  .qb-nav-links {
+    display: none !important; position: fixed !important; top: 72px !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+    background: rgba(9, 12, 10, 0.97) !important; backdrop-filter: blur(24px) !important; -webkit-backdrop-filter: blur(24px) !important;
+    flex-direction: column !important; align-items: flex-start !important; padding: 32px 40px !important; gap: 0 !important;
+    z-index: 190 !important; overflow-y: auto !important;
+  }
+  .qb-nav.qb-nav-open .qb-nav-links { display: flex !important; }
+  .qb-nav-links a:not(.qb-cta-btn):not(.qb-github-link) {
+    display: block !important; padding: 16px 0 !important; border-bottom: 1px solid #1A211E !important; width: 100% !important;
+    font-size: 18px !important; color: #C6CFCB !important; min-height: auto !important;
+  }
+  .qb-nav-links .qb-github-link { display: none !important; }
+  .qb-nav-links .qb-cta-btn { display: inline-flex !important; margin-top: 28px !important; }
+}

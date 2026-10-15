@@ -25,7 +25,9 @@ for (const s of sections) {
   body += `\n\n  <!-- ============================================================ -->\n`;
   body += `  <!-- SECTION: ${s.toUpperCase()} → edit: src/${s}.html -->\n`;
   body += `  <!-- ============================================================ -->\n`;
+  if (s === 'hero') body += '  <main id="main" tabindex="-1">\n';
   body += '  ' + content.split('\n').join('\n  ') + '\n';
+  if (s === 'beta-cta') body += '  </main>\n';
 }
 
 const html = `<!DOCTYPE html>
@@ -92,6 +94,7 @@ const html = `<!DOCTYPE html>
   <script src="./src/scripts/dc-runtime.js"></script>
 </head>
 <body>
+<a class="qb-skip" href="#main">Skip to content</a>
 <div style="width: 100%; background: #0D100F; color: #F4F1EA; font-family: 'IBM Plex Sans', 'Helvetica Neue', sans-serif; -webkit-font-smoothing: antialiased;">${body}
 </div>
 
