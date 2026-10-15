@@ -27,39 +27,62 @@ class SuiteNotQualified extends Error {
   constructor(problems) { super(`suite not qualified: ${problems.join('; ')}`); this.code = 'SUITE_NOT_QUALIFIED'; this.problems = problems; }
 }
 
+/** Why .quarterback.json's test command cannot be used, or null. Only a file that does not exist is "not declared". */
+function declaredCommand(dir) {
+  const file = path.join(dir, '.quarterback.json');
+  try { fs.lstatSync(file); } catch (e) { if (e.code === 'ENOENT') return { declared: false }; throw e; }
+  let text, cfg;
+  try { text = fs.readFileSync(file, 'utf8'); } catch (e) { return { problem: `.quarterback.json exists but cannot be read (${e.code || e.message})` }; }
+  try { cfg = JSON.parse(text); } catch (e) { return { problem: `.quarterback.json is not valid JSON (${e.message})` }; }
+  const command = cfg && typeof cfg === 'object' && cfg.test && typeof cfg.test === 'object' ? cfg.test.command : undefined;
+  if (!Array.isArray(command) || !command.length || !command.every((a) => typeof a === 'string' && a.length)) {
+    return { problem: '.quarterback.json must declare test.command as a non-empty array of non-empty strings' };
+  }
+  return { declared: true, command };
+}
+
 /**
  * The repository's own tests on the unchanged base, in the same sandbox as grading.
- * @returns {Promise<string|null>} why the base does not pass them, or null
+ * A malformed, unreadable or invalid .quarterback.json is a problem, never "no command" (KAN-65
+ * review); a missing one is a problem only when o.requireVisibleTests (every bench repository
+ * declares one, so bench/curate.js requires it).
+ * @returns {Promise<{ problem: string|null, record: object|null }>} record: what ran and its outcome
  */
-async function baseProblem(spec, o) {
+async function baseCheck(spec, o) {
   const ws = createWorkspace(resolveSource(spec.repo.source), { baseRev: spec.repo.base_rev, label: `qualify-base-${spec.id}` });
   try {
-    let command = null;
-    try { command = JSON.parse(fs.readFileSync(path.join(ws.dir, '.quarterback.json'), 'utf8')).test.command; } catch { /* none declared */ }
-    if (!Array.isArray(command) || !command.length) return null;   // no visible test command to hold the base to
+    const d = declaredCommand(ws.dir);
+    if (d.problem) return { problem: d.problem, record: null };
+    if (!d.declared) {
+      return o.requireVisibleTests
+        ? { problem: 'no .quarterback.json declares the repository\'s own test command, which this qualification requires', record: null }
+        : { problem: null, record: { declared: false } };
+    }
     const run = o.runSandboxed || require('../lib/sandbox/pipeline').runSandboxed;
-    const r = await run({ repoPath: ws.dir, briefing: '', noAgent: true, applyPatch: '', testCommand: command, baseTests: false, verify: true, ...(o.sandbox || {}) });
+    const r = await run({ repoPath: ws.dir, briefing: '', noAgent: true, applyPatch: '', testCommand: d.command, baseTests: false, verify: true, ...(o.sandbox || {}) });
     const v = r && r.sandbox && r.sandbox.verification;
-    if (!v) return `the repository's own tests did not run on the unchanged base (${(r && (r.status || r.reason)) || 'no verification'})`;
+    if (!v) return { problem: `the repository's own tests did not run on the unchanged base (${(r && (r.status || r.reason)) || 'no verification'})`, record: null };
     const cls = classifyTestRun(v);
-    if (cls.outcome === 'passed') return null;
+    if (cls.outcome === 'passed') return { problem: null, record: { command: d.command, outcome: 'passed' } };
     const failed = checksFromReport(v.report).filter((c) => c.status === 'failed').map((c) => c.name);
-    return `the repository's own tests must pass on the unchanged base, got ${cls.outcome}${cls.reason ? ` (${cls.reason})` : ''}`
-      + (failed.length ? `: ${failed.slice(0, 5).join('; ')}${failed.length > 5 ? `; … ${failed.length - 5} more` : ''}` : '');
+    return { problem: `the repository's own tests must pass on the unchanged base, got ${cls.outcome}${cls.reason ? ` (${cls.reason})` : ''}`
+      + (failed.length ? `: ${failed.slice(0, 5).join('; ')}${failed.length > 5 ? `; … ${failed.length - 5} more` : ''}` : ''), record: null };
   } finally { ws.cleanup(); }
 }
 
 /**
- * @param {object} o  { spec, reference: patch, incorrect: [{ label, patch }], suitesRoot?, runSandboxed?, sandbox?, now? }
- * @returns {Promise<object>} the Qualification record for spec.qualification
+ * Qualification plus the base check's record. The record stays outside the Qualification schema:
+ * bench/schemas.js is grader code, and changing it would invalidate every qualification.
+ * @param {object} o  { spec, reference: patch, incorrect: [{ label, patch }], suitesRoot?, runSandboxed?, sandbox?, now?, requireVisibleTests? }
+ * @returns {Promise<{ qualification: object, base_tests: object }>}
  */
-async function qualify(o) {
+async function qualifyDetailed(o) {
   const spec = S.TaskSpec.parse({ ...o.spec, qualification: null });
   const incorrect = Array.isArray(o.incorrect) ? o.incorrect : [];
   const problems = [];
   if (incorrect.length < 2) problems.push('at least two representative incorrect implementations are required');
-  const base = await baseProblem(spec, o);
-  if (base) problems.push(`base: ${base}`);
+  const base = await baseCheck(spec, o);
+  if (base.problem) problems.push(`base: ${base.problem}`);
   const g = (patch) => grade({ spec, patch, suitesRoot: o.suitesRoot, runSandboxed: o.runSandboxed, sandbox: o.sandbox, qualifying: true });
 
   const ref = await g(o.reference);
@@ -71,13 +94,17 @@ async function qualify(o) {
     wrong.push({ label: w.label, patch_sha256: r.patch_sha256, outcome: 'fail' });
   }
   if (problems.length) throw new SuiteNotQualified(problems);
-  return {
+  const qualification = {
     grader_sha256: graderHash(),
     suite_sha256: S.treeHash(path.join(o.suitesRoot || SUITES_ROOT, spec.suite.dir)),
     reference: { patch_sha256: ref.patch_sha256, outcome: 'pass' },
     incorrect: wrong,
     qualified_at: (o.now || new Date()).toISOString(),
   };
+  return { qualification, base_tests: base.record };
 }
 
-module.exports = { qualify, SuiteNotQualified };
+/** @returns {Promise<object>} the Qualification record for spec.qualification */
+const qualify = async (o) => (await qualifyDetailed(o)).qualification;
+
+module.exports = { qualify, qualifyDetailed, SuiteNotQualified };

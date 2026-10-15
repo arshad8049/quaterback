@@ -29,7 +29,7 @@ const os = require('os');
 const path = require('path');
 const proc = require('../lib/proc');
 const S = require('./schemas');
-const { qualify } = require('./qualify');
+const { qualifyDetailed } = require('./qualify');
 const { freeze } = require('./spec');
 const { resolveSource } = require('./repos');
 const { graderHash } = require('./grader');
@@ -120,8 +120,9 @@ async function qualifyTask(id, o = {}) {
   const wrongRoot = path.join(dir, 'incorrect');
   const incorrect = (fs.existsSync(wrongRoot) ? fs.readdirSync(wrongRoot).sort() : [])
     .map((label) => ({ label, patch: patchFromTree(repoDir, spec.repo.base_rev, path.join(wrongRoot, label)) }));
-  const qualification = await qualify({ spec, reference, incorrect, suitesRoot: o.suites, runSandboxed: o.runSandboxed, sandbox: o.sandbox, now: o.now });
-  const draft = { schema: 'qb-task-draft/1', spec: S.TaskSpec.parse({ ...spec, qualification }), oracle_draft: oracleDraft, source: sourceOf(id, o) };
+  const { qualification, base_tests } = await qualifyDetailed({ spec, reference, incorrect, suitesRoot: o.suites, runSandboxed: o.runSandboxed, sandbox: o.sandbox, now: o.now,
+    requireVisibleTests: true });   // every bench repository declares its own test command (bench/repos.js)
+  const draft = { schema: 'qb-task-draft/1', spec: S.TaskSpec.parse({ ...spec, qualification }), oracle_draft: oracleDraft, source: sourceOf(id, o), base_tests };
   fs.mkdirSync(o.specs, { recursive: true });
   fs.writeFileSync(path.join(o.specs, `${id}.draft.json`), JSON.stringify(draft, null, 2) + '\n');
   return draft;
@@ -137,6 +138,7 @@ function freezeTask(id, o = {}) {
   if (!draft.source) throw new Error(`${id}: the draft has no source fingerprint; re-qualify`);
   if (draft.source.curation_sha256 !== sourceOf(id, o).curation_sha256) throw new Error(`${id}: task.json, reference or incorrect trees changed since qualification; re-qualify before approving`);
   if (draft.spec.qualification.grader_sha256 !== graderHash()) throw new Error(`${id}: the grader changed since qualification; re-qualify before approving`);
+  if (!draft.base_tests || draft.base_tests.outcome !== 'passed') throw new Error(`${id}: the draft records no passing run of the base's own tests (KAN-65); re-qualify before approving`);
   const spec = S.TaskSpec.parse({ ...draft.spec, oracle: { ...draft.oracle_draft, approved_by: approver } });
   freeze(spec, { lockFile: o.lockFile, suitesRoot: o.suites, now: o.now });
   fs.writeFileSync(path.join(o.specs, `${id}.json`), JSON.stringify(spec, null, 2) + '\n');
