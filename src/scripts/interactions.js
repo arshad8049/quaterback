@@ -130,7 +130,11 @@
       const target = document.getElementById(id);
       if (target) {
         e.preventDefault();
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        target.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+        // Keyboard users continue from the target (skip link, "Request early access"), not the link
+        if (!target.hasAttribute('tabindex') && !target.matches('a[href], button, input, select, textarea')) target.setAttribute('tabindex', '-1');
+        target.focus({ preventScroll: true });
       }
     });
   });
@@ -176,17 +180,23 @@
   const navToggle = document.querySelector('.qb-nav-toggle');
   const navEl = document.querySelector('.qb-nav');
   if (navToggle && navEl) {
-    navToggle.addEventListener('click', () => {
-      const isOpen = navEl.classList.toggle('qb-nav-open');
+    const setOpen = (isOpen) => {
+      navEl.classList.toggle('qb-nav-open', isOpen);
       navToggle.setAttribute('aria-expanded', String(isOpen));
+      navToggle.setAttribute('aria-label', isOpen ? 'Close navigation menu' : 'Open navigation menu');
       document.body.style.overflow = isOpen ? 'hidden' : '';
-    });
+    };
+    navToggle.addEventListener('click', () => setOpen(!navEl.classList.contains('qb-nav-open')));
     navEl.querySelectorAll('.qb-nav-link, .qb-cta-btn').forEach((link) => {
-      link.addEventListener('click', () => {
-        navEl.classList.remove('qb-nav-open');
-        navToggle.setAttribute('aria-expanded', 'false');
-        document.body.style.overflow = '';
-      });
+      link.addEventListener('click', () => setOpen(false));
+    });
+    // Keyboard: Escape closes and returns to the button; tabbing out of the menu closes it, so
+    // focus never lands on page links hidden behind the open panel
+    navEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && navEl.classList.contains('qb-nav-open')) { setOpen(false); navToggle.focus(); }
+    });
+    navEl.addEventListener('focusout', (e) => {
+      if (navEl.classList.contains('qb-nav-open') && e.relatedTarget && !navEl.contains(e.relatedTarget)) setOpen(false);
     });
   }
 
