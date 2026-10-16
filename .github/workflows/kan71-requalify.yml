@@ -1,0 +1,70 @@
+name: kan71-requalify
+
+# KAN-71: does a fresh GitHub-hosted runner reproduce the dev set's re-qualification revision
+# (bench/dev-r2/) exactly? Builds the 5 pinned task repositories, re-qualifies all 30 dev tasks
+# with the real grader in Docker (--set dev-r2, fresh drafts only), then checks
+# (scripts/kan71-requalify-check.js) that each fresh draft:
+#   - differs from frozen v1 only by version, one changelog entry, grader hash and qualified_at,
+#     with the base's own tests passing; and
+#   - equals the committed draft apart from qualified_at.
+# No model, no agent, no secrets, no spend. Results go out as annotations (readable without a
+# token) and as the `kan71-requalify` artifact.
+
+on:
+  push:
+    paths: [.github/workflows/kan71-requalify.yml, scripts/kan71-requalify-check.js, bench/**]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  requalify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Free disk
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL; df -h /; free -g
+      - name: Install
+        run: |
+          npm ci
+          [ -f bench/package-lock.json ] && npm ci --prefix bench || true
+      - name: Build the 5 pinned task repositories
+        run: node bench/repos.js build all 2>&1 | tee build.log
+      - name: Re-qualify all 30 dev tasks into dev-r2 (fresh drafts only)
+        run: |
+          mkdir -p "$RUNNER_TEMP/committed"
+          cp bench/dev-r2/specs/*.draft.json "$RUNNER_TEMP/committed/" 2>/dev/null || true
+          rm -f bench/dev-r2/specs/*.draft.json      # never check the committed drafts against themselves
+          : > qualify.log
+          for id in $(node -e "console.log(Object.keys(require('./bench/specs.lock.json').specs).sort().join(' '))"); do
+            echo "== $id" | tee -a qualify.log
+            node bench/curate.js qualify "$id" --set dev-r2 >> qualify.log 2>&1 || echo "   qualify FAILED (exit $?)" | tee -a qualify.log
+          done
+      - name: Check the revision and its reproduction
+        run: node scripts/kan71-requalify-check.js --committed "$RUNNER_TEMP/committed" | tee compare.log
+      - name: Publish results as annotations
+        if: always()
+        run: |
+          enc() { sed -e 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}'; }
+          [ -f compare.log ] && echo "::notice title=KAN-71 dev-r2 on a fresh runner::$( { node --version; git rev-parse HEAD; tail -1 compare.log; } | enc)"
+          [ -f compare.log ] && echo "::notice title=KAN-71 tasks AV-FJ::$(grep -E '^(AV|FJ)-' compare.log | cut -c1-120 | enc)"
+          [ -f compare.log ] && echo "::notice title=KAN-71 tasks FP-LM::$(grep -E '^(FP|LM)-' compare.log | cut -c1-120 | enc)"
+          [ -f compare.log ] && echo "::notice title=KAN-71 tasks PW::$(grep -E '^PW-' compare.log | cut -c1-120 | enc)"
+          grep -q -E 'DIFFERS|MISSING' compare.log 2>/dev/null && echo "::notice title=KAN-71 differences::$(grep -E 'DIFFERS|MISSING' compare.log | cut -c1-400 | enc)"
+          grep -q FAILED qualify.log 2>/dev/null && echo "::notice title=Qualify failures::$(grep -B1 -A8 FAILED qualify.log | head -60 | enc)"
+          true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kan71-requalify
+          path: |
+            build.log
+            qualify.log
+            compare.log
+            bench/dev-r2/specs/*.draft.json
+          retention-days: 90
