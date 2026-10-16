@@ -1,6 +1,7 @@
 # Dev set: re-qualification revision r2 (KAN-71)
 
-**Status:** drafted and reproduced. **Not frozen.** Freezing needs the owner's approval
+**Status:** drafted, and reproduced exactly on a fresh GitHub runner: run 38849464285 at
+4ba73ef, 30/30. **Not frozen.** Freezing needs the owner's approval
 (KAN-65 comment 10324). This revision does not approve a paid evaluation.
 
 ## Why

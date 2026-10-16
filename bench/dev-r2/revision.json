@@ -8,8 +8,17 @@
     "specs": "bench/specs/",
     "lock_sha256": "ee79c548dfccbe41bd15e25ebbc0a45b981f8cbd9dfc72dfcef1f78d9c558849"
   },
-  "status": "drafted; not frozen. Freezing needs the owner’s approval (KAN-65 comment 10324).",
-  "reproduced_on_fresh_runner": null,
+  "status": "drafted and reproduced on a fresh runner; not frozen. Freezing needs the owner’s approval (KAN-65 comment 10324).",
+  "reproduced_on_fresh_runner": {
+    "workflow": ".github/workflows/kan71-requalify.yml",
+    "run_id": 38849464285,
+    "run_url": "https://github.com/arshad8049/quaterback/actions/runs/38849464285",
+    "job_id": 116807225987,
+    "commit": "4ba73eff581ed820a3a39a97a7bd20ede6cb593f",
+    "runner": "GitHub-hosted ubuntu-24.04, Node v24.21.0",
+    "completed_at": "2026-10-16T04:54:30Z",
+    "result": "30/30 dev tasks: v2 is only a re-qualification of v1, reproduced exactly (each fresh draft equals the committed draft apart from qualified_at)"
+  },
   "tasks": {
     "AV-01": {
       "v1": {
