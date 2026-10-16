@@ -46,5 +46,14 @@
     "created_at": "2026-10-08T00:00:00Z",
     "tuned_during_development": false,
     "notes": "Real behaviour of process-warning v5.1.0 (spy checks arguments by truthiness)."
-  }
+  },
+  "version": 2,
+  "changelog": [
+    {
+      "version": 2,
+      "reason": "Re-qualification only (KAN-71). eb3fec6 (KAN-65) changed verify/tests.js, which the grader hashes, so the v1 qualification records grader 3116461e and grading refuses it (grader_changed). v2 is re-qualified with the current grader, which also runs the base check added in KAN-65 (the unchanged base passes the repository's own tests). Prompt, requirement, oracle criteria, repository and base_rev, hidden suite, reference and incorrect implementations are unchanged. v1 stays frozen in bench/specs.lock.json; v1 and v2 results are never combined.",
+      "disclosed_at": "2026-10-16T00:00:00Z",
+      "after_viewing_results": true
+    }
+  ]
 }
