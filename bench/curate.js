@@ -156,7 +156,13 @@ function curateDirs(set = 'dev') {
     const root = path.join(__dirname, 'screen');
     return { curation: path.join(root, 'curation'), suites: path.join(root, 'suites'), specs: path.join(root, 'specs'), lockFile: path.join(root, 'specs.lock.json') };
   }
-  throw new Error(`unknown task set ${JSON.stringify(set)} (dev | screen)`);
+  // KAN-71: the dev set's re-qualification revision. Same curation and suites; its own specs and
+  // lock, so v1 (bench/specs/, bench/specs.lock.json) is never edited in place.
+  if (set === 'dev-r2') {
+    const root = path.join(__dirname, 'dev-r2');
+    return { curation: DEFAULTS.curation, suites: DEFAULTS.suites, specs: path.join(root, 'specs'), lockFile: path.join(root, 'specs.lock.json') };
+  }
+  throw new Error(`unknown task set ${JSON.stringify(set)} (dev | dev-r2 | screen)`);
 }
 
 module.exports = { qualifyTask, freezeTask, patchFromTree, specOf, DEFAULTS, curateDirs };
@@ -168,7 +174,7 @@ if (require.main === module) {
     const ai = args.indexOf('--approver');
     const si = args.indexOf('--set');
     const dirs = curateDirs(si >= 0 ? args[si + 1] : 'dev');
-    if (!which || !['qualify', 'freeze'].includes(cmd)) { console.error('usage: node bench/curate.js qualify|freeze <ID|all> [--approver "<name>"] [--set dev|screen]'); process.exit(2); }
+    if (!which || !['qualify', 'freeze'].includes(cmd)) { console.error('usage: node bench/curate.js qualify|freeze <ID|all> [--approver "<name>"] [--set dev|dev-r2|screen]'); process.exit(2); }
     const ids = which === 'all' ? fs.readdirSync(dirs.curation).filter((d) => fs.existsSync(path.join(dirs.curation, d, 'task.json'))).sort() : [which];
     let failed = 0;
     for (const id of ids) {

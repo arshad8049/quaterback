@@ -19,6 +19,7 @@ const { checkTask } = require('../../scripts/kan71-requalify-check');
 
 const BENCH = path.join(__dirname, '..', '..', 'bench');
 const OLD = 'a'.repeat(64); const NEW = 'b'.repeat(64);
+const clone = (o) => JSON.parse(JSON.stringify(o));
 
 /** A v1 frozen spec and a matching v2 draft, as the checker reads them. */
 function pair() {
@@ -41,9 +42,8 @@ function pair() {
     source: { curation_sha256: '2'.repeat(64) },
     base_tests: { command: ['node', '--test'], outcome: 'passed' },
   };
-  return { frozen, draft };
+  return { frozen, draft: clone(draft) };   // no shared objects: editing the draft never edits v1
 }
-const clone = (o) => JSON.parse(JSON.stringify(o));
 
 describe('KAN-71: dev-set re-qualification revision', () => {
   test('curateDirs("dev-r2"): the dev curation and suites, with the revision\'s own specs and lock', () => {
