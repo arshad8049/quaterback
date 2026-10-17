@@ -43,8 +43,19 @@ That gives 66 commits.
 
 **Dropped (the fix does not apply to the prior release):** 7de6e816, 93c239a3, cc8d9a3c, dd02e428.
 
-## Next
+## Outcome (2026-10-13 to 2026-10-15)
 
-1. **Difficulty screen.** Arm A only, 2 runs per candidate, graded by the upstream tests for the fix.
-2. **Keep and curate.** Keep the tasks arm A fails at least once, and curate them fully.
-3. **Freeze.** The owner approves each oracle before freezing.
+The plan above was to screen with arm A only. By owner decision, the screen ran **both** arms
+instead (A and E, 2 runs each), because the harness had no A-only mode.
+
+- **Curated:** all 14 candidates, as FY-01 … FY-14 (`docs/bench/screen-review.md`). Frozen in
+  `bench/screen/specs.lock.json`: v2 for 13 tasks, v3 for FY-08.
+- **Result:** arm A solved every task (28/28), and so did E (28/28), after the 8 agent execution
+  failures on FY-07 and FY-14 were rerun. Main run
+  [38409518314](https://github.com/arshad8049/quaterback/actions/runs/38409518314), rerun
+  [38459455639](https://github.com/arshad8049/quaterback/actions/runs/38459455639).
+- **Step 2 of the plan therefore kept nothing:** no candidate is one that arm A fails. These
+  tasks do not escape the ceiling effect.
+- **What the screen found instead:** QB's internal verdict rejected correct patches on Fastify,
+  leading to the KAN-65 investigation. Its outcome, including the 10 included and 4 excluded
+  tasks, is in `docs/bench/screen-supported-scope.md`.

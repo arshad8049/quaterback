@@ -3,7 +3,7 @@
 Source: `devudu_docs/Quarterback_Engineering_Review_and_Product_Roadmap.pdf`
 (reviewed snapshot `4ecc6a7`, 1 Oct 2026). The review itself is the baseline; this file tracks status.
 
-Work branches: Phases 0–3 and 5 are merged into `main` (Phase 0–2 tag `phase-0-2-accepted`). The Phase 4 evaluation harness (QB-27 to QB-30) is on `qb30-gh-runner`, awaiting merge; see `docs/BRANCHES.md`. Rule: a failing regression test lands before each fix.
+Work branches: Phases 0–3 and 5 are merged into `main` (Phase 0–2 tag `phase-0-2-accepted`). Phase 4 (the evaluation harness, QB-27 to QB-29, and QB-30 so far) is merged too. Rule: a failing regression test lands before each fix.
 Status (same workflow as Jira, see `jira/workflow.md`): `To Do` · `In Progress` · `In Review` (fixed, awaiting senior sign-off) · `Sent Back` (post-review changes requested or reopened) · `Accepted` (post-review sign-off recorded).
 
 **Tracked in Jira since 2026-10-02:** project **QB** (key `KAN`) at https://arshadahmedsworkspace-40204141.atlassian.net/jira/software/projects/KAN. `QB-NN` = `KAN-NN`; phase epics are KAN-39 (Phase 0) to KAN-44 (Phase 5). **Jira is authoritative for status.** This file keeps the review baseline and the closure log; the status column is a snapshot, last refreshed from Jira on 2026-10-16: 36 of 38 Accepted, QB-30 In Progress, QB-37 To Do. Rows with an empty regression-test column were accepted after this file stopped tracking per-ticket evidence; the evidence is on each Jira card.

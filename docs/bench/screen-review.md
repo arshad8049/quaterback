@@ -1,5 +1,7 @@
 # Screen task review sheet (QB-30 harder candidates)
 
+**Versions:** this sheet was written for the v1 freeze. The frozen set is now v2: the bases were rebuilt to keep the `neostandard` lint dependency, without which one of Fastify's own tests failed on every base (8cfb159; only `base_rev` and the lockfile changed). FY-08 is v3, a disclosed correction of its base. The prompts and acceptance criteria below are identical in v1 and in the frozen specs (checked for all 14). See `docs/bench/screen-supported-scope.md`.
+
 Generated from `bench/screen/curation/*/task.json`. **All 14 tasks are qualified with the real grader:** the upstream fix passes, and both plausible wrong implementations fail on tests.
 
 For each task, check three things before approving the freeze:

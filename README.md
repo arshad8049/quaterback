@@ -8,7 +8,7 @@ Quarterback is a 5-layer AI reliability runtime for software teams. It sits betw
 
 ## Status
 
-- 36 of the original 38 engineering findings are fixed and accepted in internal review, including the fresh-machine onboarding walkthrough (QB-31). Phases 0–3 and 5 are on `main`. The accepted evaluation harness (QB-27 to QB-29) is on branch `qb30-gh-runner`, awaiting merge. Open: the controlled evaluation (QB-30) and public claims (QB-37).
+- 36 of the original 38 engineering findings are fixed and accepted in internal review, including the fresh-machine onboarding walkthrough (QB-31). Phases 0–3 and 5 are on `main`. The accepted evaluation harness (QB-27 to QB-29) is on `main` too ([`docs/bench/`](docs/bench/status.md)). Open: the controlled evaluation (QB-30) and public claims (QB-37).
 - Coding-agent runs require an approved contract. Changing the contract requires approval again ([test oracle](docs/verify/test-oracle.md)).
 - Requirement tracing catches omitted instructions, including missing negation, before execution ([traceability](docs/verify/traceability.md)).
 - Behavioral requirements are checked through executable tests in the sandbox. Protected-file edits fail scope checks ([executable checks](docs/verify/executable-checks.md), [scope policy](docs/verify/scope-policy.md)).
@@ -96,7 +96,7 @@ Developer Request
 | Unit tests | 757 passed, 0 failed at the 2026-10-08 checkpoint (below); CI is green on `main` at `908adbd` ([run 38853426312](https://github.com/arshad8049/quaterback/actions/runs/38853426312)) |
 | Docker image-pinning checks | 2 passed using real Docker containers |
 | Paired sandbox integration | Blocked by resource admission before grading completed |
-| Development task set | 30 frozen tasks across 5 repositories, linked to the [frozen specs](https://github.com/arshad8049/quaterback/tree/qb30-gh-runner/bench/specs) (on `qb30-gh-runner` until it merges) |
+| Development task set | 30 frozen tasks across 5 repositories, linked to the [frozen specs](bench/specs). A re-qualification for the current grader is drafted, not frozen ([dev-r2](docs/bench/dev-r2.md)) |
 | Exploratory dev pilot (2026-10-12) | Claude Code alone 30/30, with Quarterback 29/30, 1 run each ([run 38307663205](https://github.com/arshad8049/quaterback/actions/runs/38307663205)). The baseline solves every task, so this set cannot show a difference. Not evidence |
 | Exploratory harder-task screen (2026-10-13) | 14 real Fastify v5 bug fixes, 2 runs each: 28/28 in both arms, after rerunning 8 agent execution failures ([run 38409518314](https://github.com/arshad8049/quaterback/actions/runs/38409518314), [rerun 38459455639](https://github.com/arshad8049/quaterback/actions/runs/38459455639)). Tasks were chosen for difficulty, so this is never headline evidence. It also found that Quarterback's own verdict rejected correct patches on this repository, which is being fixed (KAN-65) |
 | Controlled performance results | Not yet available |
@@ -370,7 +370,7 @@ node report.js <experiment-dir> [--format table|markdown|json] [--allow-mixed]
 node report.js --legacy results # old result files, labelled "pre-QB-29, not comparable"
 ```
 
-Scores come only from the external grader (`bench/grader.js`, QB-27): a frozen, human-written task spec and a hidden check suite, the same for both arms. QB's own verdict is recorded but is never a score; a task without a frozen spec is "ungraded". Experiments are immutable and pinned (`bench/experiment.js`, QB-29). See `docs/bench/`.
+Scores come only from the external grader (`bench/grader.js`, QB-27): a frozen, human-written task spec and a hidden check suite, the same for both arms. QB's own verdict is recorded but is never a score; a task without a frozen spec is "ungraded". Experiments are immutable and pinned (`bench/experiment.js`, QB-29). Where the evaluation stands: [`docs/bench/status.md`](docs/bench/status.md).
 
 ---
 

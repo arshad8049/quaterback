@@ -61,22 +61,36 @@ Rules the dev set follows, which the holdout author should follow too:
 ## Qualify, approve, freeze
 
 ```
-node bench/curate.js qualify <ID|all>
-node bench/curate.js freeze  <ID|all> --approver "<name of a person>"
+node bench/curate.js qualify <ID|all> [--set dev|dev-r2|screen]
+node bench/curate.js freeze  <ID|all> --approver "<name of a person>" [--set dev|dev-r2|screen]
 ```
+
+`--set` picks the task set (default `dev`); see **Task sets** below.
 
 - **qualify:**
   - generates the reference and incorrect patches against the pinned base;
   - grades each with the **real** grader in the hardened sandbox (`--network none`, `npm ci` behind the deps proxy);
   - requires the reference to `pass` and every incorrect patch to `fail` with `tests_failed` (`bench/qualify.js`);
+  - requires the **unchanged base to pass the repository's own tests**, the command declared in `.quarterback.json` (KAN-65). A missing, unreadable or invalid `.quarterback.json`, or a `test.command` that is not a non-empty argv array, fails qualification. The result is recorded in the draft as `base_tests`;
   - writes `bench/specs/<ID>.draft.json`: the spec with `oracle: null` plus the oracle draft. Nothing is approved or frozen.
 - **freeze:**
   - a named **person** approves the drafted oracle; the tool refuses an empty approver or one that names a tool or model;
+  - it refuses a draft whose `base_tests.outcome` is not `passed`;
   - it approves exactly what was qualified. The draft records a fingerprint of the curation tree (task.json, reference and incorrect trees), and freeze refuses when that fingerprint, the suite or the grader changed since qualification. Edit, then re-qualify, then approve;
   - `spec.oracle.approved_by` records them;
   - the spec is frozen in `bench/specs.lock.json` (`bench/spec.js`; a later change needs a new version with a disclosed changelog entry) and written to `bench/specs/<ID>.json`.
 
 For the **holdout**, the independent author keeps the holdout curation trees and suites out of QB's development history until the protocol review. The reviewer then approves the exact holdout set hash (`bench/plan.js` `holdoutGate`).
+
+## Task sets
+
+| Set (`--set`) | Curation and suites | Specs and lock | State |
+|---|---|---|---|
+| `dev` (v1) | `bench/curation`, `bench/suites` | `bench/specs`, `bench/specs.lock.json` | 30 tasks, frozen at v1. Qualified before the base check existed, and graded under the earlier grader `3116461e…` |
+| `dev-r2` | shared with `dev` | `bench/dev-r2/specs`, `bench/dev-r2/specs.lock.json` (created at freeze) | the same 30 tasks re-qualified as v2 for the current grader, with the base check. Drafted and reproduced on a fresh runner, **not frozen** (`docs/bench/dev-r2.md`, KAN-71) |
+| `screen` | `bench/screen/curation`, `bench/screen/suites` | `bench/screen/specs`, `bench/screen/specs.lock.json` | 14 harder Fastify tasks, exploratory only: v2, FY-08 v3 (`docs/bench/screen-supported-scope.md`) |
+
+A frozen spec is never edited in place. A change is a new version with a disclosed changelog entry, or a new revision set beside the old one, and results from different versions are never combined.
 
 ## The dev set
 
