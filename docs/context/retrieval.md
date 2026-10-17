@@ -1,6 +1,6 @@
 # Context retrieval: ranking, graph depth, refresh (QB-18)
 
-**Status:** implemented on `phase-3-context-memory`, in review.
+**Status:** shipped in Phase 3, accepted in internal review, merged into `main` (PR #2).
 
 ## Why
 - **Ranking was by path and filename.** `scoreFiles` gave every code file +2, and added more only when a keyword appeared in its path. A large repository therefore filled the 25-file package with arbitrary or name-matching files.

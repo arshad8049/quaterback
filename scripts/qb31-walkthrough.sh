@@ -252,7 +252,7 @@ s11() {
   local t=$SECONDS id; id=$(grep '^demo:' "$RUNS" | tail -1 | awk '{print $2}')   # the latest demo run (a resume may have recorded earlier ones)
   rec 11-patch "set -e; cd '$WORK'; node '$QBDIR/qb.js' patch '$id' --out clamp.patch; git -C qb-demo apply --check ../clamp.patch; git -C qb-demo apply ../clamp.patch; node -e \"const { clamp } = require('./qb-demo/src/utils'); console.log(clamp(-5, 0, 10), clamp(50, 0, 10), clamp(7, 0, 10))\""
   local ok=FAIL; grep -q '^0 10 7' "$LOGS/11-patch.log" && ok=PASS
-  step 11 "qb patch --out, apply to qb-demo, behaviour check (§5)" "applies cleanly; prints 0 10 7" "$(tail -1 "$LOGS/11-patch.log" | tr -d '\r')" $ok $((SECONDS-t))
+  step 11 "qb patch --out, apply to qb-demo, behaviour check (§5)" "applies cleanly; prints 0 10 7" "$(grep -m1 -E '^[0-9-]+ [0-9-]+ [0-9-]+$' "$LOGS/11-patch.log" || echo 'no behaviour output')" $ok $((SECONDS-t))
 }
 
 # ── Optional: rerun the 2026-10-08 Phase 4 checkpoint on a host that can admit it ──
