@@ -20,6 +20,7 @@
 | `kan71-dev-requalify` | KAN-71 | `qb30-gh-runner` | KAN-71 is accepted, after `qb30-gh-runner` |
 | `site-progress-2026-10-14` | KAN-67 | main | the senior signs off and the owner approves |
 | `docs-refresh` | documentation refresh of `main` | main | any time |
+| `docs-bench-refresh` | bench docs brought up to date | `kan71-dev-requalify` (with `docs-refresh` merged in) | after `kan71-dev-requalify` and `docs-refresh` |
 
 Merged and ready to delete: `qb31-runner-preflight` (PR #16) and `repo-branch-policy` (PR #15).
 
