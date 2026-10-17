@@ -16,11 +16,12 @@
 ## Open branches (2026-10-16)
 | Branch | Card | Base | Merge when |
 |---|---|---|---|
-| `qb30-gh-runner` | KAN-65 (also holds Phase 4, QB-28/29/30) | main | KAN-65 is accepted and the full 37-commit diff has been reviewed |
+| `qb30-gh-runner` | KAN-65 (also holds Phase 4, QB-27 to QB-30) | main | KAN-65 is accepted and the full 37-commit diff has been reviewed |
 | `kan71-dev-requalify` | KAN-71 | `qb30-gh-runner` | KAN-71 is accepted, after `qb30-gh-runner` |
-| `qb31-runner-preflight` | QB-31 fix | main | the fix is reviewed |
 | `site-progress-2026-10-14` | KAN-67 | main | the senior signs off and the owner approves |
-| `repo-branch-policy` | this file | main | any time |
+| `docs-refresh` | documentation refresh of `main` | main | any time |
+
+Merged and ready to delete: `qb31-runner-preflight` (PR #16) and `repo-branch-policy` (PR #15).
 
 ## Archive
 The branch clean-up of 2026-10-16 deleted 17 GitHub branches:

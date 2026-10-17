@@ -1,6 +1,6 @@
 # Repairs linked to the patch that resolved them (QB-23)
 
-**Status:** implemented on `phase-0-1-hardening`, in review.
+**Status:** shipped in Phase 3, accepted in internal review, merged into `main` (PR #2).
 
 ## Why
 - **`qb.js` handed memory only the final report.**

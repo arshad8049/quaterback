@@ -1,6 +1,6 @@
 # Deadlines, cancellation and budgets (QB-21)
 
-**Status:** implemented on `phase-0-1-hardening`, in review.
+**Status:** shipped in Phase 3, accepted in internal review, merged into `main` (PR #2).
 
 ## Why
 - The Ollama calls (judge, intent compiler, context enricher) and the telemetry POST had **no deadline**, so a hung model or a stalled endpoint hung the whole run.

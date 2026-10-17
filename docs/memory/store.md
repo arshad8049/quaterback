@@ -1,6 +1,6 @@
 # Memory store: lifecycle and concurrency (QB-25)
 
-**Status:** implemented on `phase-3-context-memory`, in review.
+**Status:** shipped in Phase 3, accepted in internal review, merged into `main` (PR #2).
 
 ## Why
 - **The store path was captured at import.** `memory/store.js` read `QB_MEMORY_DIR` once at `require()`. The demo (`memory/sandbox/run.js`) set it *after* importing, so it wrote to the real `~/.quarterback/memory`.
