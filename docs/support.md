@@ -36,13 +36,13 @@ A change to this contract is a new interface version.
 |---|---|
 | Language | JavaScript / Node.js repositories. |
 | Test runner | **node:test is the only validated runner** (QB-20). It is detected from `package.json`, or set in `.quarterback.json` as `{ "test": { "runner": "node-test", "command": [...] } }`. |
-| Other runners (Jest, Mocha, Vitest, …) | Detected and named, never executed. Tests are `not_run`, so the task can't `pass`; `qb doctor --repo` warns. |
+| Other runners (Jest, Mocha, Vitest, …) | Detected (or read from `.quarterback.json`) and named, never executed. **Every agent run on such a repository is refused before any model call** (exit 2, the runner named), because no task there could pass. `--agent dry-run` is the one exception: it only plans and verifies nothing. `qb doctor --repo` shows `✗ test-runner` for an agent run and `!` for dry-run. An invalid `.quarterback.json` is refused the same way. |
 | Dependencies | `package-lock.json` (lockfile v2/v3) from the npm registry. `link:`, `file:` and `git` dependencies and root lifecycle scripts are refused by the sandbox. |
 | Executable checks | Registry `qb-checks/2` (`module_exports`, `call_returns`, `call_throws`, `call_sequence`). |
 
 ## Options validated before a run
 
-`--agent` (registered adapter) · `--max-retries` (whole number 1–10) · `--deadline` (positive minutes) · `--repo` (an existing directory; a git work tree for `claude-code`) · `--contract-file` (exists) · `--telemetry` (needs a token unless `--telemetry-dry-run`) · a non-empty request. Every problem is reported at once.
+`--agent` (registered adapter) · `--max-retries` (whole number 1–10) · `--deadline` (positive minutes) · `--repo` (an existing directory; a git work tree for `claude-code`; a test runner QB can verify (node:test) for every agent except `dry-run`) · `--contract-file` (exists) · `--telemetry` (needs a token unless `--telemetry-dry-run`) · a non-empty request. Every problem is reported at once.
 
 ## Release, licence and support
 

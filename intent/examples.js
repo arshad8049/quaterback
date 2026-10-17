@@ -61,6 +61,31 @@ function claimsInText(text) {
   return out;
 }
 
+// Only a spelled-out unit (or "ms") names an argument's unit; single letters are too ambiguous.
+const ARG_UNIT_RE = 'milliseconds?|ms|seconds?|minutes?|hours?|days?';
+const ARG_UNIT = { ms: 'ms', millisecond: 'ms', milliseconds: 'ms', second: 's', seconds: 's',
+  minute: 'm', minutes: 'm', hour: 'h', hours: 'h', day: 'd', days: 'd' };
+const reEscape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * KAN-68: the unit of the numeric argument `n` of a check on export `fn`, from criterion +
+ * goal text, or null ("not checked"). Only positively bound statements count: a unit attached
+ * to that same number ("30000 ms", "30,000 milliseconds", "30000ms") and a unit named as that
+ * export's parameter ("formatDuration(ms)"). Every such statement is collected; if they name
+ * different units, or there is none, the argument's unit is unknown — never a guess from other
+ * unit words in the text ("to seconds", "one minute", "the seconds label").
+ */
+function argUnit(n, fn, text) {
+  const t = String(text || '');
+  const num = Number.isInteger(n) ? String(Math.abs(n)).split('').join(',?') : reEscape(String(Math.abs(n)));
+  const found = new Set();
+  for (const m of t.matchAll(new RegExp(`(?<![\\d.,])${num}(?![\\d.])\\s*(${ARG_UNIT_RE})\\b`, 'gi'))) found.add(ARG_UNIT[m[1].toLowerCase()]);
+  if (typeof fn === 'string' && fn) {
+    for (const m of t.matchAll(new RegExp(`(?<![\\w$.])${reEscape(fn)}\\s*\\(\\s*(${ARG_UNIT_RE})\\s*\\)`, 'gi'))) found.add(ARG_UNIT[m[1].toLowerCase()]);
+  }
+  return found.size === 1 ? [...found][0] : null;
+}
+
 /**
  * Check every computable example in a contract with trusted arithmetic.
  * @returns {{ errors: Array, checked: Array }} each entry: { where, claim, stated, correct }
@@ -77,18 +102,13 @@ function validateExamples(contract) {
   for (const ac of acs) {
     for (const c of claimsInText(String(ac?.criterion || ''))) record(ac.id, c.input, c.inputMs, c.target);
   }
-  // call_returns checks whose single numeric argument is a quantity in the unit
-  // its criterion names (e.g. "milliseconds") and whose expected value is a duration.
-  // Only a spelled-out unit (or "ms") names the argument's unit; single letters are too ambiguous.
-  const unitOf = (text) => {
-    const m = /\b(milliseconds?|ms|seconds?|minutes?|hours?|days?)\b/i.exec(String(text || '').replace(/\d[\d,.]*\s*[a-z]+/gi, ''));
-    return m ? m[1].toLowerCase() : null;
-  };
+  // call_returns checks whose single numeric argument is a quantity in a known unit
+  // and whose expected value is a duration.
   for (const ch of Array.isArray(contract?.checks) ? contract.checks : []) {
     const p = ch?.params;
     if (ch?.adapter !== 'call_returns' || !p || !Array.isArray(p.args) || p.args.length !== 1 || typeof p.args[0] !== 'number' || typeof p.expect !== 'string') continue;
     const ac = acs.find((a) => a && a.id === ch.ac_id);
-    const unit = unitOf(`${ac ? ac.criterion : ''} ${contract.goal || ''}`);
+    const unit = argUnit(p.args[0], p.export, `${ac ? ac.criterion : ''} ${contract.goal || ''}`);
     if (!unit || !UNIT_MS[unit]) continue;
     record(ch.id, `${p.args[0]} ${unit}`, p.args[0] * UNIT_MS[unit], p.expect);
   }

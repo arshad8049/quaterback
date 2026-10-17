@@ -128,12 +128,16 @@ describe('QB-31: qb doctor', () => {
         assert.match(byId(r)['test-runner'].detail, /node-test/);
       } finally { repo.cleanup(); }
     });
-    test('an unsupported test runner is a warning naming it (the run continues; tests are not_run)', async () => {
+    test('an unsupported test runner fails for an agent run (qb refuses it before any model call); dry-run only warns', async () => {
       const repo = makeRepo({ 'package.json': JSON.stringify({ scripts: { test: 'jest' }, devDependencies: { jest: '29' } }) });
       try {
-        const r = await doctor({ agent: 'dry-run', repo: repo.dir, env: {} }, healthy());
-        assert.equal(byId(r)['test-runner'].status, 'warn');
-        assert.match(byId(r)['test-runner'].detail, /unsupported runner: jest/);
+        const r = await doctor({ agent: 'claude-code', repo: repo.dir, env: {} }, healthy());
+        assert.equal(byId(r)['test-runner'].status, 'fail');
+        assert.match(byId(r)['test-runner'].detail, /unsupported runner: jest.*refuses --agent claude-code.*exit 2/);
+        assert.equal(r.exitCode, 1);
+        const dry = await doctor({ agent: 'dry-run', repo: repo.dir, env: {} }, healthy());
+        assert.equal(byId(dry)['test-runner'].status, 'warn');
+        assert.match(byId(dry)['test-runner'].detail, /unsupported runner: jest.*every agent run is refused/);
       } finally { repo.cleanup(); }
     });
     test('a directory that is not a git work tree fails for claude-code and warns for dry-run', async () => {
