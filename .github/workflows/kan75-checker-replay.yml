@@ -1,0 +1,117 @@
+name: kan75-checker-replay
+
+# KAN-75: QB's verdict on every known-correct and known-wrong patch of the frozen dev-r2 set.
+# Per task, scripts/kan65-replay.js --set dev-r2 replays the base, the reference (if any) and each
+# incorrect implementation through QB's production E pipeline, with the agent replaced by the
+# fixed patch (no model, no agent, no secrets, no spend). scripts/kan75-checker-summary.js then
+# cross-tabulates QB's first and final verdicts against the known truth. A replay that errors is
+# recorded as an error record, so it is counted rather than dropped.
+# A push that changes this workflow or the two scripts runs it (the manual trigger only appears
+# once the file is on the default branch).
+
+on:
+  push:
+    paths: ['.github/workflows/kan75-checker-replay.yml', 'scripts/kan65-replay.js', 'scripts/kan75-checker-summary.js']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '24.21.0'
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      tasks: ${{ steps.t.outputs.tasks }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: t
+        run: echo "tasks=$(node -e "console.log(JSON.stringify(Object.keys(require('./bench/dev-r2/specs.lock.json').specs).sort()))")" >> "$GITHUB_OUTPUT"
+
+  replay:
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 10
+      matrix:
+        task: ${{ fromJSON(needs.plan.outputs.tasks) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '${{ env.NODE_VERSION }}' }
+      - name: Free disk
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL; df -h /
+      - run: npm ci
+      - name: Exact commit, clean tree
+        run: |
+          git status --porcelain | grep . && { echo "::error::checkout is dirty"; exit 1; } || true
+          echo "::notice title=QB commit::$(git rev-parse HEAD)"
+      - name: Build the sandbox images
+        run: node -e "(async()=>{await require('./lib/sandbox/agent').ensureAgentImage();await require('./lib/sandbox/egress').ensureProxyImage();await require('./lib/sandbox/workspace').ensureToolsImage();})()"
+      - name: Build this task's repository
+        run: |
+          [ -f bench/package-lock.json ] && npm ci --prefix bench
+          spec=bench/dev-r2/specs/${{ matrix.task }}.json
+          name=$(node -e "console.log(require('./$spec').repo.source.replace('qb-bench:',''))")
+          node bench/repos.js build "$name" > "$RUNNER_TEMP/repos.log" 2>&1 || { echo "::error title=repos build failed::$(tail -15 "$RUNNER_TEMP/repos.log" | sed 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}')"; exit 1; }
+          base=$(tail -1 "$RUNNER_TEMP/repos.log" | awk '{print $2}')
+          want=$(node -e "console.log(require('./$spec').repo.base_rev)")
+          [ "$base" = "$want" ] || { echo "::error title=base_rev mismatch::built $base, spec pins $want"; exit 1; }
+          echo "::notice title=${{ matrix.task }} base::$name $base (matches the frozen spec)"
+      - name: Replay base, reference and every incorrect implementation
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          t=${{ matrix.task }}; cur=bench/curation/$t
+          kinds="base"; [ -d "$cur/reference" ] && kinds="$kinds reference"
+          kinds="$kinds $(ls "$cur/incorrect" | sed 's/^/incorrect:/')"
+          for kind in $kinds; do
+            safe=$(echo "$kind" | tr : -)
+            log="$RUNNER_TEMP/out/log-$safe.txt"
+            if node scripts/kan65-replay.js "$t" "$kind" --set dev-r2 --out "$RUNNER_TEMP/out" > "$log" 2>&1; then
+              echo "::notice title=$t $kind::$(grep -E "^$t " "$log" | head -1 | cut -c1-900)"
+            else
+              node -e "require('fs').writeFileSync(process.argv[1], JSON.stringify({ task_id: process.argv[2], patch_kind: process.argv[3], error: require('fs').readFileSync(process.argv[4], 'utf8').slice(-4000) }))" \
+                "$RUNNER_TEMP/out/$t-$safe.json" "$t" "$kind" "$log"
+              echo "::error title=$t $kind::$(tail -15 "$log" | sed 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}')"
+            fi
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kan75-replay-${{ matrix.task }}
+          path: ${{ runner.temp }}/out
+          retention-days: 30
+
+  summary:
+    needs: replay
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '${{ env.NODE_VERSION }}' }
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: kan75-replay-*
+          path: replays
+      - name: QB's verdict against the known truth
+        run: |
+          rc=0; node scripts/kan75-checker-summary.js replays --set dev-r2 --json summary.json > summary.md 2> summary.err || rc=$?
+          cat summary.md summary.err
+          enc() { sed -e 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}'; }
+          echo "::notice title=KAN-75 checker replay (dev-r2, $(git rev-parse --short HEAD))::$(enc < summary.md)"
+          cat summary.md >> "$GITHUB_STEP_SUMMARY"
+          exit $rc   # 1 when any replay is missing
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kan75-summary
+          path: |
+            summary.md
+            summary.json
+          retention-days: 30

@@ -9,7 +9,9 @@
  * verdict, repair hints and routing. A correct patch that is retried is retried for QB's reasons
  * alone, because the replay agent always returns the same patch.
  *
- *   node scripts/kan65-replay.js <FY-ID> <base|reference|incorrect:<label>> [--out <dir>] [--max-retries 3]
+ *   node scripts/kan65-replay.js <ID> <base|reference|incorrect:<label>> [--set screen|dev-r2] [--out <dir>] [--max-retries 3]
+ *
+ * KAN-75: `--set dev-r2` replays the frozen dev-r2 tasks (screen stays the default).
  *
  * Writes <out>/<ID>-<kind>.json: the prompt and approved contract, the pinned images, and per
  * attempt the candidate/tested trees, patch hash, test argv, candidate and base state/exit/duration,
@@ -26,7 +28,7 @@ const ROOT = path.join(__dirname, '..');
 const { runPipeline } = require('../lib/qb-pipeline');
 const { runSandboxed } = require('../lib/sandbox/pipeline');
 const { oracleContract } = require('../bench/arms');
-const { patchFromTree } = require('../bench/curate');
+const { patchFromTree, curateDirs } = require('../bench/curate');
 const { resolveSource } = require('../bench/repos');
 const { createWorkspace } = require('../lib/workspace');
 const { classifyTestRun } = require('../verify/tests');
@@ -48,6 +50,13 @@ function imageIds() {
   return out;
 }
 
+/** Where a set's frozen specs and curation are (KAN-75). */
+function setPaths(set = 'screen') {
+  if (!['screen', 'dev-r2'].includes(set)) throw new Error(`replay set must be screen or dev-r2, not ${JSON.stringify(set)}`);
+  const d = curateDirs(set);
+  return { specs: d.specs, curation: d.curation };
+}
+
 function patchFor(spec, kind, curation) {
   if (kind === 'base') return '';
   const tree = kind === 'reference' ? path.join(curation, 'reference')
@@ -64,8 +73,9 @@ function runEvidence(r) {
 }
 
 async function replay({ id, kind, out, maxRetries = 3, set = 'screen' }) {
-  const spec = JSON.parse(fs.readFileSync(path.join(ROOT, 'bench', set, 'specs', `${id}.json`), 'utf8'));
-  const curation = path.join(ROOT, 'bench', set, 'curation', id);
+  const dirs = setPaths(set);
+  const spec = JSON.parse(fs.readFileSync(path.join(dirs.specs, `${id}.json`), 'utf8'));
+  const curation = path.join(dirs.curation, id);
   const patch = patchFor(spec, kind, curation);
   const contract = oracleContract(spec);
   const ws = createWorkspace(resolveSource(spec.repo.source), { baseRev: spec.repo.base_rev, label: `kan65-${id}` });
@@ -108,7 +118,7 @@ async function replay({ id, kind, out, maxRetries = 3, set = 'screen' }) {
   }
   let qbCommit = null; let dirty = null;
   try { qbCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim(); dirty = execFileSync('git', ['status', '--porcelain', '--untracked-files=no'], { cwd: ROOT, encoding: 'utf8' }).trim() !== ''; } catch { /* no git */ }
-  const doc = { schema: 'qb-kan65-replay/1', task_id: id, patch_kind: kind, patch_sha256: patch ? sha(patch) : null,
+  const doc = { schema: 'qb-kan65-replay/1', set, task_id: id, spec_version: spec.version, patch_kind: kind, patch_sha256: patch ? sha(patch) : null,
     qb: { commit: qbCommit, dirty }, node: process.version, images: imageIds(), repo: spec.repo,
     prompt: spec.prompt, contract, max_retries: maxRetries, elapsed_ms: Date.now() - t0,
     final: { attempts: result.attempt, verdict: result.report ? result.report.verdict : null, blocked: result.blocked ?? null },
@@ -136,10 +146,11 @@ if (require.main === module) {
   const opt = (k, d) => { const i = a.indexOf(k); return i >= 0 ? a.splice(i, 2)[1] : d; };
   const out = opt('--out', path.join(process.cwd(), 'kan65-replay'));
   const maxRetries = Number(opt('--max-retries', 3));
+  const set = opt('--set', 'screen');
   const [id, kind] = a;
-  if (!id || !kind) { console.error('usage: kan65-replay.js <FY-ID> <base|reference|incorrect:<label>> [--out dir] [--max-retries n]'); process.exit(2); }
-  replay({ id, kind, out, maxRetries }).then(({ doc }) => console.log(summary(doc)))
+  if (!id || !kind) { console.error('usage: kan65-replay.js <ID> <base|reference|incorrect:<label>> [--set screen|dev-r2] [--out dir] [--max-retries n]'); process.exit(2); }
+  replay({ id, kind, out, maxRetries, set }).then(({ doc }) => console.log(summary(doc)))
     .catch((e) => { console.error(`${id} ${kind}: ERROR ${e && e.stack || e}`); process.exit(1); });
 }
 
-module.exports = { replay, summary };
+module.exports = { replay, summary, setPaths };
