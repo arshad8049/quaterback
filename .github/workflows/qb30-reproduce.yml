@@ -47,7 +47,7 @@ jobs:
       - name: Compare with the frozen dev-r2 specs
         run: |
           set -o pipefail   # KAN-76: a mismatch must fail the step, not take tee's status
-          node scripts/qb30-reproduce-check.js --set dev-r2 | tee compare.log
+          node scripts/qb30-reproduce-check.js --set dev | tee compare.log   # KAN-76 CONTROL ONLY: v1 is expected to mismatch
       - name: Publish results as annotations
         if: always()
         run: |
