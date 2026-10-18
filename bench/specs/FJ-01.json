@@ -1,0 +1,85 @@
+{
+  "schema": "qb-task-spec/1",
+  "id": "FJ-01",
+  "version": 1,
+  "split": "dev",
+  "stratum": {
+    "type": "state",
+    "repository": "fast-json-stringify"
+  },
+  "repo": {
+    "source": "qb-bench:fast-json-stringify",
+    "base_rev": "8959a794e4ba6d040577c98c97e16ab33898c3dc",
+    "lockfiles": {
+      "package-lock.json": "abde936de03de5983273c44d60b2e7fcb5302f54667e236270d96d689e805904"
+    }
+  },
+  "prompt": "Serializer options leak between builds: after building one serializer with { largeArraySize: 2, largeArrayMechanism: 'json-stringify' }, a serializer built later WITHOUT options still uses JSON.stringify for arrays (so integer items like 1.5 come out unrounded). Each build should use only its own options: an option a build doesn't set takes the library default (mechanism 'default', size 20000), whatever earlier builds used, and serializers already built keep the behaviour they were built with.",
+  "requirement": "largeArrayMechanism and largeArraySize given to build() affect only the serializer built in that call. A build without them uses the defaults (mechanism 'default', size 20000), whatever earlier builds used; a build that sets only one of them gets the default for the other. Serializers already built keep the behaviour they were built with.",
+  "oracle": {
+    "approved_by": "Arshad Ahmed Shaik (delegated approval; AI technical review by Codex)",
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "a build with no options after a json-stringify build rounds integer array items ([1.5, 2.5] → [1,2])"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "a build that sets only largeArrayMechanism uses the default size 20000, not an earlier build's size"
+      },
+      {
+        "id": "AC-3",
+        "criterion": "a build that sets only largeArraySize uses the default mechanism"
+      },
+      {
+        "id": "AC-4",
+        "criterion": "the serializer built with json-stringify keeps that behaviour"
+      }
+    ]
+  },
+  "suite": {
+    "dir": "FJ-01",
+    "files": {
+      "options-isolation.test.js": "96aa5e1a1e3d8d81e476449b00f50d718867ea4a5d1a86d1ce5bf7f8278f88f2"
+    },
+    "command": [
+      "node",
+      "--test",
+      "test/hidden/*.test.js"
+    ],
+    "install_to": "test/hidden",
+    "owned_paths": [
+      "test/hidden/**"
+    ],
+    "adjudicate_checks": []
+  },
+  "qualification": {
+    "grader_sha256": "3116461e6934079a16ed5af0ae2c35e701094b699f62feeea86fe2106d4ea886",
+    "suite_sha256": "ae267e58ef183c0416ba64962e86f051a203bc6e6737a88eeb4948b06879ed51",
+    "reference": {
+      "patch_sha256": "0a2f527cc8512d087bf0f6914bf58ec31943221838cd0304a50d02386c66dff7",
+      "outcome": "pass"
+    },
+    "incorrect": [
+      {
+        "label": "reset-mechanism-only",
+        "patch_sha256": "39e1b820ce486b7501eebe06a14b207d0ef3f30399e6112a4c4c06638f503b57",
+        "outcome": "fail"
+      },
+      {
+        "label": "reset-size-only",
+        "patch_sha256": "9bab29c9c7456cb4643954a26ad4d5012273b6286dca5b6895ff0b2abc1ac82e",
+        "outcome": "fail"
+      }
+    ],
+    "qualified_at": "2026-10-08T15:20:10.814Z"
+  },
+  "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
+  "provenance": {
+    "author": "Claude (QB developer side; dev split only)",
+    "created_at": "2026-10-08T00:00:00Z",
+    "tuned_during_development": false,
+    "notes": "Real behaviour of fast-json-stringify v7.0.1 (largeArraySize/largeArrayMechanism are module-level and never reset)."
+  },
+  "changelog": []
+}

@@ -1,0 +1,401 @@
+/**
+ * QB-27: both arms are scored by an external grader against a frozen, human-written
+ * task spec and a hidden suite — never against QB's generated contract.
+ * Unit level: a host-side stand-in replaces the sandbox (fixture code only); the real
+ * sandbox path is covered in test/integration/qb27-grader.test.js.
+ */
+const { test, describe, after } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { spawnSync } = require('child_process');
+
+const { grade, gradeArm, graderHash, patchPaths, safeInstall } = require('../../bench/grader');
+const { qualify, qualifyDetailed } = require('../../bench/qualify');
+const { freeze, checkFrozen } = require('../../bench/spec');
+const adj = require('../../bench/adjudicate');
+const S = require('../../bench/schemas');
+const { gradingFixture, hostRunner, INVENTED_CONTRACT } = require('../helpers/grading-fixture');
+
+// The live node:test reporter needs test:summary (Node 22+; CI runs 22 and 24, the sandbox 24).
+const MAJOR = Number(process.versions.node.split('.')[0]);
+const LIVE = { skip: MAJOR < 22 && `node ${process.version} has no test:summary event` };
+
+const fixtures = [];
+const fx = (o) => { const f = gradingFixture(o); fixtures.push(f); return f; };
+after(() => { for (const f of fixtures) f.cleanup(); });
+
+/** A qualified copy of the fixture spec (reference + two incorrect implementations). */
+async function qualified(f) {
+  const q = await qualify({ spec: f.spec, suitesRoot: f.suitesRoot, runSandboxed: hostRunner(),
+    reference: f.patch('correct'), incorrect: [{ label: '5m', patch: f.patch('fiveMinutes') }, { label: 'off-by-one', patch: f.patch('offByOne') }] });
+  return { ...f.spec, qualification: q };
+}
+const g = (f, spec, patch, extra = {}) => grade({ spec, patch, suitesRoot: f.suitesRoot, runSandboxed: hostRunner(extra.calls), ...extra });
+
+describe('QB-27: grading is independent of QB\'s contract', LIVE, () => {
+  test('the review example: a correct 30s patch passes and the invented 5m patch fails, whatever the contract says', async () => {
+    const f = fx(); const spec = await qualified(f);
+    const ok = await grade({ spec, patch: f.patch('correct'), contract: INVENTED_CONTRACT, suitesRoot: f.suitesRoot, runSandboxed: hostRunner() });
+    assert.deepEqual([ok.outcome, ok.reason], ['pass', 'tests_passed']);
+    assert.deepEqual(ok.checks.map((c) => c.status), ['passed', 'passed']);
+    const five = await grade({ spec, patch: f.patch('fiveMinutes'), contract: INVENTED_CONTRACT, suitesRoot: f.suitesRoot, runSandboxed: hostRunner() });
+    assert.deepEqual([five.outcome, five.reason], ['fail', 'tests_failed']);
+  });
+
+  test('grader spy: no contract, criteria, briefing or checks reach the grading run', async () => {
+    const f = fx(); const spec = await qualified(f); const calls = [];
+    await grade({ spec, patch: f.patch('correct'), contract: INVENTED_CONTRACT, internal_verdict: 'pass', arm: 'E',
+      suitesRoot: f.suitesRoot, runSandboxed: hostRunner(calls) });
+    assert.equal(calls.length, 1);
+    const call = calls[0];
+    assert.deepEqual(Object.keys(call).sort(), ['applyPatch', 'baseTests', 'briefing', 'noAgent', 'repoPath', 'testCommand', 'verify']);
+    assert.deepEqual([call.briefing, call.noAgent, call.baseTests], ['', true, false]);
+    assert.doesNotMatch(JSON.stringify(call), /5m|AC-1|acceptance/);
+  });
+
+  test('the grade record is a valid qb-grade/1 bound to spec, patch and grader hashes; no network, no credentials', async () => {
+    const f = fx(); const spec = await qualified(f); const patch = f.patch('correct');
+    const r = await g(f, spec, patch);
+    S.Grade.parse(r);
+    assert.equal(r.spec_sha256, S.specHash(spec));
+    assert.equal(r.patch_sha256, S.sha256(Buffer.from(patch)));
+    assert.equal(r.grader_sha256, graderHash());
+    assert.deepEqual([r.environment.network, r.environment.credentials], ['none', 'none']);
+  });
+});
+
+describe('QB-27: the benchmark scores arms only through the grader', LIVE, () => {
+  test('gradeArm: the score comes from the grader for every arm; the internal verdict and contract are never consulted', async () => {
+    const f = fx(); const spec = await qualified(f); const calls = [];
+    // QB's own pipeline said PASS for the 5m patch (its contract asked for 5m) — the score is still fail
+    const qbArm = { patch: f.patch('fiveMinutes'), final_verdict: 'pass', contract: INVENTED_CONTRACT };
+    const baseArm = { patch: f.patch('correct'), verdict: 'fail' };
+    const q = await gradeArm(spec, qbArm, { suitesRoot: f.suitesRoot, runSandboxed: hostRunner(calls) });
+    const b = await gradeArm(spec, baseArm, { suitesRoot: f.suitesRoot, runSandboxed: hostRunner(calls) });
+    assert.deepEqual([q.outcome, b.outcome], ['fail', 'pass']);
+    assert.equal(calls.length, 2);
+    assert.doesNotMatch(JSON.stringify(calls), /5m"|AC-1/);
+  });
+  test('no frozen spec, or a blocked arm, is ungraded — never a pass or a fail', async () => {
+    assert.equal((await gradeArm(null, { patch: 'x', final_verdict: 'pass' })).outcome, 'ungraded');
+    const f = fx();
+    assert.equal((await gradeArm(f.spec, { blocked: 'needs_oracle' })).outcome, 'ungraded');
+  });
+});
+
+describe('QB-27: precise grading outcomes', LIVE, () => {
+  test('a syntax error, a patch that does not apply, and an empty (no-change) patch all FAIL', async () => {
+    const f = fx(); const spec = await qualified(f);
+    const syn = await g(f, spec, f.patch('syntaxError'));
+    assert.deepEqual([syn.outcome, syn.reason], ['fail', 'syntax_or_load_error']);
+    const bad = await g(f, spec, 'diff --git a/src/nope.js b/src/nope.js\n--- a/src/nope.js\n+++ b/src/nope.js\n@@ -1 +1 @@\n-x\n+y\n');
+    assert.deepEqual([bad.outcome, bad.reason], ['fail', 'patch_does_not_apply']);
+    const none = await g(f, spec, '');
+    assert.deepEqual([none.outcome, none.reason], ['fail', 'tests_failed']);
+  });
+
+  test('a patch touching a grader-owned path fails before anything runs', async () => {
+    const f = fx({ extra: {} }); const spec = await qualified(f);
+    for (const files of [{ 'test/hidden/duration.test.js': 'cheat' }, { '.quarterback.json': '{}' }]) {
+      const calls = [];
+      const r = await g(f, spec, f.makePatch({ 'src/duration.js': 'x', ...files }), { calls });
+      assert.deepEqual([r.outcome, r.reason], ['fail', 'grader_owned_path'], JSON.stringify(files));
+      assert.equal(calls.length, 0);
+    }
+  });
+
+  test('grader faults are grader_error, never a fail: unqualified suite, changed suite, changed grader, missing suite command', async () => {
+    const f = fx(); const spec = await qualified(f);
+    assert.equal((await g(f, { ...spec, qualification: null }, f.patch('correct'))).reason, 'suite_not_qualified');
+    assert.equal((await g(f, { ...spec, qualification: { ...spec.qualification, grader_sha256: 'f'.repeat(64) } }, f.patch('correct'))).reason, 'grader_changed');
+    fs.appendFileSync(path.join(f.suitesRoot, 'T-30S', 'duration.test.js'), '// edited\n');
+    const changed = await g(f, spec, f.patch('correct'));
+    assert.deepEqual([changed.outcome, changed.reason], ['grader_error', 'suite_changed']);
+    const f2 = fx(); const s2 = await qualified(f2);
+    const cmd = { ...s2, suite: { ...s2.suite, command: ['no-such-runner-qb27'] } };
+    const missing = await grade({ spec: cmd, patch: f2.patch('correct'), suitesRoot: f2.suitesRoot, runSandboxed: hostRunner() });
+    assert.deepEqual([missing.outcome, missing.reason], ['grader_error', 'suite_command_missing']);
+  });
+
+  test('an unavailable sandbox is infra_error, recorded separately from pass/fail', async () => {
+    const f = fx(); const spec = await qualified(f);
+    const r = await grade({ spec, patch: f.patch('correct'), suitesRoot: f.suitesRoot, runSandboxed: async () => ({ status: 'blocked', reason: 'sandbox_unavailable', sandbox: {} }) });
+    assert.deepEqual([r.outcome, r.reason], ['infra_error', 'infra_error']);
+    assert.ok(!S.SCORED_OUTCOMES.includes(r.outcome));
+  });
+
+  test('needs_adjudication only for checks the frozen spec reserves — never as a catch-all', async () => {
+    const f = fx(); const base = await qualified(f);
+    const spec = { ...base, suite: { ...base.suite, adjudicate_checks: ['90,000 ms is 1m 30s'] } };
+    const r = await g(f, spec, f.patch('correct'));
+    assert.deepEqual([r.outcome, r.reason], ['needs_adjudication', 'adjudication_required']);
+    assert.deepEqual(r.checks.map((c) => c.status), ['passed', 'adjudicate']);
+    const wrong = await g(f, spec, f.patch('fiveMinutes'));   // a non-reserved check fails → plain fail
+    assert.equal(wrong.outcome, 'fail');
+    const syn = await g(f, spec, f.patch('syntaxError'));
+    assert.equal(syn.outcome, 'fail');
+  });
+});
+
+describe('QB-27: the hidden suite stays hidden', () => {
+  test('a suite inside the task repository is refused (suite_leaked)', LIVE, async () => {
+    const f = fx(); const spec = await qualified(f);
+    const inner = path.join(f.repo.dir, 'hidden-suites');   // untracked, but inside the checkout the agent works on
+    fs.cpSync(path.join(f.suitesRoot, 'T-30S'), path.join(inner, 'T-30S'), { recursive: true });
+    const r = await grade({ spec, patch: f.patch('correct'), suitesRoot: inner, runSandboxed: hostRunner() });
+    assert.deepEqual([r.outcome, r.reason], ['grader_error', 'suite_leaked']);
+    assert.match(r.detail, /inside the task repository/);
+  });
+
+  test('a suite file present anywhere in the task repository history is refused (suite_leaked)', LIVE, async () => {
+    const f = fx(); const spec = await qualified(f);
+    const suiteText = fs.readFileSync(path.join(f.suitesRoot, 'T-30S', 'duration.test.js'));
+    spawnSync('git', ['checkout', '-q', '-b', 'old-branch'], { cwd: f.repo.dir });
+    f.repo.write('notes/copy.js', suiteText); f.repo.commit('leak');
+    spawnSync('git', ['rm', '-q', 'notes/copy.js'], { cwd: f.repo.dir }); f.repo.commit('remove leak');
+    spawnSync('git', ['checkout', '-q', 'main'], { cwd: f.repo.dir });
+    const r = await g(f, spec, f.patch('correct'));
+    assert.deepEqual([r.outcome, r.reason], ['grader_error', 'suite_leaked']);
+    assert.match(r.detail, /object database/);
+  });
+
+  test('the agent-visible workspace (pinned checkout) never contains the suite or the grader test plan', async () => {
+    const f = fx();
+    const { createWorkspace } = require('../../lib/workspace');
+    const ws = createWorkspace(f.repo.dir, { baseRev: f.spec.repo.base_rev });
+    try {
+      assert.ok(!fs.existsSync(path.join(ws.dir, 'test/hidden')));
+      assert.ok(!fs.existsSync(path.join(ws.dir, '.quarterback.json')));
+      const all = spawnSync('git', ['log', '--all', '-p'], { cwd: ws.dir, encoding: 'utf8' }).stdout;
+      assert.doesNotMatch(all, /30,000 ms is 30s/);
+    } finally { ws.cleanup(); }
+  });
+
+  test('patchPaths reads both sides of renames and refuses an unparseable header', () => {
+    assert.deepEqual(patchPaths('diff --git a/x.js b/test/hidden/x.js\nsimilarity index 100%\n'), ['test/hidden/x.js', 'x.js']);
+    assert.equal(patchPaths('diff --git garbage\n'), null);
+  });
+});
+
+describe('QB-27: qualification and freezing', LIVE, () => {
+  test('a suite is qualified only if the reference passes and every incorrect implementation fails its tests', async () => {
+    const f = fx(); const spec = await qualified(f);
+    assert.equal(spec.qualification.incorrect.length, 2);
+    assert.equal(spec.qualification.grader_sha256, graderHash());
+    // a suite too weak to tell "5m" apart is NOT qualified
+    const weak = fx({ suite: { 'duration.test.js': "const { test } = require('node:test');\ntest('loads', () => require('../../src/duration'));\n" } });
+    await assert.rejects(qualify({ spec: weak.spec, suitesRoot: weak.suitesRoot, runSandboxed: hostRunner(), reference: weak.patch('correct'),
+      incorrect: [{ label: '5m', patch: weak.patch('fiveMinutes') }, { label: 'off-by-one', patch: weak.patch('offByOne') }] }), /5m: expected fail/);
+    await assert.rejects(qualify({ spec: f.spec, suitesRoot: f.suitesRoot, runSandboxed: hostRunner(), reference: f.patch('correct'),
+      incorrect: [{ label: '5m', patch: f.patch('fiveMinutes') }] }), /at least two/);
+  });
+
+  test('KAN-65 (FY-08): a base that fails its OWN tests is not qualified, whatever the hidden suite says', async () => {
+    // Fastify v5.12.0 shipped test/internals/reply.test.js failing on its own code; qualification only
+    // graded the hidden suite, so every QB run on FY-08 was a `fail` (pre-existing failure) from the start.
+    const f = fx();
+    const visible = ['node', '--test', 'test/visible/*.test.js'];
+    f.repo.write('.quarterback.json', JSON.stringify({ test: { runner: 'node-test', command: visible } }));
+    f.repo.write('test/visible/loads.test.js', "const { test } = require('node:test');\ntest('loads', () => require('../../src/duration'));\n");
+    f.repo.write('test/visible/shipped-broken.test.js', "const { test } = require('node:test');\nconst assert = require('node:assert');\n"
+      + "test('mediaType is a string', () => assert.strictEqual(typeof undefined, 'string'));\n");
+    const run = async (head) => qualifyDetailed({ spec: { ...f.spec, repo: { ...f.spec.repo, base_rev: head } }, suitesRoot: f.suitesRoot, runSandboxed: hostRunner(),
+      reference: f.patch('correct'), incorrect: [{ label: '5m', patch: f.patch('fiveMinutes') }, { label: 'off-by-one', patch: f.patch('offByOne') }] });
+    await assert.rejects(run(f.repo.commit('base whose own test fails')),
+      (e) => e.code === 'SUITE_NOT_QUALIFIED' && /base: the repository's own tests must pass on the unchanged base.*mediaType is a string/.test(e.message));
+    // control: the same base with that test fixed qualifies
+    f.repo.write('test/visible/shipped-broken.test.js', "const { test } = require('node:test');\ntest('mediaType is a string', () => {});\n");
+    const q = await run(f.repo.commit('upstream fixed the test'));
+    assert.equal(q.qualification.reference.outcome, 'pass');
+    assert.deepEqual(q.base_tests, { command: visible, outcome: 'passed' }, 'the gate\'s result is recorded, beside the unchanged Qualification record');
+  });
+
+  test('KAN-65 review: a broken .quarterback.json fails qualification instead of skipping the base check', async () => {
+    // Senior's reproduction: '{bad json' was read as "no command declared", so qualification succeeded
+    // with 3 sandbox calls, all hidden-suite grading, and the base's own tests never ran.
+    const f = fx();
+    const visible = ['node', '--test', 'test/visible/*.test.js'];
+    f.repo.write('test/visible/loads.test.js', "const { test } = require('node:test');\ntest('loads', () => require('../../src/duration'));\n");
+    const run = (head, calls, extra = {}) => qualifyDetailed({ spec: { ...f.spec, repo: { ...f.spec.repo, base_rev: head } }, suitesRoot: f.suitesRoot, runSandboxed: hostRunner(calls),
+      reference: f.patch('correct'), incorrect: [{ label: '5m', patch: f.patch('fiveMinutes') }, { label: 'off-by-one', patch: f.patch('offByOne') }], ...extra });
+    const refused = async (content, why) => {
+      f.repo.write('.quarterback.json', content);
+      const calls = [];
+      await assert.rejects(run(f.repo.commit(`config: ${why}`), calls),
+        (e) => e.code === 'SUITE_NOT_QUALIFIED' && /base: \.quarterback\.json/.test(e.message), why);
+    };
+    await refused('{bad json', 'malformed JSON');
+    await refused(JSON.stringify({ test: { runner: 'node-test' } }), 'no test.command');
+    await refused(JSON.stringify({ test: { command: [] } }), 'empty command');
+    await refused(JSON.stringify({ test: { command: 'node --test' } }), 'command not an argv array');
+    await refused(JSON.stringify({ test: { command: ['node', 7] } }), 'non-string argv');
+    await refused(JSON.stringify({ test: { command: ['node', ''] } }), 'empty argv element');
+    await refused('null', 'not an object');
+    // unreadable: a dangling symlink exists in the tree but cannot be read
+    fs.rmSync(path.join(f.repo.dir, '.quarterback.json'));
+    fs.symlinkSync('missing-target.json', path.join(f.repo.dir, '.quarterback.json'));
+    await assert.rejects(run(f.repo.commit('config: dangling symlink'), []),
+      (e) => e.code === 'SUITE_NOT_QUALIFIED' && /base: \.quarterback\.json.*cannot be read/.test(e.message), 'unreadable');
+
+    // controls: a valid declared command runs on the base (4 sandbox calls) and is recorded…
+    fs.rmSync(path.join(f.repo.dir, '.quarterback.json'));
+    f.repo.write('.quarterback.json', JSON.stringify({ test: { runner: 'node-test', command: visible } }));
+    const validHead = f.repo.commit('config: valid');
+    const calls = [];
+    const q = await run(validHead, calls, { requireVisibleTests: true });
+    assert.equal(calls.length, 4);
+    assert.deepEqual(calls[0].testCommand, visible, 'the first sandbox call is the base\'s own tests');
+    assert.deepEqual(q.base_tests, { command: visible, outcome: 'passed' });
+    // …and a base whose own test fails is still refused (the FY-08 control)
+    f.repo.write('test/visible/broken.test.js', "const { test } = require('node:test');\nconst assert = require('node:assert');\ntest('broken', () => assert.fail('shipped broken'));\n");
+    await assert.rejects(run(f.repo.commit('base own test fails'), []), /base: the repository's own tests must pass.*broken/);
+
+    // absent config: allowed (and recorded as not declared) only when visible tests are not required
+    f.repo.git(['rm', '-q', '.quarterback.json', 'test/visible/broken.test.js']);
+    const bare = f.repo.commit('config: absent');
+    const q2 = await run(bare, []);
+    assert.deepEqual(q2.base_tests, { declared: false });
+    await assert.rejects(run(bare, [], { requireVisibleTests: true }),
+      (e) => e.code === 'SUITE_NOT_QUALIFIED' && /base: no \.quarterback\.json declares the repository's own test command/.test(e.message));
+  });
+
+  test('freezing needs qualification; a frozen spec cannot be edited; a new version needs a disclosed changelog entry', async () => {
+    const f = fx(); const lockFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'qb-lock-')), 'specs.lock.json');
+    assert.throws(() => freeze(f.spec, { lockFile, suitesRoot: f.suitesRoot }), /not qualified/);
+    const spec = await qualified(f);
+    freeze(spec, { lockFile, suitesRoot: f.suitesRoot });
+    checkFrozen(spec, JSON.parse(fs.readFileSync(lockFile, 'utf8')));
+    const edited = { ...spec, requirement: `${spec.requirement} (revised after viewing results)` };
+    assert.throws(() => freeze(edited, { lockFile, suitesRoot: f.suitesRoot }), /new version/);
+    assert.throws(() => checkFrozen(edited, JSON.parse(fs.readFileSync(lockFile, 'utf8'))), /does not match the frozen/);
+    assert.throws(() => freeze({ ...edited, version: 2 }, { lockFile, suitesRoot: f.suitesRoot }), /changelog/);
+    freeze({ ...edited, version: 2, changelog: [{ version: 2, reason: 'clarified wording', disclosed_at: '2026-10-07T01:00:00Z', after_viewing_results: true }] },
+      { lockFile, suitesRoot: f.suitesRoot });
+  });
+});
+
+describe('QB-27: blinded adjudication', LIVE, () => {
+  test('packets carry no arm, trial, or internal verdict; order is seeded; verdicts are never overwritten; disagreement stays visible', async () => {
+    const f = fx(); const base = await qualified(f);
+    const spec = { ...base, suite: { ...base.suite, adjudicate_checks: ['90,000 ms is 1m 30s'] } };
+    const items = [];
+    for (const [trial_id, arm] of [['t1', 'A'], ['t1', 'E'], ['t2', 'A'], ['t2', 'E']]) {
+      const patch = f.patch('correct');
+      items.push({ trial_id, arm, spec, patch, internal_verdict: arm === 'E' ? 'pass' : null, grade: await g(f, spec, patch) });
+    }
+    const { packets, blindMap } = adj.prepare(items, { seed: 's1' });
+    const text = JSON.stringify(packets);
+    assert.doesNotMatch(text, /"arm"|"trial_id"|internal_verdict|"E"|"t1"/);
+    assert.deepEqual(adj.prepare(items, { seed: 's1' }).packets.map((p) => p.item_id), packets.map((p) => p.item_id));
+    assert.equal(Object.keys(blindMap.items).length, 4);
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'qb-adj-'));
+    const v = (adjudicator, verdict) => ({ experiment_id: 'exp-1', item_id: packets[0].item_id, adjudicator, verdict, rationale: 'r', at: '2026-10-07T00:00:00Z' });
+    adj.record(dir, v('alice', 'pass'));
+    assert.throws(() => adj.record(dir, v('alice', 'fail')), /EEXIST/);
+    adj.record(dir, v('bob', 'fail'));
+    const sum = adj.summarize(dir)[packets[0].item_id];
+    assert.deepEqual([sum.agreed, sum.disagreement, sum.verdicts.length], [null, true, 2]);
+    assert.throws(() => adj.prepare([{ ...items[0], grade: { ...items[0].grade, outcome: 'fail' } }], { seed: 's' }), /not awaiting adjudication/);
+  });
+});
+
+/**
+ * QB-27 re-review 1: the untrusted patch must never steer a host-side write. Pre-fix, the
+ * grader applied the patch on the host and then installed the suite through paths the patch
+ * controlled: a patch adding a symlink `test` → <outside dir> made it write
+ * hidden/duration.test.js OUTSIDE the grading checkout before the sandbox ran.
+ * These run without qualification (rejection happens before any run), so on every Node.
+ */
+describe('QB-27 re-review 1: no host write follows a path an untrusted patch or base tree controls', () => {
+  const outside = () => fs.mkdtempSync(path.join(os.tmpdir(), 'qb27-outside-'));
+  const listing = (d) => { const out = []; (function walk(x) { for (const e of fs.readdirSync(x, { withFileTypes: true })) { out.push(path.relative(d, path.join(x, e.name))); if (e.isDirectory()) walk(path.join(x, e.name)); } })(d); return out; };
+  /** A real git patch that adds a symlink (mode 120000) named `name` → `target`. */
+  const symlinkPatch = (f, name, target) => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'qb27-sym-'));
+    try {
+      spawnSync('git', ['clone', '-q', f.repo.dir, tmp]);
+      fs.symlinkSync(target, path.join(tmp, name));
+      spawnSync('git', ['add', '-A'], { cwd: tmp });
+      return spawnSync('git', ['diff', '--cached', 'HEAD'], { cwd: tmp, encoding: 'utf8' }).stdout;
+    } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+  };
+  const blocked = (calls) => async (o) => { calls.push(o); return { status: 'blocked', reason: 'stub', sandbox: {} }; };
+
+  test('the reviewer\'s repro: a patch adding symlink `test` → an outside dir writes nothing there and never reaches the sandbox', async () => {
+    const f = fx(); const ext = outside(); const calls = [];
+    try {
+      const patch = symlinkPatch(f, 'test', ext);
+      assert.match(patch, /new file mode 120000/);
+      const r = await grade({ spec: f.spec, patch, suitesRoot: f.suitesRoot, qualifying: true, runSandboxed: blocked(calls) });
+      assert.deepEqual(listing(ext), [], 'the grader wrote outside its checkout');
+      assert.equal(calls.length, 0, 'rejected before any sandbox invocation');
+      assert.deepEqual([r.outcome, r.reason], ['fail', 'grader_owned_path']);
+    } finally { fs.rmSync(ext, { recursive: true, force: true }); }
+  });
+
+  test('a case variant (`Test`) of an owned ancestor is caught too — a host filesystem may be case-insensitive', async () => {
+    const f = fx(); const ext = outside(); const calls = [];
+    try {
+      const r = await grade({ spec: f.spec, patch: symlinkPatch(f, 'Test', ext), suitesRoot: f.suitesRoot, qualifying: true, runSandboxed: blocked(calls) });
+      assert.deepEqual([r.outcome, r.reason], ['fail', 'grader_owned_path']);
+      assert.deepEqual(listing(ext), []);
+      assert.equal(calls.length, 0);
+    } finally { fs.rmSync(ext, { recursive: true, force: true }); }
+  });
+
+  test('a symlinked ancestor in the BASE tree fails closed (grader_error), with no write outside and no sandbox run', async () => {
+    const f = fx(); const ext = outside(); const calls = [];
+    try {
+      fs.symlinkSync(ext, path.join(f.repo.dir, 'test'));
+      const head = f.repo.commit('base tree with a symlinked test/');
+      const spec = { ...f.spec, repo: { ...f.spec.repo, base_rev: head } };
+      const r = await grade({ spec, patch: f.patch('correct'), suitesRoot: f.suitesRoot, qualifying: true, runSandboxed: blocked(calls) });
+      assert.deepEqual(listing(ext), [], 'the grader wrote outside its checkout');
+      assert.equal(calls.length, 0);
+      assert.deepEqual([r.outcome, r.reason], ['grader_error', 'unsafe_install_path']);
+      assert.match(r.detail, /symbolic link/);
+    } finally { fs.rmSync(ext, { recursive: true, force: true }); }
+  });
+
+  test('the patch is never applied on the host: the sandbox receives it, the host checkout holds only base + suite', async () => {
+    const f = fx(); const calls = []; const seen = {};
+    const patch = f.patch('correct');
+    await grade({ spec: f.spec, patch, suitesRoot: f.suitesRoot, qualifying: true, runSandboxed: async (o) => {
+      calls.push(o);
+      seen.src = fs.readFileSync(path.join(o.repoPath, 'src/duration.js'), 'utf8');
+      seen.suite = fs.existsSync(path.join(o.repoPath, 'test/hidden/duration.test.js'));
+      seen.clean = spawnSync('git', ['status', '--porcelain'], { cwd: o.repoPath, encoding: 'utf8' }).stdout;
+      return { status: 'blocked', reason: 'stub', sandbox: {} };
+    } });
+    assert.equal(calls[0].applyPatch, patch);
+    assert.deepEqual(calls[0].testCommand, f.spec.suite.command);
+    assert.equal(seen.src, 'module.exports.formatDuration = (ms) => `${ms}ms`;\n', 'the patch reached the host checkout');
+    assert.deepEqual([seen.suite, seen.clean], [true, ''], 'the suite is committed into the graded base');
+  });
+
+  test('defence in depth: an owned path or ancestor in the CAPTURED change list fails, even if the patch text looked clean', async () => {
+    const f = fx();
+    const r = await grade({ spec: f.spec, patch: f.patch('correct'), suitesRoot: f.suitesRoot, qualifying: true,
+      runSandboxed: async () => ({ status: 'completed', changes: [{ file: 'src/duration.js' }, { file: 'test' }], sandbox: { stages: { agent: { exit_code: 0 } } } }) });
+    assert.deepEqual([r.outcome, r.reason], ['fail', 'grader_owned_path']);
+    assert.match(r.detail, /captured: test/);
+  });
+
+  test('safeInstall: a deeper symlinked ancestor, an existing file, and an escape are all refused', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'qb27-root-')); const ext = outside();
+    const suite = fs.mkdtempSync(path.join(os.tmpdir(), 'qb27-suite-')); fs.writeFileSync(path.join(suite, 'x.test.js'), 'x');
+    try {
+      fs.mkdirSync(path.join(root, 'a')); fs.symlinkSync(ext, path.join(root, 'a', 'b'));
+      assert.throws(() => safeInstall(root, 'a/b/c', suite, { 'x.test.js': 'h' }), (e) => e.code === 'UNSAFE_INSTALL_PATH');
+      fs.mkdirSync(path.join(root, 'ok')); fs.writeFileSync(path.join(root, 'ok', 'x.test.js'), 'existing');
+      assert.throws(() => safeInstall(root, 'ok', suite, { 'x.test.js': 'h' }), (e) => e.code === 'EEXIST');
+      fs.symlinkSync(path.join(ext, 'f'), path.join(root, 'leaf.test.js'));
+      assert.throws(() => safeInstall(root, '', suite, { 'leaf.test.js': 'h' }), (e) => e.code === 'EEXIST' || e.code === 'ELOOP');
+      assert.deepEqual(listing(ext), []);
+      safeInstall(root, 'fresh/dir', suite, { 'x.test.js': 'h' });
+      assert.equal(fs.readFileSync(path.join(root, 'fresh/dir/x.test.js'), 'utf8'), 'x');
+    } finally { for (const d of [root, ext, suite]) fs.rmSync(d, { recursive: true, force: true }); }
+  });
+});

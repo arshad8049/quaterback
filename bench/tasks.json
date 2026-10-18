@@ -3,56 +3,105 @@
     "repo": "/Users/Arshad_1/Desktop/Start/projects/cue",
     "repo_description": "Electron desktop AI interview assistant — JS/CJS, node:test, 27 tests",
     "created": "2026-09-26",
-    "author": "Velora / Quarterback project"
+    "author": "Velora / Quarterback project",
+    "note": "Legacy development tasks (QB-30): tuned during development; dev split only; never part of a holdout. Ungraded until each has a frozen qb-task-spec/1."
   },
   "tasks": [
     {
       "id": "T-001",
       "difficulty": "easy",
-      "tags": ["add-function", "single-file", "state"],
+      "tags": [
+        "add-function",
+        "single-file",
+        "state"
+      ],
       "description": "Add a getProviderName() function to src/llm.js that returns the currently active LLM provider name as a string",
-      "expected_files": ["src/llm.js"],
-      "note": "Reference task — previously tested and confirmed passing"
+      "expected_files": [
+        "src/llm.js"
+      ],
+      "note": "Reference task — previously tested and confirmed passing",
+      "split": "dev",
+      "tuned_during_development": true
     },
     {
       "id": "T-002",
       "difficulty": "easy",
-      "tags": ["add-function", "single-file"],
+      "tags": [
+        "add-function",
+        "single-file"
+      ],
       "description": "Add a formatDuration(ms) function to src/wav.js that converts a millisecond count to a human-readable string like '1m 23s' or '45s'",
-      "expected_files": ["src/wav.js"],
-      "note": "Pure utility function, no state, no imports needed"
+      "expected_files": [
+        "src/wav.js"
+      ],
+      "note": "Pure utility function, no state, no imports needed",
+      "split": "dev",
+      "tuned_during_development": true
     },
     {
       "id": "T-003",
       "difficulty": "easy",
-      "tags": ["add-function", "single-file", "guard"],
+      "tags": [
+        "add-function",
+        "single-file",
+        "guard"
+      ],
       "description": "Add an isAvailable() method to the STT object returned by createSTT() in src/stt.js that returns true when at least one provider has an API key configured",
-      "expected_files": ["src/stt.js"],
-      "note": "Tests whether agent reads the existing createSTT() return object pattern"
+      "expected_files": [
+        "src/stt.js"
+      ],
+      "note": "Tests whether agent reads the existing createSTT() return object pattern",
+      "split": "dev",
+      "tuned_during_development": true
     },
     {
       "id": "T-004",
       "difficulty": "medium",
-      "tags": ["add-function", "single-file", "error-handling"],
+      "tags": [
+        "add-function",
+        "single-file",
+        "error-handling"
+      ],
       "description": "Add a getErrorSummary(error) helper function to src/llm.js that returns a short one-line string summarising an LLM error: include the provider name, HTTP status if present, and whether it was a rate limit",
-      "expected_files": ["src/llm.js"],
-      "note": "Requires reading existing formatProviderErrorMessage() and normalizeProviderName() to avoid duplication"
+      "expected_files": [
+        "src/llm.js"
+      ],
+      "note": "Requires reading existing formatProviderErrorMessage() and normalizeProviderName() to avoid duplication",
+      "split": "dev",
+      "tuned_during_development": true
     },
     {
       "id": "T-005",
       "difficulty": "medium",
-      "tags": ["add-function", "single-file", "utility"],
+      "tags": [
+        "add-function",
+        "single-file",
+        "utility"
+      ],
       "description": "Add a getVADStats() function to src/vad.js that returns an object with speechCount (number of speech events detected) and totalSpeechMs (cumulative ms of detected speech) tracked since the AdaptiveVAD was created",
-      "expected_files": ["src/vad.js"],
-      "note": "Requires modifying the existing AdaptiveVAD class to accumulate counters"
+      "expected_files": [
+        "src/vad.js"
+      ],
+      "note": "Requires modifying the existing AdaptiveVAD class to accumulate counters",
+      "split": "dev",
+      "tuned_during_development": true
     },
     {
       "id": "T-006",
       "difficulty": "hard",
-      "tags": ["add-function", "multi-file", "export"],
+      "tags": [
+        "add-function",
+        "multi-file",
+        "export"
+      ],
       "description": "Add a formatBytes(bytes) utility function to src/wav.js that converts a byte count to a human-readable string like '1.2 MB' or '340 KB', then export it and import and use it in main.js to log the PCM buffer size before each STT flush",
-      "expected_files": ["src/wav.js", "main.js"],
-      "note": "Multi-file task — tests whether agent correctly updates both files and the export"
+      "expected_files": [
+        "src/wav.js",
+        "main.js"
+      ],
+      "note": "Multi-file task — tests whether agent correctly updates both files and the export",
+      "split": "dev",
+      "tuned_during_development": true
     }
   ]
 }

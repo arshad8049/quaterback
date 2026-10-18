@@ -1,0 +1,46 @@
+{
+  "id": "FY-13",
+  "split": "dev",
+  "stratum": {
+    "type": "bug_fix",
+    "repository": "fastify"
+  },
+  "repo": "qb-bench:fastify-5.8.5",
+  "version": 2,
+  "base_rev": "bfa38008bdac83ecac84579eb22d0cd669813f18",
+  "prompt": "Response schemas declared per content type (schema.response[status].content['application/json'].schema) are silently skipped when the reply's Content-Type has whitespace before the parameters, for example 'application/json ; charset=utf-8', 'application/json\\t; charset=utf-8' or 'application/json ;'. The reply is then serialised without the schema, so fields the schema would remove (a schema with additionalProperties: false) leak to the client. Fix the response schema lookup so it uses the media type parsed from the Content-Type with Fastify's ContentType parser (lib/content-type.js), so that any whitespace (spaces or tabs) around the media type is ignored, for every kind of response schema: an exact status code (200), and the 'default' response. Example: with the 200 schema { type: 'object', additionalProperties: false, properties: { public: { type: 'string' } }, required: ['public'] } under 'application/json', sending { public: 'ok', secret: 'SHOULD_BE_STRIPPED' } must return 200 with the body { public: 'ok' } for each of those Content-Type values; the same holds when that schema is declared under the 'default' response instead of 200.",
+  "requirement": "getSchemaSerializer looks up response[status].content[mediaType] (and the 'NXX' and 'default' fallbacks) using the media type parsed by ContentType (trimmed, lowercased, valid), not the raw text before ';'. Whitespace or a tab before ';' and a trailing ' ;' all select the 'application/json' schema, which then strips undeclared properties.",
+  "oracle": {
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "with Content-Type 'application/json ; charset=utf-8', the 200 'application/json' schema applies: { public: 'ok', secret: 'SHOULD_BE_STRIPPED' } is sent as { public: 'ok' }"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "the same for 'application/json\\t; charset=utf-8' and 'application/json ;'"
+      },
+      {
+        "id": "AC-3",
+        "criterion": "a schema declared under the 'default' response is applied the same way for 'application/json ; charset=utf-8'"
+      }
+    ]
+  },
+  "suite": {
+    "command": [
+      "node",
+      "--test",
+      "test/hidden/*.test.js"
+    ]
+  },
+  "adjudication_rules": "Score pass only if every hidden check passes. No partial credit.",
+  "provenance": {
+    "author": "Claude (QB developer side; dev screen, harder candidates)",
+    "created_at": "2026-10-12T00:00:00Z",
+    "tuned_during_development": false,
+    "notes": "Real defect in fastify v5.8.5 (response schema lookup by raw text before ';', so whitespace skips the schema and leaks fields), fixed upstream in c06fc06d (#6685). The reference is that fix applied to v5.8.5. The hidden suite is the upstream whitespace, tab and trailing-semicolon tests plus the 'default' case the prompt states. Upper-case media types are out of scope at this base: reply.send rejects them before the lookup (fixed later upstream, see FY-12)."
+  },
+  "changelog": [
+    {"version":2,"reason":"Rebuilt the Fastify base with neostandard kept in devDependencies (bench/repos/repos.json, lockfile regenerated as of the release date): without it the repository test test/build/error-serializer.test.js › check generated code syntax failed on every tree, which QB misread as a regression of correct patches (KAN-65). Only base_rev and the lockfile change; prompt, oracle, reference, incorrect implementations and hidden suite are unchanged.","disclosed_at":"2026-10-14T00:00:00Z","after_viewing_results":true}
+  ]
+}

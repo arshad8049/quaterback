@@ -28,14 +28,25 @@ const MAX_FILE_HINTS    = 8;     // cap file hints passed to L2
 /** QB-25: the supported history size — recall latency is measured at this many outcomes. */
 const SUPPORTED_HISTORY = DEFAULTS.retention.outcomes;
 
+/** A store whose namespace is always `repo`'s, whatever repository path a call names. */
+function boundStore(store, repo) {
+  return Object.fromEntries(Object.entries(store).map(([k, fn]) => [k,
+    typeof fn === 'function' && k !== 'repoIdentity' ? (_repoPath, ...rest) => fn(repo, ...rest) : fn]));
+}
+
 /**
  * A memory bound to one store (QB-25). The store path is injected here
  * (createMemory({ root })) or, for the default memory, resolved from QB_MEMORY_DIR
  * each time it is used — never captured at import.
  * @param {object} [opts] { root, retention, maxScan, onWarning, lock } or { store }
+ * @param {string} [opts.namespaceRepo] QB-28 re-review: a FROZEN repository identity for the
+ *   store namespace. Every store read/write uses this path's namespace, while file-existence
+ *   and revision checks still run against the repoPath each call is given (e.g. a fresh
+ *   benchmark checkout of the same commit). Without it the namespace is repoPath's own.
  */
 function createMemory(opts = {}) {
-const store = opts.store || createStore(opts);
+const baseStore = opts.store || createStore(opts);
+const store = opts.namespaceRepo ? boundStore(baseStore, opts.namespaceRepo) : baseStore;
 
 // ── Write ──────────────────────────────────────────────────────────────────────
 

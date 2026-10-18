@@ -1,0 +1,88 @@
+{
+  "schema": "qb-task-spec/1",
+  "id": "FY-10",
+  "version": 2,
+  "split": "dev",
+  "stratum": {
+    "type": "errors",
+    "repository": "fastify"
+  },
+  "repo": {
+    "source": "qb-bench:fastify-5.6.1",
+    "base_rev": "6d171bd935f58f8b83817cb8188e1fcf2ff2f4aa",
+    "lockfiles": {
+      "package-lock.json": "4cc32c24af6def3e57d3dadc06130a37333ecbc4272aa5fec938b73b783d7c5c"
+    }
+  },
+  "prompt": "A custom validator (from a route's validatorCompiler) that throws synchronously, instead of returning { error }, is not handled consistently: when an async preValidation hook is registered, the throw becomes an unhandled promise rejection and the route's error handler is never called. Make a synchronous throw from a validator behave the same with sync and async preValidation hooks: the thrown error itself (same message, e.g. 'Custom validation failed') must reach the error handler set with setErrorHandler, as an internal error with error.statusCode === 500 (not a 400 validation error). Without a custom error handler, the response is Fastify's default 500 response carrying the thrown error's message.",
+  "requirement": "validateParam catches a synchronous throw from the validator function, sets err.statusCode = 500 and returns the same error, so the request fails through the normal error path with sync or async preValidation hooks: the custom error handler receives the original error (original message, statusCode 500); the default handler replies 500 with that message.",
+  "oracle": {
+    "approved_by": "Arshad Ahmed Shaik (delegated approval; AI technical review by Claude)",
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "with an async preValidation hook, a validator that throws Error('Custom validation failed') makes setErrorHandler receive that error, with statusCode 500, and the route responds 500"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "the same with a sync (callback) preValidation hook"
+      },
+      {
+        "id": "AC-3",
+        "criterion": "without a custom error handler the response is status 500 with message 'Custom validation failed'"
+      }
+    ]
+  },
+  "suite": {
+    "dir": "FY-10",
+    "files": {
+      "throwing-validator.test.js": "c36afc874b0dfd205df53971236fa3a84092144cebb34e1eaa819dd1ec133582"
+    },
+    "command": [
+      "node",
+      "--test",
+      "test/hidden/*.test.js"
+    ],
+    "install_to": "test/hidden",
+    "owned_paths": [
+      "test/hidden/**"
+    ],
+    "adjudicate_checks": []
+  },
+  "qualification": {
+    "grader_sha256": "f088eb07030432a8bee9f72ffdb439d034d91051d6512762f7169c14c73a75f6",
+    "suite_sha256": "231e3ced015db575c771157a4c0945f7221f2e20e8d10e9c411582d3106c87ac",
+    "reference": {
+      "patch_sha256": "6a9f59da298daa8675c5ffbd5a7b046ff4550587820ef9dc88b012ce6026f73d",
+      "outcome": "pass"
+    },
+    "incorrect": [
+      {
+        "label": "caught-as-validation-error",
+        "patch_sha256": "1fcca39c99efd88f7596e2893bd3230257156d92c8328ab9e35a497af26308f5",
+        "outcome": "fail"
+      },
+      {
+        "label": "generic-error",
+        "patch_sha256": "c1d0c8aa9ad341de7fcd9fe30efb7fef3e42f6f0f7e6d3270e5da4230f104c53",
+        "outcome": "fail"
+      }
+    ],
+    "qualified_at": "2026-10-14T16:13:32.297Z"
+  },
+  "adjudication_rules": "Score pass only if every hidden check passes. No partial credit.",
+  "provenance": {
+    "author": "Claude (QB developer side; dev screen, harder candidates)",
+    "created_at": "2026-10-12T00:00:00Z",
+    "tuned_during_development": false,
+    "notes": "Real defect in fastify v5.6.1 (a throwing custom validator with an async preValidation hook becomes an unhandled rejection; issue #6214), fixed upstream in d338dca5 (#6247). The reference is that fix applied to v5.6.1. The hidden suite is the upstream tests plus the statusCode and default-handler cases the prompt states."
+  },
+  "changelog": [
+    {
+      "version": 2,
+      "reason": "Rebuilt the Fastify base with neostandard kept in devDependencies (bench/repos/repos.json, lockfile regenerated as of the release date): without it the repository test test/build/error-serializer.test.js › check generated code syntax failed on every tree, which QB misread as a regression of correct patches (KAN-65). Only base_rev and the lockfile change; prompt, oracle, reference, incorrect implementations and hidden suite are unchanged.",
+      "disclosed_at": "2026-10-14T00:00:00Z",
+      "after_viewing_results": true
+    }
+  ]
+}

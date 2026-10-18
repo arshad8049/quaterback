@@ -1,0 +1,85 @@
+{
+  "schema": "qb-task-spec/1",
+  "id": "FP-02",
+  "version": 1,
+  "split": "dev",
+  "stratum": {
+    "type": "bug_fix",
+    "repository": "fastify-plugin"
+  },
+  "repo": {
+    "source": "qb-bench:fastify-plugin",
+    "base_rev": "87548e7878496b7b960c633bff6f860e2de40849",
+    "lockfiles": {
+      "package-lock.json": "8bf71233079f881a648b0413a626132fa80a3ebc076c65aba855d29dd75472da"
+    }
+  },
+  "prompt": "The camelCase alias fastify-plugin derives from a plugin name isn't always a valid identifier: 'my--plugin' gives 'my-plugin', 'plugin-' stays 'plugin-', and '@a/b/c-d' gives 'aB/cD'. Fix lib/toCamelCase.js so hyphens and slashes never survive: drop a leading '@', split the rest on runs of '-' and '/', ignore empty pieces, keep the first piece as is and upper-case only the first character of each following piece. So 'my--plugin' → 'myPlugin', 'plugin-' → 'plugin', '@a/b/c-d' → 'aBCD', '@scope/my-plugin' → 'scopeMyPlugin', 'fooBar-baz' → 'fooBarBaz', 'my_plugin' → 'my_plugin'. The alias fp sets on the plugin follows the same rule.",
+  "requirement": "toCamelCase(name) drops a leading '@', splits the rest on runs of '-' and '/', ignores empty pieces, keeps the first piece as is and upper-cases the first character of each following piece (other characters unchanged). Examples: '@scope/my-plugin' → 'scopeMyPlugin', 'my--plugin' → 'myPlugin', 'plugin-' → 'plugin', '@a/b/c-d' → 'aBCD', 'fooBar-baz' → 'fooBarBaz', 'my_plugin' → 'my_plugin'. The alias fp sets (fn[camelName]) follows the same rule.",
+  "oracle": {
+    "approved_by": "Arshad Ahmed Shaik (delegated approval; AI technical review by Codex)",
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "'my--plugin' → 'myPlugin' and 'plugin-' → 'plugin'"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "'@a/b/c-d' → 'aBCD' and '@scope/my-plugin' → 'scopeMyPlugin'"
+      },
+      {
+        "id": "AC-3",
+        "criterion": "existing capitals and underscores are kept: 'fooBar-baz' → 'fooBarBaz', 'my_plugin' → 'my_plugin'"
+      },
+      {
+        "id": "AC-4",
+        "criterion": "fp(fn, { name: 'my--plugin' }).myPlugin === fn"
+      }
+    ]
+  },
+  "suite": {
+    "dir": "FP-02",
+    "files": {
+      "camel-case.test.js": "611a653f7429110ec4604debe870341947e933a2826b0aa72d18c451479ef7f1"
+    },
+    "command": [
+      "node",
+      "--test",
+      "test/hidden/*.test.js"
+    ],
+    "install_to": "test/hidden",
+    "owned_paths": [
+      "test/hidden/**"
+    ],
+    "adjudicate_checks": []
+  },
+  "qualification": {
+    "grader_sha256": "3116461e6934079a16ed5af0ae2c35e701094b699f62feeea86fe2106d4ea886",
+    "suite_sha256": "f65973bb4b2fb6e0388f76594dba5f616465016197ee1af70bcefcaacbe30fc3",
+    "reference": {
+      "patch_sha256": "f0920ee33933b8a16ca774387a11379e2b6c21e0cdf4e49e20591ff2e44692f8",
+      "outcome": "pass"
+    },
+    "incorrect": [
+      {
+        "label": "dash-runs-only",
+        "patch_sha256": "6bee63788e39d8628922d0368f06a338123f33b55087cb303128fe5b2685f39e",
+        "outcome": "fail"
+      },
+      {
+        "label": "lowercase-rest",
+        "patch_sha256": "404150734430076165fd4b429d8df134f9bc221e314c91368ee70244ff94bb62",
+        "outcome": "fail"
+      }
+    ],
+    "qualified_at": "2026-10-08T15:32:14.983Z"
+  },
+  "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
+  "provenance": {
+    "author": "Claude (QB developer side; dev split only)",
+    "created_at": "2026-10-08T00:00:00Z",
+    "tuned_during_development": false,
+    "notes": "Real behaviour of fastify-plugin v6.0.0."
+  },
+  "changelog": []
+}

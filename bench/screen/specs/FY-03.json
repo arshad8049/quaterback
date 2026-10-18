@@ -1,0 +1,88 @@
+{
+  "schema": "qb-task-spec/1",
+  "id": "FY-03",
+  "version": 2,
+  "split": "dev",
+  "stratum": {
+    "type": "bug_fix",
+    "repository": "fastify"
+  },
+  "repo": {
+    "source": "qb-bench:fastify-5.8.2",
+    "base_rev": "65c02f0c9dc029f5cca828667830bec3ea285431",
+    "lockfiles": {
+      "package-lock.json": "d65927e4bb25e8df545cc35c7e45773143f6b8d3aff9a74f891136c2a500bc00"
+    }
+  },
+  "prompt": "Security: with trustProxy enabled, request.host, request.hostname and request.protocol read X-Forwarded-Host and X-Forwarded-Proto even when the connection does not come from a trusted proxy, so a client connecting directly can spoof them. Make these getters use the forwarded headers only when the connection's own socket address (the first hop) is trusted by the trustProxy setting; otherwise request.host and request.hostname must come from the Host header and request.protocol from the socket ('https' when the socket is encrypted, else 'http'). Whether the connection is trusted depends only on the socket address, not on whether an X-Forwarded-For header is present: a trusted proxy that sends X-Forwarded-Host and X-Forwarded-Proto without X-Forwarded-For must still have them honoured. trustProxy: true keeps trusting every connection.",
+  "requirement": "With trustProxy set, request.host/hostname use the last X-Forwarded-Host entry and request.protocol the last X-Forwarded-Proto entry only if the trust function accepts the socket remoteAddress at hop 0; otherwise host falls back to the Host header (then :authority, then '') and protocol to the socket's encryption. Trust does not depend on X-Forwarded-For. trustProxy: true trusts every connection. Example: trustProxy '10.0.0.1', a connection from 127.0.0.1 with Host 'localhost:3000', X-Forwarded-Host 'evil.com' and X-Forwarded-Proto 'https' gives host 'localhost:3000', hostname 'localhost', protocol 'http'.",
+  "oracle": {
+    "approved_by": "Arshad Ahmed Shaik (delegated approval; AI technical review by Claude)",
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "an untrusted connection (trustProxy '10.0.0.1', socket 127.0.0.1) ignores X-Forwarded-Host/Proto: host is the Host header, hostname its name, protocol 'http'"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "a trusted connection (trust function accepting 127.0.0.1) uses X-Forwarded-Host and X-Forwarded-Proto, with or without an X-Forwarded-For header"
+      },
+      {
+        "id": "AC-3",
+        "criterion": "trustProxy: true trusts every connection: X-Forwarded-Host is used"
+      }
+    ]
+  },
+  "suite": {
+    "dir": "FY-03",
+    "files": {
+      "trust-proxy-gating.test.js": "806f7c37c8b2f7ee5386199cd4560068d2e13511eef6b42449868adfc3981b3b"
+    },
+    "command": [
+      "node",
+      "--test",
+      "test/hidden/*.test.js"
+    ],
+    "install_to": "test/hidden",
+    "owned_paths": [
+      "test/hidden/**"
+    ],
+    "adjudicate_checks": []
+  },
+  "qualification": {
+    "grader_sha256": "f088eb07030432a8bee9f72ffdb439d034d91051d6512762f7169c14c73a75f6",
+    "suite_sha256": "a992dbc041b5a00d8b75f8bf1e62d94ef9d5a514b23d32bfd04363dea3757c2e",
+    "reference": {
+      "patch_sha256": "bc8bcb2383888d4185ccc30e086fd924307370fea271a44af98dbbb8b3fba180",
+      "outcome": "pass"
+    },
+    "incorrect": [
+      {
+        "label": "ip-heuristic",
+        "patch_sha256": "c5e34a2eb30e15889d7bb2592da38abc3c72e2ca84168fa2e8d671c16562301e",
+        "outcome": "fail"
+      },
+      {
+        "label": "protocol-only",
+        "patch_sha256": "7439d2b80c248a82b1882c0eed44fc5b8954e3275fe954e8ba3a3255ae0eab6c",
+        "outcome": "fail"
+      }
+    ],
+    "qualified_at": "2026-10-14T15:54:03.667Z"
+  },
+  "adjudication_rules": "Score pass only if every hidden check passes. No partial credit.",
+  "provenance": {
+    "author": "Claude (QB developer side; dev screen, harder candidates)",
+    "created_at": "2026-10-12T00:00:00Z",
+    "tuned_during_development": false,
+    "notes": "Real security defect in fastify v5.8.2 (GHSA-444r-cwp2-x5xf), fixed upstream in 4e1db5bd. The reference is that fix applied to v5.8.2. The hidden suite tests the request object directly (no listening server) and adds the trusted-without-X-Forwarded-For case the prompt states."
+  },
+  "changelog": [
+    {
+      "version": 2,
+      "reason": "Rebuilt the Fastify base with neostandard kept in devDependencies (bench/repos/repos.json, lockfile regenerated as of the release date): without it the repository test test/build/error-serializer.test.js › check generated code syntax failed on every tree, which QB misread as a regression of correct patches (KAN-65). Only base_rev and the lockfile change; prompt, oracle, reference, incorrect implementations and hidden suite are unchanged.",
+      "disclosed_at": "2026-10-14T00:00:00Z",
+      "after_viewing_results": true
+    }
+  ]
+}

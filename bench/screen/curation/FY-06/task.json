@@ -1,0 +1,27 @@
+{
+  "id": "FY-06",
+  "split": "dev",
+  "stratum": { "type": "state", "repository": "fastify" },
+  "repo": "qb-bench:fastify-5.11.2",
+  "version": 2,
+  "base_rev": "6082c76611816671bb8c1405d2069e8851ebbab5",
+  "prompt": "When every trailer registered on a reply is removed with reply.removeTrailer() before the reply is sent, Fastify still switches the response to trailer mode: it sends Transfer-Encoding: chunked and an empty Trailer header, and drops Content-Length. Fix it so that a reply whose trailers have all been removed behaves exactly as if no trailer had been registered: no Trailer header, no Transfer-Encoding: chunked, a normal Content-Length (5 for the body 'hello'), and no trailer function is called. Removing only some trailers must keep trailer mode for the remaining ones: for example, registering ETag and Content-MD5, removing ETag and sending 'hello' must give a Trailer header of 'content-md5', Transfer-Encoding: chunked, no Content-Length, and the content-md5 trailer value; the removed ETag function is never called.",
+  "requirement": "At send time, if no registered trailer remains (every one removed), the reply leaves trailer mode: kReplyTrailers is cleared, no Trailer or chunked Transfer-Encoding header is set, Content-Length is computed as usual and no trailer function runs. If at least one remains, Trailer lists the remaining names, Transfer-Encoding is chunked, Content-Length is absent and the remaining trailers are sent; removed trailer functions are never called.",
+  "oracle": {
+    "acceptance_criteria": [
+      { "id": "AC-1", "criterion": "register an ETag trailer, remove it, send 'hello': status 200, no Trailer header, no Transfer-Encoding, Content-Length '5', no etag trailer, the ETag function never called" },
+      { "id": "AC-2", "criterion": "register ETag and Content-MD5, remove ETag, send 'hello': Trailer 'content-md5', Transfer-Encoding 'chunked', no Content-Length, trailer content-md5 'custom-md5'; the ETag function never called" }
+    ]
+  },
+  "suite": { "command": ["node", "--test", "test/hidden/*.test.js"] },
+  "adjudication_rules": "Score pass only if every hidden check passes. No partial credit.",
+  "provenance": {
+    "author": "Claude (QB developer side; dev screen, harder candidates)",
+    "created_at": "2026-10-12T00:00:00Z",
+    "tuned_during_development": false,
+    "notes": "Real defect in fastify v5.11.2 (removing all trailers still forces chunked trailer mode), fixed upstream in 7299a57d (#6845). The reference is that fix applied to v5.11.2; the hidden suite is the upstream remove-all and remove-some tests."
+  },
+  "changelog": [
+    {"version":2,"reason":"Rebuilt the Fastify base with neostandard kept in devDependencies (bench/repos/repos.json, lockfile regenerated as of the release date): without it the repository test test/build/error-serializer.test.js › check generated code syntax failed on every tree, which QB misread as a regression of correct patches (KAN-65). Only base_rev and the lockfile change; prompt, oracle, reference, incorrect implementations and hidden suite are unchanged.","disclosed_at":"2026-10-14T00:00:00Z","after_viewing_results":true}
+  ]
+}

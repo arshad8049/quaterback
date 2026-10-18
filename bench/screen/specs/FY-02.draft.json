@@ -1,0 +1,94 @@
+{
+  "schema": "qb-task-draft/1",
+  "spec": {
+    "schema": "qb-task-spec/1",
+    "id": "FY-02",
+    "version": 2,
+    "split": "dev",
+    "stratum": {
+      "type": "bug_fix",
+      "repository": "fastify"
+    },
+    "repo": {
+      "source": "qb-bench:fastify-5.8.4",
+      "base_rev": "932d775b8714bc3d657ad7fbd5e3374c52cbd158",
+      "lockfiles": {
+        "package-lock.json": "c74a55683af05643441de4ffe18defc81369d3c1f58586692efc4ac24716d059"
+      }
+    },
+    "prompt": "With trustProxy set to a number (a hop count), request.ip is undefined when the socket's remoteAddress is undefined or null (as happens behind IISNode on Windows). Fix it so a missing socket address still counts as the first hop: with trustProxy: 1, an X-Forwarded-For of '2.2.2.2, 1.1.1.1' and socket.remoteAddress undefined, request.ip must be '1.1.1.1'; the same with socket.remoteAddress null. With socket.remoteAddress undefined and an X-Forwarded-Host of 'fastify.test', request.host must be 'fastify.test'.",
+    "requirement": "When trustProxy is a number n, the trust function trusts hop i whenever i < n, regardless of whether the address is undefined or null. So with trustProxy: 1 and a missing socket address, the socket hop is trusted and request.ip is the last X-Forwarded-For entry ('2.2.2.2, 1.1.1.1' gives '1.1.1.1') for remoteAddress undefined and for null. With remoteAddress undefined, request.host comes from X-Forwarded-Host.",
+    "oracle": null,
+    "suite": {
+      "dir": "FY-02",
+      "files": {
+        "trust-proxy-socket.test.js": "53e06bc4ad166c9a1517b4b30a371c7850efdc4d88401d25037ac9f3c651cf1d"
+      },
+      "command": [
+        "node",
+        "--test",
+        "test/hidden/*.test.js"
+      ],
+      "install_to": "test/hidden",
+      "owned_paths": [
+        "test/hidden/**"
+      ],
+      "adjudicate_checks": []
+    },
+    "qualification": {
+      "grader_sha256": "f088eb07030432a8bee9f72ffdb439d034d91051d6512762f7169c14c73a75f6",
+      "suite_sha256": "b276c5c41a7df692483138868dad77cf88e413c21000384b11f2103ad3bb8d70",
+      "reference": {
+        "patch_sha256": "525dd5644ffe0877c2a9e42c943109119770c0f7ca166d1b39d0640476201742",
+        "outcome": "pass"
+      },
+      "incorrect": [
+        {
+          "label": "null-only-guard",
+          "patch_sha256": "730adf62f9bc220fe9dd20beb6dbd71786dc801c04a9a1a08cfb5df12cac70f1",
+          "outcome": "fail"
+        },
+        {
+          "label": "trust-every-hop",
+          "patch_sha256": "89a9a5d0fcbc9eeaecb1b853a8c7e8e56f7f7fecc4a3cf50de620e9c7e4f6c7b",
+          "outcome": "fail"
+        }
+      ],
+      "qualified_at": "2026-10-14T15:51:26.348Z"
+    },
+    "adjudication_rules": "Score pass only if every hidden check passes. No partial credit.",
+    "provenance": {
+      "author": "Claude (QB developer side; dev screen, harder candidates)",
+      "created_at": "2026-10-12T00:00:00Z",
+      "tuned_during_development": false,
+      "notes": "Real defect in fastify v5.8.4 (the hop-count trust function rejects a null/undefined address), fixed upstream in 8dee9be0 (#6613, issue #6606). The reference is that fix applied to v5.8.4; the hidden suite is the upstream tests."
+    },
+    "changelog": [
+      {
+        "version": 2,
+        "reason": "Rebuilt the Fastify base with neostandard kept in devDependencies (bench/repos/repos.json, lockfile regenerated as of the release date): without it the repository test test/build/error-serializer.test.js › check generated code syntax failed on every tree, which QB misread as a regression of correct patches (KAN-65). Only base_rev and the lockfile change; prompt, oracle, reference, incorrect implementations and hidden suite are unchanged.",
+        "disclosed_at": "2026-10-14T00:00:00Z",
+        "after_viewing_results": true
+      }
+    ]
+  },
+  "oracle_draft": {
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "trustProxy: 1, socket.remoteAddress undefined, X-Forwarded-For '2.2.2.2, 1.1.1.1': request.ip is '1.1.1.1'"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "the same with socket.remoteAddress null: request.ip is '1.1.1.1'"
+      },
+      {
+        "id": "AC-3",
+        "criterion": "trustProxy: 1, socket.remoteAddress undefined, X-Forwarded-Host 'fastify.test': request.host is 'fastify.test'"
+      }
+    ]
+  },
+  "source": {
+    "curation_sha256": "f9eb779274a0c4cea9acedff89a9a1f683b50581ab77e28ee0d542c0b8b1158e"
+  }
+}

@@ -1,0 +1,104 @@
+{
+  "schema": "qb-task-draft/1",
+  "spec": {
+    "schema": "qb-task-spec/1",
+    "id": "FY-08",
+    "version": 3,
+    "split": "dev",
+    "stratum": {
+      "type": "bug_fix",
+      "repository": "fastify"
+    },
+    "repo": {
+      "source": "qb-bench:fastify-5.12.0-t6949",
+      "base_rev": "6913ba1c680080081bcd7ac08ddb9b8ae3cff41a",
+      "lockfiles": {
+        "package-lock.json": "5f6b5930f1257ad88b62d2d59f64d7b8af0fdcb943eeb2afbd9872e5132c8fc5"
+      }
+    },
+    "prompt": "When a route's schema for a request part is a root primitive, Fastify validates the coerced value but the handler still receives the original one. For example, with schema.body { type: 'integer', minimum: 1, maximum: 10 } and the JSON body \"10\" (a string), validation passes but request.body is still the string '10'. Fix validation so that a value Ajv coerces at the root of a request part is assigned to the request, for every primitive type: the example must give request.body === 10 (a number), and a body schema { type: 'boolean' } with the JSON body \"true\" must give request.body === true. Validation must still reject invalid values with a 400 (the JSON body \"0\" against the integer schema above). Routes using a custom validatorCompiler, whose validators are plain functions rather than Ajv validators, must keep working as before.",
+    "requirement": "validateParam passes { parentData: request, parentDataProperty: paramName } to Ajv validators (those with schemaEnv), so root coercion of body/querystring/params/headers is written back to request[paramName] for every primitive type ('\"10\"' → 10 for an integer schema, '\"true\"' → true for a boolean schema). Out-of-range values still produce 400. Validators that are not Ajv validators (custom validatorCompiler) are called with the data as before.",
+    "oracle": null,
+    "suite": {
+      "dir": "FY-08",
+      "files": {
+        "root-coercion.test.js": "10db67ae0dcaec77b1e7cd3a93eed4f7fd4fe617aa707e5b21da63d8c1d9fb73"
+      },
+      "command": [
+        "node",
+        "--test",
+        "test/hidden/*.test.js"
+      ],
+      "install_to": "test/hidden",
+      "owned_paths": [
+        "test/hidden/**"
+      ],
+      "adjudicate_checks": []
+    },
+    "qualification": {
+      "grader_sha256": "f088eb07030432a8bee9f72ffdb439d034d91051d6512762f7169c14c73a75f6",
+      "suite_sha256": "e2411b6f1bba660254e7279420c551062993034face749b36525e0e7607f4f02",
+      "reference": {
+        "patch_sha256": "83850128ee6e1b6065f40366b3063400fbf82dc8d855127915ca40a126db6096",
+        "outcome": "pass"
+      },
+      "incorrect": [
+        {
+          "label": "numeric-only-coercion",
+          "patch_sha256": "35ecd4535257d1570154f065b2c02f0147b5e9f70f1dd6edb6580d5639f0f5f9",
+          "outcome": "fail"
+        },
+        {
+          "label": "reassign-original",
+          "patch_sha256": "c316d2736783e3412ba3764e94ab2c223cad067dd3989d6b1d3cfed1aa90693b",
+          "outcome": "fail"
+        }
+      ],
+      "qualified_at": "2026-10-15T16:13:10.347Z"
+    },
+    "adjudication_rules": "Score pass only if every hidden check passes. No partial credit.",
+    "provenance": {
+      "author": "Claude (QB developer side; dev screen, harder candidates)",
+      "created_at": "2026-10-12T00:00:00Z",
+      "tuned_during_development": false,
+      "notes": "Real defect in fastify v5.12.0 (root-primitive coercion is lost), fixed upstream in 1ef8a60c. The reference is that fix applied to v5.12.0. The hidden suite extends the upstream test with the boolean, invalid and custom-validator cases the prompt states."
+    },
+    "changelog": [
+      {
+        "version": 2,
+        "reason": "Rebuilt the Fastify base with neostandard kept in devDependencies (bench/repos/repos.json, lockfile regenerated as of the release date): without it the repository test test/build/error-serializer.test.js › check generated code syntax failed on every tree, which QB misread as a regression of correct patches (KAN-65). Only base_rev and the lockfile change; prompt, oracle, reference, incorrect implementations and hidden suite are unchanged.",
+        "disclosed_at": "2026-10-14T00:00:00Z",
+        "after_viewing_results": true
+      },
+      {
+        "version": 3,
+        "reason": "The base now includes upstream 65d12da9 (\"test: fix reply.mediaType (#6949)\"), a one-line fix to test/internals/reply.test.js released after v5.12.0. v5.12.0 shipped that test failing on its own code, so every QB run on FY-08, including the unchanged base, ended as a pre-existing failure (found by the KAN-65 v2 replays). Qualification now also requires the base to pass its own tests. Only the repository source, base_rev and this entry change; prompt, oracle, reference, incorrect implementations, hidden suite and lockfile are unchanged.",
+        "disclosed_at": "2026-10-15T00:00:00Z",
+        "after_viewing_results": true
+      }
+    ]
+  },
+  "oracle_draft": {
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "body schema { type: 'integer', minimum: 1, maximum: 10 } with JSON body \"10\": status 200 and request.body is the number 10"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "body schema { type: 'boolean' } with JSON body \"true\": request.body is the boolean true"
+      },
+      {
+        "id": "AC-3",
+        "criterion": "JSON body \"0\" against the integer schema is rejected with 400"
+      },
+      {
+        "id": "AC-4",
+        "criterion": "a route with a custom validatorCompiler returning a plain validator function still validates and responds"
+      }
+    ]
+  },
+  "source": {
+    "curation_sha256": "45cdb7537e103e375b81fdf608f5e50d0418e02bd106b54cabc7117883c03a20"
+  }
+}

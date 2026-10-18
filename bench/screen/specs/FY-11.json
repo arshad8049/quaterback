@@ -1,0 +1,96 @@
+{
+  "schema": "qb-task-spec/1",
+  "id": "FY-11",
+  "version": 2,
+  "split": "dev",
+  "stratum": {
+    "type": "bug_fix",
+    "repository": "fastify"
+  },
+  "repo": {
+    "source": "qb-bench:fastify-5.10.0",
+    "base_rev": "c975bcd711d132a8f6730f653ce916f988640621",
+    "lockfiles": {
+      "package-lock.json": "0a9b8ed310401bb693a4d02ed473d82c76f357c19fc71e63ac2458722375c869"
+    }
+  },
+  "prompt": "Fastify's Content-Type parser (the ContentType class in lib/content-type.js) mishandles quoted parameter values (RFC 9110 quoted-string): a ';' inside quotes ends the value early, a 'key=value' inside a quoted value leaks out as a separate parameter, and backslash escapes are not unescaped. Fix it so a parameter value may be a token or a full quoted-string, and inside a quoted-string ';', '=' and escaped quotes are part of the value. For a quoted value, remove the surrounding double quotes and replace every backslash-escaped character (\\x) by the character itself. Examples: 'application/json; name=\"foo;bar\"; charset=utf-8' is valid, with media type 'application/json', parameter name 'foo;bar' and charset 'utf-8'; 'application/json; name=\"a=b;charset=fake\"; boundary=xyz' is valid with name 'a=b;charset=fake', boundary 'xyz' and no charset parameter; 'application/json; name=\"he said \\\"hi\\\"\"' is valid with name 'he said \"hi\"'; 'application/json; charset=\"utf-8\"; foo=\"BaR\"' still gives charset 'utf-8' and foo 'BaR' (case preserved). Because reply.send relies on this parser to see whether a charset is already declared, a reply with Content-Type 'application/json; name=\"a=b;charset=fake\"' sending { hello: 'world' } must be sent with Content-Type 'application/json; name=\"a=b;charset=fake\"; charset=utf-8'.",
+  "requirement": "ContentType parameter values follow RFC 9110: parameter-value = token / quoted-string; inside a quoted-string, qdtext (including ';' and '=') and quoted-pairs are part of the value; the stored value has the DQUOTEs removed and each quoted-pair replaced by its octet. Parameter names are lowercased; values keep their case. A quoted value never yields extra parameters. reply.send appends '; charset=utf-8' when no real charset parameter is present, even if a quoted value contains 'charset='.",
+  "oracle": {
+    "approved_by": "Arshad Ahmed Shaik (delegated approval; AI technical review by Claude)",
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "'application/json; name=\"foo;bar\"; charset=utf-8' is valid with mediaType 'application/json', name 'foo;bar' and charset 'utf-8'"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "'application/json; name=\"a=b;charset=fake\"; boundary=xyz' is valid with name 'a=b;charset=fake', boundary 'xyz' and no charset parameter"
+      },
+      {
+        "id": "AC-3",
+        "criterion": "a quoted-pair is unescaped: name=\"he said \\\"hi\\\"\" gives 'he said \"hi\"'"
+      },
+      {
+        "id": "AC-4",
+        "criterion": "'application/json; charset=\"utf-8\"; foo=\"BaR\"' gives charset 'utf-8' and foo 'BaR'"
+      },
+      {
+        "id": "AC-5",
+        "criterion": "reply.send with Content-Type 'application/json; name=\"a=b;charset=fake\"' sends 'application/json; name=\"a=b;charset=fake\"; charset=utf-8'"
+      }
+    ]
+  },
+  "suite": {
+    "dir": "FY-11",
+    "files": {
+      "content-type-quoted.test.js": "85ec9f0128b486706ccb907c2dc817cd4b88ea8acc0b33c8bb3c53780a0debac"
+    },
+    "command": [
+      "node",
+      "--test",
+      "test/hidden/*.test.js"
+    ],
+    "install_to": "test/hidden",
+    "owned_paths": [
+      "test/hidden/**"
+    ],
+    "adjudicate_checks": []
+  },
+  "qualification": {
+    "grader_sha256": "f088eb07030432a8bee9f72ffdb439d034d91051d6512762f7169c14c73a75f6",
+    "suite_sha256": "db7762354483e1be87447d2768dee7855d72764b4cbad747f37e9721778e01d8",
+    "reference": {
+      "patch_sha256": "feae05aa7a422c9f51c5a0c9a2d8437dbcb1e5cf6235722d8048949a6b8f8897",
+      "outcome": "pass"
+    },
+    "incorrect": [
+      {
+        "label": "no-unescape",
+        "patch_sha256": "748f04be39e57fba6eba9fda5d90bc2cf502486299742277ec121ef54ef3d1b6",
+        "outcome": "fail"
+      },
+      {
+        "label": "strip-quotes-only",
+        "patch_sha256": "e743ed85d6791c18b60cbef369d13027f5736f00173a8f5d00608930434fe9ce",
+        "outcome": "fail"
+      }
+    ],
+    "qualified_at": "2026-10-14T16:16:55.900Z"
+  },
+  "adjudication_rules": "Score pass only if every hidden check passes. No partial credit.",
+  "provenance": {
+    "author": "Claude (QB developer side; dev screen, harder candidates)",
+    "created_at": "2026-10-12T00:00:00Z",
+    "tuned_during_development": false,
+    "notes": "Real defect in fastify v5.10.0 (quoted-string parameter values split on ';' and not unescaped), fixed upstream in 29bdcbb9 (#6865). The reference is that fix applied to v5.10.0; the hidden suite is the upstream tests plus the preserved quoted-value case."
+  },
+  "changelog": [
+    {
+      "version": 2,
+      "reason": "Rebuilt the Fastify base with neostandard kept in devDependencies (bench/repos/repos.json, lockfile regenerated as of the release date): without it the repository test test/build/error-serializer.test.js › check generated code syntax failed on every tree, which QB misread as a regression of correct patches (KAN-65). Only base_rev and the lockfile change; prompt, oracle, reference, incorrect implementations and hidden suite are unchanged.",
+      "disclosed_at": "2026-10-14T00:00:00Z",
+      "after_viewing_results": true
+    }
+  ]
+}

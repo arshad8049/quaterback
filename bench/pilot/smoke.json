@@ -1,0 +1,22 @@
+{
+  "kind": "exploratory",
+  "arms": [
+    "A",
+    "E"
+  ],
+  "primary": [
+    "A",
+    "E"
+  ],
+  "repetitions": 1,
+  "budget": {
+    "agent_time_ms": 900000,
+    "trial_deadline_ms": 3600000,
+    "model_call_deadline_ms": 180000
+  },
+  "seed": "qb30-smoke",
+  "specs": [
+    "../specs/PW-01.json"
+  ],
+  "_note": "1-task smoke of the pilot chain (2 real agent runs)."
+}

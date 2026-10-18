@@ -11,7 +11,8 @@ const path     = require('path');
 
 const ROOT = path.join(__dirname, '..', '..');
 const DIRS = ['qb.js', 'lib', 'run', 'intent', 'context', 'agent', 'verify', 'memory', 'bench'];
-const SKIP = new Set(['node_modules', 'fixtures', 'results']);
+// bench/curation holds third-party upstream files and bench/suites hidden test suites (QB-30): not QB source.
+const SKIP = new Set(['node_modules', 'fixtures', 'results', 'curation', 'suites']);
 const ALLOWED = new Set([path.join('lib', 'proc.js')]);
 
 function walk(p, out = []) {

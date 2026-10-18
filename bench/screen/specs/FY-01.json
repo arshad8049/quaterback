@@ -1,0 +1,88 @@
+{
+  "schema": "qb-task-spec/1",
+  "id": "FY-01",
+  "version": 2,
+  "split": "dev",
+  "stratum": {
+    "type": "bug_fix",
+    "repository": "fastify"
+  },
+  "repo": {
+    "source": "qb-bench:fastify-5.8.4",
+    "base_rev": "932d775b8714bc3d657ad7fbd5e3374c52cbd158",
+    "lockfiles": {
+      "package-lock.json": "c74a55683af05643441de4ffe18defc81369d3c1f58586692efc4ac24716d059"
+    }
+  },
+  "prompt": "request.port returns a wrong number when the Host header has no port: for the IPv6 host '[::1]' it returns 1, and for '127.0.0.1' it returns 127, where it should return null. Fix the request.port getter so that it returns the port, as a number, only when the Host header (or, when there is no Host header, the HTTP/2 ':authority' header) ends with ':' followed by digits, and null otherwise. For example: 'example.com:80' gives 80, 'example.com:443' gives 443, '[::1]:80' gives 80, '[::1]' gives null, '127.0.0.1' gives null, 'example.com' gives null, 'localhost:3000' gives 3000, an ':authority' of '1.2.3.4:80' with no Host header gives 80, and no Host or ':authority' header gives null.",
+  "requirement": "Request.prototype.port returns parseInt of the trailing ':<digits>' of the Host header, falling back to the ':authority' header when Host is absent; when that value does not end with ':' followed by one or more digits (including IPv6 hosts without a port, IPv4 hosts without a port, plain hostnames and a missing header) it returns null. IPv6 hosts with a port ('[::1]:443') return the port.",
+  "oracle": {
+    "approved_by": "Arshad Ahmed Shaik (delegated approval; AI technical review by Claude)",
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "a Host with a trailing port returns that port as a number: 'example.com:80' gives 80, 'localhost:3000' gives 3000, '[::1]:443' gives 443"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "a Host without a port returns null, including '[::1]', '127.0.0.1' and 'example.com'"
+      },
+      {
+        "id": "AC-3",
+        "criterion": "with no Host header the ':authority' header is used ('1.2.3.4:80' gives 80); with neither header the port is null"
+      }
+    ]
+  },
+  "suite": {
+    "dir": "FY-01",
+    "files": {
+      "request-port.test.js": "7a4c4f3082129cb57af99d84217895ad2e817ebbf60fd23aaa023ec2d2e34f27"
+    },
+    "command": [
+      "node",
+      "--test",
+      "test/hidden/*.test.js"
+    ],
+    "install_to": "test/hidden",
+    "owned_paths": [
+      "test/hidden/**"
+    ],
+    "adjudicate_checks": []
+  },
+  "qualification": {
+    "grader_sha256": "f088eb07030432a8bee9f72ffdb439d034d91051d6512762f7169c14c73a75f6",
+    "suite_sha256": "900504852858d7f0e10e6e20dedea4600fa70bd4b39ffe3f2bb9c8b9f3793016",
+    "reference": {
+      "patch_sha256": "4b897b6d8140a0b32b1cc67115261235615f7c8e1d3d9e968d4cbdf72f2bfb7d",
+      "outcome": "pass"
+    },
+    "incorrect": [
+      {
+        "label": "second-segment",
+        "patch_sha256": "11db80f63c5aab959996d48287b85cc525dd1e0f76c1f9bc323e31ce081fc1c3",
+        "outcome": "fail"
+      },
+      {
+        "label": "unanchored-regex",
+        "patch_sha256": "8128f0ec60c2315364bd1e3f52dfad7e780416d79907deb9f630b87e061498e2",
+        "outcome": "fail"
+      }
+    ],
+    "qualified_at": "2026-10-14T15:48:54.386Z"
+  },
+  "adjudication_rules": "Score pass only if every hidden check passes. No partial credit.",
+  "provenance": {
+    "author": "Claude (QB developer side; dev screen, harder candidates)",
+    "created_at": "2026-10-12T00:00:00Z",
+    "tuned_during_development": false,
+    "notes": "Real defect in fastify v5.8.4 (port parses the last ':'-segment), fixed upstream in 39f0f242 'Fix port parsing (#6603)'. The reference is that fix applied to v5.8.4. The hidden suite is the upstream test plus IPv4/hostname-without-port cases the prompt states."
+  },
+  "changelog": [
+    {
+      "version": 2,
+      "reason": "Rebuilt the Fastify base with neostandard kept in devDependencies (bench/repos/repos.json, lockfile regenerated as of the release date): without it the repository test test/build/error-serializer.test.js › check generated code syntax failed on every tree, which QB misread as a regression of correct patches (KAN-65). Only base_rev and the lockfile change; prompt, oracle, reference, incorrect implementations and hidden suite are unchanged.",
+      "disclosed_at": "2026-10-14T00:00:00Z",
+      "after_viewing_results": true
+    }
+  ]
+}

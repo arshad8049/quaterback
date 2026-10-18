@@ -1,0 +1,84 @@
+{
+  "schema": "qb-task-spec/1",
+  "id": "LM-03",
+  "version": 1,
+  "split": "dev",
+  "stratum": {
+    "type": "addition",
+    "repository": "light-my-request"
+  },
+  "repo": {
+    "source": "qb-bench:light-my-request",
+    "base_rev": "e02b8f2ac1290d99a2ec67649606991bb2a08db3",
+    "lockfiles": {
+      "package-lock.json": "8a3f87872e50737155a56cc9d28a0e0bf40b8021a3a1430c9f5a3ec8efff2113"
+    }
+  },
+  "prompt": "The chainable API can't set the client address or the authority: add .remoteAddress(address) and .authority(host) to the chain returned by inject(dispatch), working like .headers() / .query(): each sets the inject option of the same name (remoteAddress → req.socket.remoteAddress; authority → the Host header) and returns the chain, and calling either after the request has been invoked throws 'The dispatch function has already been invoked'.",
+  "requirement": "inject(dispatch) chains gain remoteAddress(value) and authority(value): each sets the corresponding inject option (remoteAddress → req.socket.remoteAddress; authority → the Host header when none is given) and returns the chain. Like the other chain setters, calling them after the request has been invoked throws 'The dispatch function has already been invoked'.",
+  "oracle": {
+    "approved_by": "Arshad Ahmed Shaik (delegated approval; AI technical review by Codex)",
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "criterion": "inject(d).get('/').remoteAddress('10.0.0.1') makes req.socket.remoteAddress '10.0.0.1'"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "inject(d).get('/').authority('example.test') makes req.headers.host 'example.test'"
+      },
+      {
+        "id": "AC-3",
+        "criterion": "both return the chain (calls can be chained)"
+      },
+      {
+        "id": "AC-4",
+        "criterion": "calling either after the request is invoked throws 'The dispatch function has already been invoked'"
+      }
+    ]
+  },
+  "suite": {
+    "dir": "LM-03",
+    "files": {
+      "chain-setters.test.js": "1a73b8b433ccb99574c6148b06a2c9a1182181d647517151952e7151e48aaf71"
+    },
+    "command": [
+      "node",
+      "--test",
+      "test/hidden/*.test.js"
+    ],
+    "install_to": "test/hidden",
+    "owned_paths": [
+      "test/hidden/**"
+    ],
+    "adjudicate_checks": []
+  },
+  "qualification": {
+    "grader_sha256": "3116461e6934079a16ed5af0ae2c35e701094b699f62feeea86fe2106d4ea886",
+    "suite_sha256": "c7084a5e240a4c077f46833b5ad4c482bf769126deedbe323850c31bc10f0c8b",
+    "reference": {
+      "patch_sha256": "5ab7c4116d20989fa5db0461e932e390401c00f39f737622d9de9c39b057b0a3",
+      "outcome": "pass"
+    },
+    "incorrect": [
+      {
+        "label": "remote-only",
+        "patch_sha256": "c6630bf7c36edb9775ecd5dc4f9656e265b03ce304f952595977fd63cb86530b",
+        "outcome": "fail"
+      },
+      {
+        "label": "unguarded",
+        "patch_sha256": "63cee9b0cd1f7387d759dd4a3cbcd4d56208bfe530ef70ebcfca1f28181b5a7f",
+        "outcome": "fail"
+      }
+    ],
+    "qualified_at": "2026-10-08T15:42:09.538Z"
+  },
+  "adjudication_rules": "Score pass only if every hidden check passes. No partial credit; behaviour outside the requirement is not graded.",
+  "provenance": {
+    "author": "Claude (QB developer side; dev split only)",
+    "created_at": "2026-10-08T00:00:00Z",
+    "tuned_during_development": false
+  },
+  "changelog": []
+}

@@ -1,0 +1,25 @@
+{
+  "kind": "exploratory",
+  "arms": [
+    "A",
+    "E"
+  ],
+  "primary": [
+    "A",
+    "E"
+  ],
+  "repetitions": 2,
+  "budget": {
+    "agent_time_ms": 900000,
+    "trial_deadline_ms": 3600000,
+    "model_call_deadline_ms": 180000
+  },
+  "seed": "qb30-hard-screen-rerun-2026-10-13",
+  "lock": "../screen/specs.lock.json",
+  "suites": "../screen/suites",
+  "specs": [
+    "../screen/specs/FY-07.json",
+    "../screen/specs/FY-14.json"
+  ],
+  "_note": "QB-30 harder-task screen, rerun of FY-07 and FY-14 x A/E x 2: in run 38409518314 the agent exited after ~1 s in 7 of these 8 trials (empty patches graded as fails; now attrition, bench/arms.js agentFailure). Exploratory; never headline evidence."
+}

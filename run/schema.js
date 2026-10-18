@@ -83,7 +83,7 @@ const CheckSpecSchema = z.object({
 const RunManifestSchema = z.object({
   schema_version: z.literal(SCHEMA_VERSION),
   run_id:         z.string().uuid(),
-  kind:           z.enum(['qb', 'bench-qb', 'bench-baseline']),
+  kind:           z.enum(['qb', 'bench-qb', 'bench-baseline', 'bench-arm']),   // bench-arm: QB-28 experiment arms
   qb_revision:    z.string().nullable(),
   request:        z.string(),
   repo: z.object({
