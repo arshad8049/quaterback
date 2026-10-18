@@ -13,16 +13,16 @@
 - **`gh-pages`** is the generated preview site
   (https://arshad8049.github.io/quaterback/, noindex). It is never merged into main.
 
-## Open branches (2026-10-16)
+## Open branches (2026-10-18)
 | Branch | Card | Base | Merge when |
 |---|---|---|---|
-| `qb30-gh-runner` | KAN-65 (also holds Phase 4, QB-27 to QB-30) | main | KAN-65 is accepted and the full 37-commit diff has been reviewed |
-| `kan71-dev-requalify` | KAN-71 | `qb30-gh-runner` | KAN-71 is accepted, after `qb30-gh-runner` |
+| `qb30-gh-runner` | KAN-65, accepted (also holds Phase 4, QB-27 to QB-30) | main | the senior has reviewed the full 37-commit PR, including the commits no card accepted (73d3405, 0fa061b, the pilot and reproduce workflows). Integration on a trial merge with main is green ([run 39006256145](https://github.com/arshad8049/quaterback/actions/runs/39006256145)) |
+| `kan71-dev-requalify` | KAN-71, reviewed; dev-r2 frozen at 22be7d0 | `qb30-gh-runner` | after `qb30-gh-runner` |
 | `site-progress-2026-10-14` | KAN-67 | main | the senior signs off and the owner approves |
-| `docs-refresh` | documentation refresh of `main` | main | any time |
-| `docs-bench-refresh` | bench docs brought up to date | `kan71-dev-requalify` (with `docs-refresh` merged in) | after `kan71-dev-requalify` and `docs-refresh` |
+| `docs-bench-refresh` | bench docs brought up to date | `kan71-dev-requalify` (with `docs-refresh` merged in) | after `kan71-dev-requalify` |
+| `trial-merge-qb30-main` | KAN-65 pre-merge check only | `qb30-gh-runner` + main | never; delete after the review |
 
-Merged and ready to delete: `qb31-runner-preflight` (PR #16) and `repo-branch-policy` (PR #15).
+Merged and ready to delete: `qb31-runner-preflight` (PR #16), `repo-branch-policy` (PR #15) and `docs-refresh`.
 
 ## Archive
 The branch clean-up of 2026-10-16 deleted 17 GitHub branches:
