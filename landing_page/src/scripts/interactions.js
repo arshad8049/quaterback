@@ -230,6 +230,9 @@
             : 'you are registered — the confirmation email is delayed and will be retried';
         betaForm.innerHTML =
           '<div style="text-align:center;padding:48px 0;font-family:\'IBM Plex Mono\',monospace;font-size:15px;color:#6FBF9F;letter-spacing:0.06em;">✓ request received<br><span style="font-size:13px;color:#8A948F;letter-spacing:0.04em;display:block;margin-top:12px;">' + note + '</span></div>';
+        // KAN-67: announce the outcome; #form-status is outside the form, so it survives the replacement
+        const status = document.getElementById('form-status');
+        if (status) status.textContent = 'Request received: ' + note + '.';
         return;
       }
 
