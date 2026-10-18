@@ -1,0 +1,121 @@
+{
+  "id": "a0e21d22-6291-4ea1-9b79-b083dc796b54",
+  "created_at": "2026-10-15T04:18:32.703Z",
+  "raw_request": "formatDuration should show durations under one minute as seconds only, for example 30000 ms as \"30s\" instead of \"0m 30s\". Durations of one minute or more keep the current format.",
+  "repo_path": null,
+  "goal": "Modify the formatDuration function to show durations under one minute as seconds only, e.g. 30000 ms as \"30s\" instead of \"0m 30s\". Durations of one minute or more keep the current format.",
+  "required_behavior": [
+    "30000 ms should be formatted as \"30s\"",
+    "90000 ms should remain formatted as \"1m 30s\""
+  ],
+  "constraints": [
+    "Do not change any code outside of src/duration.js",
+    "Do not alter the current format for durations of one minute or more",
+    "Ensure that the function handles edge cases such as 0ms correctly"
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "formatDuration(30000) should return \"30s\"",
+      "met": null,
+      "kind": "behavioral",
+      "requirement_ids": [
+        "R-1"
+      ]
+    },
+    {
+      "id": "AC-2",
+      "criterion": "formatDuration(90000) should return \"1m 30s\"",
+      "met": null,
+      "kind": "behavioral",
+      "requirement_ids": [
+        "R-1"
+      ]
+    }
+  ],
+  "verification_plan": [
+    "call_returns: formatDuration(30000) from src/duration.js returns \"30s\"",
+    "call_returns: formatDuration(90000) from src/duration.js returns \"1m 30s\""
+  ],
+  "relevant_context": [
+    "src/duration.js",
+    "test/duration.test.js"
+  ],
+  "ambiguity_flags": [],
+  "clarifying_question": null,
+  "checks": [
+    {
+      "id": "CHK-1",
+      "ac_id": "AC-1",
+      "adapter": "call_returns",
+      "params": {
+        "module": "src/duration.js",
+        "export": "formatDuration",
+        "args": [
+          30000
+        ],
+        "expect": "30s"
+      },
+      "plan_item": 0
+    },
+    {
+      "id": "CHK-2",
+      "ac_id": "AC-2",
+      "adapter": "call_returns",
+      "params": {
+        "module": "src/duration.js",
+        "export": "formatDuration",
+        "args": [
+          90000
+        ],
+        "expect": "1m 30s"
+      },
+      "plan_item": 1
+    }
+  ],
+  "checks_rejected": [],
+  "checks_registry": "qb-checks/2",
+  "scope": {
+    "allowed_changes": [
+      "src/duration.js"
+    ],
+    "protected_paths": []
+  },
+  "constraint_policy": [
+    {
+      "constraint": 0,
+      "enforced_by": [
+        {
+          "kind": "allowed_changes"
+        }
+      ]
+    },
+    {
+      "constraint": 1,
+      "enforced_by": [
+        {
+          "kind": "check",
+          "ref": "CHK-2"
+        }
+      ]
+    },
+    {
+      "constraint": 2,
+      "advisory": true
+    }
+  ],
+  "requirements": [
+    {
+      "id": "R-1",
+      "quote": "formatDuration should show durations under one minute as seconds only, for example 30000 ms as \"30s\" instead of \"0m 30s\". Durations of one minute or more keep the current format."
+    }
+  ],
+  "proposed_defaults": [],
+  "approval": {
+    "by": "human",
+    "via": "contract-file",
+    "note": "sha256:baa7c3f237de580837900393835902d0039a54279581f3070640d2a95b9f22ad",
+    "at": "2026-10-15T04:18:32.708Z",
+    "contract_hash": "96682f70adb850de8e1365bae8605f876370322666ab02c7237621b48b502b1a"
+  }
+}

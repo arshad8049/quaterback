@@ -1,0 +1,159 @@
+{
+  "id": "6f12cd4e-6227-44cb-950d-2d8b9fe7feb9",
+  "contract_id": "a0e21d22-6291-4ea1-9b79-b083dc796b54",
+  "execution_id": "eba415be-ad59-4641-b3d9-8d7f9cf59be5",
+  "generated_at": "2026-10-15T04:20:23.890Z",
+  "verdict": "pass",
+  "criteria_results": [
+    {
+      "id": "AC-1",
+      "criterion": "formatDuration(30000) should return \"30s\"",
+      "met": true,
+      "method": "check",
+      "evidence": "CHK-1: formatDuration(…) returned the expected value",
+      "check_status": "passed",
+      "checks": [
+        {
+          "id": "CHK-1",
+          "status": "pass",
+          "detail": "formatDuration(…) returned the expected value"
+        }
+      ]
+    },
+    {
+      "id": "AC-2",
+      "criterion": "formatDuration(90000) should return \"1m 30s\"",
+      "met": true,
+      "method": "check",
+      "evidence": "CHK-2: formatDuration(…) returned the expected value",
+      "check_status": "passed",
+      "checks": [
+        {
+          "id": "CHK-2",
+          "status": "pass",
+          "detail": "formatDuration(…) returned the expected value"
+        }
+      ]
+    }
+  ],
+  "failures": [],
+  "test_results": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "output": "✔ minutes and seconds (0.36625ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 27.381416\n"
+  },
+  "test_outcome": {
+    "outcome": "passed",
+    "reason": "tests_passed",
+    "runner": "node-test",
+    "exit_code": 0,
+    "state": "completed",
+    "duration_ms": 136,
+    "tree": "9db298ba505bc015371e0a22d9e4247d5d25af74"
+  },
+  "outcomes": {
+    "execution": "completed",
+    "policy": "ok",
+    "tests": "passed",
+    "criteria": "met"
+  },
+  "oracle": {
+    "approved": true,
+    "reason": "approved via contract-file",
+    "contract_hash": "96682f70adb850de8e1365bae8605f876370322666ab02c7237621b48b502b1a",
+    "via": "contract-file"
+  },
+  "checks": {
+    "registry": "qb-checks/2",
+    "requested": [
+      {
+        "id": "CHK-1",
+        "ac_id": "AC-1",
+        "adapter": "call_returns"
+      },
+      {
+        "id": "CHK-2",
+        "ac_id": "AC-2",
+        "adapter": "call_returns"
+      }
+    ],
+    "results": [
+      {
+        "id": "CHK-1",
+        "ac_id": "AC-1",
+        "adapter": "call_returns",
+        "status": "pass",
+        "detail": "formatDuration(…) returned the expected value",
+        "observed": "'30s'",
+        "duration_ms": 20
+      },
+      {
+        "id": "CHK-2",
+        "ac_id": "AC-2",
+        "adapter": "call_returns",
+        "status": "pass",
+        "detail": "formatDuration(…) returned the expected value",
+        "observed": "'1m 30s'",
+        "duration_ms": 20
+      }
+    ],
+    "rejected": [],
+    "error": null
+  },
+  "policy": {
+    "allowed_changes": [
+      "src/duration.js"
+    ],
+    "protected_paths": [],
+    "changed_files": [
+      "src/duration.js"
+    ],
+    "out_of_scope": [],
+    "protected_touched": [],
+    "constraints": [
+      {
+        "index": 0,
+        "text": "Do not change any code outside of src/duration.js",
+        "status": "enforced",
+        "by": [
+          "allowed_changes"
+        ]
+      },
+      {
+        "index": 1,
+        "text": "Do not alter the current format for durations of one minute or more",
+        "status": "enforced",
+        "by": [
+          "check:CHK-2"
+        ]
+      },
+      {
+        "index": 2,
+        "text": "Ensure that the function handles edge cases such as 0ms correctly",
+        "status": "advisory",
+        "by": [],
+        "detail": "advisory: not machine-checked"
+      }
+    ],
+    "effect": "ok"
+  },
+  "verification_plan_status": [
+    {
+      "item": "call_returns: formatDuration(30000) from src/duration.js returns \"30s\"",
+      "checks": [
+        "CHK-1"
+      ],
+      "status": "passed"
+    },
+    {
+      "item": "call_returns: formatDuration(90000) from src/duration.js returns \"1m 30s\"",
+      "checks": [
+        "CHK-2"
+      ],
+      "status": "passed"
+    }
+  ],
+  "scope_violations": [],
+  "repair_hints": []
+}
