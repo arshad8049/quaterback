@@ -33,7 +33,9 @@ jobs:
           npm ci
           [ -f bench/package-lock.json ] && npm ci --prefix bench || true
       - name: Build the 5 pinned task repositories
-        run: node bench/repos.js build all 2>&1 | tee build.log
+        run: |
+          set -o pipefail   # KAN-76: a failed build must fail the step, not take tee's status
+          node bench/repos.js build all 2>&1 | tee build.log
       - name: Re-qualify all 30 frozen dev-r2 tasks with the real grader (fresh drafts only)
         run: |
           rm -f bench/dev-r2/specs/*.draft.json      # never compare against the committed drafts
@@ -43,7 +45,9 @@ jobs:
             node bench/curate.js qualify "$id" --set dev-r2 >> qualify.log 2>&1 || echo "   qualify FAILED (exit $?)" | tee -a qualify.log
           done
       - name: Compare with the frozen dev-r2 specs
-        run: node scripts/qb30-reproduce-check.js --set dev-r2 | tee compare.log
+        run: |
+          set -o pipefail   # KAN-76: a mismatch must fail the step, not take tee's status
+          node scripts/qb30-reproduce-check.js --set dev-r2 | tee compare.log
       - name: Publish results as annotations
         if: always()
         run: |

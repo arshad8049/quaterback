@@ -66,7 +66,9 @@ jobs:
         id: pin
         run: |
           git status --porcelain | grep . && { echo "::error::the QB checkout is dirty; the pin would not be reproducible on the shards"; exit 1; } || true
+          set -o pipefail   # KAN-76: a refused pin must fail the step, not take tee's status
           node bench/experiment-run.js --config "${{ inputs.config }}" --out "$RUNNER_TEMP/exp" --pin-only | tee "$RUNNER_TEMP/pin.log"
+          set +o pipefail
           exp=$(sed -n 's/^experiment //p' "$RUNNER_TEMP/pin.log" | head -1); echo "exp=$(basename "$exp")" >> "$GITHUB_OUTPUT"
           cp "$RUNNER_TEMP/images.txt" "$RUNNER_TEMP/exp/images.txt"     # beside the experiment, never inside it
       - name: Shard list
