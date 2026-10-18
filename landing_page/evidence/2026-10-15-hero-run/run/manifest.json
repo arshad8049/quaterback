@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "run_id": "e01b3273-1737-4ca6-8f0a-5a172f4e74e6",
+  "kind": "qb",
+  "qb_revision": "3fc08fd202c9e6c103594d124722744d4659b044",
+  "request": "formatDuration should show durations under one minute as seconds only, for example 30000 ms as \"30s\" instead of \"0m 30s\". Durations of one minute or more keep the current format.",
+  "repo": {
+    "path": "~/demo/hero-demo",
+    "identity": "8f849a0bdbc2c5d265d5d59f8050f3d62bb0ee111a04b7a8f212ec1fd34c8f28",
+    "base_sha": "14fcfe4efa8f965ae2fb08b44fe0ef2a3869cf50"
+  },
+  "agent": {
+    "type": "claude-code",
+    "version": "claude-code@2.1.288 (qb-sandbox-agent:c-4b166ca34296ddda)",
+    "isolation": "sandbox"
+  },
+  "models": {
+    "intent": "deepseek-r1:7b",
+    "context": "deepseek-r1:7b",
+    "judge": "deepseek-r1:7b"
+  },
+  "config": {
+    "repo": "~/demo/hero-demo",
+    "agent": "claude-code",
+    "maxRetries": 3,
+    "clarify": [],
+    "llmContext": true,
+    "llmVerify": true,
+    "contractFile": "~/demo/hero-demo-contract.json"
+  },
+  "config_hash": "99ac7cbf209b35a538c0be8c8d124ad379764062c7ade9c7276cafc474836049",
+  "contract_hash": "6793b125662f410920214986be133ef5e954f9ff7e5e179340343e84cb940cf6",
+  "sandbox_policy": null,
+  "pid": 11751,
+  "started_at": "2026-10-15T04:18:32.689Z",
+  "finished_at": "2026-10-15T04:20:23.972Z",
+  "outcome": "VERIFIED",
+  "legacy_verdict": "pass",
+  "outcome_reason": null,
+  "attempts": [
+    {
+      "attempt": 1,
+      "parent_attempt": null,
+      "repair_reason": [],
+      "started_at": "2026-10-15T04:19:04.394Z",
+      "finished_at": "2026-10-15T04:20:23.941Z",
+      "base_sha": "14fcfe4efa8f965ae2fb08b44fe0ef2a3869cf50",
+      "base_tree": "fc5242bdfa0eae75a42c5868c6af9abe390fd1ee",
+      "candidate_tree": "9db298ba505bc015371e0a22d9e4247d5d25af74",
+      "patch_sha256": "021328960d9d5b7c6fca0377ebbdeba04fbf1e14ee1bb98011ee05a78acf87ea",
+      "execution_status": "completed",
+      "verdict": "pass",
+      "checks": [
+        {
+          "check_id": "test-suite",
+          "status": "pass",
+          "exit_code": 0,
+          "signal": null,
+          "duration_ms": 136,
+          "evidence_ids": [
+            "a1-execution"
+          ],
+          "runner": "sandbox: npm test"
+        }
+      ],
+      "artifacts": {
+        "patch": "a1-patch",
+        "execution": "a1-execution",
+        "report": "a1-report",
+        "verify_input": "a1-verify-input"
+      }
+    }
+  ],
+  "artifacts": {
+    "contract": {
+      "name": "contract",
+      "sha256": "6793b125662f410920214986be133ef5e954f9ff7e5e179340343e84cb940cf6",
+      "path": "artifacts/6793b125662f410920214986be133ef5e954f9ff7e5e179340343e84cb940cf6.json",
+      "bytes": 3289
+    },
+    "a1-patch": {
+      "name": "a1-patch",
+      "sha256": "021328960d9d5b7c6fca0377ebbdeba04fbf1e14ee1bb98011ee05a78acf87ea",
+      "path": "artifacts/021328960d9d5b7c6fca0377ebbdeba04fbf1e14ee1bb98011ee05a78acf87ea.diff",
+      "bytes": 625
+    },
+    "a1-execution": {
+      "name": "a1-execution",
+      "sha256": "7c4b762281416c40ab0d27ee3ddc078f76050da93cdf985b19bc700114c0005d",
+      "path": "artifacts/7c4b762281416c40ab0d27ee3ddc078f76050da93cdf985b19bc700114c0005d.json",
+      "bytes": 87329
+    },
+    "a1-report": {
+      "name": "a1-report",
+      "sha256": "e6ea14716a13fd9ad4fc7d152ae2ded3154da07badd07384629513f2f2776cc5",
+      "path": "artifacts/e6ea14716a13fd9ad4fc7d152ae2ded3154da07badd07384629513f2f2776cc5.json",
+      "bytes": 4058
+    },
+    "a1-verify-input": {
+      "name": "a1-verify-input",
+      "sha256": "d3ebdeda0731798135550009c5896127c13cf48c14d2164f9bb1cf511584b8fa",
+      "path": "artifacts/d3ebdeda0731798135550009c5896127c13cf48c14d2164f9bb1cf511584b8fa.json",
+      "bytes": 528
+    },
+    "a1-patch-raw": {
+      "name": "a1-patch-raw",
+      "sha256": "021328960d9d5b7c6fca0377ebbdeba04fbf1e14ee1bb98011ee05a78acf87ea",
+      "path": "artifacts/021328960d9d5b7c6fca0377ebbdeba04fbf1e14ee1bb98011ee05a78acf87ea.bin",
+      "bytes": 625
+    },
+    "a1-base-ls": {
+      "name": "a1-base-ls",
+      "sha256": "2360edde8b7c552d347033d34b9e12c30ec921c35889f74af14e1900a717b290",
+      "path": "artifacts/2360edde8b7c552d347033d34b9e12c30ec921c35889f74af14e1900a717b290.bin",
+      "bytes": 69
+    }
+  }
+}

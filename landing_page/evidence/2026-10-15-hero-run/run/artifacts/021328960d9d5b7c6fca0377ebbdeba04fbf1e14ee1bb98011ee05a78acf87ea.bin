@@ -1,0 +1,16 @@
+diff --git a/src/duration.js b/src/duration.js
+index fee990eb3b008c893f32b9fb90197b7f11c7933c..83a51b4286f29c97e3e26232595ea8a79533261c 100644
+--- a/src/duration.js
++++ b/src/duration.js
+@@ -1,9 +1,10 @@
+ 'use strict';
+ 
+-/** Formats a duration in milliseconds for the status line, e.g. 90000 -> "1m 30s". */
++/** Formats a duration in milliseconds for the status line, e.g. 90000 -> "1m 30s", 30000 -> "30s". */
+ function formatDuration(ms) {
+   const minutes = Math.floor(ms / 60000);
+   const seconds = Math.floor((ms % 60000) / 1000);
++  if (minutes === 0) return `${seconds}s`;
+   return `${minutes}m ${seconds}s`;
+ }
+ 

@@ -1,0 +1,31 @@
+{
+  "rules": 6,
+  "oracleApproved": true,
+  "policyEffect": "ok",
+  "hasDiff": true,
+  "criteriaResults": [
+    {
+      "id": "AC-1",
+      "met": true
+    },
+    {
+      "id": "AC-2",
+      "met": true
+    }
+  ],
+  "testResults": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "executionStatus": "completed",
+  "unsupportedChanges": false,
+  "verification": {
+    "status": "ran",
+    "reason": null,
+    "state": "completed",
+    "exit_code": 0,
+    "outcome": "passed",
+    "outcome_reason": "tests_passed"
+  }
+}
