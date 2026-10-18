@@ -3,7 +3,9 @@ name: qb30-reproduce
 # QB-30: does a fresh GitHub-hosted Ubuntu 24.04 x86_64 VM (4 vCPU, 16 GB) reproduce the frozen
 # dev set? Builds the 5 pinned task repositories, re-qualifies all 30 frozen tasks with the real
 # grader in Docker (the reference passes, every incorrect implementation fails), and compares each
-# fresh result with the frozen spec (scripts/qb30-reproduce-check.js). No model, no agent, no
+# fresh result with the frozen spec (scripts/qb30-reproduce-check.js).
+# KAN-74: the set is dev-r2 (frozen in KAN-71). v1 records the earlier grader, so the current
+# grader cannot reproduce it; `node scripts/qb30-reproduce-check.js --set dev` still checks it. No model, no agent, no
 # secrets, no spend. Results are published as annotations (readable without a token) and as the
 # `qb30-reproduce` artifact.
 
@@ -32,21 +34,21 @@ jobs:
           [ -f bench/package-lock.json ] && npm ci --prefix bench || true
       - name: Build the 5 pinned task repositories
         run: node bench/repos.js build all 2>&1 | tee build.log
-      - name: Re-qualify all 30 frozen tasks with the real grader (fresh drafts only)
+      - name: Re-qualify all 30 frozen dev-r2 tasks with the real grader (fresh drafts only)
         run: |
-          rm -f bench/specs/*.draft.json      # never compare against the committed drafts
+          rm -f bench/dev-r2/specs/*.draft.json      # never compare against the committed drafts
           : > qualify.log
-          for id in $(node -e "console.log(Object.keys(require('./bench/specs.lock.json').specs).sort().join(' '))"); do
+          for id in $(node -e "console.log(Object.keys(require('./bench/dev-r2/specs.lock.json').specs).sort().join(' '))"); do
             echo "== $id" | tee -a qualify.log
-            node bench/curate.js qualify "$id" >> qualify.log 2>&1 || echo "   qualify FAILED (exit $?)" | tee -a qualify.log
+            node bench/curate.js qualify "$id" --set dev-r2 >> qualify.log 2>&1 || echo "   qualify FAILED (exit $?)" | tee -a qualify.log
           done
-      - name: Compare with the frozen specs
-        run: node scripts/qb30-reproduce-check.js | tee compare.log
+      - name: Compare with the frozen dev-r2 specs
+        run: node scripts/qb30-reproduce-check.js --set dev-r2 | tee compare.log
       - name: Publish results as annotations
         if: always()
         run: |
           enc() { sed -e 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}'; }
-          [ -f compare.log ] && echo "::notice title=QB-30 frozen dev set on a fresh VM::$( { node --version; tail -1 compare.log; echo; cat compare.log; } | enc)"
+          [ -f compare.log ] && echo "::notice title=QB-30 frozen dev set (dev-r2) on a fresh VM::$( { node --version; tail -1 compare.log; echo; cat compare.log; } | enc)"
           [ -f build.log ] && echo "::notice title=Task repositories built::$(tail -20 build.log | enc)"
           grep -q FAILED qualify.log 2>/dev/null && echo "::notice title=Qualify failures::$(grep -B1 -A8 FAILED qualify.log | head -60 | enc)"
           true
@@ -58,5 +60,5 @@ jobs:
             build.log
             qualify.log
             compare.log
-            bench/specs/*.draft.json
+            bench/dev-r2/specs/*.draft.json
           retention-days: 30

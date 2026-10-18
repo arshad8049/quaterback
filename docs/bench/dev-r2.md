@@ -70,3 +70,17 @@ node bench/curate.js freeze all --set dev-r2 --approver "Arshad Ahmed Shaik"
 This writes `bench/dev-r2/specs/<ID>.json` and `bench/dev-r2/specs.lock.json`. An experiment
 then names that lock and the shared suites, as the screen plans do (`"lock"` and `"suites"` in
 `bench/pilot/*.json`).
+
+## Using dev-r2 (KAN-74)
+
+- **Reproduction:** `qb30-reproduce` now reproduces dev-r2 on a fresh runner.
+  - It removes the committed dev-r2 drafts and re-qualifies `--set dev-r2`.
+  - Then it runs `node scripts/qb30-reproduce-check.js --set dev-r2`.
+  - dev-r2 is the default set. `--set dev` still checks v1, which the current grader can't
+    reproduce, because v1 records the earlier grader.
+- **Experiments:** `bench/pilot/dev-r2-pilot.json` is the dev pilot's plan on dev-r2.
+  - It has the same arms (A and E), repetitions and budget as `dev-pilot.json`, and its own seed.
+  - It names the dev-r2 lock and the shared suites.
+  - `node bench/experiment-run.js --config bench/pilot/dev-r2-pilot.json --pin-only` pins it
+    without running any trial.
+  - **The config does not approve a paid run.**

@@ -80,7 +80,9 @@ For the **holdout**, the independent author keeps the holdout curation trees and
 
 ## The dev set
 
-30 tasks across 5 repositories. Each was prechecked: the base fails at least one check, except `already_satisfied`; the reference passes all; each incorrect implementation fails at least one. Each was then qualified in the sandbox.
+30 tasks across 5 repositories. The current revision is **dev-r2** (frozen 2026-10-18,
+`bench/dev-r2/`): the same tasks re-qualified under the current grader. v1 (`bench/specs/`) is
+kept as frozen. See `docs/bench/dev-r2.md`. Each was prechecked: the base fails at least one check, except `already_satisfied`; the reference passes all; each incorrect implementation fails at least one. Each was then qualified in the sandbox.
 
 | Type | Tasks |
 |---|---|

@@ -1,0 +1,53 @@
+{
+  "kind": "exploratory",
+  "arms": [
+    "A",
+    "E"
+  ],
+  "primary": [
+    "A",
+    "E"
+  ],
+  "repetitions": 1,
+  "budget": {
+    "agent_time_ms": 900000,
+    "trial_deadline_ms": 3600000,
+    "model_call_deadline_ms": 180000
+  },
+  "seed": "kan74-dev-r2-pilot-2026-10-18",
+  "lock": "../dev-r2/specs.lock.json",
+  "suites": "../suites",
+  "specs": [
+    "../dev-r2/specs/AV-01.json",
+    "../dev-r2/specs/AV-02.json",
+    "../dev-r2/specs/AV-03.json",
+    "../dev-r2/specs/AV-04.json",
+    "../dev-r2/specs/AV-05.json",
+    "../dev-r2/specs/AV-06.json",
+    "../dev-r2/specs/FJ-01.json",
+    "../dev-r2/specs/FJ-02.json",
+    "../dev-r2/specs/FJ-03.json",
+    "../dev-r2/specs/FJ-04.json",
+    "../dev-r2/specs/FJ-05.json",
+    "../dev-r2/specs/FJ-06.json",
+    "../dev-r2/specs/FP-01.json",
+    "../dev-r2/specs/FP-02.json",
+    "../dev-r2/specs/FP-03.json",
+    "../dev-r2/specs/FP-04.json",
+    "../dev-r2/specs/FP-05.json",
+    "../dev-r2/specs/LM-01.json",
+    "../dev-r2/specs/LM-02.json",
+    "../dev-r2/specs/LM-03.json",
+    "../dev-r2/specs/LM-04.json",
+    "../dev-r2/specs/LM-05.json",
+    "../dev-r2/specs/LM-06.json",
+    "../dev-r2/specs/LM-07.json",
+    "../dev-r2/specs/PW-01.json",
+    "../dev-r2/specs/PW-02.json",
+    "../dev-r2/specs/PW-03.json",
+    "../dev-r2/specs/PW-04.json",
+    "../dev-r2/specs/PW-05.json",
+    "../dev-r2/specs/PW-06.json"
+  ],
+  "_note": "KAN-74: the dev pilot's plan on the frozen dev-r2 revision (KAN-71; same tasks as v1, re-qualified under the current grader). Same arms, repetitions and budget as dev-pilot.json; its own seed. Exploratory, dev split only; never evidence of effectiveness. v1 and v2 results are never combined. This plan does not approve a paid run."
+}
