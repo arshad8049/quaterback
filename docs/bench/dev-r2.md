@@ -1,8 +1,13 @@
 # Dev set: re-qualification revision r2 (KAN-71)
 
-**Status:** drafted, and reproduced exactly on a fresh GitHub runner: run 38849464285 at
-4ba73ef, 30/30. **Not frozen.** Freezing needs the owner's approval
-(KAN-65 comment 10324). This revision does not approve a paid evaluation.
+**Status:** **frozen on 2026-10-18** with the owner's approval. The approver is Arshad Ahmed
+Shaik, and the senior's technical review passed at 188c782 (KAN-71 comment 10332).
+- The lock is `bench/dev-r2/specs.lock.json`, sha256 `3fef6f0a…`, with all 30 tasks at v2.
+- `checkFrozen` passes for all 30, and v1 is byte-for-byte unchanged.
+- Before freezing, it was reproduced exactly on a fresh GitHub runner, 30/30: run 38849464285
+  at 4ba73ef.
+
+This revision does not approve a paid evaluation.
 
 ## Why
 
@@ -50,15 +55,16 @@ are unit-tested in `test/unit/kan71-dev-r2.test.js`:
 
 `bench/dev-r2/revision.json` records, per task:
 - **v1:** version, lock hash, grader and `qualified_at`;
-- **v2:** version, grader, `qualified_at` and `base_tests`;
+- **v2:** version, grader, `qualified_at`, `base_tests`, and from the freeze its spec hash,
+  `frozen_at` and approver;
 - where each was qualified, and the fresh-runner run that reproduced it.
 
 ## Freezing (owner only)
 
-After the owner approves:
+Done on 2026-10-18, after the owner approved, with:
 
 ```
-node bench/curate.js freeze all --set dev-r2 --approver "<name>"
+node bench/curate.js freeze all --set dev-r2 --approver "Arshad Ahmed Shaik"
 ```
 
 This writes `bench/dev-r2/specs/<ID>.json` and `bench/dev-r2/specs.lock.json`. An experiment
