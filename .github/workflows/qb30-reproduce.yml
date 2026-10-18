@@ -41,13 +41,14 @@ jobs:
           rm -f bench/dev-r2/specs/*.draft.json      # never compare against the committed drafts
           : > qualify.log
           for id in $(node -e "console.log(Object.keys(require('./bench/dev-r2/specs.lock.json').specs).sort().join(' '))"); do
+            [ "$id" = AV-01 ] && { echo "== $id skipped (KAN-76 CONTROL ONLY: its draft must be MISSING)" | tee -a qualify.log; continue; }
             echo "== $id" | tee -a qualify.log
             node bench/curate.js qualify "$id" --set dev-r2 >> qualify.log 2>&1 || echo "   qualify FAILED (exit $?)" | tee -a qualify.log
           done
       - name: Compare with the frozen dev-r2 specs
         run: |
           set -o pipefail   # KAN-76: a mismatch must fail the step, not take tee's status
-          node scripts/qb30-reproduce-check.js --set dev | tee compare.log   # KAN-76 CONTROL ONLY: v1 is expected to mismatch
+          node scripts/qb30-reproduce-check.js --set dev-r2 | tee compare.log
       - name: Publish results as annotations
         if: always()
         run: |
