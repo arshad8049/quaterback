@@ -202,3 +202,15 @@ mocha-config exit 2 model calls 1 agent launches 0 run records 1
 - an invalid config is refused;
 - the node:test control is not refused and reaches the model;
 - the dry-run exception is tested explicitly.
+
+## Senior re-review 10278 (2026-10-12): ACCEPTED at `f747418`
+
+- **Verdict:** PASS. The runner preflight fix resolves the finding in 10276. Together with the attempt-4 walkthrough above, it satisfies QB-31's supported onboarding and adapter scope.
+- **Reviewer's checks:**
+  - `node --test test/unit/qb31-*.test.js` at the reviewed SHA: 74 passed.
+  - Exact-SHA CI [run 38270867037](https://github.com/arshad8049/quaterback/actions/runs/38270867037), attempt 2: green. Attempt 1 failed on the disclosed OOM-classification flake, and the rerun passed.
+- **Limits the review kept:**
+  - No cross-platform qualification.
+  - No QB-30 effectiveness claim.
+  - The CPU context-stage timeout and the OOM flake remain.
+- **Merged into `main`:** PR #16, merge commit `908adbd`, 2026-10-15.
