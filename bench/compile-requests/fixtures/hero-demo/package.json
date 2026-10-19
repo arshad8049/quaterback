@@ -1,0 +1,8 @@
+{
+  "name": "duration-format",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Formats millisecond durations for a status line",
+  "main": "src/duration.js",
+  "scripts": { "test": "node --test test/" }
+}

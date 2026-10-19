@@ -1,0 +1,6 @@
+{
+  "test": {
+    "runner": "node-test",
+    "command": ["node", "--test", "test/**/*.test.js"]
+  }
+}

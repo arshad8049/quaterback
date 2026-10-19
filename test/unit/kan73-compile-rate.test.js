@@ -71,6 +71,9 @@ describe('KAN-73: attempts, reasons and the summary', () => {
     assert.equal(n('R-2 quote is not in the request verbatim: "foo"'), n('R-1 quote is not in the request verbatim: "bar baz"'));
     assert.notEqual(n('constraint C-1 refers to unknown check "X"'), n('constraint C-1 must be enforced_by something or be advisory'));
     assert.equal(n('Intent compiler returned non-JSON for: "abc..."\n\nRaw:\n{oops'), 'Intent compiler returned non-JSON');
+    // a wrong worked example names its values; the cause is the same
+    assert.equal(n("AC-1 example is wrong: 30000 minute → '30s' (correct: 20d 20h)"), '<where> example is wrong');
+    assert.equal(n("requirement R-2 example is wrong: 90000 ms → '1m' (correct: 1m 30s)"), n("AC-3 example is wrong: 5 s → '5000' (correct: 5s)"));
   });
 
   test('runAttempts: finalized is valid; invalid, needs_clarification, blocked and thrown errors are not, each with its reason', async () => {
@@ -107,10 +110,19 @@ describe('KAN-73: attempts, reasons and the summary', () => {
     assert.deepEqual(s.states, { finalized: 1, invalid: 2, error: 1 });
   });
 
-  test('the script never loads an agent or the sandbox: compile only, no spend', () => {
-    const src = fs.readFileSync(SCRIPT, 'utf8');
-    for (const m of [...src.matchAll(/require\(['"]([^'"]+)['"]\)/g)].map((x) => x[1])) {
-      assert.doesNotMatch(m, /sandbox|agent|qb-pipeline|experiment-run/, `${m} would bring in agent execution`);
-    }
+  test('the script never loads an agent or the sandbox, even indirectly: compile only, no spend', () => {
+    const code = `
+      const before = new Set(Object.keys(require.cache));
+      require(${JSON.stringify(SCRIPT)}); require(${JSON.stringify(path.join(ROOT, 'intent', 'session'))});
+      const loaded = Object.keys(require.cache).filter((f) => !before.has(f) && !f.includes('node_modules'));
+      console.log(JSON.stringify(loaded));`;
+    const loaded = JSON.parse(execFileSync(process.execPath, ['-e', code], { cwd: ROOT, encoding: 'utf8' }).trim().split('\n').pop());
+    assert.ok(loaded.some((f) => f.endsWith(path.join('intent', 'compiler.js'))), 'the real compiler is loaded');
+    for (const f of loaded) assert.doesNotMatch(f, /lib[\\/]sandbox|[\\/]agent[\\/]|qb-pipeline|experiment-run/, `${f} is agent or sandbox code`);
   });
+
+  test("its dev-r2 paths are the curated set's", () => {
+    assert.deepEqual(lib().SETS['dev-r2'], { specs: curateDirs('dev-r2').specs, lockFile: curateDirs('dev-r2').lockFile });
+  });
+
 });

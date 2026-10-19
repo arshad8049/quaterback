@@ -1,0 +1,22 @@
+{
+  "format": "qb-compile-requests/1",
+  "version": 1,
+  "created_at": "2026-10-19",
+  "card": "KAN-73",
+  "_note": "Requests for measuring how often the intent compiler produces a valid contract. Fixed once versioned: a change is a new version, never an edit. HERO-1 and HERO-2 are the two wordings KAN-73 recorded, on the hero-demo sample repository (fixtures/hero-demo, the website hero run's base 14fcfe4). The include adds every frozen dev-r2 task prompt, verbatim, on its task repository at base_rev. Nothing here was chosen after seeing compile results on it.",
+  "requests": [
+    {
+      "id": "HERO-1",
+      "repo": { "fixture": "hero-demo" },
+      "request": "formatDuration should show durations under one minute as seconds only, for example 30000 ms as \"30s\" instead of \"0m 30s\". Durations of one minute or more keep the current format."
+    },
+    {
+      "id": "HERO-2",
+      "repo": { "fixture": "hero-demo" },
+      "request": "In src/duration.js, formatDuration(30000) should return \"30s\" instead of \"0m 30s\"; formatDuration(90000) should still return \"1m 30s\"."
+    }
+  ],
+  "include": [
+    { "set": "dev-r2" }
+  ]
+}
