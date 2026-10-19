@@ -101,6 +101,45 @@ describe('KAN-73: attempts, reasons and the summary', () => {
     for (const r of records) assert.equal(typeof r.duration_ms, 'number');
   });
 
+  test('a hung attempt is recorded as timeout after attemptTimeoutMs, and the run waits for it before the next one', async () => {
+    let settled = false; const order = [];
+    const compileFn = async (request) => {
+      order.push(`start ${request}`);
+      if (request === 'hang') { await new Promise((r) => setTimeout(r, 80)); settled = true; order.push('hang settled'); return { state: 'finalized', contract: {} }; }
+      return { state: 'finalized', contract: {} };
+    };
+    const records = await lib().runAttempts({ requests: [{ id: 'H', request: 'hang', repoPath: '/r' }, { id: 'N', request: 'next', repoPath: '/r' }], n: 1, compileFn, attemptTimeoutMs: 20 });
+    assert.deepEqual(records.map((r) => [r.id, r.state, r.valid]), [['H', 'timeout', false], ['N', 'finalized', true]]);
+    assert.equal(records[0].first_reason, 'timeout');
+    assert.ok(settled);
+    assert.deepEqual(order, ['start hang', 'hang settled', 'start next'], 'no two compile calls overlap');
+    assert.ok(records[0].drain_ms >= 0);
+  });
+
+  test('past runTimeoutMs the remaining attempts are recorded as not_run, so the denominator stays explicit', async () => {
+    const compileFn = async () => { await new Promise((r) => setTimeout(r, 30)); return { state: 'invalid', errors: ['no acceptance criteria'] }; };
+    const records = await lib().runAttempts({ requests: [{ id: 'A', request: 'a', repoPath: '/r' }], n: 4, compileFn, runTimeoutMs: 45 });
+    assert.equal(records.length, 4);
+    assert.deepEqual(records.map((r) => r.state), ['invalid', 'invalid', 'not_run', 'not_run']);
+    assert.ok(records.slice(2).every((r) => r.first_reason === 'run_timeout' && r.valid === false));
+  });
+
+  test('summarize reports each group separately (hero fixture vs dev-r2) and keeps schema-valid apart from usability', () => {
+    const rec = (id, group, valid) => ({ id, group, valid, state: valid ? 'finalized' : 'invalid', first_reason: valid ? null : 'x' });
+    const s = lib().summarize([rec('HERO-1', 'fixture:hero-demo', true), rec('HERO-1', 'fixture:hero-demo', false), rec('dev-r2/AV-01', 'dev-r2', false)]);
+    assert.deepEqual(s.groups, {
+      'fixture:hero-demo': { attempts: 2, schema_valid: 1, not_run: 0 },
+      'dev-r2': { attempts: 1, schema_valid: 0, not_run: 0 },
+    });
+    assert.deepEqual(s.semantic, { reviewed: 0, usable: null, note: 'schema-valid contracts need a separate human review for usability; see contracts/' });
+  });
+
+  test('loadSet labels each request with its group', () => {
+    const { requests } = lib().loadSet(SET);
+    assert.ok(requests.filter((r) => r.id.startsWith('HERO-')).every((r) => r.group === 'fixture:hero-demo'));
+    assert.ok(requests.filter((r) => r.id.startsWith('dev-r2/')).every((r) => r.group === 'dev-r2'));
+  });
+
   test('summarize: per-request and overall valid rates, and first-reason counts', () => {
     const rec = (id, valid, first_reason, state = valid ? 'finalized' : 'invalid') => ({ id, valid, state, first_reason });
     const s = lib().summarize([rec('A', true, null), rec('A', false, 'x'), rec('B', false, 'x'), rec('B', false, 'y', 'error')]);
