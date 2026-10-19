@@ -28,7 +28,13 @@ same hash compiled the same inputs.
 
 ```
 node scripts/kan73-compile-rate.js [--n 3] [--only HERO-1,dev-r2/AV-01] [--out <dir>]
+                                   [--attempt-timeout-ms <ms>] [--run-timeout-ms <ms>]
 ```
+
+**Hard limits.** Every limit is recorded in the summary. Nothing is dropped silently.
+- **Per model call:** QB's own deadline, `QB_MODEL_CALL_TIMEOUT_MS`, default 180 s. This is unchanged QB configuration.
+- **`--attempt-timeout-ms`:** an attempt with no result by then is recorded as `timeout`. Its call is then drained, meaning awaited until the call deadline ends it, before the next attempt starts, so two calls never overlap. `drain_ms` records how long that took.
+- **`--run-timeout-ms`:** once the run is past this limit, every remaining attempt is recorded as `not_run`. The denominator stays the full planned count.
 
 - **Model:** `QB_MODEL`, default `deepseek-r1:7b`, through `QB_OLLAMA_URL`, as in `qb.js`.
 - **Entry point:** each attempt calls `compileIntent` the way `qb.js` does: repository survey,
@@ -39,11 +45,18 @@ node scripts/kan73-compile-rate.js [--n 3] [--only HERO-1,dev-r2/AV-01] [--out <
 **Output:**
 - `attempts.jsonl`: one record per attempt, with the state, every validation error, the first
   reason and the duration.
+- `contracts/`: every schema-valid contract, for the separate usability review.
 - `summary.json`:
-  - provenance: the QB commit and whether the tree was dirty, the model name, digest and
-    quantisation, Node and the platform;
-  - valid counts per request and overall;
-  - the count of each first reason.
+  - provenance and limits: the QB commit and whether the tree was dirty, the model name, digest
+    and quantisation, Node, the platform and the three limits above;
+  - schema-valid counts **per group**: the hero fixture (`fixture:hero-demo`) and `dev-r2` are
+    reported separately and never pooled into one headline;
+  - schema-valid counts per request and overall;
+  - the count of each first reason;
+  - `semantic`: the result of the usability review, which starts empty (`usable: null`).
+    Schema-valid only means the contract passes QB's validation. Whether it is usable, meaning
+    correct and complete enough to approve without edits, is decided by a separate review of
+    `contracts/` and reported apart from schema validity.
 - **Reason grouping:** a first reason has its ids and quoted values replaced (`<id>`, `"…"`), so
   equal causes group together, for example every "refers to unknown check" mismatch. The raw
   errors stay in `attempts.jsonl`.

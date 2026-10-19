@@ -14,10 +14,12 @@
  *
  *   node scripts/kan73-compile-rate.js [--set bench/compile-requests/v1.json] [--n 3]
  *                                      [--only HERO-1,dev-r2/AV-01] [--out <dir>]
+ *                                      [--attempt-timeout-ms <ms>] [--run-timeout-ms <ms>]
  *
- * Writes <out>/attempts.jsonl (one record per attempt, with every validation error) and
- * <out>/summary.json (provenance, per-request and overall valid counts, first-reason counts),
- * and prints a table. Exit 0 when every attempt was recorded, 1 on a setup error.
+ * Writes <out>/attempts.jsonl (one record per attempt, with every validation error),
+ * <out>/contracts/ (every schema-valid contract, for a separate human usability review) and
+ * <out>/summary.json (provenance and limits, per-group, per-request and overall schema-valid
+ * counts, first-reason counts), and prints a table. Exit 0 when every attempt was recorded, 1 on a setup error.
  */
 const fs = require('fs');
 const os = require('os');
@@ -71,12 +73,12 @@ function loadSet(file = DEFAULT_SET) {
   const set = JSON.parse(text);
   if (set.format !== FORMAT) throw new Error(`${file}: format must be ${FORMAT}`);
   if (!Number.isInteger(set.version)) throw new Error(`${file}: version must be an integer`);
-  const requests = [...(set.requests || [])];
+  const requests = (set.requests || []).map((r) => ({ ...r }));
   const parts = [sha256(text)];
   for (const inc of set.include || []) {
     const expand = INCLUDES[inc.set];
     if (!expand) throw new Error(`${file}: unknown include ${JSON.stringify(inc.set)} (have: ${Object.keys(INCLUDES).join(', ')})`);
-    requests.push(...expand());
+    requests.push(...expand().map((r) => ({ ...r, group: inc.set })));
     parts.push(`${inc.set}:${sha256(fs.readFileSync(SETS[inc.set].lockFile))}`);
   }
   const seen = new Set();
@@ -84,6 +86,7 @@ function loadSet(file = DEFAULT_SET) {
     if (!r.id || typeof r.request !== 'string' || !r.request.trim() || !r.repo) throw new Error(`${file}: every request needs id, request and repo`);
     if (seen.has(r.id)) throw new Error(`${file}: duplicate id ${r.id}`);
     seen.add(r.id);
+    if (!r.group) r.group = r.repo.fixture ? `fixture:${r.repo.fixture}` : 'listed';
     if (r.repo.fixture) {
       if (!fs.existsSync(path.join(FIXTURES, r.repo.fixture))) throw new Error(`${r.id}: no fixture ${r.repo.fixture}`);
       parts.push(`fixture:${r.repo.fixture}:${fixtureSha(r.repo.fixture)}`);
@@ -141,21 +144,47 @@ function outcome(res, err) {
 }
 
 /**
- * Compile each request n times, sequentially (one local model). requests: [{ id, request, repoPath }].
- * compileFn defaults to the real compileIntent; onRecord sees each record as it is made.
+ * Compile each request n times, sequentially (one local model). requests: [{ id, group, request, repoPath }].
+ * compileFn defaults to the real compileIntent; onRecord sees each record (and the handoff) as it is made.
+ *
+ * Hard limits, both recorded rather than hidden:
+ *   attemptTimeoutMs  an attempt still running then is recorded as `timeout`. Its call is then
+ *                     drained (awaited; each model call has QB's own deadline, QB_MODEL_CALL_TIMEOUT_MS)
+ *                     before the next attempt starts, so two calls never overlap; drain_ms says how long.
+ *   runTimeoutMs      once exceeded, every remaining attempt is recorded as `not_run`.
  */
-async function runAttempts({ requests, n, compileFn, onRecord = () => {} }) {
+async function runAttempts({ requests, n, compileFn, onRecord = () => {}, attemptTimeoutMs = 0, runTimeoutMs = 0 }) {
   const compile = compileFn || require('../intent/session').compileIntent;
   const records = [];
+  const t0run = Date.now();
   for (const r of requests) {
     for (let attempt = 1; attempt <= n; attempt++) {
+      const base = { id: r.id, group: r.group, attempt };
+      if (runTimeoutMs && Date.now() - t0run >= runTimeoutMs) {
+        const rec = { ...base, state: 'not_run', errors: [], first_reason: 'run_timeout', valid: false, duration_ms: 0, at: new Date().toISOString() };
+        records.push(rec); onRecord(rec, null);
+        continue;
+      }
       const t0 = Date.now();
-      let res = null; let err = null;
-      try { res = await compile(r.request, { repoPath: r.repoPath, answers: [], ask: null }); } catch (e) { err = e; }
-      const o = outcome(res, err);
-      const rec = { id: r.id, attempt, ...o, valid: o.state === 'finalized', duration_ms: Date.now() - t0, at: new Date(t0).toISOString() };
+      const call = Promise.resolve().then(() => compile(r.request, { repoPath: r.repoPath, answers: [], ask: null }))
+        .then((res) => ({ res }), (err) => ({ err }));
+      let timer;
+      const limit = attemptTimeoutMs ? new Promise((resolve) => { timer = setTimeout(() => resolve({ timedOut: true }), attemptTimeoutMs); }) : null;
+      const first = await (limit ? Promise.race([call, limit]) : call);
+      clearTimeout(timer);
+      let rec;
+      if (first.timedOut) {
+        const d0 = Date.now();
+        await call;   // drain: never start the next attempt while this call is still running
+        rec = { ...base, state: 'timeout', errors: [`no result within ${attemptTimeoutMs} ms`], first_reason: 'timeout', valid: false,
+          duration_ms: attemptTimeoutMs, drain_ms: Date.now() - d0, at: new Date(t0).toISOString() };
+        records.push(rec); onRecord(rec, null);
+        continue;
+      }
+      const o = outcome(first.res, first.err);
+      rec = { ...base, ...o, valid: o.state === 'finalized', duration_ms: Date.now() - t0, at: new Date(t0).toISOString() };
       records.push(rec);
-      onRecord(rec, res);
+      onRecord(rec, first.res);
     }
   }
   return records;
@@ -173,8 +202,16 @@ function summarize(records) {
     states[r.state] = (states[r.state] || 0) + 1;
     if (!r.valid) reasons.set(r.first_reason, (reasons.get(r.first_reason) || 0) + 1);
   }
+  const groups = {};
+  for (const r of records) {
+    if (!r.group) continue;
+    const g = groups[r.group] || (groups[r.group] = { attempts: 0, schema_valid: 0, not_run: 0 });
+    g.attempts++; if (r.valid) g.schema_valid++; if (r.state === 'not_run') g.not_run++;
+  }
   return {
     overall: { attempts: records.length, valid: records.filter((r) => r.valid).length },
+    ...(Object.keys(groups).length ? { groups } : {}),
+    semantic: { reviewed: 0, usable: null, note: 'schema-valid contracts need a separate human review for usability; see contracts/' },
     requests: [...byId.values()],
     reasons: [...reasons].map(([reason, count]) => ({ reason, count })).sort((a, b) => b.count - a.count || a.reason.localeCompare(b.reason)),
     states,
@@ -197,7 +234,9 @@ function qbRevision() {
 
 function render(summary) {
   const pct = (v, a) => (a ? `${Math.round((100 * v) / a)}%` : '-');
-  const lines = [`valid ${summary.overall.valid}/${summary.overall.attempts} (${pct(summary.overall.valid, summary.overall.attempts)})`, ''];
+  const lines = [`schema-valid ${summary.overall.valid}/${summary.overall.attempts} (${pct(summary.overall.valid, summary.overall.attempts)}); semantic usability: not reviewed`];
+  for (const [g, v] of Object.entries(summary.groups || {})) lines.push(`  ${g}: ${v.schema_valid}/${v.attempts}${v.not_run ? ` (${v.not_run} not run)` : ''}`);
+  lines.push('');
   for (const r of summary.requests) lines.push(`${r.id.padEnd(16)} ${r.valid}/${r.attempts}`);
   lines.push('', 'first reason (not valid):');
   for (const r of summary.reasons) lines.push(`${String(r.count).padStart(4)}  ${r.reason}`);
@@ -212,7 +251,10 @@ async function main(argv) {
   const only = arg('--only', null);
   const chosen = only ? only.split(',').map((id) => { const r = set.requests.find((x) => x.id === id); if (!r) throw new Error(`no request ${id}`); return r; }) : set.requests;
   const out = path.resolve(arg('--out', path.join(os.tmpdir(), `qb-kan73-${Date.now()}`)));
-  fs.mkdirSync(out, { recursive: true });
+  const attemptTimeoutMs = Number(arg('--attempt-timeout-ms', '0'));
+  const runTimeoutMs = Number(arg('--run-timeout-ms', '0'));
+  for (const [k, v] of [['--attempt-timeout-ms', attemptTimeoutMs], ['--run-timeout-ms', runTimeoutMs]]) if (!Number.isInteger(v) || v < 0) throw new Error(`${k} must be a non-negative integer`);
+  fs.mkdirSync(path.join(out, 'contracts'), { recursive: true });
 
   const requests = chosen.map((r) => ({ ...r, repoPath: prepareRepo(r.repo) }));
   const { compileIntent } = require('../intent/session');   // loads intent/.env, then reads QB_MODEL
@@ -220,13 +262,16 @@ async function main(argv) {
   const url = process.env.QB_OLLAMA_URL || 'http://127.0.0.1:11434';
   const provenance = {
     format: 'qb-kan73-compile-rate/1', set: { file: path.relative(ROOT, set.file), version: set.version, sha256: set.sha256, only: only ? chosen.map((r) => r.id) : null },
-    n, qb: qbRevision(), model: await modelIdentity(url, model), ollama_url: url, node: process.version, platform: `${os.platform()} ${os.arch()}`,
+    n, limits: { attempt_timeout_ms: attemptTimeoutMs || null, run_timeout_ms: runTimeoutMs || null, model_call_timeout_ms: Number(process.env.QB_MODEL_CALL_TIMEOUT_MS) || 180000 },
+    qb: qbRevision(), model: await modelIdentity(url, model), ollama_url: url, node: process.version, platform: `${os.platform()} ${os.arch()}`,
     started_at: new Date().toISOString(),
   };
   const log = fs.createWriteStream(path.join(out, 'attempts.jsonl'));
   console.log(`KAN-73: ${requests.length} request(s) × ${n} with ${model} (${(provenance.model.digest || 'digest unknown').slice(0, 12)}) → ${out}`);
-  const records = await runAttempts({ requests, n, compileFn: compileIntent, onRecord: (rec) => {
+  const records = await runAttempts({ requests, n, compileFn: compileIntent, attemptTimeoutMs, runTimeoutMs, onRecord: (rec, res) => {
     log.write(`${JSON.stringify(rec)}\n`);
+    // Every schema-valid contract is kept for the separate usability review.
+    if (rec.valid && res && res.contract) fs.writeFileSync(path.join(out, 'contracts', `${rec.id.replace(/\//g, '_')}-${rec.attempt}.json`), `${JSON.stringify(res.contract, null, 2)}\n`);
     console.log(`${rec.id} #${rec.attempt}: ${rec.valid ? 'valid' : `${rec.state}: ${rec.first_reason}`} (${Math.round(rec.duration_ms / 1000)}s)`);
   } });
   log.end();
