@@ -8,7 +8,7 @@ Quarterback is a 5-layer AI reliability runtime for software teams. It sits betw
 
 ## Status
 
-- 35 of the original 38 engineering findings are fixed and accepted in internal review. Phases 0–3 and the Phase 5 beta-readiness work are on `main`; the accepted evaluation harness (QB-27 to QB-29) is on branch `phase-4-evaluation`. Open: the controlled evaluation (QB-30), the fresh-machine onboarding walkthrough (QB-31) and public claims (QB-37).
+- 36 of the original 38 engineering findings are fixed and accepted in internal review, including the fresh-machine onboarding walkthrough (QB-31). Phases 0–3 and 5 are on `main`. The accepted evaluation harness (QB-27 to QB-29) is on branch `qb30-gh-runner`, awaiting merge. Open: the controlled evaluation (QB-30) and public claims (QB-37).
 - Coding-agent runs require an approved contract. Changing the contract requires approval again ([test oracle](docs/verify/test-oracle.md)).
 - Requirement tracing catches omitted instructions, including missing negation, before execution ([traceability](docs/verify/traceability.md)).
 - Behavioral requirements are checked through executable tests in the sandbox. Protected-file edits fail scope checks ([executable checks](docs/verify/executable-checks.md), [scope policy](docs/verify/scope-policy.md)).
@@ -21,7 +21,7 @@ Quarterback is a 5-layer AI reliability runtime for software teams. It sits betw
 - A repair is recorded as proven only when the hinted criterion passes on a changed patch and the run ends in an approved PASS ([repairs](docs/memory/repairs.md), QB-23).
 - JavaScript symbols are indexed with a parser, with qualified IDs and real source spans. Syntax it cannot index is reported, not dropped ([symbols](docs/context/symbols.md), QB-19).
 - Context retrieval ranks files by symbols and content, follows imports and callers to a bounded depth, refreshes after each attempt, and records what it left out ([retrieval](docs/context/retrieval.md), QB-18).
-- Evaluation status: 30 frozen development tasks across five repositories. A founder-run Ubuntu ARM64 checkpoint (2026-10-08, commit `99682a6`) passed 757 unit tests and two Docker image-pinning checks; the paired sandbox integration test was blocked by resource admission before grading completed ([evidence](https://quaterback.velorallc.workers.dev/evidence/2026-10-08-ubuntu-arm64.html)). Controlled performance results and independent holdout evaluation remain pending. Quarterback is still in development.
+- Evaluation status: 30 frozen development tasks across five repositories. Two exploratory comparisons of Claude Code alone against Claude Code with Quarterback have been run; neither shows a Quarterback advantage (see [Evaluation status](#evaluation-status)). Controlled performance results and independent holdout evaluation remain pending. Quarterback is still in development.
 
 ---
 
@@ -93,10 +93,12 @@ Developer Request
 
 | Item | Status |
 |---|---|
-| Unit tests | 757 passed, 0 failed in the default-image configuration |
+| Unit tests | 757 passed, 0 failed at the 2026-10-08 checkpoint (below); CI is green on `main` at `908adbd` ([run 38853426312](https://github.com/arshad8049/quaterback/actions/runs/38853426312)) |
 | Docker image-pinning checks | 2 passed using real Docker containers |
 | Paired sandbox integration | Blocked by resource admission before grading completed |
-| Development task set | 30 frozen tasks across 5 repositories, linked to the [frozen specs](https://github.com/arshad8049/quaterback/tree/phase-4-evaluation/bench/specs) |
+| Development task set | 30 frozen tasks across 5 repositories, linked to the [frozen specs](https://github.com/arshad8049/quaterback/tree/qb30-gh-runner/bench/specs) (on `qb30-gh-runner` until it merges) |
+| Exploratory dev pilot (2026-10-12) | Claude Code alone 30/30, with Quarterback 29/30, 1 run each ([run 38307663205](https://github.com/arshad8049/quaterback/actions/runs/38307663205)). The baseline solves every task, so this set cannot show a difference. Not evidence |
+| Exploratory harder-task screen (2026-10-13) | 14 real Fastify v5 bug fixes, 2 runs each: 28/28 in both arms, after rerunning 8 agent execution failures ([run 38409518314](https://github.com/arshad8049/quaterback/actions/runs/38409518314), [rerun 38459455639](https://github.com/arshad8049/quaterback/actions/runs/38459455639)). Tasks were chosen for difficulty, so this is never headline evidence. It also found that Quarterback's own verdict rejected correct patches on this repository. The false regressions behind that are fixed (KAN-65, accepted); no rerun has been made since |
 | Controlled performance results | Not yet available |
 | Independent holdout | Authoring and protocol review pending |
 

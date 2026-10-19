@@ -1,6 +1,6 @@
 # Symbol extraction by parser (QB-19)
 
-**Status:** implemented on `phase-3-context-memory`, in review.
+**Status:** shipped in Phase 3, accepted in internal review, merged into `main` (PR #2).
 
 ## Why
 The context engine extracted symbols with regular expressions:

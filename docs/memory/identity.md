@@ -1,6 +1,6 @@
 # Memory identity, intent and stale hints (QB-24)
 
-**Status:** implemented on `phase-3-context-memory`, in review.
+**Status:** shipped in Phase 3, accepted in internal review, merged into `main` (PR #2).
 
 ## Why
 - **Repositories could share one namespace.** The memory directory was the repository path with every unusual character replaced by `_`, so `/tmp/a/b` and `/tmp/a_b` both became `tmp_a_b`. Their records mixed.

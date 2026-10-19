@@ -119,7 +119,11 @@ function contractFromObject(raw, request) {
   for (const key of ['required_behavior', 'constraints', 'verification_plan', 'ambiguity_flags']) {
     if (Array.isArray(raw[key])) {
       raw[key] = raw[key].map((item, i) => {
-        const t = typeof item === 'string' ? item : extractString(item);
+        // KAN-66: a check-shaped plan step is read only by the strict call_returns reader; when
+        // that fails it stays unreadable — a text field beside a malformed check is never used.
+        const t = typeof item === 'string' ? item
+          : key === 'verification_plan' && isCheckShaped(item) ? checkStepText(item)
+            : extractString(item);
         if (t === null) incomplete.push(`unreadable ${key}[${i}]`);
         return t;
       }).filter(Boolean);
@@ -199,6 +203,32 @@ const NO_QUESTION_SENTINELS = new Set([
 ]);
 function isNoQuestionSentinel(q) {
   return NO_QUESTION_SENTINELS.has(q.trim().toLowerCase().replace(/\.$/, ''));
+}
+
+/**
+ * KAN-66: the model sometimes writes a verification_plan step as the call_returns check
+ * it executes ({ adapter, params }) instead of a sentence. Only that demonstrated shape is
+ * read, and only when every field is present and well-formed and nothing else is supplied
+ * (an unrendered field would be approved unseen): it is rendered from its own fields and
+ * the human approves that text with the contract. Every other shape, including the other
+ * check adapters, returns null and stays "unreadable" (QB-17).
+ */
+const STEP_KEYS = new Set(['adapter', 'params', 'plan_item', 'id', 'ac_id']);
+const isCheckShaped = (o) => !!o && typeof o === 'object' && !Array.isArray(o)
+  && (Object.prototype.hasOwnProperty.call(o, 'adapter') || Object.prototype.hasOwnProperty.call(o, 'params'));
+const CALL_RETURNS_KEYS = ['module', 'export', 'args', 'expect'];
+function checkStepText(step) {
+  if (!step || typeof step !== 'object' || Array.isArray(step)) return null;
+  if (Object.keys(step).some((k) => !STEP_KEYS.has(k)) || step.adapter !== 'call_returns') return null;
+  if ('plan_item' in step && !(Number.isInteger(step.plan_item) && step.plan_item >= 0)) return null;
+  for (const k of ['id', 'ac_id']) if (k in step && typeof step[k] !== 'string') return null;
+  const p = step.params;
+  if (!p || typeof p !== 'object' || Array.isArray(p)) return null;
+  const keys = Object.keys(p);
+  if (keys.length !== CALL_RETURNS_KEYS.length || !CALL_RETURNS_KEYS.every((k) => keys.includes(k))) return null;
+  if (typeof p.module !== 'string' || !p.module || typeof p.export !== 'string' || !p.export || !Array.isArray(p.args)) return null;
+  if (p.expect === undefined) return null;
+  return `call_returns: ${p.export}(${p.args.map((a) => JSON.stringify(a)).join(', ')}) from ${p.module} returns ${JSON.stringify(p.expect)}`;
 }
 
 /** The text of a list entry the model wrote as an object, or null (QB-17: never guessed). */

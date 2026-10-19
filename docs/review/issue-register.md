@@ -3,49 +3,49 @@
 Source: `devudu_docs/Quarterback_Engineering_Review_and_Product_Roadmap.pdf`
 (reviewed snapshot `4ecc6a7`, 1 Oct 2026). The review itself is the baseline; this file tracks status.
 
-Work branches: Phases 0–2 are merged into `main` (tag `phase-0-2-accepted`); Phase 3 is on `phase-3-context-memory`. Rule: a failing regression test lands before each fix.
+Work branches: Phases 0–3 and 5 are merged into `main` (Phase 0–2 tag `phase-0-2-accepted`). The Phase 4 evaluation harness (QB-27 to QB-30) is on `qb30-gh-runner`, awaiting merge; see `docs/BRANCHES.md`. Rule: a failing regression test lands before each fix.
 Status (same workflow as Jira, see `jira/workflow.md`): `To Do` · `In Progress` · `In Review` (fixed, awaiting senior sign-off) · `Sent Back` (post-review changes requested or reopened) · `Accepted` (post-review sign-off recorded).
 
-**Tracked in Jira since 2026-10-02:** project **QB** (key `KAN`) at https://arshadahmedsworkspace-40204141.atlassian.net/jira/software/projects/KAN. `QB-NN` = `KAN-NN`; phase epics are KAN-39 (Phase 0) to KAN-44 (Phase 5). **Jira is authoritative for status.** This file keeps the review baseline and the closure log; the status column is a snapshot, last refreshed 2026-10-03 (end of day).
+**Tracked in Jira since 2026-10-02:** project **QB** (key `KAN`) at https://arshadahmedsworkspace-40204141.atlassian.net/jira/software/projects/KAN. `QB-NN` = `KAN-NN`; phase epics are KAN-39 (Phase 0) to KAN-44 (Phase 5). **Jira is authoritative for status.** This file keeps the review baseline and the closure log; the status column is a snapshot, last refreshed from Jira on 2026-10-16: 36 of 38 Accepted, QB-30 In Progress, QB-37 To Do. Rows with an empty regression-test column were accepted after this file stopped tracking per-ticket evidence; the evidence is on each Jira card.
 
 | ID | Jira | Finding | Priority | Phase | Status | Regression test |
 |---|---|---|---|---|---|---|
 | QB-01 | [KAN-1](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-1) | Repository filenames can execute shell commands | Critical | 1 | Accepted | `test/unit/qb01-shell-injection.test.js` |
-| QB-02 | [KAN-2](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-2) | Agent execution has no enforced containment | High | 1 | Accepted (sandbox implemented; Linux CI green) | `docs/security/agent-sandbox.md`, `test/integration/qb02-sandbox-*.test.js`, `test/daemon/` |
+| QB-02 | [KAN-2](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-2) | Agent execution has no enforced containment | High | 1 | Accepted | `docs/security/agent-sandbox.md`, `test/integration/qb02-sandbox-*.test.js`, `test/daemon/` |
 | QB-03 | [KAN-3](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-3) | Change capture omits parts of the actual result | High | 1 | Accepted | `test/integration/qb02-sandbox-capture.test.js`, `test/unit/hostile-tree-seeds.test.js` |
 | QB-04 | [KAN-4](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-4) | Model output can overwrite trusted metadata | High | 1 | Accepted | `test/unit/qb04-trusted-metadata.test.js` |
 | QB-05 | [KAN-5](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-5) | Benchmark reset is destructive and not reproducible | High | 1 | Accepted | `test/unit/qb05-bench-workspace.test.js` |
 | QB-06 | [KAN-6](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-6) | Test-command failure can still produce PASS | Critical | 2 | Accepted | `test/unit/qb06-test-evidence.test.js`, `test/fixtures/node-test-reports/`, `phase2-seeds` Recipe C |
 | QB-07 | [KAN-7](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-7) | Loose response parsing reverses negative judgments | Critical | 2 | Accepted | `test/unit/qb07-judge-parsing.test.js`, `phase2-seeds` Recipe B |
 | QB-08 | [KAN-8](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-8) | An empty or clarification-only contract can pass | Critical | 2 | Accepted | `test/unit/qb08-contract-gate.test.js`, `phase2-seeds` Recipe A |
-| QB-09 | [KAN-9](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-9) | Scope and constraints are not enforced as policy | High | 2 | To Do | |
-| QB-10 | [KAN-10](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-10) | Failure routing loses test failures and repair actions | High | 2 | To Do | |
-| QB-11 | [KAN-11](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-11) | Judge evidence is incomplete and lacks provenance | High | 2 | To Do | |
-| QB-12 | [KAN-12](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-12) | Keyword signals claim facts that were not established | Medium | 2 | To Do | |
-| QB-13 | [KAN-13](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-13) | L1 generates mathematically incorrect specifications | Critical | 2 | To Do | |
-| QB-14 | [KAN-14](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-14) | The AC checklist omits the essential requested behavior | High | 2 | To Do | |
-| QB-15 | [KAN-15](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-15) | Voting and preservation rules are not calibrated | High | 2 | To Do | |
-| QB-16 | [KAN-16](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-16) | Verification plans are prose rather than executable checks | High | 2 | In Review (`549cc17`) | `test/unit/qb16-executable-checks.test.js`, `docs/verify/executable-checks.md` |
-| QB-17 | [KAN-17](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-17) | Intent is finalized before repository grounding | High | 2 | To Do | |
-| QB-18 | [KAN-18](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-18) | Context selection and graph depth do not match the claims | Medium | 3 | To Do | |
-| QB-19 | [KAN-19](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-19) | Symbol extraction silently drops valid exports | Medium | 3 | To Do | |
-| QB-20 | [KAN-20](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-20) | Test discovery is mistaken for test coverage | Medium | 3 | To Do | |
-| QB-21 | [KAN-21](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-21) | Deadlines, cancellation, and cost budgets are incomplete | High | 3 | To Do | |
-| QB-22 | [KAN-22](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-22) | Execution errors are conflated with dry-run or no change | High | 1 | In Review (`a4641b5`, 3rd submission) | `test/unit/qb22-already-satisfied.test.js`, `test/unit/qb03-qb22-capture-and-states.test.js` |
-| QB-23 | [KAN-23](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-23) | Successful repairs never reach normal memory persistence | High | 3 | To Do | |
-| QB-24 | [KAN-24](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-24) | Memory can mix repositories and opposite instructions | Medium | 3 | To Do | |
-| QB-25 | [KAN-25](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-25) | Memory persistence lacks safe lifecycle and concurrency | Medium | 3 | To Do | |
+| QB-09 | [KAN-9](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-9) | Scope and constraints are not enforced as policy | High | 2 | Accepted | |
+| QB-10 | [KAN-10](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-10) | Failure routing loses test failures and repair actions | High | 2 | Accepted | |
+| QB-11 | [KAN-11](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-11) | Judge evidence is incomplete and lacks provenance | High | 2 | Accepted | |
+| QB-12 | [KAN-12](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-12) | Keyword signals claim facts that were not established | Medium | 2 | Accepted | |
+| QB-13 | [KAN-13](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-13) | L1 generates mathematically incorrect specifications | Critical | 2 | Accepted | |
+| QB-14 | [KAN-14](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-14) | The AC checklist omits the essential requested behavior | High | 2 | Accepted | |
+| QB-15 | [KAN-15](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-15) | Voting and preservation rules are not calibrated | High | 2 | Accepted | |
+| QB-16 | [KAN-16](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-16) | Verification plans are prose rather than executable checks | High | 2 | Accepted | `test/unit/qb16-executable-checks.test.js`, `docs/verify/executable-checks.md` |
+| QB-17 | [KAN-17](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-17) | Intent is finalized before repository grounding | High | 2 | Accepted | |
+| QB-18 | [KAN-18](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-18) | Context selection and graph depth do not match the claims | Medium | 3 | Accepted | |
+| QB-19 | [KAN-19](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-19) | Symbol extraction silently drops valid exports | Medium | 3 | Accepted | |
+| QB-20 | [KAN-20](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-20) | Test discovery is mistaken for test coverage | Medium | 3 | Accepted | |
+| QB-21 | [KAN-21](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-21) | Deadlines, cancellation, and cost budgets are incomplete | High | 3 | Accepted | |
+| QB-22 | [KAN-22](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-22) | Execution errors are conflated with dry-run or no change | High | 1 | Accepted | `test/unit/qb22-already-satisfied.test.js`, `test/unit/qb03-qb22-capture-and-states.test.js` |
+| QB-23 | [KAN-23](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-23) | Successful repairs never reach normal memory persistence | High | 3 | Accepted | |
+| QB-24 | [KAN-24](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-24) | Memory can mix repositories and opposite instructions | Medium | 3 | Accepted | |
+| QB-25 | [KAN-25](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-25) | Memory persistence lacks safe lifecycle and concurrency | Medium | 3 | Accepted | |
 | QB-26 | [KAN-26](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-26) | The project has no effective root regression gate | High | 0 | Accepted | `npm test`, `.github/workflows/ci.yml` (Node 20/22/24), `scripts/ci-evidence.js` |
-| QB-27 | [KAN-27](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-27) | The benchmark lets QB define its own scoring target | Critical | 4 | To Do | |
-| QB-28 | [KAN-28](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-28) | Baseline resources and verification paths are unequal | High | 4 | To Do | |
-| QB-29 | [KAN-29](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-29) | Latest-per-task aggregation mixes experiments | High | 4 | To Do | |
-| QB-30 | [KAN-30](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-30) | Six tuned utility tasks do not establish effectiveness | High | 4 | To Do | |
-| QB-31 | [KAN-31](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-31) | Supported adapters and onboarding are not productized | Medium | 5 | To Do | |
-| QB-32 | [KAN-32](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-32) | Telemetry and privacy descriptions overstate anonymity | High | 5 | To Do | |
-| QB-33 | [KAN-33](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-33) | Metrics can be forged with a known registration email | High | 5 | To Do | |
-| QB-34 | [KAN-34](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-34) | Admin exports expose avoidable credential and CSV risks | High | 5 | To Do | |
-| QB-35 | [KAN-35](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-35) | Signup input, delivery, and abuse handling are fragile | High | 5 | To Do | |
-| QB-36 | [KAN-36](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-36) | Legacy proxy permits unauthenticated paid upstream calls | Critical* | 1 | Pending (repo fix done; the retired Netlify site is left running by owner decision 2026-10-03) | `test/unit/qb36-legacy-proxy.test.js` |
+| QB-27 | [KAN-27](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-27) | The benchmark lets QB define its own scoring target | Critical | 4 | Accepted | |
+| QB-28 | [KAN-28](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-28) | Baseline resources and verification paths are unequal | High | 4 | Accepted | |
+| QB-29 | [KAN-29](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-29) | Latest-per-task aggregation mixes experiments | High | 4 | Accepted | |
+| QB-30 | [KAN-30](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-30) | Six tuned utility tasks do not establish effectiveness | High | 4 | In Progress | |
+| QB-31 | [KAN-31](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-31) | Supported adapters and onboarding are not productized | Medium | 5 | Accepted | |
+| QB-32 | [KAN-32](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-32) | Telemetry and privacy descriptions overstate anonymity | High | 5 | Accepted | |
+| QB-33 | [KAN-33](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-33) | Metrics can be forged with a known registration email | High | 5 | Accepted | |
+| QB-34 | [KAN-34](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-34) | Admin exports expose avoidable credential and CSV risks | High | 5 | Accepted | |
+| QB-35 | [KAN-35](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-35) | Signup input, delivery, and abuse handling are fragile | High | 5 | Accepted | |
+| QB-36 | [KAN-36](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-36) | Legacy proxy permits unauthenticated paid upstream calls | Critical* | 1 | Accepted | `test/unit/qb36-legacy-proxy.test.js` |
 | QB-37 | [KAN-37](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-37) | Deployment and public claims have drifted | High | 5 | To Do | |
 | QB-38 | [KAN-38](https://arshadahmedsworkspace-40204141.atlassian.net/browse/KAN-38) | Runs lack a durable, versioned evidence record | High | 0 | Accepted | `test/unit/run-store.test.js`, `test/unit/qb-cli.test.js` |
 

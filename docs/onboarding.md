@@ -76,7 +76,7 @@ Each check prints `✓` ok, `!` warning, `✗` problem or `–` skipped, with a 
 | `model` | Ollama at `QB_OLLAMA_URL` with `QB_MODEL` pulled |
 | `agent-adapter` | a supported agent (`qb-agent-adapter/1`) |
 | `check-registry` | the executable-check registry loads |
-| `repository`, `test-runner` | with `--repo`: a git work tree (required for `claude-code`); node:test as the runner |
+| `repository`, `test-runner` | with `--repo`: a git work tree (required for `claude-code`); node:test as the runner. Any other runner, or an invalid `.quarterback.json`, is `✗`: `qb` refuses an agent run there before any model call (only `--agent dry-run` still plans) |
 
 ## 3. Demo task
 
@@ -139,7 +139,7 @@ Then rerun the demo command.
 
 | You see | Do |
 |---|---|
-| `qb: invalid options: …` (exit 2) | Fix the listed options. Nothing ran and no model was called. |
+| `qb: invalid options: …` (exit 2) | Fix the listed options. Nothing ran and no model was called. This includes `unsupported test runner: <name>`: QB verifies only with node:test. |
 | `qb doctor` shows `✗` | Apply its `fix:` line, then run it again. |
 | A clarifying question | Answer it in the terminal, or pass `--clarify "<answer>"` (repeat for later rounds). |
 | Verdict `fail` | QB already retried up to `--max-retries` (1–10) with repair hints. Read the report with `qb show <run_id>`. The failing criteria and new test failures are listed with their evidence. |
