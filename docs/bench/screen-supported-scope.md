@@ -86,6 +86,36 @@ updates that Fastify's own consistency tests check. That is a reference-complete
 (KAN-70). A claim that FY-04's reference is fully correct needs those updates and a disclosed,
 re-qualified revision; a hidden-suite pass alone is not enough.
 
+**FY-04 v3 (KAN-70), qualified, not frozen yet.**
+- **The reference is now the whole upstream fix 2ae3e1d7.** Versions 1–2 carried only the
+  `lib/` changes and the error-count update. v3 adds:
+  - the `docs/Reference/Errors.md` TOC and table entries;
+  - the `docs/Reference/Routes.md` note, plus that commit's unrelated `Vary` link fix;
+  - `types/errors.d.ts`;
+  - the new error's test in `test/internals/errors.test.js`;
+  - the `test/logger/options.test.js` cases.
+- **Unchanged:** the prompt, requirement, oracle, base_rev, incorrect implementations and
+  hidden suite. The disclosed changelog entry has `after_viewing_results: true`.
+- **Qualification** (`curate.js qualify FY-04 --set screen`, Docker):
+  - the reference still passes the hidden suite;
+  - both incorrect implementations still fail it;
+  - the unchanged base passes its own tests.
+  - Only the reference's patch hash changes.
+- **The reference tree is consistent.** With its own updated test files, Fastify's
+  `test/internals/errors.test.js` and `test/logger/options.test.js` pass 114/114 on it (Node 24).
+- **QB's diagnostic replay** (`scripts/kan65-replay.js FY-04 reference`) ends in `fail` after 2
+  attempts with **8** regressions, up from 5 at v2.
+  - All 8 are in `test/internals/errors.test.js` and have **one cause**: verify-prep restores
+    that protected test file to the base version, which hard-codes `expectedErrors = 88`.
+  - "Should expose 88 errors" fails (89 !== 88), and the 7 consistency tests that plan 88
+    assertions now make 89.
+  - At v2, the three "all errors are in …" checks failed on the missing entries. The three
+    "non-existing errors are not in …" checks passed only because the docs and types still
+    listed 88.
+  - This is the expected protected-test failure (comment 10319), not a gap in the reference.
+- **FY-04 stays excluded** from the supported-scope plan and stays in the diagnostic group.
+  Freezing v3 needs the owner's approval; until then the frozen spec stays at v2.
+
 ## FY-08: the base failed one of its own tests (found by the v2 replays; corrected in v3)
 
 In version 2, every FY-08 replay, including the unchanged base, ended in `fail` with

@@ -710,6 +710,16 @@ test('FST_ERR_ROUTE_METHOD_NOT_SUPPORTED', t => {
   t.assert.ok(error instanceof Error)
 })
 
+test('FST_ERR_ROUTE_LOG_LEVEL_INVALID', t => {
+  t.plan(5)
+  const error = new errors.FST_ERR_ROUTE_LOG_LEVEL_INVALID()
+  t.assert.strictEqual(error.name, 'FastifyError')
+  t.assert.strictEqual(error.code, 'FST_ERR_ROUTE_LOG_LEVEL_INVALID')
+  t.assert.strictEqual(error.message, "Log level for '%s:%s' route must be a valid logger level. Received: '%s'")
+  t.assert.strictEqual(error.statusCode, 500)
+  t.assert.ok(error instanceof TypeError)
+})
+
 test('FST_ERR_ROUTE_BODY_VALIDATION_SCHEMA_NOT_SUPPORTED', t => {
   t.plan(5)
   const error = new errors.FST_ERR_ROUTE_BODY_VALIDATION_SCHEMA_NOT_SUPPORTED()

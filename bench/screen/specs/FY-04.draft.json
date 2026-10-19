@@ -3,7 +3,7 @@
   "spec": {
     "schema": "qb-task-spec/1",
     "id": "FY-04",
-    "version": 2,
+    "version": 3,
     "split": "dev",
     "stratum": {
       "type": "errors",
@@ -39,7 +39,7 @@
       "grader_sha256": "f088eb07030432a8bee9f72ffdb439d034d91051d6512762f7169c14c73a75f6",
       "suite_sha256": "7533aa6e1e498e7f3a7b50df4dd95ecb047925ce3def06cd4cd3a3dd0122749e",
       "reference": {
-        "patch_sha256": "07bc585970dfd0e0b674944de9ab902b1117152a9afbcd3f029331659a91a24d",
+        "patch_sha256": "4fc5cc8bcbf0b6b5a9a57125d8ccb88905885d8060b84dab3c1c13d263b2cc45",
         "outcome": "pass"
       },
       "incorrect": [
@@ -54,20 +54,26 @@
           "outcome": "fail"
         }
       ],
-      "qualified_at": "2026-10-14T15:56:38.009Z"
+      "qualified_at": "2026-10-19T20:34:33.797Z"
     },
     "adjudication_rules": "Score pass only if every hidden check passes. No partial credit.",
     "provenance": {
       "author": "Claude (QB developer side; dev screen, harder candidates)",
       "created_at": "2026-10-12T00:00:00Z",
       "tuned_during_development": false,
-      "notes": "Real gap in fastify v5.8.5 (an invalid route logLevel is accepted), fixed upstream in 2ae3e1d7 (#6523). The reference is that fix applied to v5.8.5, plus the upstream update of the error count. The hidden suite follows the upstream tests and adds the non-string and valid-level cases the prompt states."
+      "notes": "Real gap in fastify v5.8.5 (an invalid route logLevel is accepted), fixed upstream in 2ae3e1d7 (#6523). The reference is that whole fix applied to v5.8.5 (from version 3; versions 1-2 carried only its lib/ changes and the error-count update). The hidden suite follows the upstream tests and adds the non-string and valid-level cases the prompt states."
     },
     "changelog": [
       {
         "version": 2,
         "reason": "Rebuilt the Fastify base with neostandard kept in devDependencies (bench/repos/repos.json, lockfile regenerated as of the release date): without it the repository test test/build/error-serializer.test.js › check generated code syntax failed on every tree, which QB misread as a regression of correct patches (KAN-65). Only base_rev and the lockfile change; prompt, oracle, reference, incorrect implementations and hidden suite are unchanged.",
         "disclosed_at": "2026-10-14T00:00:00Z",
+        "after_viewing_results": true
+      },
+      {
+        "version": 3,
+        "reason": "KAN-70: the reference now carries the whole upstream fix 2ae3e1d7 (#6523): besides lib/errors.js, lib/route.js and the error-count update, the docs/Reference/Errors.md TOC and table entry, the docs/Reference/Routes.md note (and that commit's unrelated Vary link fix), types/errors.d.ts, the new FST_ERR_ROUTE_LOG_LEVEL_INVALID test in test/internals/errors.test.js and the test/logger/options.test.js cases. Without the docs and types, three of Fastify's own consistency tests failed on the reference tree. Only the reference tree changes: prompt, requirement, oracle, base_rev, incorrect implementations and hidden suite are unchanged. FY-04 stays excluded from the supported-scope screen (KAN-65, comment 10319): verify-prep still restores the protected base test, so its error-count failure is expected to remain.",
+        "disclosed_at": "2026-10-19T00:00:00Z",
         "after_viewing_results": true
       }
     ]
@@ -93,6 +99,14 @@
     ]
   },
   "source": {
-    "curation_sha256": "457a68fa31472c7fc26bb41a1f827998ecfb276658daffe13a86c7b5e0e5cc08"
+    "curation_sha256": "4e985854acf89ed28e4002450f268a4ca2301d2066194805f4523c9ecf386b5e"
+  },
+  "base_tests": {
+    "command": [
+      "node",
+      "--test",
+      "test/**/*.test.js"
+    ],
+    "outcome": "passed"
   }
 }
