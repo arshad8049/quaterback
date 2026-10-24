@@ -87,3 +87,87 @@ describe('KAN-75: the summary', () => {
     assert.throws(() => summarize(expected, [rec('T9', 'base', 'fail', 'fail')]), /unexpected replay T9 base/);
   });
 });
+
+// Review 10394: the summary must never be green on a broken replay, and must never pick between
+// two records of the same patch or combine records from different commits, sets or spec versions.
+describe('KAN-75 review 10394: integrity of the summary', () => {
+  const fs = require('fs');
+  const os = require('os');
+  const { spawnSync } = require('child_process');
+  const { validateRecords } = require('../../scripts/kan75-checker-summary');
+  const CLI = path.join(__dirname, '../../scripts/kan75-checker-summary.js');
+  const expected = [
+    { task_id: 'T1', kind: 'reference', truth: 'correct', spec_version: 2 },
+    { task_id: 'T1', kind: 'base', truth: 'wrong', spec_version: 2 },
+  ];
+  const good = (task_id, patch_kind, verdict, extra = {}) => ({ schema: 'qb-kan65-replay/1', set: 'dev-r2', task_id, patch_kind, spec_version: 2,
+    qb: { commit: 'c'.repeat(40), dirty: false }, final: { verdict, attempts: 1, blocked: null }, attempts: [{ verification: { verdict } }], ...extra });
+
+  test('two records of the same patch are refused, in either order', () => {
+    const a = good('T1', 'reference', 'pass'); const b = good('T1', 'reference', 'fail');
+    assert.throws(() => summarize(expected, [a, b, good('T1', 'base', 'fail')]), /duplicate replay T1 reference/);
+    assert.throws(() => summarize(expected, [b, a, good('T1', 'base', 'fail')]), /duplicate replay T1 reference/);
+  });
+
+  test('records from another set, spec version or QB commit, or a dirty tree, are refused', () => {
+    const ok = [good('T1', 'reference', 'pass'), good('T1', 'base', 'fail')];
+    assert.doesNotThrow(() => validateRecords(expected, ok, 'dev-r2'));
+    assert.throws(() => validateRecords(expected, [ok[0], { ...ok[1], set: 'screen' }], 'dev-r2'), /T1 base: set screen, expected dev-r2/);
+    assert.throws(() => validateRecords(expected, [ok[0], { ...ok[1], spec_version: 1 }], 'dev-r2'), /T1 base: spec version 1, expected 2/);
+    assert.throws(() => validateRecords(expected, [ok[0], { ...ok[1], qb: { commit: 'd'.repeat(40), dirty: false } }], 'dev-r2'), /more than one QB commit/);
+    assert.throws(() => validateRecords(expected, [ok[0], { ...ok[1], qb: { commit: 'c'.repeat(40), dirty: true } }], 'dev-r2'), /T1 base: dirty QB tree/);
+    assert.throws(() => validateRecords(expected, [ok[0], { ...ok[1], schema: 'other/1' }], 'dev-r2'), /T1 base: not a qb-kan65-replay\/1 record/);
+  });
+
+  test('an unknown or absent verdict is counted as invalid, never as a verdict', () => {
+    const s = summarize(expected, [good('T1', 'reference', 'maybe'), good('T1', 'base', null)]);
+    assert.deepEqual(s.final.correct, { invalid: 1 });
+    assert.deepEqual(s.final.wrong, { invalid: 1 });
+    assert.deepEqual(s.incomplete, ['T1 reference: invalid', 'T1 base: invalid']);
+  });
+
+  // The CLI on a directory of records: exit 0 only when every expected patch has a valid verdict.
+  const cli = (records) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kan75-cli-'));
+    records.forEach((r, i) => fs.writeFileSync(path.join(dir, `${r.task_id}-${r.patch_kind.replace(':', '-')}${i ? `-${i}` : ''}.json`), JSON.stringify(r)));
+    const p = spawnSync(process.execPath, [CLI, dir, '--set', 'dev-r2'], { encoding: 'utf8' });
+    fs.rmSync(dir, { recursive: true, force: true });
+    return p;
+  };
+  const all = (fn) => expectedPatches('dev-r2').map((e) => fn(e));
+  const valid = (e) => ({ ...good(e.task_id, e.kind, 'partial'), spec_version: e.spec_version });
+
+  test('CLI: every one of the 128 with a valid verdict exits 0', () => {
+    const p = cli(all(valid));
+    assert.equal(p.status, 0, p.stderr);
+  });
+
+  test('CLI: every replay errored exits 1, with all 128 still in the denominators', () => {
+    const p = cli(all((e) => ({ task_id: e.task_id, patch_kind: e.kind, error: 'controlled failure' })));
+    assert.equal(p.status, 1);
+    assert.match(p.stdout, /\| correct \|.*\b30\b/); assert.match(p.stdout, /\| wrong \|.*\b98\b/);
+    assert.match(p.stdout, /Incomplete \(128\)/);
+  });
+
+  test('CLI: one error, one BLOCKED, one QB error verdict, one invalid verdict or one missing record each exits 1', () => {
+    const cases = {
+      error: (r, i) => (i === 0 ? { task_id: r.task_id, patch_kind: r.patch_kind, error: 'boom' } : r),
+      blocked: (r, i) => (i === 0 ? { ...r, final: { verdict: null, attempts: 1, blocked: 'needs_contract_approval' } } : r),
+      'qb error': (r, i) => (i === 0 ? { ...r, final: { ...r.final, verdict: 'error' } } : r),
+      invalid: (r, i) => (i === 0 ? { ...r, final: { ...r.final, verdict: 'maybe' } } : r),
+    };
+    for (const [name, f] of Object.entries(cases)) {
+      const p = cli(all(valid).map(f));
+      assert.equal(p.status, 1, `${name}: ${p.stdout.slice(-300)}`);
+    }
+    assert.equal(cli(all(valid).slice(1)).status, 1, 'missing');
+  });
+
+  test('CLI: a duplicate record or mixed provenance exits nonzero without a table', () => {
+    const recs = all(valid);
+    const dup = cli([...recs, { ...recs[0], final: { ...recs[0].final, verdict: 'pass' } }]);
+    assert.notEqual(dup.status, 0); assert.match(dup.stderr, /duplicate replay/); assert.doesNotMatch(dup.stdout, /\| truth \|/);
+    const mixed = cli(recs.map((r, i) => (i === 5 ? { ...r, qb: { commit: 'd'.repeat(40), dirty: false } } : r)));
+    assert.notEqual(mixed.status, 0); assert.match(mixed.stderr, /more than one QB commit/);
+  });
+});
