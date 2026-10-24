@@ -1,0 +1,59 @@
+name: kan75-reprocess
+
+# KAN-75 review 10394: re-summarise the exact replay records of run 39172392965 (QB 2aeb2a6) with
+# the corrected scripts/kan75-checker-summary.js. Nothing is replayed: the job downloads that run's
+# own kan75-replay-* artifacts, lists every record file with its sha256, and runs the summary,
+# which refuses duplicates and mixed provenance (exit 2) and fails on any error, BLOCKED, invalid
+# or missing record (exit 1). No model, no agent, no secrets, no spend.
+
+on:
+  push:
+    paths: ['.github/workflows/kan75-reprocess.yml', 'scripts/kan75-checker-summary.js']
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  NODE_VERSION: '24.21.0'
+  SOURCE_RUN: '39172392965'
+
+jobs:
+  reprocess:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '${{ env.NODE_VERSION }}' }
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: kan75-replay-*
+          path: replays
+          run-id: ${{ env.SOURCE_RUN }}
+          github-token: ${{ github.token }}
+      - name: The records, with their sha256
+        run: |
+          find replays -name '*.json' | sort > files.txt
+          echo "::notice title=records::$(wc -l < files.txt) record files from run $SOURCE_RUN"
+          xargs sha256sum < files.txt > records.sha256
+          sha256sum records.sha256
+      - name: QB's verdict against the known truth (corrected summary)
+        run: |
+          rc=0; node scripts/kan75-checker-summary.js replays --set dev-r2 --json summary.json > summary.md 2> summary.err || rc=$?
+          cat summary.md summary.err
+          echo "exit code: $rc"
+          enc() { sed -e 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}'; }
+          echo "::notice title=KAN-75 reprocess of run $SOURCE_RUN with $(git rev-parse --short HEAD) (exit $rc)::$(sed -n '1,/^Incomplete/p' summary.md | enc)"
+          { echo "Source run: $SOURCE_RUN. Summary commit: $(git rev-parse HEAD). Exit code: $rc."; echo; cat summary.md summary.err; } >> "$GITHUB_STEP_SUMMARY"
+          exit $rc
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kan75-reprocess-summary
+          path: |
+            summary.md
+            summary.json
+            summary.err
+            records.sha256
+          retention-days: 90

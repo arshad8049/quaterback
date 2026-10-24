@@ -106,7 +106,7 @@ jobs:
           enc() { sed -e 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}'; }
           echo "::notice title=KAN-75 checker replay (dev-r2, $(git rev-parse --short HEAD))::$(enc < summary.md)"
           cat summary.md >> "$GITHUB_STEP_SUMMARY"
-          exit $rc   # 1 when any replay is missing
+          exit $rc   # 1 when any replay is missing, errored, BLOCKED or invalid; 2 when the records are refused
       - uses: actions/upload-artifact@v4
         if: always()
         with:
