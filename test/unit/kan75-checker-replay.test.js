@@ -202,3 +202,55 @@ describe('KAN-75: results by patch group and per patch', () => {
     assert.match(md, /\| T1 \| incorrect:a \| wrong \| fail \| fail \| 1 \| failed \(r-failed\) \|/);
   });
 });
+
+// Review 10425: the reader must not drop a replay-named file it cannot use. Every candidate reaches
+// validation; an unsupported schema is refused with its file name, not silently filtered out.
+describe('KAN-75 review 10425: every replay candidate reaches validation', () => {
+  const fs = require('fs');
+  const os = require('os');
+  const { spawnSync } = require('child_process');
+  const CLI = path.join(__dirname, '../../scripts/kan75-checker-summary.js');
+  const valid = () => expectedPatches('dev-r2').map((e) => ({ schema: 'qb-kan65-replay/1', set: 'dev-r2', task_id: e.task_id, patch_kind: e.kind,
+    spec_version: e.spec_version, qb: { commit: 'c'.repeat(40), dirty: false },
+    final: { verdict: 'partial', attempts: 1, blocked: null }, attempts: [{ verification: { verdict: 'partial' } }] }));
+  const cli = (files) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kan75-reader-'));
+    for (const [name, body] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), typeof body === 'string' ? body : JSON.stringify(body));
+    const p = spawnSync(process.execPath, [CLI, dir, '--set', 'dev-r2'], { encoding: 'utf8' });
+    fs.rmSync(dir, { recursive: true, force: true });
+    return p;
+  };
+  const base = () => Object.fromEntries(valid().map((r, i) => [`${r.task_id}-record-${i}.json`, r]));
+
+  test('128 valid records plus an unsupported-schema duplicate: exit 2, no table, the file and schema named', () => {
+    const recs = valid();
+    const p = cli({ ...base(), 'AV-01-extra.json': { ...recs[0], schema: 'other/1' } });
+    assert.equal(p.status, 2, p.stdout.slice(0, 300));
+    assert.doesNotMatch(p.stdout, /\| truth \|/);
+    assert.match(p.stderr, /AV-01-extra\.json/); assert.match(p.stderr, /other\/1/);
+  });
+
+  test('an unsupported-schema candidate for a patch that is not expected: exit 2, named', () => {
+    const p = cli({ ...base(), 'ZZ-99-base.json': { schema: 'other/1', task_id: 'ZZ-99', patch_kind: 'base' } });
+    assert.equal(p.status, 2); assert.doesNotMatch(p.stdout, /\| truth \|/); assert.match(p.stderr, /ZZ-99-base\.json/);
+  });
+
+  test('a candidate with no schema and no error, or one that is not JSON: exit 2, named', () => {
+    const recs = valid();
+    const { schema, ...noSchema } = recs[0];
+    let p = cli({ ...base(), 'AV-01-noschema.json': noSchema });
+    assert.equal(p.status, 2); assert.match(p.stderr, /AV-01-noschema\.json/);
+    p = cli({ ...base(), 'AV-01-broken.json': '{ not json' });
+    assert.equal(p.status, 2); assert.match(p.stderr, /AV-01-broken\.json/);
+  });
+
+  test('an error record with a foreign schema is refused; a workflow error-only record is still counted (exit 1)', () => {
+    const recs = valid();
+    const files = base();
+    const first = Object.keys(files)[0];
+    let p = cli({ ...files, [first]: { schema: 'other/1', task_id: recs[0].task_id, patch_kind: recs[0].patch_kind, error: 'x' } });
+    assert.equal(p.status, 2); assert.match(p.stderr, /other\/1/);
+    p = cli({ ...files, [first]: { task_id: recs[0].task_id, patch_kind: recs[0].patch_kind, error: 'replay crashed' } });
+    assert.equal(p.status, 1); assert.match(p.stdout, /Incomplete \(1\)/);
+  });
+});
