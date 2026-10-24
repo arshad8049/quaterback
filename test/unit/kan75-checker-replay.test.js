@@ -171,3 +171,34 @@ describe('KAN-75 review 10394: integrity of the summary', () => {
     assert.notEqual(mixed.status, 0); assert.match(mixed.stderr, /more than one QB commit/);
   });
 });
+
+// The owner's request (2026-10-23): the exact result of every patch, with correct patches,
+// incorrect implementations and unchanged broken code kept apart.
+describe('KAN-75: results by patch group and per patch', () => {
+  const { groupOf, render } = require('../../scripts/kan75-checker-summary');
+  const expected = [
+    { task_id: 'T1', kind: 'reference', truth: 'correct' },
+    { task_id: 'T1', kind: 'incorrect:a', truth: 'wrong' },
+    { task_id: 'T1', kind: 'base', truth: 'wrong' },
+    { task_id: 'T2', kind: 'base', truth: 'correct' },
+  ];
+  const rec = (task_id, patch_kind, verdict, outcome) => ({ task_id, patch_kind, final: { verdict, attempts: 1, blocked: null },
+    attempts: [{ verification: { verdict, test_outcome: outcome && { outcome, reason: `r-${outcome}` } } }] });
+
+  test('four groups: reference, already-satisfied base, incorrect implementation, unchanged base that needs a change', () => {
+    assert.deepEqual(expected.map(groupOf), ['reference', 'incorrect', 'base_unchanged_broken', 'base_already_satisfied']);
+  });
+
+  test('the summary has a group table and one row per patch with its first test outcome', () => {
+    const s = summarize(expected, [rec('T1', 'reference', 'partial', 'passed'), rec('T1', 'incorrect:a', 'fail', 'failed'),
+      rec('T1', 'base', 'unresolved', null), rec('T2', 'base', 'unresolved', null)]);
+    assert.deepEqual(s.groups.reference, { partial: 1 });
+    assert.deepEqual(s.groups.incorrect, { fail: 1 });
+    assert.deepEqual(s.groups.base_unchanged_broken, { unresolved: 1 });
+    assert.deepEqual(s.groups.base_already_satisfied, { unresolved: 1 });
+    assert.equal(s.rows.find((r) => r.kind === 'incorrect:a').test_outcome, 'failed (r-failed)');
+    const md = render(s);
+    assert.match(md, /\| incorrect implementation \(wrong\) \| 0 \| 0 \| 1 \| 0 \|/);
+    assert.match(md, /\| T1 \| incorrect:a \| wrong \| fail \| fail \| 1 \| failed \(r-failed\) \|/);
+  });
+});
