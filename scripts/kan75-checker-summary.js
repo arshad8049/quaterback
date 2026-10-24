@@ -17,7 +17,10 @@
  * (`invalid`) are counted in their own columns and stay in the denominators, and the script exits 1.
  * An unexpected record, two records of the same patch, or records whose set, spec version or QB
  * commit disagree (or come from a dirty tree) are refused before anything is counted: exit 2, no
- * table (review 10394). Read-only apart from --json.
+ * table (review 10394). So is any replay-named file that is not a usable record: another schema,
+ * no schema, an error field on a full record, or not JSON; the message names the file (review
+ * 10425). Only the workflow's own error-only record ({ task_id, patch_kind, error }, no schema) is
+ * counted as an error. Read-only apart from --json.
  *
  * The truth labels are the benchmark's: a hidden-suite label per patch, not QB's judgement.
  */
@@ -28,6 +31,8 @@ const { setPaths } = require('./kan65-replay');
 /** QB's verdicts. Only these five are a measurement; `error` means QB could not execute. */
 const VERDICTS = new Set(['pass', 'partial', 'fail', 'unresolved', 'no-diff', 'error']);
 const MEASURED = new Set(['pass', 'partial', 'fail', 'unresolved', 'no-diff']);
+/** Where a record was read from; not enumerable, so it never reaches the JSON output. */
+const FILE = Symbol('file');
 
 /** The known truth of one patch of a task. */
 function truthOf(spec, kind) {
@@ -82,9 +87,12 @@ function validateRecords(expected, records, set) {
   const version = new Map(expected.map((e) => [`${e.task_id} ${e.kind}`, e.spec_version]));
   const commits = new Set();
   for (const r of records) {
-    if (r.error) continue;
     const k = `${r.task_id} ${r.patch_kind}`;
-    if (r.schema !== 'qb-kan65-replay/1') throw new Error(`${k}: not a qb-kan65-replay/1 record`);
+    const from = r[FILE] ? `, file ${r[FILE]}` : '';
+    // The workflow's error-only record: no schema, just the patch and the replay's error output.
+    if (r.schema === undefined && r.error && typeof r.task_id === 'string' && typeof r.patch_kind === 'string') continue;
+    if (r.schema !== 'qb-kan65-replay/1') throw new Error(`${k}: not a qb-kan65-replay/1 record (schema ${JSON.stringify(r.schema ?? null)}${from})`);
+    if (r.error) throw new Error(`${k}: a replay record with an error field${from}`);
     if (r.set !== set) throw new Error(`${k}: set ${r.set}, expected ${set}`);
     if (version.has(k) && r.spec_version !== version.get(k)) throw new Error(`${k}: spec version ${r.spec_version}, expected ${version.get(k)}`);
     if (!r.qb || !r.qb.commit) throw new Error(`${k}: no QB commit`);
@@ -107,8 +115,9 @@ function summarize(expected, records) {
   const got = new Map();
   for (const r of records) {
     const k = key(r.task_id, r.patch_kind);
-    if (!want.has(k)) throw new Error(`unexpected replay ${k}`);
-    if (got.has(k)) throw new Error(`duplicate replay ${k}`);   // never pick one silently
+    const from = r[FILE] ? ` (file ${r[FILE]})` : '';
+    if (!want.has(k)) throw new Error(`unexpected replay ${k}${from}`);
+    if (got.has(k)) throw new Error(`duplicate replay ${k}${from}`);   // never pick one silently
     got.set(k, r);
   }
   const tab = () => ({ correct: {}, wrong: {} });
@@ -131,15 +140,22 @@ function summarize(expected, records) {
       .map((r) => `${key(r.task_id, r.kind)}: ${MEASURED.has(r.final) ? `first ${r.first}` : r.final}`), rows };
 }
 
-/** Replay records under `dir`, recursively. */
-function readRecords(dir) {
+/**
+ * Every replay candidate under `dir` (an `<ID>-<kind>.json` name), recursively. Nothing is
+ * filtered here (review 10425): validateRecords refuses what cannot be counted, naming the file.
+ */
+function readRecords(dir, root = dir) {
   const out = [];
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, e.name);
-    if (e.isDirectory()) out.push(...readRecords(p));
+    if (e.isDirectory()) out.push(...readRecords(p, root));
     else if (/^[A-Z]{2}-\d\d-.+\.json$/.test(e.name)) {
-      const d = JSON.parse(fs.readFileSync(p, 'utf8'));
-      if (d.schema === 'qb-kan65-replay/1' || d.error) out.push(d);
+      const rel = path.relative(root, p);
+      let d;
+      try { d = JSON.parse(fs.readFileSync(p, 'utf8')); } catch (err) { throw new Error(`${rel}: not a JSON record (${err.message})`); }
+      if (!d || typeof d !== 'object' || Array.isArray(d)) throw new Error(`${rel}: not a JSON object`);
+      Object.defineProperty(d, FILE, { value: rel, enumerable: false });
+      out.push(d);
     }
   }
   return out;
