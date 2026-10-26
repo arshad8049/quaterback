@@ -88,8 +88,10 @@ function parseAndValidate(text, request) {
  * Normalize a contract object (model output, or a human-reviewed contract file,
  * QB-13) with the same rules: explicit criterion text only, registry-validated
  * checks, trusted metadata assigned by QB. The result is NOT approved.
+ * `reviewed` marks a contract a human wrote or reviewed (contract file, benchmark oracle):
+ * only those may carry code checks (`scenario`, KAN-99). Model output never does.
  */
-function contractFromObject(raw, request) {
+function contractFromObject(raw, request, { reviewed = false } = {}) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('contract must be a JSON object');
 
   // clarifying_question (QB-08): every nonempty question is preserved. The model
@@ -168,7 +170,7 @@ function contractFromObject(raw, request) {
 
   // QB-16: proposed checks are data, validated against the versioned registry;
   // rejected ones are recorded and never run. No shell text is accepted.
-  const checks = validateChecks(raw.checks, raw.acceptance_criteria);
+  const checks = validateChecks(raw.checks, raw.acceptance_criteria, { allowScenario: reviewed });
 
   const contract = {
     ...semantic,

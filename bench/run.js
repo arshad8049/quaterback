@@ -231,7 +231,7 @@ async function runQB(task, ws) {
   // A task's `oracle` (criteria + checks written by a person, `approved_by`)
   // replaces the generated contract; without one, the task can't score PASS.
   if (task.oracle) {
-    contract = approve(contractFromObject({ goal: task.description, ...task.oracle, clarifying_question: null }, task.description),
+    contract = approve(contractFromObject({ goal: task.description, ...task.oracle, clarifying_question: null }, task.description, { reviewed: true }),
       { via: 'benchmark-oracle', note: `approved_by: ${task.oracle.approved_by || 'unknown'}` });
     console.log(`     L1 using the task's human-written oracle (approved by ${task.oracle.approved_by || 'unknown'})`);
   }

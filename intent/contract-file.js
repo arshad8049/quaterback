@@ -26,7 +26,7 @@ function loadContractFile(file, request) {
   const buf = fs.readFileSync(file);
   const raw = JSON.parse(buf.toString('utf8'));
   if (raw && typeof raw === 'object' && raw.clarifying_question) throw new Error('a contract file cannot contain an open clarifying_question');
-  const contract = contractFromObject({ ...raw, clarifying_question: null }, request);
+  const contract = contractFromObject({ ...raw, clarifying_question: null }, request, { reviewed: true });
   const sha = crypto.createHash('sha256').update(buf).digest('hex');
   return { contract, sha, approved: () => approve(contract, { via: 'contract-file', note: `sha256:${sha}` }) };
 }

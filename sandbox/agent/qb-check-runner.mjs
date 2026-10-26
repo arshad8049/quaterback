@@ -1,7 +1,8 @@
 // QB check runner (QB-16), sandbox stage ⑥. Trusted code; runs the contract's
-// registry-validated checks (verify/checks/registry.js, qb-checks/1) against the
-// candidate in /verify, with no network. It never evaluates text from the
-// contract: each check is an adapter name plus JSON parameters.
+// registry-validated checks (verify/checks/registry.js, qb-checks/3) against the
+// candidate in /verify, with no network. It never evaluates text from model output:
+// a data check is an adapter name plus JSON parameters, and a `scenario` check
+// (KAN-99) is code the registry accepts only from a human-reviewed contract.
 //
 //   stdin   {"root": "/verify", "checks": [{ id, ac_id, adapter, params }]}
 //   output  /out/qb-checks.json  {"format":"qb-check-results/1","results":[…],"complete":true}
@@ -19,16 +20,52 @@ import { readFileSync, writeFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { isDeepStrictEqual, inspect } from 'node:util';
+import { createRequire, isBuiltin } from 'node:module';
+import { compileFunction } from 'node:vm';
+import assertStrict from 'node:assert/strict';
 
 const SELF = fileURLToPath(import.meta.url);
 const OUT = process.env.QB_CHECK_RESULTS || '/out/qb-checks.json';
 const TIMEOUT_MS = Number(process.env.QB_CHECK_TIMEOUT_MS || 10_000);
 const show = (v) => inspect(v, { depth: 4, breakLength: Infinity, maxStringLength: 300 }).slice(0, 600);
 
+// KAN-99: a problem with the scenario itself (not the code under test) is an error, not a fail.
+class ScenarioError extends Error {}
+const FORBIDDEN_BUILTINS = new Set(['child_process', 'worker_threads', 'cluster', 'net', 'tls', 'dgram', 'http', 'https', 'http2', 'inspector', 'vm']);
+
+async function runScenario(realRoot, source) {
+  const base = createRequire(path.join(realRoot, '__qb_scenario__.js'));
+  // `require` resolves only inside the candidate checkout (its node_modules included) or to a harmless builtin.
+  const confined = (id) => {
+    const name = String(id).replace(/^node:/, '');
+    if (isBuiltin(String(id))) {
+      if (FORBIDDEN_BUILTINS.has(name.split('/')[0])) throw new ScenarioError(`require('${id}') is not allowed in a scenario`);
+      return base(id);
+    }
+    const resolved = realpathSync(base.resolve(id));
+    if (!resolved.startsWith(realRoot + path.sep)) throw new ScenarioError(`require('${id}') resolves outside the repository`);
+    return base(resolved);
+  };
+  let fn;
+  try {
+    const mod = { exports: {} };
+    compileFunction(source, ['module', 'exports', 'require'], { filename: 'qb-scenario.js' })(mod, mod.exports, confined);
+    fn = mod.exports;
+  } catch (e) { return { status: 'error', detail: `scenario did not load: ${String(e && e.message || e).slice(0, 300)}` }; }
+  if (typeof fn !== 'function') return { status: 'error', detail: 'scenario module.exports is not a function' };
+  try { await fn({ require: confined, assert: assertStrict }); }
+  catch (e) {
+    const msg = String(e && e.message || e).slice(0, 500);
+    return e instanceof ScenarioError ? { status: 'error', detail: msg } : { status: 'fail', detail: `scenario failed: ${msg}` };
+  }
+  return { status: 'pass', detail: 'scenario passed' };
+}
+
 async function child() {
   const { nonce, root, check } = JSON.parse(readFileSync(0, 'utf8'));
   const report = (r) => { process.stdout.write(`\n${nonce}${JSON.stringify(r)}\n`); process.exit(0); };
   try {
+    if (check.adapter === 'scenario') return report(await runScenario(realpathSync(root), check.params.source));
     const { module: mod, export: name } = check.params;
     const realRoot = realpathSync(root);
     const file = realpathSync(path.resolve(realRoot, mod));

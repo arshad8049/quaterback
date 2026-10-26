@@ -14,6 +14,13 @@
  *   call_throws     { module, export, args, message_includes? }  export(...args) throws / rejects
  *   call_sequence   { module, export, instances, steps }  (qb-checks/2, QB-14) instances made with `new`
  *                   or a factory call, then method calls in order; each step with `expect` must deep-equal
+ *   scenario        { source }   (qb-checks/3, KAN-99) a short CommonJS module exporting
+ *                   `async ({ require, assert }) => {}` that throws when the criterion is not met.
+ *                   It is CODE: accepted only from a human-reviewed contract (contract file,
+ *                   benchmark oracle), never from model output. Its source is part of the check
+ *                   set hash and the contract hash. The token screen below catches accidents
+ *                   and obvious misuse; it is not a security boundary (the human review and the
+ *                   sandbox are).
  *
  * `module` is a repository-relative .js/.cjs/.mjs path (no "..", not absolute);
  * `export` is an identifier or "default"; `args` and `expect` are plain JSON
@@ -23,8 +30,17 @@
 const { z } = require('zod');
 const { isDeepStrictEqual } = require('util');
 
-const REGISTRY_VERSION = 'qb-checks/2';   // /2 adds call_sequence (QB-14); /1 checks remain valid
+const REGISTRY_VERSION = 'qb-checks/3';   // /3 adds scenario (KAN-99), /2 call_sequence (QB-14); older checks remain valid
 const MAX_JSON_BYTES = 4096;
+const MAX_SCENARIO_BYTES = 8192;
+// Never needed to exercise a library's behaviour: processes, threads, dynamic code, process control.
+// (`process.on('warning')` stays allowed: emitted warnings are behaviour some criteria name.)
+const SCENARIO_FORBIDDEN = [
+  [/child_process/, 'child_process'], [/worker_threads/, 'worker_threads'], [/\bcluster\b/, 'cluster'],
+  [/\bimport\s*\(/, 'dynamic import()'], [/\bprocess\s*\.\s*(exit|kill|abort|binding|dlopen|chdir|env|setuid|setgid)\b/, 'process control'],
+  [/\beval\b/, 'eval'],
+  [/\bFunction\s*\(/, 'the Function constructor'], [/\bglobalThis\b/, 'globalThis'],
+];
 const MAX_CHECKS = 32;
 
 const ModulePath = z.string().min(1).max(300)
@@ -69,7 +85,16 @@ const ADAPTERS = {
     args: json('args').refine((a) => Array.isArray(a), 'args must be an array'),
     message_includes: z.string().min(1).max(200).optional(),
   }).strict(),
+  // KAN-99: callbacks, returned functions and side effects, which the data adapters cannot express.
+  scenario: z.object({
+    source: z.string().min(1).refine((s) => Buffer.byteLength(s) <= MAX_SCENARIO_BYTES, `source must be at most ${MAX_SCENARIO_BYTES} bytes`)
+      .refine((s) => /\bmodule\.exports\s*=/.test(s), 'source must assign module.exports')
+      .superRefine((s, ctx) => {
+        for (const [re, what] of SCENARIO_FORBIDDEN) if (re.test(s)) ctx.addIssue({ code: 'custom', message: `source must not use ${what}` });
+      }),
+  }).strict(),
 };
+const CODE_ADAPTERS = new Set(['scenario']);
 
 const CheckSchema = z.object({
   id: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/),
@@ -81,9 +106,11 @@ const CheckSchema = z.object({
 
 /**
  * Validate proposed checks against the registry and the contract's criteria.
+ * `allowScenario` is set only for human-reviewed contracts (contract file, benchmark
+ * oracle); model output never carries code checks.
  * @returns {{ version, accepted: Check[], rejected: [{ check, reason }] }}
  */
-function validateChecks(proposed, criteria = []) {
+function validateChecks(proposed, criteria = [], { allowScenario = false } = {}) {
   const acIds = new Set(criteria.map((ac) => ac && ac.id));
   const accepted = [], rejected = [];
   const seen = new Set();
@@ -95,6 +122,7 @@ function validateChecks(proposed, criteria = []) {
     if (!c.success) { reject(c.error.issues.map((x) => `${x.path.join('.') || 'check'}: ${x.message}`).join('; ')); continue; }
     if (!acIds.has(c.data.ac_id)) { reject(`ac_id ${c.data.ac_id} is not a criterion of this contract`); continue; }
     if (seen.has(c.data.id)) { reject(`duplicate check id ${c.data.id}`); continue; }
+    if (CODE_ADAPTERS.has(c.data.adapter) && !allowScenario) { reject(`${c.data.adapter} checks are code and are accepted only from a human-reviewed contract`); continue; }
     const p = ADAPTERS[c.data.adapter].safeParse(c.data.params);
     if (!p.success) { reject(p.error.issues.map((x) => `params.${x.path.join('.')}: ${x.message}`).join('; ')); continue; }
     seen.add(c.data.id);
@@ -117,4 +145,4 @@ function checkSetHash(checks) {
   return require('crypto').createHash('sha256').update(canon(Array.isArray(checks) ? checks : [])).digest('hex');
 }
 
-module.exports = { checkSetHash, validateChecks, REGISTRY_VERSION, ADAPTERS: Object.keys(ADAPTERS), MAX_CHECKS, MAX_JSON_BYTES };
+module.exports = { checkSetHash, validateChecks, REGISTRY_VERSION, ADAPTERS: Object.keys(ADAPTERS), MAX_CHECKS, MAX_JSON_BYTES, MAX_SCENARIO_BYTES };

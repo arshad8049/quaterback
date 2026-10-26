@@ -36,6 +36,30 @@ The verification plan was prose. It was printed into the agent's briefing, but L
   - No build output is used: checks run on the candidate's source as captured. A project that needs a build step before its modules can be imported isn't supported yet; its checks error, so the criterion is unresolved.
 - **The checks are not in the agent's briefing,** so expected values can't simply be hard-coded.
 
+## Scenario checks (KAN-99, registry `qb-checks/3`)
+The data adapters make one call with JSON arguments, or a sequence of method calls (`call_sequence`, QB-14, which the table above predates). Most dev-r2 criteria need a callback, a returned function or a side effect, which they can't express: 17 of 127 criteria fit (KAN-99 comment 10441).
+
+A **`scenario`** check is a short CommonJS module that throws when its criterion is not met:
+
+```js
+module.exports = async ({ require, assert }) => {
+  const inject = require('./index.js');
+  let body;
+  await inject((req, res) => { /* record */ body = '…'; res.end(); }, { method: 'POST', url: '/', payload: 0 });
+  assert.equal(body, '0');
+};
+```
+
+- **Only from a human-reviewed contract.** It is code, so `validateChecks` accepts it only with `allowScenario`. That is set by `contractFromObject(…, { reviewed: true })` for a contract file (`intent/contract-file.js`) and the benchmark oracle (`bench/arms.js`, `bench/run.js`). Model output (`compile()`) never carries one; it is rejected with the reason.
+- **Bounded:** at most 8 KiB, and it must assign `module.exports`. A token screen rejects child processes, worker threads, `cluster`, dynamic `import()`, process control (`process.exit`, `.kill`, `.env`, …), `eval`, the `Function` constructor and `globalThis`. **The screen catches accidents and obvious misuse; it is not a security boundary.** The human review and the sandbox are.
+- **Hashed:** the source is a parameter, so it is part of `check_set_hash` and of the approved contract hash. Changing one character invalidates both.
+- **Not briefed:** like every check, it is never in the agent's briefing.
+- **Run** by the same runner, in its own child process with the same timeout. `require` resolves only inside the candidate checkout (its `node_modules` included) or to a builtin that isn't network, process or VM related.
+- **Results:**
+  - **pass:** it returned without throwing;
+  - **fail:** it threw (an assertion, or an error from the code under test, including a module that doesn't exist on that tree);
+  - **error:** the scenario itself couldn't run (a syntax error, `module.exports` not a function, a forbidden or escaping `require`, a timeout).
+
 ## Verdict
 - A **behavioural** criterion is decided only by its executed checks:
   - all pass → met;
@@ -48,7 +72,7 @@ The verification plan was prose. It was printed into the agent's briefing, but L
   - otherwise it is `not_executed`. Printing a step, or an agent claiming it ran, changes nothing.
 
 ## Limitations
-- Adapters cover callable JavaScript modules (no TypeScript build step). Other behaviour stays unresolved until an adapter exists: HTTP, CLI output, performance, side effects.
+- Adapters cover callable JavaScript modules (no TypeScript build step). Scenario checks extend what can be expressed, not what can be loaded. Other behaviour stays unresolved until an adapter exists: HTTP, CLI output, performance, side effects.
 - Checks come from L1, so they are only as good as the contract. Whether ACs capture the essential behaviour is QB-14.
 - **Grader isolation (deferred):** the code under test runs in the same child process and container as the runner, so it could deliberately forge results. The nonce only prevents accidental collisions. Isolating the grader from the code under test is a separate item, as for QB-06.
 - `kind: non_behavioral` is L1's call. It's shown in the report so reviewers can see which criteria rest on judgment.

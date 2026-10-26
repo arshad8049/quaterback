@@ -83,7 +83,7 @@ function oracleContract(spec) {
     // scope, as for arm A; the grader alone guards the hidden suite's paths, for every arm alike.
     scope: spec.oracle.scope || { allowed_changes: ['**'] },
     clarifying_question: null,
-  }, spec.prompt), { via: 'benchmark-oracle', note: `approved_by: ${spec.oracle.approved_by}` });
+  }, spec.prompt, { reviewed: true }), { via: 'benchmark-oracle', note: `approved_by: ${spec.oracle.approved_by}` });
 }
 
 /** Visible-test feedback from the sandbox's own run of the repository's tests (stage ⑤). */
