@@ -60,6 +60,12 @@ module.exports = async ({ require, assert }) => {
   - **fail:** it threw (an assertion, or an error from the code under test, including a module that doesn't exist on that tree);
   - **error:** the scenario itself couldn't run (a syntax error, `module.exports` not a function, a forbidden or escaping `require`, a timeout).
 
+### Milestone 1: can the checks say yes and no? (KAN-99)
+- `bench/kan99/checks/<task>/<AC>.js` holds one scenario per criterion for AV-04, FJ-01, FP-03, LM-01 and PW-01 (23 criteria). They were written from each task's prompt, its criterion text and the base repository's public API, not from the hidden suites, the reference or the incorrect implementations. They are a development fixture: dev-r2 and its oracle contracts are unchanged.
+- `scripts/kan99-scenario-matrix.js run <task>` overlays each patch (the base, the reference and every incorrect implementation) on a fresh clone of the built task repository, installs from its lockfile, and runs the checks with the runner above. `summary` cross-tabulates the result against the benchmark labels. **Yes** means every check passed; **no** means at least one failed. An error or a missing record is **incomplete**, never a yes or a catch.
+- `.github/workflows/kan99-scenario-matrix.yml` runs both steps in CI. It's free: no model, no agent, no secrets.
+- The scope is 21 patches from one curated set. Those patches are not agent output, and the set is not held out.
+
 ## Verdict
 - A **behavioural** criterion is decided only by its executed checks:
   - all pass → met;

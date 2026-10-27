@@ -1,0 +1,86 @@
+name: kan99-scenario-matrix
+
+# KAN-99 milestone 1: run the scenario checks for AV-04, FJ-01, FP-03, LM-01 and PW-01
+# (bench/kan99/checks) on each task's base, reference and every incorrect implementation, with
+# QB's own check runner. Free: no model, no agent, no secrets. The summary says, per patch,
+# whether the checks said yes (every check passed) and, per criterion, what each patch got.
+# A push that changes this workflow, the script, the checks or the runner runs it (the manual
+# trigger only appears once the file is on the default branch).
+
+on:
+  push:
+    paths: ['.github/workflows/kan99-scenario-matrix.yml', 'scripts/kan99-scenario-matrix.js', 'bench/kan99/**', 'sandbox/agent/qb-check-runner.mjs', 'verify/checks/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '24.21.0'
+
+jobs:
+  run:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        task: [AV-04, FJ-01, FP-03, LM-01, PW-01]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '${{ env.NODE_VERSION }}' }
+      - run: npm ci
+      - name: Exact commit, clean tree
+        run: |
+          git status --porcelain | grep . && { echo "::error::checkout is dirty"; exit 1; } || true
+          echo "::notice title=QB commit::$(git rev-parse HEAD)"
+      - name: Build this task's repository
+        run: |
+          [ -f bench/package-lock.json ] && npm ci --prefix bench
+          task=bench/curation/${{ matrix.task }}/task.json
+          name=$(node -e "console.log(require('./$task').repo.replace('qb-bench:',''))")
+          node bench/repos.js build "$name" > "$RUNNER_TEMP/repos.log" 2>&1 || { tail -20 "$RUNNER_TEMP/repos.log"; exit 1; }
+          base=$(tail -1 "$RUNNER_TEMP/repos.log" | awk '{print $2}')
+          want=$(node -e "console.log(require('./$task').base_rev)")
+          [ "$base" = "$want" ] || { echo "::error title=base_rev mismatch::built $base, task pins $want"; exit 1; }
+          echo "REPO=$HOME/.qb/bench-repos/built/$name" >> "$GITHUB_ENV"
+          echo "::notice title=${{ matrix.task }} base::$name $base (matches the task)"
+      - name: Base, reference and every incorrect implementation
+        run: |
+          set -o pipefail
+          node scripts/kan99-scenario-matrix.js run ${{ matrix.task }} --repo "$REPO" --out "$RUNNER_TEMP/out" | tee "$RUNNER_TEMP/run.log"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kan99-scenario-${{ matrix.task }}
+          path: ${{ runner.temp }}/out
+          retention-days: 30
+
+  summary:
+    needs: run
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '${{ env.NODE_VERSION }}' }
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: kan99-scenario-*
+          path: records
+      - name: What the checks said, against the benchmark labels
+        run: |
+          rc=0; node scripts/kan99-scenario-matrix.js summary records --json summary.json > summary.md 2> summary.err || rc=$?
+          cat summary.md summary.err
+          cat summary.md summary.err >> "$GITHUB_STEP_SUMMARY"
+          exit $rc   # 1 when a record is missing or a check errored; 2 when the records are refused
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kan99-scenario-summary
+          path: |
+            summary.md
+            summary.json
+          retention-days: 30
