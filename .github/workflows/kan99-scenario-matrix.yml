@@ -50,6 +50,7 @@ jobs:
         run: |
           set -o pipefail
           node scripts/kan99-scenario-matrix.js run ${{ matrix.task }} --repo "$REPO" --out "$RUNNER_TEMP/out" | tee "$RUNNER_TEMP/run.log"
+          echo "::notice title=${{ matrix.task }} per patch::$(sed -e 's/%/%25/g' "$RUNNER_TEMP/run.log" | awk 'BEGIN{ORS="%0A"}{print}')"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -75,6 +76,9 @@ jobs:
           rc=0; node scripts/kan99-scenario-matrix.js summary records --json summary.json > summary.md 2> summary.err || rc=$?
           cat summary.md summary.err
           cat summary.md summary.err >> "$GITHUB_STEP_SUMMARY"
+          enc() { sed -e 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}'; }
+          echo "::notice title=KAN-99 scenario matrix ($(git rev-parse --short HEAD))::$(sed '/<details>/,$d' summary.md | enc)"
+          [ -s summary.err ] && echo "::error title=KAN-99 summary refused::$(enc < summary.err)"
           exit $rc   # 1 when a record is missing or a check errored; 2 when the records are refused
       - uses: actions/upload-artifact@v4
         if: always()
