@@ -87,6 +87,7 @@ describe('runPatch: the real runner on a checkout with the patch overlaid', () =
         assert.equal(r.schema, 'qb-kan99-scenario/1');
         assert.equal(r.check_set_hash, checkSetHash(M.loadChecks('XX-01', opts)));
         assert.equal(r.base_rev, git(repo, 'rev-parse', 'HEAD').trim());
+        assert.equal(r.qb_commit, git(path.join(__dirname, '..', '..'), 'rev-parse', 'HEAD').trim(), 'the record names the QB commit that ran it');
       }
       assert.equal(git(repo, 'status', '--porcelain'), '', 'the built repository is never modified');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
@@ -94,12 +95,20 @@ describe('runPatch: the real runner on a checkout with the patch overlaid', () =
 });
 
 describe('summarize', () => {
+  // A trusted manifest: the checks each task expects, their hash, the pinned base and the QB commit.
+  const checksOf = (task, n) => Array.from({ length: n }, (_, i) => ({ id: `${task}-AC-${i + 1}`, ac_id: `AC-${i + 1}`, adapter: 'scenario',
+    params: { source: `module.exports = async () => {} // ${task} ${i + 1}\n` } }));
+  const QB = 'a'.repeat(40);
+  const BASE = 'b'.repeat(40);
+  const manifest = { qb_commit: QB, tasks: { T: { checks: checksOf('T', 2), check_set_hash: checkSetHash(checksOf('T', 2)), base_rev: BASE } } };
   const rec = (task, kind, statuses) => ({ schema: 'qb-kan99-scenario/1', task_id: task, patch_kind: kind, truth: M.truthOf(kind),
-    check_set_hash: 'h', results: statuses.map((s, i) => ({ id: `${task}-AC-${i + 1}`, ac_id: `AC-${i + 1}`, status: s })) });
+    base_rev: BASE, qb_commit: QB, check_set_hash: manifest.tasks.T.check_set_hash,
+    results: statuses.map((s, i) => ({ id: `${task}-AC-${i + 1}`, ac_id: `AC-${i + 1}`, adapter: 'scenario', status: s, detail: '' })) });
   const expected = [{ task: 'T', kind: 'base' }, { task: 'T', kind: 'reference' }, { task: 'T', kind: 'incorrect:a' }, { task: 'T', kind: 'incorrect:b' }];
+  const others = () => [rec('T', 'base', ['fail', 'pass']), rec('T', 'incorrect:a', ['fail', 'pass']), rec('T', 'incorrect:b', ['pass', 'fail'])];
   test('says yes only when every check passes; a wrong patch is caught only by a fail', () => {
     const s = M.summarize([rec('T', 'base', ['fail', 'pass']), rec('T', 'reference', ['pass', 'pass']),
-      rec('T', 'incorrect:a', ['pass', 'fail']), rec('T', 'incorrect:b', ['pass', 'pass'])], expected);
+      rec('T', 'incorrect:a', ['pass', 'fail']), rec('T', 'incorrect:b', ['pass', 'pass'])], expected, manifest);
     assert.deepEqual(s.patches.map((p) => [p.kind, p.truth, p.said]), [
       ['base', 'wrong', 'no'], ['reference', 'correct', 'yes'], ['incorrect:a', 'wrong', 'no'], ['incorrect:b', 'wrong', 'yes']]);
     assert.deepEqual(s.totals, { correct: { yes: 1, no: 0, incomplete: 0 }, wrong: { yes: 1, no: 2, incomplete: 0 } });
@@ -108,14 +117,14 @@ describe('summarize', () => {
   });
   test('an error is incomplete, never yes or caught, and exits 1', () => {
     const s = M.summarize([rec('T', 'base', ['fail', 'pass']), rec('T', 'reference', ['pass', 'error']),
-      rec('T', 'incorrect:a', ['error', 'pass']), rec('T', 'incorrect:b', ['pass', 'fail'])], expected);
+      rec('T', 'incorrect:a', ['error', 'pass']), rec('T', 'incorrect:b', ['pass', 'fail'])], expected, manifest);
     assert.deepEqual(s.patches.map((p) => p.said), ['no', 'incomplete', 'incomplete', 'no']);
     assert.equal(s.exitCode, 1);
     assert.match(s.text, /Incomplete \(2\)/);
   });
   test('a missing record or an error record is listed as incomplete with every denominator kept', () => {
     const s = M.summarize([rec('T', 'base', ['fail', 'pass']), rec('T', 'reference', ['pass', 'pass']),
-      { task_id: 'T', patch_kind: 'incorrect:a', error: 'npm ci failed' }], expected);
+      { task_id: 'T', patch_kind: 'incorrect:a', error: 'npm ci failed' }], expected, manifest);
     assert.deepEqual(s.totals, { correct: { yes: 1, no: 0, incomplete: 0 }, wrong: { yes: 0, no: 1, incomplete: 2 } });
     assert.equal(s.exitCode, 1);
     assert.match(s.text, /T incorrect:a: npm ci failed/);
@@ -123,8 +132,80 @@ describe('summarize', () => {
   });
   test('a duplicate, an unexpected patch or a foreign schema is refused', () => {
     const ok = [rec('T', 'base', ['fail', 'pass']), rec('T', 'reference', ['pass', 'pass']), rec('T', 'incorrect:a', ['fail', 'pass']), rec('T', 'incorrect:b', ['fail', 'pass'])];
-    assert.throws(() => M.summarize([...ok, rec('T', 'base', ['pass', 'pass'])], expected), /duplicate T base/);
-    assert.throws(() => M.summarize([...ok, rec('T', 'incorrect:z', ['pass', 'pass'])], expected), /unexpected T incorrect:z/);
-    assert.throws(() => M.summarize([...ok.slice(1), { ...ok[0], schema: 'other/1' }], expected), /T base.*schema/);
+    assert.throws(() => M.summarize([...ok, rec('T', 'base', ['pass', 'pass'])], expected, manifest), /duplicate T base/);
+    assert.throws(() => M.summarize([...ok, rec('T', 'incorrect:z', ['pass', 'pass'])], expected, manifest), /unexpected T incorrect:z/);
+    assert.throws(() => M.summarize([...ok.slice(1), { ...ok[0], schema: 'other/1' }], expected, manifest), /T base.*schema/);
+  });
+
+  // KAN-99 review 10450: saved records are revalidated against the trusted manifest, never trusted.
+  test('no manifest, no summary', () => {
+    assert.throws(() => M.summarize([rec('T', 'reference', ['pass', 'pass'])], expected), /manifest/);
+  });
+  const refused = (r, re) => assert.throws(() => M.summarize([...others(), r], expected, manifest), re);
+  test('10450: a reference record with no results is refused, not counted as yes', () => {
+    refused({ ...rec('T', 'reference', []), results: [] }, /T reference: .*check results/);
+  });
+  test('10450: an unknown status is refused, not counted as no', () => {
+    refused(rec('T', 'reference', ['pass', 'skipped']), /T reference: .*check results/);
+  });
+  test('missing, duplicate, unexpected or reordered checks are refused', () => {
+    const r = rec('T', 'reference', ['pass', 'pass']);
+    refused({ ...r, results: r.results.slice(0, 1) }, /T reference: .*check results/);
+    refused({ ...r, results: [r.results[0], r.results[0]] }, /T reference: .*check results/);
+    refused({ ...r, results: [r.results[0], { ...r.results[1], id: 'T-AC-9' }] }, /T reference: .*check results/);
+    refused({ ...r, results: [r.results[1], r.results[0]] }, /T reference: .*check results/);
+    refused({ ...r, results: 'pass' }, /T reference: .*check results/);
+  });
+  test('a wrong criterion or adapter is refused', () => {
+    const r = rec('T', 'reference', ['pass', 'pass']);
+    refused({ ...r, results: [{ ...r.results[0], ac_id: 'AC-2' }, r.results[1]] }, /T reference: .*check results/);
+    refused({ ...r, results: [{ ...r.results[0], adapter: 'call_returns' }, r.results[1]] }, /T reference: .*check results/);
+  });
+  test('a check set hash other than the trusted one is refused, even when every record agrees', () => {
+    const h = 'c'.repeat(64);
+    assert.throws(() => M.summarize([...others(), rec('T', 'reference', ['pass', 'pass'])].map((r) => ({ ...r, check_set_hash: h })), expected, manifest),
+      /T base: .*check results/);
+  });
+  test('a base revision other than the task pin is refused', () => {
+    refused({ ...rec('T', 'reference', ['pass', 'pass']), base_rev: 'd'.repeat(40) }, /T reference: base_rev/);
+  });
+  test('a missing or different QB commit is refused', () => {
+    const r = rec('T', 'reference', ['pass', 'pass']);
+    const { qb_commit, ...noCommit } = r;
+    refused(noCommit, /T reference: qb_commit/);
+    refused({ ...r, qb_commit: 'e'.repeat(40) }, /T reference: qb_commit/);
+  });
+  test('a task the manifest does not cover is refused', () => {
+    assert.throws(() => M.summarize([{ ...rec('U', 'base', ['pass']) }], [{ task: 'U', kind: 'base' }], manifest), /U base: .*manifest/);
+  });
+});
+
+describe('the summary CLI refuses the 10450 records (exit 2)', () => {
+  const run = (rec) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kan99s-'));
+    try {
+      fs.writeFileSync(path.join(dir, 'AV-04-reference.json'), JSON.stringify(rec));
+      return spawnSync(process.execPath, [path.join(__dirname, '..', '..', 'scripts', 'kan99-scenario-matrix.js'), 'summary', dir], { encoding: 'utf8' });
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  };
+  const checks = M.loadChecks('AV-04');
+  const base = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'bench', 'curation', 'AV-04', 'task.json'), 'utf8')).base_rev;
+  const head = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: path.join(__dirname, '..', '..'), encoding: 'utf8' }).stdout.trim();
+  const good = { schema: 'qb-kan99-scenario/1', task_id: 'AV-04', patch_kind: 'reference', truth: 'correct', base_rev: base, qb_commit: head,
+    check_set_hash: checkSetHash(checks), results: checks.map((c) => ({ id: c.id, ac_id: c.ac_id, adapter: c.adapter, status: 'pass', detail: '' })) };
+  test('results: [] is refused', () => {
+    const r = run({ ...good, results: [] });
+    assert.equal(r.status, 2, r.stdout + r.stderr);
+    assert.match(r.stderr, /refused: AV-04 reference/);
+  });
+  test('an unknown status is refused', () => {
+    const r = run({ ...good, results: good.results.map((x, i) => (i ? x : { ...x, status: 'skipped' })) });
+    assert.equal(r.status, 2, r.stdout + r.stderr);
+    assert.match(r.stderr, /refused: AV-04 reference/);
+  });
+  test('control: the same record with valid results is accepted (exit 1 only because the other records are missing)', () => {
+    const r = run(good);
+    assert.equal(r.status, 1, r.stdout + r.stderr);
+    assert.match(r.stdout, /AV-04 \| \*\*said\*\* \| \*\*incomplete\*\* \| \*\*yes\*\*/);
   });
 });
