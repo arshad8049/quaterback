@@ -12,9 +12,14 @@
  * "Yes" means every check passed; "no" means at least one failed and none errored. An error, an
  * unusable runner output or a missing record is "incomplete": never a yes and never a catch.
  *
+ * A saved record is never trusted (review 10450): summary revalidates each one against a manifest
+ * built here from the checks and the curation (the exact check ids, criteria and adapters, their
+ * check set hash, the task's pinned base revision) and the QB commit doing the summary. A record
+ * that doesn't match is refused, and so is the whole summary.
+ *
  * CLI:
  *   node scripts/kan99-scenario-matrix.js run <task> --repo <built checkout> --out <dir>
- *   node scripts/kan99-scenario-matrix.js summary <dir> [--json <file>]
+ *   node scripts/kan99-scenario-matrix.js summary <dir> [--json <file>] [--qb-commit <sha>]
  *     exit 0: every record complete; 1: something incomplete; 2: records refused
  */
 
@@ -70,6 +75,20 @@ function sh(cmd, args, cwd) {
   return r.stdout;
 }
 
+const qbCommit = () => sh('git', ['rev-parse', 'HEAD'], ROOT).trim();
+
+/** The trusted manifest summary checks saved records against. */
+function manifestFor(tasks, opts = {}) {
+  const o = { ...DEFAULTS, ...opts };
+  const out = { qb_commit: opts.qbCommit || qbCommit(), tasks: {} };
+  for (const task of tasks) {
+    const checks = loadChecks(task, o);
+    const spec = JSON.parse(fs.readFileSync(path.join(o.curationDir, task, 'task.json'), 'utf8'));
+    out.tasks[task] = { checks, check_set_hash: checkSetHash(checks), base_rev: spec.base_rev };
+  }
+  return out;
+}
+
 /** Run the task's checks on one patch; returns the record. The built repository is not touched. */
 function runPatch({ task, kind, repo, timeoutMs = 10_000, ...opts }) {
   const o = { ...DEFAULTS, ...opts };
@@ -93,7 +112,7 @@ function runPatch({ task, kind, repo, timeoutMs = 10_000, ...opts }) {
     const hash = checkSetHash(checks);
     const v = validateCheckResults(fs.existsSync(out) ? fs.readFileSync(out, 'utf8') : null, checks, hash);
     if (!v.ok) throw new Error(`unusable check results: ${v.reason}`);
-    return { schema: SCHEMA, task_id: task, patch_kind: kind, truth: truthOf(kind), base_rev: baseRev,
+    return { schema: SCHEMA, task_id: task, patch_kind: kind, truth: truthOf(kind), base_rev: baseRev, qb_commit: qbCommit(),
       check_set_hash: hash, node: process.version, results: v.results };
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 }
@@ -102,20 +121,28 @@ function runPatch({ task, kind, repo, timeoutMs = 10_000, ...opts }) {
  * Cross-tabulate the records against the expected patches.
  * @param {Array} records - runPatch records, or { task_id, patch_kind, error } for a run that failed
  * @param {Array<{task, kind}>} expected
+ * @param {{qb_commit, tasks: {[task]: {checks, check_set_hash, base_rev}}}} manifest - from manifestFor
  */
-function summarize(records, expected) {
+function summarize(records, expected, manifest) {
+  if (!manifest || !manifest.tasks || !manifest.qb_commit) throw new Error('no trusted manifest to check the records against');
   const key = (t, k) => `${t} ${k}`;
   const want = new Set(expected.map((e) => key(e.task, e.kind)));
   const byKey = new Map();
-  const hashes = new Map();
   for (const r of records) {
     const k = key(r.task_id, r.patch_kind);
     if (!want.has(k)) throw new Error(`unexpected ${k}`);
     if (byKey.has(k)) throw new Error(`duplicate ${k}`);
-    if (!r.error && r.schema !== SCHEMA) throw new Error(`${k}: not a ${SCHEMA} record (schema ${JSON.stringify(r.schema)})`);
     if (!r.error) {
-      if (hashes.has(r.task_id) && hashes.get(r.task_id) !== r.check_set_hash) throw new Error(`${k}: check set hash differs from the task's other records`);
-      hashes.set(r.task_id, r.check_set_hash);
+      if (r.schema !== SCHEMA) throw new Error(`${k}: not a ${SCHEMA} record (schema ${JSON.stringify(r.schema)})`);
+      const m = Object.prototype.hasOwnProperty.call(manifest.tasks, r.task_id) ? manifest.tasks[r.task_id] : null;
+      if (!m) throw new Error(`${k}: task not in the manifest`);
+      if (r.base_rev !== m.base_rev) throw new Error(`${k}: base_rev ${JSON.stringify(r.base_rev)} is not the task's pin ${m.base_rev}`);
+      if (r.qb_commit !== manifest.qb_commit) throw new Error(`${k}: qb_commit ${JSON.stringify(r.qb_commit)} is not ${manifest.qb_commit}`);
+      // The same validator the verifier applies to fresh runner output, against the trusted checks and hash.
+      const v = validateCheckResults(JSON.stringify({ format: 'qb-check-results/1', complete: true, check_set_hash: r.check_set_hash, results: r.results }),
+        m.checks, m.check_set_hash);
+      if (!v.ok) throw new Error(`${k}: unusable check results (${v.reason})`);
+      r.results = v.results;
     }
     byKey.set(k, r);
   }
@@ -135,6 +162,7 @@ function summarize(records, expected) {
   for (const p of patches) totals[p.truth][p.said]++;
 
   const lines = ['## KAN-99 scenario checks: base, reference and incorrect patches', '',
+    `Every record was revalidated against QB ${manifest.qb_commit}: its checks, their hash and the task's pinned base revision.`, '',
     '| Benchmark label | checks said yes | checks said no | incomplete |', '| --- | --- | --- | --- |',
     `| correct (${patches.filter((p) => p.truth === 'correct').length}) | ${totals.correct.yes} | ${totals.correct.no} | ${totals.correct.incomplete} |`,
     `| wrong (${patches.filter((p) => p.truth === 'wrong').length}) | ${totals.wrong.yes} | ${totals.wrong.no} | ${totals.wrong.incomplete} |`, ''];
@@ -148,7 +176,7 @@ function summarize(records, expected) {
   const fails = patches.flatMap((p) => (p.results || []).filter((x) => x.status === 'fail').map((x) => `${p.task} ${p.kind} ${x.ac_id}: ${String(x.detail || '').replace(/\s+/g, ' ').slice(0, 200)}`));
   if (fails.length) lines.push('<details><summary>Failure details</summary>', '', ...fails.map((f) => `- ${f}`), '', '</details>', '');
   lines.push(incomplete.length ? `Incomplete (${incomplete.length}):\n${incomplete.map((x) => `- ${x}`).join('\n')}` : 'Incomplete: none');
-  return { patches, totals, incomplete, text: lines.join('\n') + '\n', exitCode: incomplete.length ? 1 : 0 };
+  return { qb_commit: manifest.qb_commit, patches, totals, incomplete, text: lines.join('\n') + '\n', exitCode: incomplete.length ? 1 : 0 };
 }
 
 function main(argv) {
@@ -170,7 +198,7 @@ function main(argv) {
   }
   if (cmd === 'summary') {
     const dir = rest[0];
-    if (!dir) { console.error('usage: summary <dir> [--json <file>]'); return 2; }
+    if (!dir) { console.error('usage: summary <dir> [--json <file>] [--qb-commit <sha>]'); return 2; }
     const files = fs.readdirSync(dir, { recursive: true }).filter((f) => /(^|\/)[A-Z]{2}-\d{2}-[^/]+\.json$/.test(f)).sort();
     let s;
     try {
@@ -180,17 +208,17 @@ function main(argv) {
         if (!d || typeof d !== 'object') throw new Error(`${f}: not a JSON object`);
         return d;
       });
-      s = summarize(records, TASKS.flatMap((task) => patchKinds(task).map((kind) => ({ task, kind }))));
+      s = summarize(records, TASKS.flatMap((task) => patchKinds(task).map((kind) => ({ task, kind }))), manifestFor(TASKS, { qbCommit: flag('--qb-commit') }));
     } catch (e) { console.error(`refused: ${e.message}`); return 2; }
     process.stdout.write(s.text);
     const json = flag('--json');
-    if (json) fs.writeFileSync(json, JSON.stringify({ totals: s.totals, patches: s.patches, incomplete: s.incomplete }, null, 2) + '\n');
+    if (json) fs.writeFileSync(json, JSON.stringify({ qb_commit: s.qb_commit, totals: s.totals, patches: s.patches, incomplete: s.incomplete }, null, 2) + '\n');
     return s.exitCode;
   }
-  console.error('usage: kan99-scenario-matrix.js run <task> --repo <dir> --out <dir> | summary <dir> [--json <file>]');
+  console.error('usage: kan99-scenario-matrix.js run <task> --repo <dir> --out <dir> | summary <dir> [--json <file>] [--qb-commit <sha>]');
   return 2;
 }
 
-module.exports = { TASKS, SCHEMA, loadChecks, patchKinds, truthOf, runPatch, summarize };
+module.exports = { TASKS, SCHEMA, loadChecks, patchKinds, truthOf, manifestFor, runPatch, summarize };
 
 if (require.main === module) process.exitCode = main(process.argv.slice(2));
