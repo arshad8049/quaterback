@@ -25,7 +25,7 @@ before(() => { tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'qb28-golden-')); });
 after(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
 /** One qb.js run (fake sandbox + stub judge that always says "not met, with a repair"). */
-function qbRun(repoDir, patches, { maxRetries = 3, mem } = {}) {
+function qbRun(repoDir, patches, { maxRetries = 3, mem, trace = false } = {}) {
   const dir = path.join(tmp, `run${n++}`); fs.mkdirSync(dir);
   const file = path.join(dir, 'contract.json');
   fs.writeFileSync(file, JSON.stringify({ goal: 'Fix parseDuration', required_behavior: ['parseDuration handles minutes'],
@@ -37,7 +37,7 @@ function qbRun(repoDir, patches, { maxRetries = 3, mem } = {}) {
   const res = spawnSync(process.execPath, ['--require', path.join(ROOT, 'test/helpers/preload-ollama.js'), '--require', path.join(ROOT, 'test/helpers/preload-fake-sandbox.js'),
     path.join(ROOT, 'qb.js'), 'Fix parseDuration', '--repo', repoDir, '--agent', 'claude-code', '--no-llm-context', '--max-retries', String(maxRetries), '--contract-file', file],
   { encoding: 'utf8', timeout: 60_000, env: { ...process.env, NODE_TEST_CONTEXT: '', QB_FAKE_AGENT_SCRIPT: script, QB_FAKE_AGENT_COUNTER: path.join(dir, 'counter'),
-    QB_FAKE_AGENT_BRIEFING_LOG: path.join(dir, 'briefings.jsonl'), QB_RUNS_DIR: runs, QB_MEMORY_DIR: mem, QB_JUDGE_CACHE_DIR: path.join(dir, 'jc'),
+    QB_DEMO_TRACE: trace ? '1' : '0', QB_FAKE_AGENT_BRIEFING_LOG: path.join(dir, 'briefings.jsonl'), QB_RUNS_DIR: runs, QB_MEMORY_DIR: mem, QB_JUDGE_CACHE_DIR: path.join(dir, 'jc'),
     QB_TEST_OLLAMA_SEQUENCE: JSON.stringify(Array(30).fill(NO)) } });
   const run = store.loadRun(fs.readdirSync(runs)[0], runs);
   const ev = store.readEvents(run);
@@ -99,4 +99,42 @@ describe('QB-28 golden: ordinary qb.js behaviour is unchanged by the orchestrati
       withMem(mem, () => assert.equal(mstore.readOutcomes(r.dir).length, 2));
     } finally { r.cleanup(); }
   });
+});
+
+
+// Scripted sandbox: verifies capture plumbing, not live Claude behavior.
+test('demo trace retains actual briefings and retry handoffs without changing verdicts', () => {
+  const r = makeRepo({
+    'src/utils/helpers.js': HELPERS('NaN'),
+    'README.md': '# demo\n',
+  });
+  try {
+    const { run, briefings } = qbRun(r.dir, [1, 2], {
+      maxRetries: 2,
+      mem: path.join(tmp, 'trace-memory'),
+      trace: true,
+    });
+    assert.equal(run.manifest.outcome, 'FAILED');
+    assert.deepEqual(run.readArtifact('a1-repair-hints'), []);
+
+    for (let i = 1; i <= 2; i++) {
+      assert.equal(
+        run.readArtifact(`a${i}-briefing`),
+        briefings[i - 1]
+      );
+      assert.equal(
+        run.readArtifact(`a${i}-briefing`),
+        run.readArtifact(`a${i}-execution`).briefing
+      );
+      assert.ok(run.readArtifact(`a${i}-context`).relevant_files.length);
+    }
+
+    assert.deepEqual(
+      run.readArtifact('a2-repair-hints'),
+      run.readArtifact('a1-route').hints
+    );
+    assert.equal(run.readArtifact('a1-route').action, 'repair');
+  } finally {
+    r.cleanup();
+  }
 });

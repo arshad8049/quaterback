@@ -16,6 +16,8 @@ async function orchestrate(contract, context = null, options = {}) {
     repairHints: options.repairHints || [],
     attempt:     options.attempt     || 1,
   });
+  // Capture before execution, including blocked/interrupted runs.
+  if (options.onBriefing) options.onBriefing(briefing);
   return execute(briefing, contract, context, options);
 }
 
