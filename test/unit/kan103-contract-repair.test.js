@@ -106,6 +106,22 @@ describe('KAN-103: QB repairs its own invalid draft contract once before blockin
     assert.match(errors, /D-2 .*Invalid input.* was flagged as uncovered in the rejected draft/);
   });
 
+  test('the correction runs within the existing run deadline: a deadline during the correction cancels the run in L1', async () => {
+    const budget = require('../../lib/budget');
+    let i = 0;
+    // First call: the bad draft. Second call (the correction): never answers.
+    const m = mockFetch(() => (i++ === 0 ? ollamaReply(BAD) : new Promise(() => {})));
+    try {
+      const run = budget.startRun({ deadlineMs: 300 });
+      run.stage('L1 intent');
+      const started = Date.now();
+      await assert.rejects(compileIntent(REQUEST), (e) => e.code === 'DEADLINE' && e.kind !== 'call');
+      assert.ok(Date.now() - started < 3000, 'cancelled at the run deadline, not a per-call timeout');
+      assert.equal(m.calls.length, 2, 'the correction was the call in flight');
+      assert.deepEqual(run.interrupted(), { stage: 'L1 intent', deadline_ms: 300 });
+    } finally { budget.endRun(); m.restore(); }
+  });
+
   test('good first draft: no extra model call, no repair recorded', async () => {
     const { s, calls } = await compileWith([GOOD, BAD]);
     assert.equal(s.state, 'finalized');
@@ -131,7 +147,10 @@ describe('KAN-103: QB repairs its own invalid draft contract once before blockin
       const dir = runIds.length === 1 ? path.join(runs, runIds[0]) : null;
       const manifest = dir ? JSON.parse(read(path.join(dir, 'manifest.json'))) : null;
       const events = dir ? read(path.join(dir, 'events.jsonl')).split('\n').filter(Boolean).map((l) => JSON.parse(l)) : [];
-      const artifact = (name) => (manifest?.artifacts?.[name] ? JSON.parse(read(path.join(dir, manifest.artifacts[name].path))) : null);
+      // Read every stored JSON artifact now: the temporary directory is removed below.
+      const stored = Object.fromEntries(Object.entries(manifest?.artifacts || {}).filter(([, ref]) => ref.path.endsWith('.json'))
+        .map(([name, ref]) => [name, JSON.parse(read(path.join(dir, ref.path)))]));
+      const artifact = (name) => stored[name] ?? null;
       return { status: r.status, out: r.stdout + r.stderr, modelCalls: read(fetchLog).split('\n').filter(Boolean).length,
         launches: read(sandboxLog).split('\n').filter(Boolean).length, manifest, events, artifact };
     } finally { repo.cleanup(); fs.rmSync(tmp, { recursive: true, force: true }); }

@@ -37,13 +37,60 @@ async function compile(request, repoContext = null, clarification = null) {
   const ambiguity = detectAmbiguity(request, bound);
   if (ambiguity) return ambiguity;
   const clar = resolveClarifications(request, bound);
+  return draftContract(request, buildUserContent(request, repoContext, history, clar.byEntry), clar);
+}
 
+/**
+ * KAN-103: one correction of a draft QB generated and its validator rejected. The model gets the
+ * same request, survey and clarifications, plus its rejected draft and the validator's errors, and
+ * writes the contract again. The result is normalized exactly like a first draft; the caller runs
+ * it through the same validator (contractState). Never used for a user-supplied contract file.
+ *
+ * @param {object} rejected   the rejected contract (as compile() returned it)
+ * @param {string[]} errors   contractState(rejected).errors
+ */
+async function repair(request, repoContext, clarification, rejected, errors) {
+  const history = Array.isArray(clarification) ? clarification
+    : clarification ? [{ question: null, answer: String(clarification) }] : [];
+  const clar = resolveClarifications(request, history.map((h) => ({ question_id: h.question_id ?? null, answer: h.answer })));
+  const content = `${buildUserContent(request, repoContext, history, clar.byEntry)}\n\n${repairSection(rejected, errors)}`;
+  return draftContract(request, content, clar);
+}
+
+/** What the model wrote in the rejected draft: its own fields only, not QB's metadata. */
+function modelAuthored(c) {
+  const out = {};
+  for (const key of [...SEMANTIC_FIELDS, 'checks']) if (c && c[key] !== undefined) out[key] = c[key];
+  return out;
+}
+
+function repairSection(rejected, errors) {
+  return [
+    'YOUR PREVIOUS DRAFT WAS REJECTED by QB\'s contract validator. Write the whole contract again, in the same JSON format, for the same REQUEST.',
+    '',
+    'VALIDATION ERRORS:',
+    ...errors.map((e) => `- ${e}`),
+    '',
+    'REJECTED DRAFT:',
+    JSON.stringify(modelAuthored(rejected), null, 2),
+    '',
+    'When you correct it:',
+    '- Fix every validation error above.',
+    '- Copy every requirement quote character for character from REQUEST; together the quotes must cover the whole request.',
+    '- Keep every part of the request. Add nothing the request does not ask for.',
+    '- A proposed default that was "not covered by any acceptance criterion" is not needed: remove it. Do NOT add criteria to justify it.',
+    '- Do not ask a clarifying question; set clarifying_question to null.',
+  ].join('\n');
+}
+
+/** One model call for a contract draft, normalized by the same rules as every contract. */
+async function draftContract(request, userContent, clar) {
   // QB-21: deadline-bound, cancellable, concurrency-bounded (lib/budget.js)
   const data = await modelCall(`${OLLAMA_URL}/api/chat`, {
     model: MODEL,
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user',   content: buildUserContent(request, repoContext, history, clar.byEntry) },
+      { role: 'user',   content: userContent },
     ],
     stream: false,
     options: { temperature: 0.1, num_ctx: 16384 },
@@ -269,4 +316,4 @@ function fixUnquotedKeys(str) {
   return str.replace(/([{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/g, '$1"$2":');
 }
 
-module.exports = { compile, contractFromObject, NO_QUESTION_SENTINELS };
+module.exports = { compile, repair, contractFromObject, NO_QUESTION_SENTINELS };
