@@ -1,0 +1,36 @@
+{
+  "goal": "Add a cart module that stores money as integer cents and rejects negative quantities",
+  "required_behavior": [
+    "The cart stores money as integer cents",
+    "The cart rejects negative quantities"
+  ],
+  "constraints": [],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "src/cart.js stores item prices as integer cents",
+      "requirement_ids": [
+        "R-1"
+      ]
+    },
+    {
+      "id": "AC-2",
+      "criterion": "Adding an item with a negative quantity is rejected",
+      "requirement_ids": [
+        "R-1"
+      ]
+    }
+  ],
+  "verification_plan": [
+    "Add items to a cart and check the stored totals are integers",
+    "Add an item with quantity -1 and check it is rejected"
+  ],
+  "requirements": [
+    {
+      "id": "R-1",
+      "quote": "stores money asinteger cents and rejects negative quantities"
+    }
+  ],
+  "proposed_defaults": [],
+  "clarifying_question": null
+}
