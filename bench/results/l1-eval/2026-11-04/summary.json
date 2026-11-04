@@ -1,0 +1,160 @@
+{
+  "meta": {
+    "host": {
+      "platform": "darwin",
+      "arch": "arm64",
+      "cpus": 11,
+      "mem_gib": 18,
+      "node": "v20.20.2"
+    },
+    "models": [
+      "deepseek-r1:7b (0a8c26691023)",
+      "qwen2.5-coder:14b (9ec8897f747e)"
+    ],
+    "commits": [
+      "d946ff3",
+      "ab835c7"
+    ]
+  },
+  "summaries": [
+    {
+      "model": "deepseek-r1:7b",
+      "trials": 30,
+      "outcomes": {
+        "first_draft": 1,
+        "after_correction": 2,
+        "asked": 0,
+        "invalid_syntax": 3,
+        "invalid_validation": 23,
+        "timeout": 1,
+        "error": 0
+      },
+      "first_draft_failure": {
+        "syntax": 4,
+        "invalid": 25
+      },
+      "usable": 2,
+      "finalized": 3,
+      "proxy_failed": 1,
+      "calls": 59,
+      "ms": 2969809,
+      "categories": {
+        "scope_policy": 36,
+        "schema_incomplete": 4,
+        "quote_not_verbatim": 31,
+        "request_untraced": 18,
+        "criterion_untraced": 7,
+        "syntax": 7,
+        "default_uncovered_or_new": 1,
+        "requirement_uncovered": 9
+      },
+      "by_task": {
+        "greeting": {
+          "trials": 5,
+          "usable": 0,
+          "finalized": 0
+        },
+        "cart": {
+          "trials": 5,
+          "usable": 0,
+          "finalized": 0
+        },
+        "clamp": {
+          "trials": 5,
+          "usable": 0,
+          "finalized": 0
+        },
+        "duration": {
+          "trials": 5,
+          "usable": 0,
+          "finalized": 1
+        },
+        "slugify": {
+          "trials": 5,
+          "usable": 2,
+          "finalized": 2
+        },
+        "port": {
+          "trials": 5,
+          "usable": 0,
+          "finalized": 0
+        }
+      },
+      "rates": {
+        "usable": 6.7,
+        "finalized": 10,
+        "first_draft": 3.3
+      },
+      "mean_calls": 1.97,
+      "mean_seconds": 99
+    },
+    {
+      "model": "qwen2.5-coder:14b",
+      "trials": 30,
+      "outcomes": {
+        "first_draft": 8,
+        "after_correction": 4,
+        "asked": 0,
+        "invalid_syntax": 0,
+        "invalid_validation": 15,
+        "timeout": 3,
+        "error": 0
+      },
+      "first_draft_failure": {
+        "syntax": 0,
+        "invalid": 22
+      },
+      "usable": 12,
+      "finalized": 12,
+      "proxy_failed": 0,
+      "calls": 52,
+      "ms": 4830647,
+      "categories": {
+        "quote_not_verbatim": 24,
+        "request_untraced": 78,
+        "scope_policy": 2,
+        "criterion_duplicate": 10,
+        "requirement_uncovered": 1
+      },
+      "by_task": {
+        "greeting": {
+          "trials": 5,
+          "usable": 3,
+          "finalized": 3
+        },
+        "cart": {
+          "trials": 5,
+          "usable": 0,
+          "finalized": 0
+        },
+        "clamp": {
+          "trials": 5,
+          "usable": 5,
+          "finalized": 5
+        },
+        "duration": {
+          "trials": 5,
+          "usable": 0,
+          "finalized": 0
+        },
+        "slugify": {
+          "trials": 5,
+          "usable": 4,
+          "finalized": 4
+        },
+        "port": {
+          "trials": 5,
+          "usable": 0,
+          "finalized": 0
+        }
+      },
+      "rates": {
+        "usable": 40,
+        "finalized": 40,
+        "first_draft": 26.7
+      },
+      "mean_calls": 1.73,
+      "mean_seconds": 161
+    }
+  ]
+}
