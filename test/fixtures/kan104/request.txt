@@ -1,0 +1,1 @@
+Update greeting() in src/greeting.js so greeting("Arshad") returns "Hello, Arshad!". Keep greeting() with no argument returning "Hello from Node Project JS!". Add node:test cases for both.

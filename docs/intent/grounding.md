@@ -124,13 +124,18 @@ It returns a handoff state (`format: "qb-intent-handoff/1"`):
   - It is part of the **approval hash** when present, and shown in the approval view under "Clarified by you".
   - `contractState` rejects an entry with an unknown question or choice, a parameterized choice without a valid value, or a value on a choice that takes none.
 
-## One correction of QB's own draft (KAN-103)
+## One correction of QB's own draft (KAN-103, KAN-104)
 
-When the validator (`contractState`) rejects a contract the compiler generated, QB gets **one** chance to correct it before blocking the user. The request, the rejected draft (model-authored fields only) and the validation errors go back to the compiler (`intent/compiler.js` `repair`), and the correction goes through the same validator.
-- **Bounded.** One correction per compilation, inside the run deadline (the same deadline-bound `modelCall`). It is separate from the coding agent's `--max-retries`. A first draft that passes makes no extra call.
+When a contract the compiler generated can't be used, QB gets **one** chance to correct it before blocking the user (`intent/compiler.js` `repair`). There are two cases:
+- **Invalid** (KAN-103): the validator (`contractState`) rejected a parsed draft. The request, the rejected draft (model-authored fields only) and the validation errors go back to the compiler.
+- **Unreadable** (KAN-104): the reply wasn't JSON. `parseJSON` strips fences and fixes unquoted keys, but never guesses what a bare value means; it throws a `DraftSyntaxError`. Only the request and the parser's diagnostic go back, for a fresh draft.
+
+Either way, the correction is parsed and validated from scratch by the same code.
+- **Bounded.** **One corrective call in total** per compilation, whatever went wrong, inside the run deadline (the same deadline-bound `modelCall`): an unreadable draft followed by an invalid correction stops, and so does the reverse. It is separate from the coding agent's `--max-retries`. A first draft that passes makes no extra call.
 - **No invented defaults kept.** A proposed default the rejected draft left uncovered is one the request didn't need. A correction that keeps it (matched by text) is refused, even when it adds criteria that cite it and the validator alone would accept it.
 - **The approval boundary is unchanged.** A corrected contract goes through the usual approval (QB-13); a dry run goes straight to the briefing. A user-supplied `--contract-file` is never repaired or rewritten: an invalid one is reported as supplied.
-- **Recorded.** The run record stores every rejected draft and its errors as the `contract-repair` artifact (`qb-contract-repair/1`), with a `contract.repaired` or `contract.repair_failed` event. If the correction also fails, the run ends `BLOCKED` (`invalid_contract_after_repair: …`), nothing runs, and the user is told it was QB's mistake, not their request.
+- **Recorded.** The run record stores every rejected draft and its errors as the `contract-repair` artifact (`qb-contract-repair/1`), with a `contract.repaired` or `contract.repair_failed` event. An unreadable reply is kept as its parser diagnostic plus at most 16 KiB of the reply, redacted like every artifact. If the correction also fails, the run ends `BLOCKED` (`invalid_contract_after_repair: …`), nothing runs, and the user sees "QB couldn't build a reliable checklist. No code was changed." Drafts and parse diagnostics stay out of the terminal; validation errors of a readable draft are listed.
+- **Known gaps** (KAN-104 TODO tests). A parseable draft can still be wrong in ways L1 doesn't catch. A `call_returns` check that contradicts the request's own example (`greeting("test")` expecting `"Hello, Arshad!"`) is shown in the approval view and only fails at L4. A scope whose allowed changes are all protected (`protected_paths: ["**"]`) fails the L4 policy. Both are stopped only after the agent has run, so the human approval is the L1 backstop.
 
 ## Limitations
 - **The survey is lexical.** Relevance is keyword overlap with file names and paths. It reads the live checkout (read-only) and does not parse code.

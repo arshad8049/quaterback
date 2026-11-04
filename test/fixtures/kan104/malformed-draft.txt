@@ -1,0 +1,97 @@
+
+{
+  "goal": "Update greeting() in src/greeting.js so greeting(\"Arshad\") returns \"Hello, Arshad!\" and greeting() with no argument returns \"Hello from Node Project JS!\".",
+  "required_behavior": [
+    "function greeting accepts an argument and returns a personalized greeting",
+    "function greeting returns the standard greeting when no argument is provided"
+  ],
+  "constraints": [
+    "Do not break the existing behavior of greeting() returning \"Hello from Node Project JS!\" when called without arguments",
+    "Ensure that the new behavior only occurs when an argument is provided",
+    "Maintain the current functionality of the module"
+  ],
+  "scope": {
+    "allowed_changes": ["src/greeting.js"],
+    "protected_paths": ["**"]
+  },
+  "constraint_policy": [
+    {
+      "constraint": 0,
+      "enforced_by": [
+        {
+          "kind": "check",
+          "ref": "module/src/greeting.js",
+          "args": [greeting, "test"]
+        }
+      ]
+    },
+    {
+      "constraint": 1,
+      "enforced_by": [
+        {
+          "kind": "check",
+          "ref": "module/src/greeting.js",
+          "args": [greeting, "no_test"]
+        }
+      ]
+    }
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "function greeting accepts an argument and returns a personalized greeting",
+      "met": null,
+      "kind": "behavioral",
+      "requirement_ids": ["R-1"]
+    },
+    {
+      "id": "AC-2",
+      "criterion": "function greeting returns the standard greeting when no argument is provided",
+      "met": null,
+      "kind": "behavioral",
+      "requirement_ids": ["R-1"]
+    }
+  ],
+  "requirements": [
+    {
+      "id": "R-1",
+      "quote": "Update greeting() in src/greeting.js so greeting(\"Arshad\") returns \"Hello, Arshad!\" and greeting() with no argument returns \"Hello from Node Project JS!\"."
+    }
+  ],
+  "proposed_defaults": [],
+  "verification_plan": [
+    "Verify that greeting(\"Arshad\") returns \"Hello, Arshad!\"",
+    "Verify that greeting() with no arguments returns \"Hello from Node Project JS!\"",
+    "Verify that existing behavior remains unchanged",
+    "Verify that the function handles the new argument correctly"
+  ],
+  "checks": [
+    {
+      "id": "CHK-1",
+      "ac_id": "AC-1",
+      "adapter": "call_returns",
+      "plan_item": 0,
+      "params": {
+        "module": "src/greeting.js",
+        "export": "greeting",
+        "args": ["test"],
+        "expect": "Hello, Arshad!"
+      }
+    },
+    {
+      "id": "CHK-2",
+      "ac_id": "AC-2",
+      "adapter": "call_returns",
+      "plan_item": 0,
+      "params": {
+        "module": "src/greeting.js",
+        "export": "greeting",
+        "args": [],
+        "expect": "Hello from Node Project JS!"
+      }
+    }
+  ],
+  "relevant_context": ["test/greeting.test.js", "src/greeting.js", "src/index.js", "package-lock.json", "package.json"],
+  "ambiguity_flags": [],
+  "clarifying_question": null
+}

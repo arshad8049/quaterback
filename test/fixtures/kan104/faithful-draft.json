@@ -1,0 +1,95 @@
+{
+  "goal": "greeting(\"Arshad\") returns \"Hello, Arshad!\", greeting() with no argument still returns \"Hello from Node Project JS!\", and node:test cases cover both",
+  "required_behavior": [
+    "greeting(\"Arshad\") returns \"Hello, Arshad!\"",
+    "greeting() with no argument returns \"Hello from Node Project JS!\"",
+    "node:test cases cover both calls"
+  ],
+  "constraints": [],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "greeting(\"Arshad\") returns \"Hello, Arshad!\"",
+      "requirement_ids": [
+        "R-1"
+      ]
+    },
+    {
+      "id": "AC-2",
+      "criterion": "greeting() with no argument returns \"Hello from Node Project JS!\"",
+      "requirement_ids": [
+        "R-2"
+      ]
+    },
+    {
+      "id": "AC-3",
+      "criterion": "node:test cases in test/ cover greeting(\"Arshad\") and greeting() with no argument",
+      "kind": "non_behavioral",
+      "requirement_ids": [
+        "R-3"
+      ]
+    }
+  ],
+  "verification_plan": [
+    "Call greeting(\"Arshad\") and expect \"Hello, Arshad!\"",
+    "Call greeting() and expect \"Hello from Node Project JS!\"",
+    "Check the node:test suite has a case for each call"
+  ],
+  "checks": [
+    {
+      "id": "CHK-1",
+      "ac_id": "AC-1",
+      "adapter": "call_returns",
+      "plan_item": 0,
+      "params": {
+        "module": "src/greeting.js",
+        "export": "greeting",
+        "args": [
+          "Arshad"
+        ],
+        "expect": "Hello, Arshad!"
+      }
+    },
+    {
+      "id": "CHK-2",
+      "ac_id": "AC-2",
+      "adapter": "call_returns",
+      "plan_item": 1,
+      "params": {
+        "module": "src/greeting.js",
+        "export": "greeting",
+        "args": [],
+        "expect": "Hello from Node Project JS!"
+      }
+    }
+  ],
+  "requirements": [
+    {
+      "id": "R-1",
+      "quote": "Update greeting() in src/greeting.js so greeting(\"Arshad\") returns \"Hello, Arshad!\"."
+    },
+    {
+      "id": "R-2",
+      "quote": "Keep greeting() with no argument returning \"Hello from Node Project JS!\"."
+    },
+    {
+      "id": "R-3",
+      "quote": "Add node:test cases for both."
+    }
+  ],
+  "proposed_defaults": [],
+  "scope": {
+    "allowed_changes": [
+      "src/greeting.js",
+      "test/**"
+    ],
+    "protected_paths": []
+  },
+  "constraint_policy": [],
+  "relevant_context": [
+    "src/greeting.js",
+    "test/greeting.test.js"
+  ],
+  "ambiguity_flags": [],
+  "clarifying_question": null
+}

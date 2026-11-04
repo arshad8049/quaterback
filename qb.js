@@ -210,13 +210,18 @@ async function main() {
         log('L1', `QB's first draft failed its own checks (${s.repair.rejected[0].errors.length} issue(s)); corrected it once`);
       } else {
         run.event('contract.repair_failed', { errors: s.errors });
-        console.log('\n  ✗ QB could not write a valid contract for this request.');
-        console.log('    Its first draft failed QB\'s own checks, and one automatic correction did not fix it.');
+        // Customer-facing: no drafts and no parse diagnostics here (they are in the run record).
+        console.log('\n  ✗ QB couldn\'t build a reliable checklist. No code was changed.');
+        console.log('    Its first draft of the requirements failed QB\'s own checks, and one automatic correction did not fix it.');
         console.log('    This is QB\'s mistake, not a problem with your request. Nothing was run.\n');
-        console.log('    What was still wrong:');
-        s.errors.slice(0, 5).forEach((e) => console.log(`      • ${e.length > 160 ? `${e.slice(0, 157)}...` : e}`));
-        if (s.errors.length > 5) console.log(`      • … and ${s.errors.length - 5} more`);
-        console.log('\n    Run it again (the local model may do better), or rephrase the request.');
+        const readable = s.repair.rejected.at(-1).kind === 'invalid';
+        if (readable) {
+          console.log('    What was still wrong:');
+          s.errors.slice(0, 5).forEach((e) => console.log(`      • ${e.length > 160 ? `${e.slice(0, 157)}...` : e}`));
+          if (s.errors.length > 5) console.log(`      • … and ${s.errors.length - 5} more`);
+          console.log('');
+        }
+        console.log('    Run it again (the local model may do better), or rephrase the request.');
         console.log(`    Engineering details: ${run.dir} (artifact contract-repair)\n`);
         run.finish('BLOCKED', { reason: `invalid_contract_after_repair: ${s.errors.join('; ')}` });
         process.exitCode = 2;

@@ -187,7 +187,7 @@ describe('KAN-103: QB repairs its own invalid draft contract once before blockin
     assert.equal(r.manifest.outcome, 'BLOCKED');
     assert.match(r.manifest.outcome_reason, /^invalid_contract_after_repair: /);
     assert.equal(r.manifest.attempts.length, 0, 'no attempt: nothing executed or tested');
-    assert.match(r.out, /QB could not write a valid contract for this request/);
+    assert.match(r.out, /QB couldn't build a reliable checklist\. No code was changed\./);   // KAN-104: the shared message
     assert.match(r.out, /not a problem with your request/i);
     assert.match(r.out, /Nothing was run/);
     const drafts = r.artifact('contract-repair');
