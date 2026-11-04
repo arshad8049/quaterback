@@ -92,7 +92,7 @@ function repairSection(rejected, errors) {
     '- Fix every validation error above.',
     '- Copy every requirement quote character for character from REQUEST; together the quotes must cover the whole request.',
     '- Keep every part of the request. Add nothing the request does not ask for.',
-    '- A proposed default that was "not covered by any acceptance criterion" is not needed: remove it. Do NOT add criteria to justify it.',
+    '- Remove every proposed default that was "not covered by any acceptance criterion". Do NOT add criteria to justify it, and do not add new or reworded defaults.',
     '- Do not ask a clarifying question; set clarifying_question to null.',
   ].join('\n');
 }
