@@ -96,6 +96,24 @@ function patternErrors(list, name) {
 }
 
 /**
+ * KAN-105: the protected glob that makes an allowed_changes entry impossible, or null. Only coverage
+ * that can be proven is reported, so a legal scope is never rejected:
+ *   - a literal path: some protected glob matches it (the L4 policy's own matcher);
+ *   - a glob: a protected glob is identical to it, is "**", or is "<dir>/**" with every path the
+ *     glob can match lying under <dir> (its literal leading segments start with <dir>).
+ * Any other overlap (e.g. allowed "test/**", protected "test/fixtures/**") stays legal; protection
+ * still wins on those paths at L4.
+ */
+const WILD = /[*?]/;
+function coveringGlob(allowed, protectedGlobs) {
+  if (!WILD.test(allowed)) return protectedGlobs.find((g) => globToRegExp(g).test(allowed)) ?? null;
+  const segs = allowed.split('/');
+  const lead = segs.slice(0, segs.findIndex((x) => WILD.test(x))).join('/');
+  return protectedGlobs.find((g) => g === allowed || g === '**'
+    || (g.endsWith('/**') && !WILD.test(g.slice(0, -3)) && (lead === g.slice(0, -3) || lead.startsWith(`${g.slice(0, -3)}/`)))) ?? null;
+}
+
+/**
  * Structural validation of a contract's policy (used by contractState).
  * @returns {string[]} errors
  */
@@ -103,7 +121,15 @@ function policyErrors(c) {
   const errors = [];
   const scope = c?.scope;
   if (scope !== undefined && (scope === null || typeof scope !== 'object' || Array.isArray(scope))) return ['scope must be an object'];
-  errors.push(...patternErrors(scope?.allowed_changes, 'allowed_changes'), ...patternErrors(scope?.protected_paths, 'protected_paths'));
+  const patterns = [...patternErrors(scope?.allowed_changes, 'allowed_changes'), ...patternErrors(scope?.protected_paths, 'protected_paths')];
+  errors.push(...patterns);
+  // KAN-105: an allowed change that is entirely protected can never pass the L4 policy.
+  if (!patterns.length && Array.isArray(scope?.allowed_changes) && Array.isArray(scope?.protected_paths) && scope.protected_paths.length) {
+    for (const a of scope.allowed_changes) {
+      const by = coveringGlob(a, scope.protected_paths);
+      if (by !== null) errors.push(`scope.allowed_changes entry ${JSON.stringify(a)} is entirely covered by scope.protected_paths ${JSON.stringify(by)}: no change it allows could pass`);
+    }
+  }
   const cp = c?.constraint_policy;
   if (cp === undefined) return errors;
   if (!Array.isArray(cp)) return [...errors, 'constraint_policy must be an array'];

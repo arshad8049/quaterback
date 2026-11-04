@@ -181,7 +181,12 @@ describe('QB-09 re-review: one exact path semantics for every captured name', ()
   test('verifier: affirmative AC votes and passing tests cannot approve the newline bypass', async () => {
     const file = 'src/a\nb.js';
     const QDIFF = 'diff --git "a/src/a\\nb.js" "b/src/a\\nb.js"\n--- "a/src/a\\nb.js"\n+++ "b/src/a\\nb.js"\n@@ -1 +1 @@\n-x\n+y\n';  // as Git writes it
-    const r = await run(overlap(), exec([], { changes: [CHANGE(file)], diff: QDIFF }));
+    // KAN-105: overlap() ("src/*" inside "src/**") is an impossible scope and is now refused at L1, so the
+    // verifier is driven with a LEGAL partial overlap: protected "src/a*" inside allowed "src/**".
+    assert.match(policyErrors(overlap()).join('\n'), /"src\/\*" is entirely covered by scope\.protected_paths "src\/\*\*"/);
+    const partial = contract({ scope: { allowed_changes: ['src/**'], protected_paths: ['src/a*'] } });
+    assert.deepEqual(policyErrors(partial), []);
+    const r = await run(partial, exec([], { changes: [CHANGE(file)], diff: QDIFF }));
     assert.equal(r.verdict, 'fail');
     assert.deepEqual(r.policy.protected_touched, [file]);
     const r2 = await run(contract({ scope: { allowed_changes: ['src/**', 'README.md'], protected_paths: [] } }), exec([], { changes: [CHANGE('src/clamp.js'), CHANGE(file)], diff: DIFF('src/clamp.js') + QDIFF }));
