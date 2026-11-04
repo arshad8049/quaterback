@@ -50,10 +50,20 @@ program
         },
       });
       if (s.state !== 'finalized') {
-        // Machine-readable handoff state (still open, blocked or invalid) on stdout.
-        // KAN-104: the rejected drafts (and any unreadable reply) are left out of normal output.
-        const repair = s.repair && { attempted: true, drafts: s.repair.rejected.map((d) => ({ kind: d.kind, errors: d.errors.length })) };
-        console.log('\n' + JSON.stringify({ ...s, contract: undefined, repair }, null, 2) + '\n');
+        if (s.state === 'invalid') {
+          // KAN-104 re-review 4: customer-safe, like qb.js. No drafts and no parser diagnostics;
+          // the validation problems of a readable draft are listed.
+          const readable = !s.repair || s.repair.rejected.at(-1).kind === 'invalid';
+          console.error("\n  ✗ QB couldn't build a reliable checklist. No code was changed.");
+          console.error("    This is QB's mistake, not a problem with your request. Run it again, or use qb to keep the drafts in a local run record.");
+          const summary = { format: s.format, state: s.state, round: s.round, survey: s.survey,
+            repair: s.repair ? { attempted: true, drafts: s.repair.rejected.length } : undefined,
+            ...(readable ? { problems: s.errors } : {}) };
+          console.log('\n' + JSON.stringify(summary, null, 2) + '\n');
+        } else {
+          // Machine-readable handoff state (still open or blocked) on stdout.
+          console.log('\n' + JSON.stringify({ ...s, contract: undefined }, null, 2) + '\n');
+        }
         process.exit(2);
       }
       const result = s.contract;

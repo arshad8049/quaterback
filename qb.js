@@ -435,6 +435,13 @@ function buildLayersUsed(opts) {
 }
 
 main().catch(e => {
+  // KAN-103/104 re-review 1: the corrective call failed outright; keep QB's rejected draft(s).
+  if (e && e.recovery && currentRun) {
+    try {
+      currentRun.artifact('contract-repair', { format: 'qb-contract-repair/1', outcome: e.recovery.failed.kind, rejected: e.recovery.rejected, failed: e.recovery.failed });
+      currentRun.event('contract.repair_failed', { failed: e.recovery.failed });
+    } catch { /* the run record is best effort here; the abort below still records the outcome */ }
+  }
   // QB-21: a run deadline (or cancellation) ends the run CANCELLED, naming the interrupted stage.
   if (e && e.code === 'DEADLINE' && e.kind !== 'call') {
     const r = budget.currentRun();

@@ -19,11 +19,13 @@
  * KAN-103 / KAN-104: a draft the compiler generated gets ONE correction in total (intent/compiler.js
  * repair) before the state is 'invalid', whether the validator rejected it or the reply was not JSON
  * at all. The correction is parsed and validated from scratch by the same code, and is never
- * corrected again. A correction may not keep a proposed default the rejected draft left uncovered
- * (it must drop it, not add criteria to cite it). When a correction was attempted, the result carries
+ * corrected again. A correction may not bring in a proposed default the rejected draft had not
+ * already justified (same id and text, covered there). When a correction was attempted, the result carries
  *   repair: { attempted: true, rejected: [{ kind: 'invalid', contract, errors }
  *                                         | { kind: 'syntax', contract: null, diagnostic, errors, raw, raw_bytes, raw_truncated }, …] }
- * (every rejected draft, in order; `raw` is at most 16 KiB of an unreadable reply).
+ * (every rejected draft, in order; `raw` is at most 16 KiB of UTF-8 of an unreadable reply).
+ * If the corrective call itself fails (empty reply, network error, cancellation), the error is
+ * rethrown with `error.recovery = { attempted: true, rejected, failed: { kind, message } }`.
  * The contract is never approved here; approval stays with the caller (QB-13).
  */
 
@@ -61,7 +63,14 @@ async function compileIntent(request, { repoPath = null, answers = [], ask = nul
       // unreadable or invalid; the correction is parsed and validated from scratch.
       const rejected = [first.syntax ? syntaxEntry(first.syntax) : { kind: 'invalid', contract: result, errors: cs.errors }];
       const failure = first.syntax ? { kind: 'syntax', diagnostic: first.syntax.diagnostic } : { kind: 'invalid', contract: result, errors: cs.errors };
-      const second = await draft(() => repair(request, context, history, failure));
+      let second;
+      try { second = await draft(() => repair(request, context, history, failure)); }
+      catch (e) {
+        // Re-review 1: the correction itself failed (empty reply, network, cancellation). The first
+        // draft and its errors travel with the error so the caller can keep them in the run record.
+        if (e && typeof e === 'object') e.recovery = { attempted: true, rejected, failed: { kind: e.code === 'DEADLINE' ? 'cancelled' : 'error', message: String(e.message || e) } };
+        throw e;
+      }
       if (second.syntax) {
         const errors = [`the corrected draft was not valid JSON either: ${second.syntax.diagnostic}`];
         rejected.push(syntaxEntry(second.syntax));
@@ -72,7 +81,7 @@ async function compileIntent(request, { repoPath = null, answers = [], ask = nul
       const errors = [
         ...(fixedState.state === 'invalid' ? fixedState.errors : []),
         ...(fixedState.state === 'needs_clarification' ? [`the correction asked a question instead of correcting the draft: ${fixedState.question}`] : []),
-        ...(first.syntax ? [] : keptFlaggedDefaults(result, fixed)),
+        ...(first.syntax ? [] : correctionDefaultErrors(result, fixed)),
       ];
       if (!errors.length) return { format: FORMAT, state: 'finalized', contract: fixed, round, history, survey: grounding, repair: { attempted: true, rejected } };
       rejected.push({ kind: 'invalid', contract: fixed, errors });
@@ -96,7 +105,7 @@ async function compileIntent(request, { repoPath = null, answers = [], ask = nul
   }
 }
 
-const RAW_LIMIT = 16 * 1024;
+const RAW_LIMIT = 16 * 1024;   // bytes of UTF-8
 
 /** A model call for a draft: { contract } or, when the reply was not JSON, { syntax } (KAN-104). */
 async function draft(call) {
@@ -105,22 +114,31 @@ async function draft(call) {
 
 /** An unreadable draft as run evidence: the diagnostic and at most 16 KiB of the reply. */
 function syntaxEntry(e) {
-  const raw = String(e.raw ?? '');
+  const buf = Buffer.from(String(e.raw ?? ''), 'utf8');
+  // Re-review 3: the limit is in UTF-8 bytes, and a cut never splits a character (back off to
+  // the start of the character the limit falls in: continuation bytes are 0b10xxxxxx).
+  let end = Math.min(buf.length, RAW_LIMIT);
+  if (end < buf.length) while (end > 0 && (buf[end] & 0xc0) === 0x80) end--;
   return { kind: 'syntax', contract: null, diagnostic: e.diagnostic, errors: [`not valid JSON: ${e.diagnostic}`],
-    raw: raw.slice(0, RAW_LIMIT), raw_bytes: Buffer.byteLength(raw), raw_truncated: raw.length > RAW_LIMIT };
+    raw: buf.subarray(0, end).toString('utf8'), raw_bytes: buf.length, raw_truncated: end < buf.length };
 }
 
 /**
- * KAN-103: a proposed default the rejected draft left uncovered is one the request did not need.
- * A correction must drop it; keeping it (matched by text, whatever its id) is an error, even when
- * new criteria now cite it and the validator alone would accept the contract.
+ * KAN-103 (re-review 2): a correction fixes the listed errors; it does not make new choices. Its
+ * proposed defaults must each be one the rejected draft had already justified — same id, same text,
+ * covered by a criterion there. Anything else is refused, however it is worded: a default the
+ * rejected draft left uncovered (the request did not need it) must be dropped, not cited by new
+ * criteria, and a reworded or new default is a new choice.
  */
-function keptFlaggedDefaults(rejected, fixed) {
+function correctionDefaultErrors(rejected, fixed) {
+  if (!Array.isArray(fixed?.proposed_defaults) || !fixed.proposed_defaults.length) return [];
   const norm = (t) => String(t || '').toLowerCase().replace(/\s+/g, ' ').trim();
-  const flagged = new Set(validateDefaults(rejected).defaults.filter((d) => !d.covered_by.length).map((d) => norm(d.text)));
-  if (!flagged.size || !Array.isArray(fixed?.proposed_defaults)) return [];
-  return fixed.proposed_defaults.filter((d) => d && flagged.has(norm(d.text)))
-    .map((d) => `proposed default ${d.id} ${JSON.stringify(d.text)} was flagged as uncovered in the rejected draft; a correction must remove it, not add criteria to cite it`);
+  const before = validateDefaults(rejected).defaults;
+  const justified = new Set(before.filter((d) => d.covered_by.length).map((d) => `${d.id}\u0000${norm(d.text)}`));
+  const flagged = new Set(before.filter((d) => !d.covered_by.length).map((d) => norm(d.text)));
+  return fixed.proposed_defaults.filter((d) => !(d && justified.has(`${d.id}\u0000${norm(d.text)}`))).map((d) => (flagged.has(norm(d?.text))
+    ? `proposed default ${d.id} ${JSON.stringify(d.text)} was flagged as uncovered in the rejected draft; a correction must remove it, not add criteria to cite it`
+    : `proposed default ${d?.id} ${JSON.stringify(d?.text)} is new in the correction; a correction may not add a choice the rejected draft had not already justified (remove it)`));
 }
 
 module.exports = { compileIntent, MAX_ROUNDS, FORMAT };
