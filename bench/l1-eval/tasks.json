@@ -1,0 +1,85 @@
+{
+  "format": "qb-l1-eval-tasks/1",
+  "note": "KAN-106. Each task is a request plus a small fixture repository (surveyed for grounding, as qb.js does). `expect_checks` is a faithfulness PROXY: each matcher must be met by at least one check in a finalized contract. It catches wrong adapters and wrong literal values; it does not prove the contract is complete or correct.",
+  "tasks": [
+    {
+      "id": "greeting",
+      "source": "KAN-104 repro request (run d9bcf7fe)",
+      "request": "Update greeting() in src/greeting.js so greeting(\"Arshad\") returns \"Hello, Arshad!\". Keep greeting() with no argument returning \"Hello from Node Project JS!\". Add node:test cases for both.",
+      "files": {
+        "package.json": "{\n  \"name\": \"node-project-js\",\n  \"type\": \"module\",\n  \"scripts\": { \"test\": \"node --test\" }\n}\n",
+        "src/greeting.js": "export function greeting() {\n  return \"Hello from Node Project JS!\";\n}\n",
+        "test/greeting.test.js": "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { greeting } from '../src/greeting.js';\n\ntest('default greeting', () => assert.equal(greeting(), 'Hello from Node Project JS!'));\n"
+      },
+      "expect_checks": [
+        { "adapter": "call_returns", "export": "greeting", "args": ["Arshad"], "expect": "Hello, Arshad!" },
+        { "adapter": "call_returns", "export": "greeting", "args": [], "expect": "Hello from Node Project JS!" }
+      ]
+    },
+    {
+      "id": "cart",
+      "source": "KAN-103 repro request (run 911bbb8f)",
+      "request": "Read this repo’s config files and treat them as my developer conventions, then add a cart module in src/ that stores money as integer cents and rejects negative quantities. Cover it with node:test cases that include a 0.1 + 0.2 style rounding trap.",
+      "files": {
+        "package.json": "{\n  \"name\": \"shop\",\n  \"type\": \"module\",\n  \"scripts\": { \"test\": \"node --test\" }\n}\n",
+        ".editorconfig": "root = true\n\n[*]\nindent_style = space\nindent_size = 2\n",
+        ".prettierrc": "{ \"singleQuote\": true, \"semi\": true }\n",
+        "src/index.js": "export const VERSION = '0.0.1';\n"
+      },
+      "expect_checks": [
+        { "adapter": "call_throws" }
+      ]
+    },
+    {
+      "id": "clamp",
+      "source": "onboarding demo request (docs/onboarding.md), without the pre-reviewed contract",
+      "request": "Add a clamp(n, min, max) function to src/utils.js that bounds n to [min, max]",
+      "files": {
+        "package.json": "{\n  \"name\": \"qb-demo\",\n  \"scripts\": { \"test\": \"node --test\" }\n}\n",
+        "src/utils.js": "module.exports = {};\n",
+        "test/placeholder.test.js": "const { test } = require('node:test');\ntest('placeholder', () => {});\n"
+      },
+      "expect_checks": [
+        { "adapter": "call_returns", "export": "clamp" }
+      ]
+    },
+    {
+      "id": "duration",
+      "source": "KAN-66 request",
+      "request": "formatDuration(30000) should return '30s' instead of '0m 30s' and formatDuration(90000) should still return '1m 30s'.",
+      "files": {
+        "package.json": "{\n  \"name\": \"durations\",\n  \"scripts\": { \"test\": \"node --test\" }\n}\n",
+        "src/duration.js": "function formatDuration(ms) {\n  const s = Math.floor(ms / 1000);\n  return `${Math.floor(s / 60)}m ${s % 60}s`;\n}\nmodule.exports = { formatDuration };\n"
+      },
+      "expect_checks": [
+        { "adapter": "call_returns", "export": "formatDuration", "args": [30000], "expect": "30s" },
+        { "adapter": "call_returns", "export": "formatDuration", "args": [90000], "expect": "1m 30s" }
+      ]
+    },
+    {
+      "id": "slugify",
+      "source": "new for KAN-106",
+      "request": "Add slugify(text) to src/slug.js: lowercase the text and turn spaces into hyphens, so slugify(\"Hello World\") returns \"hello-world\". Add node:test cases.",
+      "files": {
+        "package.json": "{\n  \"name\": \"slugs\",\n  \"scripts\": { \"test\": \"node --test\" }\n}\n",
+        "src/index.js": "module.exports = {};\n"
+      },
+      "expect_checks": [
+        { "adapter": "call_returns", "export": "slugify", "args": ["Hello World"], "expect": "hello-world" }
+      ]
+    },
+    {
+      "id": "port",
+      "source": "new for KAN-106 (the throws-check shape the latest beta run got wrong)",
+      "request": "Add parsePort(value) to src/config.js. parsePort(\"8080\") returns 8080, and parsePort(\"70000\") throws a RangeError. Cover both with node:test.",
+      "files": {
+        "package.json": "{\n  \"name\": \"svc\",\n  \"scripts\": { \"test\": \"node --test\" }\n}\n",
+        "src/config.js": "module.exports = {};\n"
+      },
+      "expect_checks": [
+        { "adapter": "call_returns", "export": "parsePort", "args": ["8080"], "expect": 8080 },
+        { "adapter": "call_throws", "export": "parsePort", "args": ["70000"] }
+      ]
+    }
+  ]
+}
