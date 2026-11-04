@@ -1,0 +1,1 @@
+Read this repo’s config files and treat them as my developer conventions, then add a cart module in src/ that stores money as integer cents and rejects negative quantities. Cover it with node:test cases that include a 0.1 + 0.2 style rounding trap.

@@ -201,13 +201,37 @@ async function main() {
       process.exitCode = 2;
       return;
     }
+    // KAN-103: QB corrected its own rejected draft once. Every rejected draft and its errors are
+    // kept in the run record for engineering; the correction still needs the usual approval.
+    if (s.repair) {
+      run.artifact('contract-repair', { format: 'qb-contract-repair/1', outcome: s.state, rejected: s.repair.rejected });
+      if (s.state === 'finalized') {
+        run.event('contract.repaired', { first_draft_errors: s.repair.rejected[0].errors });
+        log('L1', `QB's first draft failed its own checks (${s.repair.rejected[0].errors.length} issue(s)); corrected it once`);
+      } else {
+        run.event('contract.repair_failed', { errors: s.errors });
+        console.log('\n  ✗ QB could not write a valid contract for this request.');
+        console.log('    Its first draft failed QB\'s own checks, and one automatic correction did not fix it.');
+        console.log('    This is QB\'s mistake, not a problem with your request. Nothing was run.\n');
+        console.log('    What was still wrong:');
+        s.errors.slice(0, 5).forEach((e) => console.log(`      • ${e.length > 160 ? `${e.slice(0, 157)}...` : e}`));
+        if (s.errors.length > 5) console.log(`      • … and ${s.errors.length - 5} more`);
+        console.log('\n    Run it again (the local model may do better), or rephrase the request.');
+        console.log(`    Engineering details: ${run.dir} (artifact contract-repair)\n`);
+        run.finish('BLOCKED', { reason: `invalid_contract_after_repair: ${s.errors.join('; ')}` });
+        process.exitCode = 2;
+        return;
+      }
+    }
     contract = s.contract;
   }
 
   // Only a finalized contract may reach the agent or verification.
   const cs = contractState(contract);
   if (cs.state !== 'finalized') {
-    console.log(`\n  ✗ The intent compiler produced an unusable contract: ${(cs.errors || [cs.question]).join('; ')}\n`);
+    // KAN-103: a supplied contract file is reported as supplied; QB never rewrites it.
+    const what = fileContract ? `The contract file ${opts.contractFile} is not valid (it is never rewritten automatically)` : 'The intent compiler produced an unusable contract';
+    console.log(`\n  ✗ ${what}: ${(cs.errors || [cs.question]).join('; ')}\n`);
     run.event('contract.invalid', { errors: cs.errors || [] });
     run.finish('BLOCKED', { reason: stateReason(cs) });
     process.exitCode = 2;

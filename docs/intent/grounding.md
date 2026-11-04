@@ -124,6 +124,14 @@ It returns a handoff state (`format: "qb-intent-handoff/1"`):
   - It is part of the **approval hash** when present, and shown in the approval view under "Clarified by you".
   - `contractState` rejects an entry with an unknown question or choice, a parameterized choice without a valid value, or a value on a choice that takes none.
 
+## One correction of QB's own draft (KAN-103)
+
+When the validator (`contractState`) rejects a contract the compiler generated, QB gets **one** chance to correct it before blocking the user. The request, the rejected draft (model-authored fields only) and the validation errors go back to the compiler (`intent/compiler.js` `repair`), and the correction goes through the same validator.
+- **Bounded.** One correction per compilation, inside the run deadline (the same deadline-bound `modelCall`). It is separate from the coding agent's `--max-retries`. A first draft that passes makes no extra call.
+- **No invented defaults kept.** A proposed default the rejected draft left uncovered is one the request didn't need. A correction that keeps it (matched by text) is refused, even when it adds criteria that cite it and the validator alone would accept it.
+- **The approval boundary is unchanged.** A corrected contract goes through the usual approval (QB-13); a dry run goes straight to the briefing. A user-supplied `--contract-file` is never repaired or rewritten: an invalid one is reported as supplied.
+- **Recorded.** The run record stores every rejected draft and its errors as the `contract-repair` artifact (`qb-contract-repair/1`), with a `contract.repaired` or `contract.repair_failed` event. If the correction also fails, the run ends `BLOCKED` (`invalid_contract_after_repair: …`), nothing runs, and the user is told it was QB's mistake, not their request.
+
 ## Limitations
 - **The survey is lexical.** Relevance is keyword overlap with file names and paths. It reads the live checkout (read-only) and does not parse code.
 - **Free-text selection is deliberately strict.** A real decision phrased with an uncertainty word ("go with naming, not sure about the rest") stays open; the user can select by id instead. The model and the human approval (QB-13) remain the backstop for meaning.

@@ -1,0 +1,90 @@
+{
+  "goal": "Add a cart module in src/ that stores money as integer cents and rejects negative quantities, following the repository's conventions, with node:test coverage including a rounding trap",
+  "required_behavior": [
+    "The new code follows the conventions in the repository's config files",
+    "A cart module exists in src/",
+    "The cart stores money as integer cents",
+    "The cart rejects negative quantities",
+    "node:test cases cover the cart, including a 0.1 + 0.2 style rounding trap"
+  ],
+  "constraints": [],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "The cart module follows the conventions set by the repository's config files (eslint.config.js, package.json)",
+      "kind": "non_behavioral",
+      "requirement_ids": [
+        "R-1"
+      ]
+    },
+    {
+      "id": "AC-2",
+      "criterion": "A cart module exists at src/cart.js",
+      "requirement_ids": [
+        "R-2"
+      ]
+    },
+    {
+      "id": "AC-3",
+      "criterion": "The cart stores and totals money as integer cents, never as fractional amounts",
+      "requirement_ids": [
+        "R-3"
+      ]
+    },
+    {
+      "id": "AC-4",
+      "criterion": "Adding an item with a negative quantity is rejected",
+      "requirement_ids": [
+        "R-4"
+      ]
+    },
+    {
+      "id": "AC-5",
+      "criterion": "node:test cases cover the cart module",
+      "requirement_ids": [
+        "R-5"
+      ]
+    },
+    {
+      "id": "AC-6",
+      "criterion": "One test is a rounding trap: amounts that would total 0.30000000000000004 in floating point total exactly 30 cents in the cart",
+      "requirement_ids": [
+        "R-6"
+      ]
+    }
+  ],
+  "verification_plan": [
+    "Check src/cart.js against the repository's lint and package conventions",
+    "Add items and check every stored amount and total is an integer number of cents",
+    "Add an item with a negative quantity and check it is rejected",
+    "Run the node:test suite, including the rounding-trap case"
+  ],
+  "requirements": [
+    {
+      "id": "R-1",
+      "quote": "Read this repo’s config files and treat them as my developer conventions,"
+    },
+    {
+      "id": "R-2",
+      "quote": "then add a cart module in src/"
+    },
+    {
+      "id": "R-3",
+      "quote": "stores money as integer cents"
+    },
+    {
+      "id": "R-4",
+      "quote": "and rejects negative quantities."
+    },
+    {
+      "id": "R-5",
+      "quote": "Cover it with node:test cases"
+    },
+    {
+      "id": "R-6",
+      "quote": "include a 0.1 + 0.2 style rounding trap."
+    }
+  ],
+  "proposed_defaults": [],
+  "clarifying_question": null
+}
