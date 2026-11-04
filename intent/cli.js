@@ -51,7 +51,9 @@ program
       });
       if (s.state !== 'finalized') {
         // Machine-readable handoff state (still open, blocked or invalid) on stdout.
-        console.log('\n' + JSON.stringify({ ...s, contract: undefined }, null, 2) + '\n');
+        // KAN-104: the rejected drafts (and any unreadable reply) are left out of normal output.
+        const repair = s.repair && { attempted: true, drafts: s.repair.rejected.map((d) => ({ kind: d.kind, errors: d.errors.length })) };
+        console.log('\n' + JSON.stringify({ ...s, contract: undefined, repair }, null, 2) + '\n');
         process.exit(2);
       }
       const result = s.contract;

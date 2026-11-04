@@ -41,20 +41,34 @@ async function compile(request, repoContext = null, clarification = null) {
 }
 
 /**
- * KAN-103: one correction of a draft QB generated and its validator rejected. The model gets the
- * same request, survey and clarifications, plus its rejected draft and the validator's errors, and
- * writes the contract again. The result is normalized exactly like a first draft; the caller runs
- * it through the same validator (contractState). Never used for a user-supplied contract file.
- *
- * @param {object} rejected   the rejected contract (as compile() returned it)
- * @param {string[]} errors   contractState(rejected).errors
+ * KAN-103 / KAN-104: the one correction of a draft QB generated. The model gets the same request,
+ * survey and clarifications, plus what went wrong, and writes the contract again:
+ *   { kind: 'invalid', contract, errors }  the validator rejected a parsed draft: the draft (its
+ *                                          model-authored fields) and the errors are sent back;
+ *   { kind: 'syntax', diagnostic }         the reply was not JSON: only the parser's diagnostic is
+ *                                          sent, and a fresh draft is asked for.
+ * The result is normalized exactly like a first draft; the caller validates it from scratch
+ * (contractState). Never used for a user-supplied contract file.
  */
-async function repair(request, repoContext, clarification, rejected, errors) {
+async function repair(request, repoContext, clarification, failure) {
   const history = Array.isArray(clarification) ? clarification
     : clarification ? [{ question: null, answer: String(clarification) }] : [];
   const clar = resolveClarifications(request, history.map((h) => ({ question_id: h.question_id ?? null, answer: h.answer })));
-  const content = `${buildUserContent(request, repoContext, history, clar.byEntry)}\n\n${repairSection(rejected, errors)}`;
-  return draftContract(request, content, clar);
+  const section = failure.kind === 'syntax' ? syntaxSection(failure.diagnostic) : repairSection(failure.contract, failure.errors);
+  return draftContract(request, `${buildUserContent(request, repoContext, history, clar.byEntry)}\n\n${section}`, clar);
+}
+
+function syntaxSection(diagnostic) {
+  return [
+    'YOUR PREVIOUS REPLY WAS NOT VALID JSON, so QB could not read it.',
+    '',
+    `JSON SYNTAX ERROR: ${diagnostic}`,
+    '',
+    'Write a fresh contract for the REQUEST as ONE valid JSON object, in the required format:',
+    '- every string value in double quotes; a function or module name used as a value is a string;',
+    '- no comments, no trailing commas, no text outside the object;',
+    '- set clarifying_question to null.',
+  ].join('\n');
 }
 
 /** What the model wrote in the rejected draft: its own fields only, not QB's metadata. */
@@ -304,10 +318,20 @@ function parseJSON(text, request) {
   // Try with unquoted-key fix (model sometimes outputs JS-style object literals)
   try { return JSON.parse(fixUnquotedKeys(candidate)); } catch (_) {}
 
-  // Last resort: try the candidate as-is
-  try { return JSON.parse(candidate); } catch (_) {}
+  // Last resort: try the candidate as-is. Bare values are never guessed (KAN-104): a reply that
+  // is still not JSON is a DraftSyntaxError, which the caller may send back for one fresh draft.
+  try { return JSON.parse(candidate); } catch (e) { throw new DraftSyntaxError(request, text, e.message); }
+}
 
-  throw new Error(`Intent compiler returned non-JSON for: "${request.slice(0, 60)}..."\n\nRaw:\n${text}`);
+/** KAN-104: the model's reply could not be read as JSON. `diagnostic` is the parser's message. */
+class DraftSyntaxError extends Error {
+  constructor(request, raw, diagnostic) {
+    super(`Intent compiler returned non-JSON for: "${request.slice(0, 60)}..."\n\nRaw:\n${raw}`);
+    this.name = 'DraftSyntaxError';
+    this.code = 'DRAFT_SYNTAX';
+    this.raw = raw;
+    this.diagnostic = diagnostic;
+  }
 }
 
 function fixUnquotedKeys(str) {
@@ -316,4 +340,4 @@ function fixUnquotedKeys(str) {
   return str.replace(/([{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/g, '$1"$2":');
 }
 
-module.exports = { compile, repair, contractFromObject, NO_QUESTION_SENTINELS };
+module.exports = { compile, repair, contractFromObject, DraftSyntaxError, NO_QUESTION_SENTINELS };

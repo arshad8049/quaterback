@@ -16,12 +16,14 @@
  *   { state: 'invalid', errors, contract, history, survey }
  * Only 'finalized' carries an executable contract.
  *
- * KAN-103: a draft the compiler generated and the validator rejected gets ONE correction
- * (intent/compiler.js repair) before the state is 'invalid': the request, the rejected draft and
- * its errors go back to the compiler, and the correction goes through the same validator. A
- * correction may not keep a proposed default the rejected draft left uncovered (it must drop it,
- * not add criteria to cite it). When a correction was attempted, the result carries
- *   repair: { attempted: true, rejected: [{ contract, errors }, …] }   (every rejected draft, in order)
+ * KAN-103 / KAN-104: a draft the compiler generated gets ONE correction in total (intent/compiler.js
+ * repair) before the state is 'invalid', whether the validator rejected it or the reply was not JSON
+ * at all. The correction is parsed and validated from scratch by the same code, and is never
+ * corrected again. A correction may not keep a proposed default the rejected draft left uncovered
+ * (it must drop it, not add criteria to cite it). When a correction was attempted, the result carries
+ *   repair: { attempted: true, rejected: [{ kind: 'invalid', contract, errors }
+ *                                         | { kind: 'syntax', contract: null, diagnostic, errors, raw, raw_bytes, raw_truncated }, …] }
+ * (every rejected draft, in order; `raw` is at most 16 KiB of an unreadable reply).
  * The contract is never approved here; approval stays with the caller (QB-13).
  */
 
@@ -49,21 +51,31 @@ async function compileIntent(request, { repoPath = null, answers = [], ask = nul
   const grounding = surveySummary(survey);
   const history = [];
   for (let round = 1; ; round++) {
-    const result = await compile(request, survey ? survey.text : null, history);
-    const cs = contractState(result);
+    const context = survey ? survey.text : null;
+    const first = await draft(() => compile(request, context, history));
+    const result = first.contract;
+    const cs = first.syntax ? { state: 'invalid' } : contractState(result);
     if (cs.state === 'finalized') return { format: FORMAT, state: 'finalized', contract: result, round, history, survey: grounding };
     if (cs.state === 'invalid') {
-      // KAN-103: one correction of QB's own draft, checked by the same validator.
-      const rejected = [{ contract: result, errors: cs.errors }];
-      const fixed = await repair(request, survey ? survey.text : null, history, result, cs.errors);
+      // KAN-103 / KAN-104: ONE corrective call in total for QB's own draft, whether it was
+      // unreadable or invalid; the correction is parsed and validated from scratch.
+      const rejected = [first.syntax ? syntaxEntry(first.syntax) : { kind: 'invalid', contract: result, errors: cs.errors }];
+      const failure = first.syntax ? { kind: 'syntax', diagnostic: first.syntax.diagnostic } : { kind: 'invalid', contract: result, errors: cs.errors };
+      const second = await draft(() => repair(request, context, history, failure));
+      if (second.syntax) {
+        const errors = [`the corrected draft was not valid JSON either: ${second.syntax.diagnostic}`];
+        rejected.push(syntaxEntry(second.syntax));
+        return { format: FORMAT, state: 'invalid', errors, contract: null, round, history, survey: grounding, repair: { attempted: true, rejected } };
+      }
+      const fixed = second.contract;
       const fixedState = contractState(fixed);
       const errors = [
         ...(fixedState.state === 'invalid' ? fixedState.errors : []),
         ...(fixedState.state === 'needs_clarification' ? [`the correction asked a question instead of correcting the draft: ${fixedState.question}`] : []),
-        ...keptFlaggedDefaults(result, fixed),
+        ...(first.syntax ? [] : keptFlaggedDefaults(result, fixed)),
       ];
       if (!errors.length) return { format: FORMAT, state: 'finalized', contract: fixed, round, history, survey: grounding, repair: { attempted: true, rejected } };
-      rejected.push({ contract: fixed, errors });
+      rejected.push({ kind: 'invalid', contract: fixed, errors });
       return { format: FORMAT, state: 'invalid', errors, contract: fixed, round, history, survey: grounding, repair: { attempted: true, rejected } };
     }
 
@@ -82,6 +94,20 @@ async function compileIntent(request, { repoPath = null, answers = [], ask = nul
     const asked = (sel && unresolved.find((u) => u.id === sel.question || u.parent === sel.question)) || unresolved[0];
     history.push({ round, question_id: asked.id, question: asked.question, answer: answerText(answer).trim() });
   }
+}
+
+const RAW_LIMIT = 16 * 1024;
+
+/** A model call for a draft: { contract } or, when the reply was not JSON, { syntax } (KAN-104). */
+async function draft(call) {
+  try { return { contract: await call() }; } catch (e) { if (e && e.code === 'DRAFT_SYNTAX') return { syntax: e }; throw e; }
+}
+
+/** An unreadable draft as run evidence: the diagnostic and at most 16 KiB of the reply. */
+function syntaxEntry(e) {
+  const raw = String(e.raw ?? '');
+  return { kind: 'syntax', contract: null, diagnostic: e.diagnostic, errors: [`not valid JSON: ${e.diagnostic}`],
+    raw: raw.slice(0, RAW_LIMIT), raw_bytes: Buffer.byteLength(raw), raw_truncated: raw.length > RAW_LIMIT };
 }
 
 /**
