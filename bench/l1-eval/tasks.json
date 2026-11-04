@@ -1,6 +1,6 @@
 {
-  "format": "qb-l1-eval-tasks/1",
-  "note": "KAN-106. Each task is a request plus a small fixture repository (surveyed for grounding, as qb.js does). `expect_checks` is a faithfulness PROXY: each matcher must be met by at least one check in a finalized contract. It catches wrong adapters and wrong literal values; it does not prove the contract is complete or correct.",
+  "format": "qb-l1-eval-tasks/2",
+  "note": "KAN-106. Each task is a request plus a small fixture repository (surveyed for grounding, as qb.js does). `expect_checks` is a faithfulness PROXY: each matcher must be met by at least one check in a finalized contract, and every field a matcher names must hold (adapter, module or module_matches, export, args, expect, and `where`, a named relation in bench/l1-eval/score.js RELATIONS). It catches wrong adapters, modules and values; it does NOT establish that a contract is complete or correct.",
   "tasks": [
     {
       "id": "greeting",
@@ -12,8 +12,22 @@
         "test/greeting.test.js": "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { greeting } from '../src/greeting.js';\n\ntest('default greeting', () => assert.equal(greeting(), 'Hello from Node Project JS!'));\n"
       },
       "expect_checks": [
-        { "adapter": "call_returns", "export": "greeting", "args": ["Arshad"], "expect": "Hello, Arshad!" },
-        { "adapter": "call_returns", "export": "greeting", "args": [], "expect": "Hello from Node Project JS!" }
+        {
+          "adapter": "call_returns",
+          "module": "src/greeting.js",
+          "export": "greeting",
+          "args": [
+            "Arshad"
+          ],
+          "expect": "Hello, Arshad!"
+        },
+        {
+          "adapter": "call_returns",
+          "module": "src/greeting.js",
+          "export": "greeting",
+          "args": [],
+          "expect": "Hello from Node Project JS!"
+        }
       ]
     },
     {
@@ -27,7 +41,11 @@
         "src/index.js": "export const VERSION = '0.0.1';\n"
       },
       "expect_checks": [
-        { "adapter": "call_throws" }
+        {
+          "adapter": "call_throws",
+          "module_matches": "^src/(.*/)?[^/]*cart[^/]*\\.[cm]?js$",
+          "where": "some_negative_arg"
+        }
       ]
     },
     {
@@ -40,7 +58,24 @@
         "test/placeholder.test.js": "const { test } = require('node:test');\ntest('placeholder', () => {});\n"
       },
       "expect_checks": [
-        { "adapter": "call_returns", "export": "clamp" }
+        {
+          "adapter": "call_returns",
+          "module": "src/utils.js",
+          "export": "clamp",
+          "where": "below_min_returns_min"
+        },
+        {
+          "adapter": "call_returns",
+          "module": "src/utils.js",
+          "export": "clamp",
+          "where": "above_max_returns_max"
+        },
+        {
+          "adapter": "call_returns",
+          "module": "src/utils.js",
+          "export": "clamp",
+          "where": "in_range_returns_n"
+        }
       ]
     },
     {
@@ -52,8 +87,24 @@
         "src/duration.js": "function formatDuration(ms) {\n  const s = Math.floor(ms / 1000);\n  return `${Math.floor(s / 60)}m ${s % 60}s`;\n}\nmodule.exports = { formatDuration };\n"
       },
       "expect_checks": [
-        { "adapter": "call_returns", "export": "formatDuration", "args": [30000], "expect": "30s" },
-        { "adapter": "call_returns", "export": "formatDuration", "args": [90000], "expect": "1m 30s" }
+        {
+          "adapter": "call_returns",
+          "module": "src/duration.js",
+          "export": "formatDuration",
+          "args": [
+            30000
+          ],
+          "expect": "30s"
+        },
+        {
+          "adapter": "call_returns",
+          "module": "src/duration.js",
+          "export": "formatDuration",
+          "args": [
+            90000
+          ],
+          "expect": "1m 30s"
+        }
       ]
     },
     {
@@ -65,7 +116,15 @@
         "src/index.js": "module.exports = {};\n"
       },
       "expect_checks": [
-        { "adapter": "call_returns", "export": "slugify", "args": ["Hello World"], "expect": "hello-world" }
+        {
+          "adapter": "call_returns",
+          "module": "src/slug.js",
+          "export": "slugify",
+          "args": [
+            "Hello World"
+          ],
+          "expect": "hello-world"
+        }
       ]
     },
     {
@@ -77,8 +136,23 @@
         "src/config.js": "module.exports = {};\n"
       },
       "expect_checks": [
-        { "adapter": "call_returns", "export": "parsePort", "args": ["8080"], "expect": 8080 },
-        { "adapter": "call_throws", "export": "parsePort", "args": ["70000"] }
+        {
+          "adapter": "call_returns",
+          "module": "src/config.js",
+          "export": "parsePort",
+          "args": [
+            "8080"
+          ],
+          "expect": 8080
+        },
+        {
+          "adapter": "call_throws",
+          "module": "src/config.js",
+          "export": "parsePort",
+          "args": [
+            "70000"
+          ]
+        }
       ]
     }
   ]

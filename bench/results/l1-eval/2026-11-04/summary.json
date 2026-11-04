@@ -1,24 +1,17 @@
 {
   "meta": {
-    "host": {
-      "platform": "darwin",
-      "arch": "arm64",
-      "cpus": 11,
-      "mem_gib": 18,
-      "node": "v20.20.2"
-    },
-    "models": [
-      "deepseek-r1:7b (0a8c26691023)",
-      "qwen2.5-coder:14b (9ec8897f747e)"
-    ],
-    "commits": [
-      "d946ff3",
-      "ab835c7"
-    ]
+    "scored_with": "tasks.json sha256 373ac6afd501 (qb-l1-eval-tasks/2)",
+    "trials": 60
   },
+  "warning": "`proxy pass` = finalized and every expected check present (each matcher names the adapter, module, export and values or relation it requires). It is a proxy: it does NOT establish that a contract is complete or correct.",
   "summaries": [
     {
       "model": "deepseek-r1:7b",
+      "digest": "0a8c266910232fd3291e71e5ba1e058cc5af9d411192cf88b6d30e92b6e73163",
+      "run": null,
+      "commits": [
+        "d946ff3"
+      ],
       "trials": 30,
       "outcomes": {
         "first_draft": 1,
@@ -33,7 +26,7 @@
         "syntax": 4,
         "invalid": 25
       },
-      "usable": 2,
+      "proxy_pass": 2,
       "finalized": 3,
       "proxy_failed": 1,
       "calls": 59,
@@ -51,37 +44,39 @@
       "by_task": {
         "greeting": {
           "trials": 5,
-          "usable": 0,
+          "proxy_pass": 0,
           "finalized": 0
         },
         "cart": {
           "trials": 5,
-          "usable": 0,
+          "proxy_pass": 0,
           "finalized": 0
         },
         "clamp": {
           "trials": 5,
-          "usable": 0,
+          "proxy_pass": 0,
           "finalized": 0
         },
         "duration": {
           "trials": 5,
-          "usable": 0,
+          "proxy_pass": 0,
           "finalized": 1
         },
         "slugify": {
           "trials": 5,
-          "usable": 2,
+          "proxy_pass": 2,
           "finalized": 2
         },
         "port": {
           "trials": 5,
-          "usable": 0,
+          "proxy_pass": 0,
           "finalized": 0
         }
       },
+      "label": "deepseek-r1:7b",
+      "warning": null,
       "rates": {
-        "usable": 6.7,
+        "proxy_pass": 6.7,
         "finalized": 10,
         "first_draft": 3.3
       },
@@ -90,6 +85,11 @@
     },
     {
       "model": "qwen2.5-coder:14b",
+      "digest": "9ec8897f747e246e970bc5cfdda85d22f1123dc2e3d34978a010a75968716849",
+      "run": null,
+      "commits": [
+        "ab835c7"
+      ],
       "trials": 30,
       "outcomes": {
         "first_draft": 8,
@@ -104,7 +104,7 @@
         "syntax": 0,
         "invalid": 22
       },
-      "usable": 12,
+      "proxy_pass": 12,
       "finalized": 12,
       "proxy_failed": 0,
       "calls": 52,
@@ -119,37 +119,39 @@
       "by_task": {
         "greeting": {
           "trials": 5,
-          "usable": 3,
+          "proxy_pass": 3,
           "finalized": 3
         },
         "cart": {
           "trials": 5,
-          "usable": 0,
+          "proxy_pass": 0,
           "finalized": 0
         },
         "clamp": {
           "trials": 5,
-          "usable": 5,
+          "proxy_pass": 5,
           "finalized": 5
         },
         "duration": {
           "trials": 5,
-          "usable": 0,
+          "proxy_pass": 0,
           "finalized": 0
         },
         "slugify": {
           "trials": 5,
-          "usable": 4,
+          "proxy_pass": 4,
           "finalized": 4
         },
         "port": {
           "trials": 5,
-          "usable": 0,
+          "proxy_pass": 0,
           "finalized": 0
         }
       },
+      "label": "qwen2.5-coder:14b",
+      "warning": null,
       "rates": {
-        "usable": 40,
+        "proxy_pass": 40,
         "finalized": 40,
         "first_draft": 26.7
       },
