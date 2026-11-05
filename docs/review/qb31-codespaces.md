@@ -22,7 +22,7 @@ The walkthrough script installs Node 24, Ollama and QB itself, as it would on a 
 
 ## 1. Create the Codespace (about 3 minutes)
 
-1. Open <https://github.com/arshad8049/quaterback>. Make sure you're signed in to GitHub.
+1. Open <https://github.com/arshad8049/quarterback>. Make sure you're signed in to GitHub.
 2. Click the green **Code** button, open the **Codespaces** tab, then the **⋯** menu, and choose **New with options…**
 3. Set the options:
    - **Branch:** `main`
@@ -37,7 +37,7 @@ The walkthrough script installs Node 24, Ollama and QB itself, as it would on a 
 2. Run this in the terminal:
 
 ```bash
-QB31_EVIDENCE=/workspaces/quaterback/qb31-evidence bash scripts/qb31-walkthrough.sh --ref "$(git rev-parse HEAD)"
+QB31_EVIDENCE="$PWD/qb31-evidence" bash scripts/qb31-walkthrough.sh --ref "$(git rev-parse HEAD)"
 ```
 
 3. The script runs 11 steps and prints `→ <step>: PASS/FAIL` after each one. You act in three places:
@@ -52,12 +52,12 @@ QB31_EVIDENCE=/workspaces/quaterback/qb31-evidence bash scripts/qb31-walkthrough
 4. If anything stops the script, fix it and resume from that step. For example, to resume at step 7:
 
 ```bash
-QB31_EVIDENCE=/workspaces/quaterback/qb31-evidence bash scripts/qb31-walkthrough.sh --ref "$(git rev-parse HEAD)" --from 7
+QB31_EVIDENCE="$PWD/qb31-evidence" bash scripts/qb31-walkthrough.sh --ref "$(git rev-parse HEAD)" --from 7
 ```
 
 ## 3. Collect the evidence
 
-1. The script ends with `Evidence written to /workspaces/quaterback/qb31-evidence/evidence.md`.
+1. The script ends with `Evidence written to /workspaces/quarterback/qb31-evidence/evidence.md`.
 2. Open `qb31-evidence/evidence.md` in the Explorer. Fill in **operator** and **provider**: write *GitHub Codespaces, 4-core*.
 3. Add any place where the docs confused you under **Documentation gaps found**.
 4. Right-click the `qb31-evidence` folder in the Explorer and choose **Download…**.

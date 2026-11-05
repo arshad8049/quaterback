@@ -44,9 +44,19 @@ A change to this contract is a new interface version.
 
 `--agent` (registered adapter) · `--max-retries` (whole number 1–10) · `--deadline` (positive minutes) · `--repo` (an existing directory; a git work tree for `claude-code`; a test runner QB can verify (node:test) for every agent except `dry-run`) · `--contract-file` (exists) · `--telemetry` (needs a token unless `--telemetry-dry-run`) · a non-empty request. Every problem is reported at once.
 
+## Validated commits
+
+A commit is listed here only after the fresh-machine onboarding walkthrough ([onboarding](onboarding.md), `scripts/qb31-walkthrough.sh`) passes on it in a supported environment, with the evidence recorded. There is no published release: beta testers install the exact commit SHA they are given.
+
+| Commit | Date | Environment | Evidence |
+|---|---|---|---|
+| `54c2f24` | 2026-10-12 | GitHub Codespace, Ubuntu 24.04, 4-core / 16 GB | [walkthrough attempt 4](review/qb31-walkthrough/attempt-4-2026-10-12-codespaces/) |
+
+`54c2f24` predates later fixes on `main`. No later commit has been qualified yet; qualification of a current commit is tracked in the beta-readiness work (KAN-44).
+
 ## Release, licence and support
 
-- **Release:** `0.1.0`, pre-release. Install from the repository (`docs/onboarding.md`); QB is not published to npm.
+- **Release:** `0.1.0`, pre-release. Install the exact commit you were given from the repository (see [Validated commits](#validated-commits) and `docs/onboarding.md`); QB is not published to npm.
 - **Support:** supervised beta (Phase 5), best effort, no SLA. The supported surface is this page.
 - **Licence: MIT** ([LICENSE](../LICENSE)), copyright 2026 Arshad Ahmed Shaik. Owner decision recorded on 2026-10-12 (release gate from the QB-31 review). Anyone may use, copy, modify and redistribute QB, including commercially, provided the copyright and permission notice are kept. It comes with no warranty.
   - Every `package.json` declares `"license": "MIT"`. They also keep `"private": true`: QB is not published to npm, and the flag prevents an accidental publish. The licence is not a distribution channel.

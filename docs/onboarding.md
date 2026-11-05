@@ -42,17 +42,23 @@ ollama pull deepseek-r1:7b
 
 ### QB
 
-QB is pre-release and not on npm. Check out the **exact ref you were given**, and record it. During the beta, features may exist only on a release branch, not on `main`.
+QB is pre-release and not on npm. Check out the **exact commit SHA you were given**, and record it ([validated commits](support.md#validated-commits)). Everything below uses one work folder, `~/qb-beta`, holding the QB checkout and the demo repository.
+
+Run in: any folder.
 
 ```bash
-git clone https://github.com/arshad8049/quaterback.git
-cd quaterback
-git checkout <ref-you-were-given>      # e.g. a reviewed commit SHA
+mkdir -p ~/qb-beta && cd ~/qb-beta
+git clone https://github.com/arshad8049/quarterback.git quarterback
+cd quarterback
+git checkout <commit-sha-you-were-given>
 git rev-parse HEAD                     # record this SHA
 npm ci
-npm link                               # optional: puts `qb` on your PATH (otherwise use `node qb.js`)
+export QBDIR="$PWD"
+qb() { node "$QBDIR/qb.js" "$@"; }     # the `qb` command for this terminal, as the validated walkthrough runs it
 qb auth login                          # sign the sandboxed Claude Code in with your Claude subscription
 ```
+
+The `qb` function lasts for the current terminal. In a new one, run `export QBDIR=~/qb-beta/quarterback` and the `qb() …` line again. (`npm link` also puts `qb` on your PATH, but on a system-wide Node install it needs root, so it is not the documented path.)
 
 `qb auth login` prints a URL. Open it, sign in, and paste the code the page shows back into the terminal, then press Enter. It finishes with `signed in; access token expires …`; if it says `sign-in did not complete`, run it again. It uses a QB-scoped login: your own `~/.claude` login is neither used nor changed. An `ANTHROPIC_API_KEY` works too, but isn't required.
 
@@ -80,9 +86,10 @@ Each check prints `✓` ok, `!` warning, `✗` problem or `–` skipped, with a 
 
 ## 3. Demo task
 
-A small repository with a node:test suite. Run this next to the `quaterback` checkout:
+A small repository with a node:test suite. Run in: `~/qb-beta`, next to the `quarterback` checkout.
 
 ```bash
+cd ~/qb-beta
 mkdir qb-demo && cd qb-demo && git init -q
 git config user.name "QB Demo" && git config user.email "demo@example.invalid"   # a local identity for the demo commit
 mkdir src test
@@ -97,7 +104,7 @@ git add -A && git commit -qm "demo base"
 cd ..
 
 qb doctor --repo qb-demo
-qb "Add a clamp(n, min, max) function to src/utils.js that bounds n to [min, max]" --repo qb-demo --agent claude-code --contract-file quaterback/docs/demo/clamp-contract.json
+qb "Add a clamp(n, min, max) function to src/utils.js that bounds n to [min, max]" --repo qb-demo --agent claude-code --contract-file quarterback/docs/demo/clamp-contract.json
 ```
 
 The placeholder test proves nothing about `clamp`. What makes this demo meaningful is the **reviewed contract**, `docs/demo/clamp-contract.json`. Read it before approving. Its executable checks are:
@@ -148,6 +155,8 @@ Then rerun the demo command.
 | A run that takes too long | `--deadline <minutes>` ends it as `CANCELLED`, naming the stage it was in. |
 
 ## 5. Inspect what QB recorded
+
+Run in: `~/qb-beta`.
 
 ```bash
 qb runs                                # recent runs

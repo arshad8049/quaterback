@@ -2,7 +2,7 @@
 
 ### Review AI-written code with evidence, not just a diff.
 
-[![ci](https://github.com/arshad8049/quaterback/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/arshad8049/quaterback/actions/workflows/ci.yml?query=branch%3Amain)
+[![ci](https://github.com/arshad8049/quarterback/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/arshad8049/quarterback/actions/workflows/ci.yml?query=branch%3Amain)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Quarterback runs Claude Code against requirements you approve, checks the resulting changes, and returns a reviewable patch with verification evidence. You decide whether to apply it.
@@ -15,14 +15,7 @@ Pre-release software for supervised beta use.
 
 ## What a run looks like
 
-You ask for a change in plain language:
-
-```bash
-qb "Add a clamp(n, min, max) function to src/utils.js that bounds n to [min, max]" \
-   --repo qb-demo --agent claude-code --contract-file quaterback/docs/demo/clamp-contract.json
-```
-
-The run is held to an approved contract. These are its executable checks:
+A finished run of the demo you'll set up below. Claude Code was asked to add a `clamp(n, min, max)` function, held to a reviewed contract with these executable checks:
 
 | Check | Call | Expected |
 |---|---|---|
@@ -31,7 +24,7 @@ The run is held to an approved contract. These are its executable checks:
 | upper bound | `clamp(50, 0, 10)` | `10` |
 | in range, at the bounds | `clamp(7, 0, 10)`, `clamp(0, 0, 10)`, `clamp(10, 0, 10)` | `7`, `0`, `10` |
 
-Claude Code makes the change in an isolated workspace. Quarterback then runs the checks and the repository's tests on exactly that result:
+Claude Code made the change in an isolated workspace. Quarterback then ran the checks and the repository's tests on exactly that result:
 
 ```text
   [L4]   Verdict: ✓ PASS  (60ms)
@@ -44,21 +37,19 @@ Claude Code makes the change in an isolated workspace. Quarterback then runs the
   Run:      03e4e16e-c8a3-464b-8855-dfeec81fe579  outcome=VERIFIED
 ```
 
-<sub>Recorded output, excerpted (criterion text is truncated as printed). Onboarding walkthrough, attempt 4, GitHub Codespace (Ubuntu 24.04, 4-core / 16 GB), Quarterback commit `54c2f24`, 2026-10-12. [Full log](docs/review/qb31-walkthrough/attempt-4-2026-10-12-codespaces/logs/07-demo-run.log).</sub>
+<sub>Recorded output, excerpted (criterion text is truncated as printed). Onboarding walkthrough, attempt 4, GitHub Codespace (Ubuntu 24.04, 4-core / 16 GB), Quarterback commit `54c2f24`, 2026-10-12. It is a record of that commit, not a test of later ones. [Full log](docs/review/qb31-walkthrough/attempt-4-2026-10-12-codespaces/logs/07-demo-run.log).</sub>
 
-Your checkout is untouched. You export the patch with `qb patch <run_id>`, read it, and apply it yourself.
-
-This demo supplies a pre-reviewed contract, so you can inspect the execution and verification workflow without first generating requirements. The full walkthrough is in [docs/onboarding.md](docs/onboarding.md).
+The checkout was not touched. The change came back as a patch to read and apply yourself. The demo starts from a contract a person has already reviewed; that is also how reliable use starts today (see [Beta status](#beta-status-and-limitations)).
 
 ---
 
 ## How it works
 
 1. **Describe the task** in plain language, pointing at a repository.
-2. **Quarterback turns your request into proposed requirements** and may ask clarifying questions. It grounds them in your repository's code.
-3. **You review and approve the contract**, an approved checklist of requirements, constraints and checks. Changing it later voids the approval.
+2. **A contract pins it down:** the requirements, the limits (which files may change, which must not), and the executable checks that decide the result. You can supply a contract, or ask Quarterback to draft one from your request with a local model; drafting is still in development and not yet reliable.
+3. **You approve the contract.** Nothing runs before that, and changing it later voids the approval.
 4. **Claude Code runs in an isolated workspace**, briefed with the contract and the relevant code.
-5. **Quarterback verifies the result.** The repository's tests and the contract's executable checks run on the exact captured change. An independent model judge reviews only the criteria that can't be executed, such as documentation or naming. If verification fails, Quarterback sends repair hints back to the agent for another attempt.
+5. **Quarterback verifies the result.** The repository's tests and the contract's executable checks run on the exact captured change. A separate model reviews only the criteria that can't be executed, such as documentation or naming. If verification fails, Quarterback sends repair hints back to the agent for another attempt.
 6. **You get a verdict and a patch**, with the evidence behind it, and decide whether to apply it.
 
 Every run is recorded, so you can inspect it later. Architecture details: [engineering reference](docs/engineering.md).
@@ -67,93 +58,236 @@ Every run is recorded, so you can inspect it later. Architecture details: [engin
 
 ## Beta status and limitations
 
-- **Pre-release 0.1.0, supervised beta, best-effort support, no SLA.** There is no published release tag. Install from the exact commit SHA you were given; branch names move.
-- **Scope.** JavaScript / Node.js repositories tested with **node:test** and an npm lockfile. On repositories that use another runner (Jest, Mocha, Vitest, …), agent runs are refused before any model call; only a dry run still plans. Claude Code is the only coding agent that executes; Cursor, Codex and Gemini are not supported yet. See [support.md](docs/support.md).
+- **Pre-release 0.1.0, supervised beta, best-effort support, no SLA.** There is no published release. Install the exact commit you are given; see [Which commit to install](#which-commit-to-install).
+- **Scope.** JavaScript / Node.js repositories tested with **node:test** and an npm lockfile. On repositories that use another runner (Jest, Mocha, Vitest, …), agent runs are refused before any model call; only a dry run still plans. Claude Code is the only coding agent that executes; Cursor, Codex and Gemini are not supported. See [support.md](docs/support.md).
+- **Contract drafting is not yet reliable.** Reliable use today starts from a contract you write or review (`--contract-file`). When Quarterback drafts one from your request with the local model, the draft is often rejected by Quarterback's own validation, and a draft that passes still needs your careful review. Nothing runs on a rejected draft.
 - **Checks cover what the contract states.** A PASS means the configured checks and tests passed, not that every possible bug was ruled out. Writing good checks takes effort, and a criterion without a check stays unresolved rather than passing.
 - **Evaluation so far.** Two exploratory comparisons of Claude Code alone against Claude Code with Quarterback show no measured Quarterback advantage. Controlled results and an independent holdout evaluation are pending. Details: [evaluation status](docs/engineering.md#evaluation-status).
-- **Onboarding validation.** The fresh-machine walkthrough passed at commit `54c2f24` in a GitHub Codespace. That validates that revision and environment, not every later commit.
+- **Onboarding validation.** The fresh-machine walkthrough passed at commit `54c2f24` in a GitHub Codespace on 2026-10-12. That validates that commit and environment only. No later commit has been qualified the same way yet.
 
 ---
 
-## Requirements
+## Before you start
 
-- **OS:** Ubuntu 24.04 LTS on x86_64 with Docker Engine (validated). macOS with Docker Desktop works for development but is not validated. Windows is not supported.
-- **Memory:** at least 16 GB RAM for Claude Code runs (a run needs about 11.1 GiB free when it starts).
-- **Software:** Node.js 20 or newer (24 recommended), git, Docker, and [Ollama](https://ollama.com) with `deepseek-r1:7b` pulled.
-- **Claude access** for Claude Code runs: a Claude subscription, or an Anthropic API key.
+**What you need**
 
-Full install steps for each prerequisite: [docs/onboarding.md §1](docs/onboarding.md#1-install).
+| | Dry run (step 5) | Claude Code run (steps 6–9) |
+|---|---|---|
+| OS | Linux or macOS | **Ubuntu 24.04 LTS on x86_64** (validated). macOS + Docker Desktop works for development but is not validated. Windows is not supported. |
+| Node.js 20 or newer, git | ✓ | ✓ |
+| Docker Engine | — | ✓ |
+| Memory | — | **16 GB RAM**: a run starts only with about 11.1 GiB free |
+| [Ollama](https://ollama.com) with `deepseek-r1:7b` | — | ✓ (context and the reviewer model) |
+| Claude access | — | A Claude subscription, or an Anthropic API key |
 
-**No 16 GB machine?** The documented Codespace configuration (`.devcontainer/qb31-walkthrough`, 4-core / 16 GB machine type) runs the whole walkthrough. Check your own Codespaces allowance before you start: [docs/review/qb31-codespaces.md](docs/review/qb31-codespaces.md).
+Install commands for each prerequisite on Ubuntu: [onboarding §1](docs/onboarding.md#1-install). No 16 GB machine? The documented Codespace configuration (4-core / 16 GB) runs the whole walkthrough; check your own Codespaces allowance first: [docs/review/qb31-codespaces.md](docs/review/qb31-codespaces.md).
+
+**What it costs**
+
+- **Claude usage.** Every Claude Code run, including each repair attempt (up to 3 by default, `--max-retries`), uses your Claude subscription's limits or is billed to your API key. Quarterback adds no charge of its own. The dry run uses no Claude access.
+- **Downloads and disk.** `deepseek-r1:7b` is a download of several GB. The first Claude Code run builds Quarterback's sandbox images, which takes several minutes and needs network access.
+- **Time.** On a CPU-only machine the local model is slow: a step that uses it can take minutes. The recorded demo run above took 226 seconds end to end.
+
+### Which commit to install
+
+There is no published release yet. Install the **exact commit SHA you were given** with your beta invitation, and quote it in any feedback. Don't install the tip of `main` or a branch: they move, and they may contain unqualified changes.
+
+Validated commits are listed in [support.md](docs/support.md#validated-commits). So far that is only `54c2f24` (2026-10-12), which predates later fixes. If you have no SHA, ask for one in a [GitHub issue](https://github.com/arshad8049/quarterback/issues) rather than guessing.
+
+### Approving a contract
+
+The contract is Quarterback's test oracle: its checks decide PASS or FAIL. **Quarterback runs a coding agent only against a contract a person has approved.** There are two ways to approve one:
+
+- **`--contract-file <file>`:** passing a file **is** your approval. Read it first. Quarterback records the file's hash, and any change to it voids the approval. Quarterback never rewrites a file you supply; if it's invalid, the run stops.
+- **Without `--contract-file`:** Quarterback drafts a contract from your request, prints it, and asks `Approve this contract as the test oracle? [y/N]` in the terminal. Without a terminal it saves the draft for review and stops.
+
+The demo below uses the first way, with a contract that ships in the repository.
 
 ---
 
 ## Getting started
 
-### 1. Install
+Every command below states where it runs. They use one work folder, `~/qb-beta`, holding the Quarterback checkout (`~/qb-beta/quarterback`) and a small demo repository (`~/qb-beta/qb-demo`). Commands work in bash and zsh.
+
+### 1. Install Quarterback
+
+Run in: any folder.
 
 ```bash
-git clone https://github.com/arshad8049/quaterback.git
-cd quaterback
-git checkout <commit-sha-you-were-given>
-git rev-parse HEAD        # record this SHA for feedback
+mkdir -p ~/qb-beta && cd ~/qb-beta
+git clone https://github.com/arshad8049/quarterback.git quarterback
+cd quarterback
+git checkout <commit-sha-you-were-given>     # see "Which commit to install"
+git rev-parse HEAD                           # record this SHA for feedback
 npm ci
-npm link                  # optional: puts `qb` on your PATH (otherwise use `node quaterback/qb.js`)
-cd ..
 ```
 
-The commands below run from this parent directory, next to the `quaterback` checkout. Create the small demo repository there, using the commands in [onboarding §3](docs/onboarding.md#3-demo-task).
+Expected: `npm ci` ends `added … packages` with no `ERR!` lines. If `git checkout` says `pathspec … did not match`, the SHA is mistyped or not on GitHub.
 
-### 2. Choose a path
+### 2. Make the `qb` command available
 
-**Dry run: see the contract and briefing, nothing executes.** No coding agent runs, so Docker and Claude access aren't needed:
+Run in: `~/qb-beta/quarterback`.
+
+```bash
+export QBDIR="$PWD"
+qb() { node "$QBDIR/qb.js" "$@"; }
+qb --help
+```
+
+Expected: `Usage: qb [options] <request>`. This defines `qb` for the current terminal only, the way the validated walkthrough runs it. In a new terminal, run the first two lines again with `QBDIR` set to your checkout, e.g. `export QBDIR=~/qb-beta/quarterback`. You may see lines like `◇ injected env (0) from intent/.env`; they are harmless.
+
+### 3. Create the demo repository
+
+Run in: `~/qb-beta`.
+
+```bash
+cd ~/qb-beta
+mkdir qb-demo && cd qb-demo && git init -q
+git config user.name "QB Demo" && git config user.email "demo@example.invalid"   # a local identity for the demo commit
+mkdir src test
+echo "module.exports = {};" > src/utils.js
+cat > test/utils.test.js <<'EOF'
+const { test } = require('node:test');
+test('placeholder', () => {});
+EOF
+echo '{ "name": "qb-demo", "version": "1.0.0", "scripts": { "test": "node --test" } }' > package.json
+npm install --package-lock-only
+git add -A && git commit -qm "demo base"
+cd ~/qb-beta
+```
+
+Expected: `npm install` reports `found 0 vulnerabilities`, and `git -C qb-demo log --oneline` shows one commit, `demo base`. The placeholder test proves nothing about `clamp`; the contract's checks do.
+
+### 4. Read the demo contract
+
+Run in: `~/qb-beta`.
+
+```bash
+cat quarterback/docs/demo/clamp-contract.json
+```
+
+It asks for a `clamp` export in `src/utils.js` with the checks in the table [above](#what-a-run-looks-like). It allows changes to `src/utils.js` and `test/**` only, and protects `package.json` and `package-lock.json`. Passing this file in the next steps is your approval of it.
+
+### 5. Dry run: see the plan, nothing executes
+
+Run in: `~/qb-beta`. Needs only Node and git: no Docker, no Claude access, no Ollama.
 
 ```bash
 qb "Add a clamp(n, min, max) function to src/utils.js that bounds n to [min, max]" \
-   --repo qb-demo --agent dry-run --contract-file quaterback/docs/demo/clamp-contract.json
+   --repo qb-demo --agent dry-run --contract-file quarterback/docs/demo/clamp-contract.json
 ```
 
-It ends `outcome=DRY_RUN` (verdict `no-diff`) and changes nothing. Without `--contract-file`, a dry run asks the local model to propose the contract, so Ollama must be running.
+Expected, ending:
 
-**Claude Code run: real agent execution and verification.** Continue with steps 3–5.
+```text
+  RESULT: ○ NO-DIFF
+  Attempts: 1 / 3
+  Total time: …
+  Run:      <run_id>  outcome=DRY_RUN
+```
 
-### 3. Authenticate (Claude Code runs only)
+Each criterion is listed with `~` (not verified: there was no change). The exit code is 1, as for every result other than PASS; that is expected here. Nothing in `qb-demo` changed. **Next:** stop here if you only wanted to see the plan, or continue for a real run.
 
-Use **one** of these:
+### 6. Sign in to Claude (Claude Code runs only)
 
-- **Claude subscription:** run `qb auth login`. Open the printed URL, sign in, paste the code back into the terminal and press Enter. It ends with `signed in; access token expires …`. The login is QB-scoped: your own `~/.claude` login is neither used nor changed.
-- **API key or token:** start `qb` with `ANTHROPIC_API_KEY` set in the environment, or with `CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token`. QB passes it to the sandbox by name and redacts it from run records.
+Run in: `~/qb-beta`. Use **one** of these:
 
-### 4. Check the machine
+- **Claude subscription:** `qb auth login`. Open the printed URL, sign in, paste the code the page shows back into the terminal and press Enter. Expected: `signed in; access token expires …`. If it says `sign-in did not complete`, run it again. The login is QB-scoped: your own `~/.claude` login is neither used nor changed.
+- **API key or token:** `export ANTHROPIC_API_KEY=…` (or `CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token`) in the terminal you run `qb` from. Quarterback passes it to the sandbox by name and redacts it from run records.
+
+### 7. Check the machine
+
+Run in: `~/qb-beta`.
 
 ```bash
 qb doctor --repo qb-demo
 ```
 
-It should end `Ready (1 warning)`: every line `✓` except `agent-auth`, which always shows `!` "validity not verified" because doctor makes no API call. Fix any `✗` with the `fix:` line it prints.
+Expected on the validated Linux profile: `Ready (1 warning)`. Every line is `✓` except `agent-auth`, which always shows `!` "validity not verified" because doctor makes no API call. On macOS, `memory` also shows `!` (not measured), so it reads `Ready (2 warnings)`. Any `✗` line prints a `fix:`; apply it and run doctor again before continuing.
 
-### 5. Run the demo
+### 8. Run the demo with Claude Code
+
+Run in: `~/qb-beta`. This uses your Claude access (see [What it costs](#before-you-start)).
 
 ```bash
 qb "Add a clamp(n, min, max) function to src/utils.js that bounds n to [min, max]" \
-   --repo qb-demo --agent claude-code --contract-file quaterback/docs/demo/clamp-contract.json
+   --repo qb-demo --agent claude-code --contract-file quarterback/docs/demo/clamp-contract.json
 ```
 
-Read [`docs/demo/clamp-contract.json`](docs/demo/clamp-contract.json) before you run it: passing a contract file is your approval. A successful run ends like the recorded output above, with `RESULT: ✓ PASS` and `outcome=VERIFIED`. If it doesn't, see [troubleshooting](docs/onboarding.md#4-when-something-fails).
+Expected: the stages print as they run (`[L1]` … `[L4]`), and a successful run ends like the [recorded output](#what-a-run-looks-like): `RESULT: ✓ PASS` and `outcome=VERIFIED`, exit code 0. Note the run id. If it ends differently, see [If something goes wrong](#if-something-goes-wrong).
 
-### On your own repository
+Check that your checkout is untouched:
 
 ```bash
-qb "<your request>" --repo /path/to/repo --agent claude-code
+git -C qb-demo status --porcelain     # prints nothing
 ```
 
-Without `--contract-file`, QB proposes a contract and asks you to approve it in the terminal. Useful options:
-- `--clarify "<answer>"` answers a clarifying question without the prompt (repeatable);
+### 9. Inspect, check and apply the patch
+
+Run in: `~/qb-beta`. Replace `<run_id>` with the id from step 8 (`qb runs` lists recent ones).
+
+```bash
+qb show <run_id>                          # contract, attempts, verdicts and evidence
+qb patch <run_id> --out clamp.patch       # export the change; the header states its verification status
+less clamp.patch                          # read it before applying
+git -C qb-demo apply --check ../clamp.patch && git -C qb-demo apply ../clamp.patch
+node -e "const { clamp } = require('./qb-demo/src/utils'); console.log(clamp(-5, 0, 10), clamp(50, 0, 10), clamp(7, 0, 10))"
+```
+
+Expected: `git apply --check` prints nothing, and the last line prints `0 10 7`. `qb patch` refuses to write over an existing file, so pick a new `--out` name if you export again. Applying the patch is the only step that changes `qb-demo`.
+
+### 10. Clean up
+
+Run in: `~/qb-beta`. Remove what the demo created when you're done:
+
+```bash
+rm -rf qb-demo clamp.patch
+qb auth logout                     # if you used `qb auth login`
+rm -rf ~/.qb ~/.quarterback        # run records, memory, caches and sandbox state (they can contain code and task text)
+docker image ls 'qb-sandbox-*'     # the sandbox images; remove them with `docker image rm <image>` if you want the disk back
+```
+
+To remove Quarterback itself, delete `~/qb-beta`.
+
+---
+
+## On your own repository
+
+Run in: the folder holding your repository, with `qb` defined as in step 2.
+
+**Recommended: start from a contract you review.** Write one by hand using [`docs/demo/clamp-contract.json`](docs/demo/clamp-contract.json) as the model (the fields are described in [docs/verify/](docs/verify/)), or let Quarterback draft one and save it without running anything:
+
+```bash
+qb "<your request>" --repo my-repo --agent claude-code < /dev/null
+```
+
+Without a terminal on its input, Quarterback stops after drafting and prints `Review (and edit if needed): <file>`. Review that file, then run with `--contract-file <file>`. In a terminal, the same command shows the draft and asks you to approve it.
+
+Useful options:
+- `--clarify "<answer>"` answers a clarifying question without the prompt (repeat for later rounds);
 - `--max-retries <1-10>` sets the number of repair attempts;
-- `--deadline <minutes>` cancels a run that takes too long;
+- `--deadline <minutes>` ends a run that takes too long, as `CANCELLED`;
 - `--agent manual` prints the briefing for your own agent.
 
 All options: `qb --help`.
+
+---
+
+## If something goes wrong
+
+| You see | What it means | Do |
+|---|---|---|
+| `qb: invalid options: …` (exit 2) | Nothing ran and no model was called. | Fix the listed options. `unsupported test runner: <name>` means the repository doesn't use node:test. |
+| `qb doctor` shows `✗` | The machine isn't ready. | Apply the `fix:` line it prints, then run doctor again. |
+| `FATAL: model call timed out after 180000ms` | The local model didn't answer in time. That's an environment limit, not a problem with your request. It is common on a CPU-only machine, especially on the first call while the model loads. | Check `ollama list` shows `deepseek-r1:7b`. Give it longer: `export QB_MODEL_CALL_TIMEOUT_MS=600000`, then run again. Or skip drafting with a reviewed `--contract-file`. |
+| `✗ QB couldn't build a reliable checklist. No code was changed.` | Quarterback's own draft failed its validation, and its one automatic correction didn't fix it. That's Quarterback's mistake, not your request's. Nothing ran. | Run again (the local model may do better), or start from a contract you write or review. Mention it in feedback: it helps us measure drafting. |
+| `⚠ Ambiguity detected` and a question | The draft needs a detail only you can give. | Answer in the terminal, or pass `--clarify "<answer>"` (repeat for later rounds). |
+| `✗ Contract file rejected: …` | The file you passed is not a valid contract. Quarterback never rewrites it. | Fix the file and run again. |
+| Verdict `fail` | A check or test failed after every repair attempt. | `qb show <run_id>` lists the failing criteria with their evidence. |
+| Verdict `unresolved` / `partial` | Something couldn't be verified, such as a criterion with no executable check. | `qb show <run_id>` names what is missing. |
+| `error`, or outcome `ERROR` / `BLOCKED` | An environment problem: Docker down, sign-in expired, or the project's dependencies were refused. | Run `qb doctor`; for sign-in, `qb auth status`, then `qb auth login`. Then run again. |
+
+More recovery steps: [onboarding §4](docs/onboarding.md#4-when-something-fails).
 
 ---
 
@@ -206,13 +340,26 @@ Claude Code execution uses an external model service. Review the [data-flow docu
 
 ### Feedback
 
-Open an issue on [GitHub](https://github.com/arshad8049/quaterback/issues) with:
-- the commit SHA you installed and your OS;
-- sanitized steps to reproduce;
-- what you expected and what happened;
-- redacted excerpts of `qb doctor` or run output.
+Open an issue on [GitHub](https://github.com/arshad8049/quarterback/issues) and copy this template into it:
 
-Don't include source code, credentials, proprietary prompts or private paths. A run id is local to your machine: it doesn't give the maintainers access to your run, so describe what you saw.
+```markdown
+**Quarterback commit:** <output of `git -C ~/qb-beta/quarterback rev-parse HEAD`>
+**OS / machine:** <e.g. Ubuntu 24.04 x86_64, 16 GB; or macOS 15, Docker Desktop>
+**Node version:** <output of `node --version`>
+**Agent and path:** <dry run / Claude Code run; contract file or drafted>
+
+**Steps** (sanitized: no private code, names or paths):
+1.
+2.
+
+**Expected:**
+
+**What happened:** <verdict and outcome line, e.g. `RESULT: ✗ FAIL` / `outcome=FAILED`>
+
+**Output excerpt** (redacted):
+```
+
+Before you post, check the excerpt: replace your home folder with `~`, repository and file names with placeholders, and remove any code. Don't include credentials, API keys, tokens, proprietary prompts or source code. A run id is local to your machine: it doesn't give the maintainers access to your run, so describe what you saw.
 
 ---
 

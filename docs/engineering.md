@@ -162,12 +162,12 @@ Every job publishes an evidence record (`scripts/ci-evidence.js`): the runtime a
 
 | Item | Status |
 |---|---|
-| Unit tests | 757 passed, 0 failed at the 2026-10-08 checkpoint (below); CI is green on `main` at `908adbd` ([run 38853426312](https://github.com/arshad8049/quaterback/actions/runs/38853426312)) |
+| Unit tests | 757 passed, 0 failed at the 2026-10-08 checkpoint (below); CI is green on `main` at `908adbd` ([run 38853426312](https://github.com/arshad8049/quarterback/actions/runs/38853426312)) |
 | Docker image-pinning checks | 2 passed using real Docker containers |
 | Paired sandbox integration | Blocked by resource admission before grading completed at that checkpoint |
 | Development task set | 30 frozen tasks across 5 repositories ([frozen specs](../bench/specs)) |
-| Exploratory dev pilot (2026-10-12) | Claude Code alone 30/30, with Quarterback 29/30, 1 run each ([run 38307663205](https://github.com/arshad8049/quaterback/actions/runs/38307663205)). The baseline solves every task, so this set cannot show a difference. Not evidence |
-| Exploratory harder-task screen (2026-10-13) | 14 real Fastify v5 bug fixes, 2 runs each: 28/28 in both arms, after rerunning 8 agent execution failures ([run 38409518314](https://github.com/arshad8049/quaterback/actions/runs/38409518314), [rerun 38459455639](https://github.com/arshad8049/quaterback/actions/runs/38459455639)). Tasks were chosen for difficulty, so this is never headline evidence. It also found that Quarterback's own verdict rejected correct patches on this repository. The false regressions behind that are fixed (KAN-65, accepted); no rerun has been made since |
+| Exploratory dev pilot (2026-10-12) | Claude Code alone 30/30, with Quarterback 29/30, 1 run each ([run 38307663205](https://github.com/arshad8049/quarterback/actions/runs/38307663205)). The baseline solves every task, so this set cannot show a difference. Not evidence |
+| Exploratory harder-task screen (2026-10-13) | 14 real Fastify v5 bug fixes, 2 runs each: 28/28 in both arms, after rerunning 8 agent execution failures ([run 38409518314](https://github.com/arshad8049/quarterback/actions/runs/38409518314), [rerun 38459455639](https://github.com/arshad8049/quarterback/actions/runs/38459455639)). Tasks were chosen for difficulty, so this is never headline evidence. It also found that Quarterback's own verdict rejected correct patches on this repository. The false regressions behind that are fixed (KAN-65, accepted); no rerun has been made since |
 | Controlled performance results | Not yet available |
 | Independent holdout | Authoring and protocol review pending |
 
