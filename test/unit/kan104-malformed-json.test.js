@@ -131,20 +131,16 @@ describe('KAN-104: malformed model JSON gets the one shared correction', () => {
       assert.equal(s.state, 'invalid');
     });
 
-    test('protected_paths ["**"]: NOT stopped at L1 (validator gap); fails the policy at L4 on the requested edits', async () => {
+    test('protected_paths ["**"]: stopped at L1 since KAN-105 (the correction is the last draft, so QB blocks before approval or the agent)', async () => {
       const { s, calls } = await compileWith([MALFORMED, PROTECTED_ALL]);
       assert.equal(calls, 2);
-      // GAP: the existing L1 validator accepts a scope where every allowed change is also protected.
-      assert.equal(s.state, 'finalized');
-      assert.match(formatOracle(s.contract), /\*\*/);
-      // Stopped, only after the agent ran: the requested edits are protected changes, so the task fails.
-      const p = evaluatePolicy(s.contract, { changes: [{ file: 'src/greeting.js' }, { file: 'test/greeting.test.js' }], diff: '' }, []);
+      assert.equal(s.state, 'invalid');
+      assert.match(s.errors.join('\n'), /"src\/greeting\.js" is entirely covered by scope\.protected_paths "\*\*"/);
+      assert.match(s.errors.join('\n'), /"test\/\*\*" is entirely covered by scope\.protected_paths "\*\*"/);
+      // Before KAN-105 it was stopped only after the agent ran: the requested edits are protected changes at L4.
+      const p = evaluatePolicy(JSON.parse(PROTECTED_ALL), { changes: [{ file: 'src/greeting.js' }, { file: 'test/greeting.test.js' }], diff: '' }, []);
       assert.equal(p.effect, 'fail');
       assert.deepEqual(p.protected_touched, ['src/greeting.js', 'test/greeting.test.js']);
-    });
-    test('KNOWN GAP: L1 should reject a scope whose allowed changes are all protected', { todo: 'KAN-104 gap: policyErrors does not check allowed_changes against protected_paths' }, async () => {
-      const { s } = await compileWith([MALFORMED, PROTECTED_ALL]);
-      assert.equal(s.state, 'invalid');
     });
   });
 

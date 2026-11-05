@@ -36,6 +36,7 @@ These fields are part of the approved oracle (QB-13): they're shown in the appro
   - Protected matching still applies to them, so **protection wins (FAIL)**.
 - Git **C-quoted diff headers** (`diff --git "a/x\nb" "b/x\nb"`, octal UTF-8 escapes) are decoded, so a quoted name is still checked.
 
+- **An impossible scope is refused at L1** (KAN-105). If `protected_paths` entirely covers an `allowed_changes` entry, no change it allows could pass, so `policyErrors` makes the contract invalid. The error names both patterns. Two cases count as covered: a literal path that a protected glob matches, and a glob that is identical to a protected glob or lies wholly under it (`src/*.js` under `src/**`, anything under `**`). The check is conservative: only coverage it can prove is reported. Partial overlaps stay legal, such as allowed `test/**` with protected `test/fixtures/**`, and protection still wins on those paths at L4. A generated draft goes through the single L1 correction (KAN-103/104); a `--contract-file` is refused as supplied.
 - **No scope declared:** every change is unauthorized.
 - **Widening the scope** changes the contract, which voids the approval, so a new human approval is required.
 - The report carries `policy`: allowed, protected, changed files, out-of-scope, protected-touched, per-constraint status and effect.

@@ -127,8 +127,9 @@ function syntaxEntry(e) {
  * KAN-103 (re-review 2): a correction fixes the listed errors; it does not make new choices. Its
  * proposed defaults must each be one the rejected draft had already justified — same id, same text,
  * covered by a criterion there. Anything else is refused, however it is worded: a default the
- * rejected draft left uncovered (the request did not need it) must be dropped, not cited by new
- * criteria, and a reworded or new default is a new choice.
+ * rejected draft left uncovered was never justified, so a correction must drop it rather than cite
+ * it with new criteria, and a reworded or new default is a new choice. (This says nothing about
+ * whether the request needs that choice; it limits what a correction may decide on its own.)
  */
 function correctionDefaultErrors(rejected, fixed) {
   if (!Array.isArray(fixed?.proposed_defaults) || !fixed.proposed_defaults.length) return [];
