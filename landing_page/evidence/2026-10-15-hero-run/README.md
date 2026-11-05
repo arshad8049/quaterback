@@ -28,26 +28,33 @@ The patch was proposed, not applied.
 
 ## Checking it without an agent
 
+Run this from this folder. It makes a **patched** checkout, `hero-check`, that already contains the recorded solution:
+
 ```
-git clone sample-repo.bundle hero-demo && cd hero-demo
+git clone sample-repo.bundle hero-check && cd hero-check
 git apply ../run/artifacts/021328960d9d5b7c6fca0377ebbdeba04fbf1e14ee1bb98011ee05a78acf87ea.diff
-node --test test/
+node --test test/duration.test.js
 node -e "const { formatDuration: f } = require('./src/duration'); console.log(f(30000), '|', f(90000))"
 ```
 
-- The repository's own test passes.
+- The repository's own test passes (`# pass 1`, `# fail 0`).
 - The output is `30s | 1m 30s`, which is what the contract's checks CHK-1 and CHK-2 expect (`call_returns`).
+- Name the test file. The sample's `npm test` script (`node --test test/`) passes a directory. That works on Node 20.20.2 but fails with `MODULE_NOT_FOUND` on Node 24 (seen on 24.19.0 and 24.22.2). `node --test test/duration.test.js` passes on both.
 
 ## Running it again with QB
 
-This needs QB at `3fc08fd`, Docker, a Claude Code sign-in and a local `deepseek-r1:7b`:
+Do **not** reuse `hero-check`: it already has the recorded patch applied, so it is not the input the agent saw. Start from a fresh clone of the bundle, which is the clean base `14fcfe4`.
+
+This needs QB at `3fc08fd`, Docker, a Claude Code sign-in and a local `deepseek-r1:7b`. Run it from this folder:
 
 ```
+git clone sample-repo.bundle hero-rerun
+git -C hero-rerun log --oneline -1    # 14fcfe4, the clean base
 qb "formatDuration should show durations under one minute as seconds only, for example 30000 ms as \"30s\" instead of \"0m 30s\". Durations of one minute or more keep the current format." \
-  --repo hero-demo --agent claude-code --contract-file contract.json
+  --repo hero-rerun --agent claude-code --contract-file contract.json
 ```
 
-This calls a real agent, so the new patch can differ from the recorded one. The contract, the checks and the sample repository are the same.
+This calls a real agent, so the new patch can differ from the recorded one. The contract, the checks and the starting repository are the same.
 
 **Where the contract came from:**
 - The local model compiled it on 2026-10-14 (QB build `850c282`; see `../2026-10-14-hero-run/hero-run.log`, step 1). The owner reviewed and edited it before approval.
