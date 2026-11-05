@@ -46,7 +46,7 @@ A change to this contract is a new interface version.
 
 ## Validated commits
 
-A commit is listed here only after the fresh-machine onboarding walkthrough ([onboarding](onboarding.md), `scripts/qb31-walkthrough.sh`) passes on it in a supported environment, with the evidence recorded. There is no published release: beta testers install the exact commit SHA they are given.
+A commit is listed here only after the fresh-machine onboarding walkthrough ([onboarding](onboarding.md), `scripts/qb31-walkthrough.sh`) passes on it in a supported environment, with the evidence recorded. There is no published release: evaluators install the exact commit SHA they are given in a supervised evaluation. A listed commit is a historical record for that environment, not a recommendation to install it.
 
 | Commit | Date | Environment | Evidence |
 |---|---|---|---|
