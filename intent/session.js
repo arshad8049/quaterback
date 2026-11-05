@@ -20,7 +20,8 @@
  * repair) before the state is 'invalid', whether the validator rejected it or the reply was not JSON
  * at all. The correction is parsed and validated from scratch by the same code, and is never
  * corrected again. A correction may not bring in a proposed default the rejected draft had not
- * already justified (same id and text, covered there). When a correction was attempted, the result carries
+ * already justified (same id and text, covered there), nor drop a protected path a constraint of the
+ * rejected draft is enforced by (KAN-105). When a correction was attempted, the result carries
  *   repair: { attempted: true, rejected: [{ kind: 'invalid', contract, errors }
  *                                         | { kind: 'syntax', contract: null, diagnostic, errors, raw, raw_bytes, raw_truncated }, …] }
  * (every rejected draft, in order; `raw` is at most 16 KiB of UTF-8 of an unreadable reply).
@@ -82,6 +83,7 @@ async function compileIntent(request, { repoPath = null, answers = [], ask = nul
         ...(fixedState.state === 'invalid' ? fixedState.errors : []),
         ...(fixedState.state === 'needs_clarification' ? [`the correction asked a question instead of correcting the draft: ${fixedState.question}`] : []),
         ...(first.syntax ? [] : correctionDefaultErrors(result, fixed)),
+        ...(first.syntax ? [] : correctionProtectionErrors(result, fixed)),
       ];
       if (!errors.length) return { format: FORMAT, state: 'finalized', contract: fixed, round, history, survey: grounding, repair: { attempted: true, rejected } };
       rejected.push({ kind: 'invalid', contract: fixed, errors });
@@ -140,6 +142,25 @@ function correctionDefaultErrors(rejected, fixed) {
   return fixed.proposed_defaults.filter((d) => !(d && justified.has(`${d.id}\u0000${norm(d.text)}`))).map((d) => (flagged.has(norm(d?.text))
     ? `proposed default ${d.id} ${JSON.stringify(d.text)} was flagged as uncovered in the rejected draft; a correction must remove it, not add criteria to cite it`
     : `proposed default ${d?.id} ${JSON.stringify(d?.text)} is new in the correction; a correction may not add a choice the rejected draft had not already justified (remove it)`));
+}
+
+/**
+ * KAN-105 (review 10484): a correction may not resolve a conflict by dropping a protection the
+ * request asked for. A protected path that a constraint of the rejected draft is enforced by
+ * (constraint_policy → { kind: "protected_paths", ref }) stands for a "do not touch" in the
+ * request, so it must still be in the correction's scope.protected_paths: the correction has to
+ * narrow allowed_changes instead, or QB blocks. Protections no constraint relies on were the
+ * model's own choice and may be dropped (e.g. a stray "**").
+ */
+function correctionProtectionErrors(rejected, fixed) {
+  const keep = new Map();
+  for (const e of Array.isArray(rejected?.constraint_policy) ? rejected.constraint_policy : []) {
+    for (const b of Array.isArray(e?.enforced_by) ? e.enforced_by : []) {
+      if (b?.kind === 'protected_paths' && typeof b.ref === 'string' && !keep.has(b.ref)) keep.set(b.ref, e.constraint);
+    }
+  }
+  const now = new Set(Array.isArray(fixed?.scope?.protected_paths) ? fixed.scope.protected_paths : []);
+  return [...keep].filter(([g]) => !now.has(g)).map(([g, i]) => `protected path ${JSON.stringify(g)} enforces constraint ${i} ${JSON.stringify(rejected.constraints?.[i] ?? null)} in the rejected draft; a correction may not remove it (narrow scope.allowed_changes instead)`);
 }
 
 module.exports = { compileIntent, MAX_ROUNDS, FORMAT };

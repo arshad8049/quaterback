@@ -36,7 +36,21 @@ These fields are part of the approved oracle (QB-13): they're shown in the appro
   - Protected matching still applies to them, so **protection wins (FAIL)**.
 - Git **C-quoted diff headers** (`diff --git "a/x\nb" "b/x\nb"`, octal UTF-8 escapes) are decoded, so a quoted name is still checked.
 
-- **An impossible scope is refused at L1** (KAN-105). If `protected_paths` entirely covers an `allowed_changes` entry, no change it allows could pass, so `policyErrors` makes the contract invalid. The error names both patterns. Two cases count as covered: a literal path that a protected glob matches, and a glob that is identical to a protected glob or lies wholly under it (`src/*.js` under `src/**`, anything under `**`). The check is conservative: only coverage it can prove is reported. Partial overlaps stay legal, such as allowed `test/**` with protected `test/fixtures/**`, and protection still wins on those paths at L4. A generated draft goes through the single L1 correction (KAN-103/104); a `--contract-file` is refused as supplied.
+- **An impossible scope is refused at L1** (KAN-105). If `protected_paths` entirely covers an `allowed_changes` entry, no change it allows could pass, so `policyErrors` makes the contract invalid. The error names both patterns. The check is conservative: it reports only coverage it can prove, so it never rejects a legal scope, and it does **not** decide glob inclusion in general. It proves coverage by **one** protected glob, in exactly three cases:
+  1. **A literal path** (no `*` or `?`) that the protected glob matches, using the L4 matcher itself.
+  2. **An identical glob:** the allowed glob and the protected glob are the same string.
+  3. **A glob under a directory glob:** the protected glob is `**`, or `<dir>/**` with a literal `<dir>` that the allowed glob's literal leading segments start with (`src/*.js` and `src/lib/**` under `src/**`).
+
+  Partial overlaps stay legal, such as allowed `test/**` with protected `test/fixtures/**`, and protection still wins on those paths at L4.
+
+  **Not detected at L1** (the contract is approved as before, and L4 fails any change on the protected paths):
+  - coverage only by the **union** of several protected globs (allowed `x/**` with protected `x`, `x/*` and `x/*/**`);
+  - a glob under a protected **segment** glob (allowed `src/?.js` with protected `src/*.js`);
+  - any other inclusion between two wildcard globs.
+
+  **Metacharacters:** only `*` and `?` are wildcards, at L1 and at L4. `[`, `]`, `{`, `}`, `(`, `+` and the rest are literal characters: `src/{a,b}.js` is one file name, and protected `src/[ab].js` does not cover `src/a.js`.
+
+  **Corrections:** a generated draft goes through the single L1 correction (KAN-103/104). That correction may narrow the allowed change, but it may not remove a protected path that a constraint of the rejected draft is enforced by. That path stands for a "do not touch" in the request; removing or swapping it is refused, and QB blocks. A protection no constraint relies on (such as a stray `**`) may be dropped. A `--contract-file` is never corrected: it is refused as supplied.
 - **No scope declared:** every change is unauthorized.
 - **Widening the scope** changes the contract, which voids the approval, so a new human approval is required.
 - The report carries `policy`: allowed, protected, changed files, out-of-scope, protected-touched, per-constraint status and effect.

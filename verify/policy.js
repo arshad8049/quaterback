@@ -103,6 +103,10 @@ function patternErrors(list, name) {
  *     glob can match lying under <dir> (its literal leading segments start with <dir>).
  * Any other overlap (e.g. allowed "test/**", protected "test/fixtures/**") stays legal; protection
  * still wins on those paths at L4.
+ * NOT detected (review 10484; documented in docs/verify/scope-policy.md): coverage only by the union
+ * of several protected globs, a glob under a protected segment glob ("src/?.js" under "src/*.js"),
+ * and any other inclusion between two wildcard globs. Only "*" and "?" are wildcards here, as in
+ * globToRegExp; every other character is literal.
  */
 const WILD = /[*?]/;
 function coveringGlob(allowed, protectedGlobs) {

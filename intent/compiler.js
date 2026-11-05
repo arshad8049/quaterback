@@ -93,6 +93,7 @@ function repairSection(rejected, errors) {
     '- Copy every requirement quote character for character from REQUEST; together the quotes must cover the whole request.',
     '- Keep every part of the request. Add nothing the request does not ask for.',
     '- Remove every proposed default that was "not covered by any acceptance criterion". Do NOT add criteria to justify it, and do not add new or reworded defaults.',
+    '- If an allowed change is "entirely covered by scope.protected_paths", remove or narrow that allowed_changes entry. Keep every protected path a constraint is enforced by; never remove a protection to make room for a change.',
     '- Do not ask a clarifying question; set clarifying_question to null.',
   ].join('\n');
 }
